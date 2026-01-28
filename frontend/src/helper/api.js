@@ -1,0 +1,95 @@
+import axios from 'axios';
+import constants from '../constants.json';
+
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor to automatically include token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = sessionStorage.getItem('token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  },
+);
+
+async function request({ endpoint, method = 'GET', data, token, headers = {}, setLoading, setData, defaultData = [], throw: shouldThrow = false, alertSuccess, alertError }) {
+  const config = {
+    method,
+    url: endpoint,
+    headers: {
+      ...headers,
+    },
+  };
+
+  // If token is explicitly provided, use it (overrides interceptor)
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (data) {
+    config.data = data;
+  }
+
+  // Delay loading indicator by 500ms to prevent jittery behavior
+  let loadingTimeout = null;
+  if (setLoading) {
+    loadingTimeout = setTimeout(() => {
+      setLoading(true);
+    }, 300);
+  }
+
+  try {
+    const response = await axiosInstance.request(config);
+    const responseData = response.data;
+
+    // If setData is provided, automatically set the data
+    if (setData) {
+      setData(responseData || defaultData);
+    }
+
+    // Show success toast if alertSuccess is provided and message exists
+    if (alertSuccess && responseData?.message) {
+      alertSuccess(responseData.message);
+    }
+
+    return responseData;
+  } catch (error) {
+    // If setData is provided and there's an error, set defaultData
+    if (setData) {
+      setData(defaultData);
+    }
+
+    // Show error toast if alertError is provided
+    if (alertError) {
+      const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
+      alertError(errorMessage);
+    }
+
+    if (shouldThrow) {
+      throw error;
+    }
+    return null;
+  } finally {
+    // Set loading to false in finally block to ensure it's always reset
+    if (setLoading) {
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+      setLoading(false);
+    }
+  }
+}
+
+export default request;

@@ -1,0 +1,92 @@
+import { Table, Model, Column, DataType } from 'sequelize-typescript';
+
+export enum AccountRole {
+  GUEST = 'guest',
+  ADMIN = 'admin',
+  USER = 'user',
+}
+
+export enum AuthType {
+  GOOGLE = 'google',
+  X = 'x',
+  INSTAGRAM = 'instagram',
+}
+
+export enum AccountType {
+  INFLUENCER = 'influencer',
+  ADVERTISER = 'advertiser',
+}
+
+@Table({ tableName: 'accounts' })
+export class Account extends Model<Account> {
+  @Column({
+    type: DataType.INTEGER,
+    autoIncrement: true,
+    primaryKey: false,
+  })
+  id: number;
+
+  @Column({
+    type: DataType.STRING,
+    primaryKey: true,
+    field: 'uuid',
+  })
+  uuid: string;
+
+  @Column({
+    type: DataType.JSONB,
+    allowNull: true,
+    field: 'oauth_meta',
+  })
+  oauthMeta: {
+    [provider: string]: {
+      accessToken?: string;
+      refreshToken?: string;
+      expiresIn?: number;
+      expiresAt?: Date;
+      [key: string]: any;
+    };
+  };
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'email',
+  })
+  email: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'name',
+  })
+  name: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'profile_pic_url',
+  })
+  profilePicUrl: string;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(AccountRole)),
+    allowNull: false,
+    defaultValue: AccountRole.GUEST,
+  })
+  role: AccountRole;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(AccountType)),
+    allowNull: true,
+    field: 'account_type',
+  })
+  accountType: AccountType;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'default_currency',
+  })
+  defaultCurrency: string;
+}

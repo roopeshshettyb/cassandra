@@ -1,0 +1,73 @@
+import { Injectable } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
+import { AccountsService } from '../accounts/accounts.service';
+import { Account, AccountRole } from '../accounts/accounts.model';
+import { GoogleService } from './google/google.service';
+import { XService } from './x/x.service';
+import { ConstantsService } from '../common/constants/constants.service';
+
+@Injectable()
+export class OAuthService {
+  constructor(
+    private authService: AuthService,
+    private accountsService: AccountsService,
+    private googleService: GoogleService,
+    private xService: XService,
+    private constantsService: ConstantsService,
+  ) {}
+
+  async handleCallback(body: any, existingAccount?: any): Promise<{ account: any; token: string }> {
+    const { authType, accountType } = body;
+    const serviceMap: { [key: string]: any } = {
+      google: this.googleService,
+      x: this.xService,
+    };
+
+    const providerService = serviceMap[authType];
+    if (!providerService) {
+      throw new Error(`Unsupported auth type: ${authType}`);
+    }
+
+    const providerData = await providerService.handleCallback(body);
+    const { uuid, oauthMeta, email, name, profilePicUrl } = providerData;
+
+    let account: Account;
+
+    if (existingAccount) {
+      account = await this.accountsService.findById(existingAccount.uuid);
+      if (!account) {
+        throw new Error('Account not found');
+      }
+
+      const existingOauthMeta = account.oauthMeta || {};
+      const mergedOauthMeta = {
+        ...existingOauthMeta,
+        ...oauthMeta,
+      };
+
+      await this.accountsService.update({ oauthMeta: mergedOauthMeta }, { uuid: existingAccount.uuid });
+
+      account = await this.accountsService.findById(existingAccount.uuid);
+      if (!account) {
+        throw new Error('Account not found after update');
+      }
+    } else {
+      const [upsertedAccount] = await this.accountsService.upsert({
+        uuid: `${authType}:${uuid}`,
+        oauthMeta,
+        email,
+        name,
+        profilePicUrl,
+        role: AccountRole.USER,
+        accountType,
+      });
+      account = upsertedAccount;
+    }
+
+    const jwtToken = await this.authService.generateToken(account);
+    const accountResponse = { ...account.toJSON() };
+    delete accountResponse.oauthMeta;
+    delete accountResponse.uuid;
+    return { account: accountResponse, token: jwtToken };
+  }
+}

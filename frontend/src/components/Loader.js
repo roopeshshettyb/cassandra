@@ -1,0 +1,31 @@
+import React from 'react';
+import { Box, CircularProgress, Typography } from '@mui/material';
+
+const Loader = ({ message = 'Loading...', isMobile }) => {
+  return (
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: isMobile ? 0 : '20vw',
+        right: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backdropFilter: 'blur(10px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 9999,
+        gap: 2,
+      }}
+    >
+      <CircularProgress />
+      <Typography variant="body1" sx={{ color: 'text.primary' }}>
+        {message}
+      </Typography>
+    </Box>
+  );
+};
+
+export default Loader;

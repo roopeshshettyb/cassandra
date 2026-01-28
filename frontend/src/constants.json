@@ -1,0 +1,23 @@
+{
+  "APP_NAME": "Cassandra",
+  "TAGLINE": "Capture Social Media Aura",
+  "DESCRIPTION": "Transform profile pictures and headers into powerful advertising spaces. Reach millions where they engage most.",
+  "X_API_URL": "https://api.twitter.com",
+  "PLATFORM_DATA_MAPPING": {
+    "google": {
+      "label": "Google",
+      "disabled": false,
+      "social": false
+    },
+    "general": {
+      "LOGIN_OPTIONS": [
+        {
+          "provider": "google",
+          "label": "Google",
+          "disabled": false,
+          "social": false
+        }
+      ]
+    }
+  }
+}
