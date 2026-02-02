@@ -5,6 +5,7 @@ import { LoggerService } from '../common/logger.service';
 import { Sample } from '../sample/sample.model';
 import { Account } from '../accounts/accounts.model';
 import { Notification } from '../notifications/notifications.model';
+import { Message } from '../common/messages.model';
 
 export const SEQUELIZE_DATABASE_PROVIDER = 'SEQUELIZE_DATABASE_PROVIDER';
 
@@ -15,7 +16,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification],
+        models: [Sample, Account, Notification, Message],
       });
       await sequelize.authenticate();
       await sequelize.sync();
