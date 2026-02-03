@@ -75,8 +75,9 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     );
   };
 
-  const navItemsObj = {
-    Login: {
+  const commonNavItems = [
+    {
+      key: 'Login',
       icon: LoginIcon,
       text: 'Login',
       link: null,
@@ -86,7 +87,8 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       variant: 'outlined',
       protectedNavItem: false,
     },
-    Logout: {
+    {
+      key: 'Logout',
       icon: Logout,
       text: 'Logout',
       link: null,
@@ -96,7 +98,8 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       variant: 'outlined',
       protectedNavItem: true,
     },
-    Notifications: {
+    {
+      key: 'Notifications',
       icon: NotificationsIcon,
       text: 'Notifications',
       link: '/notifications',
@@ -104,30 +107,64 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       protectedNavItem: true,
       showBadge: true,
     },
+  ];
+
+  const roleSpecificNavItems = {
+    admin: [
+      {
+        key: 'Manage Hotels',
+        icon: Dashboard,
+        text: 'Manage Hotels',
+        link: '/hotels',
+        protectedNavItem: true,
+      },
+    ],
+    hotel_owner: [
+      {
+        key: 'Manage Hotels',
+        icon: Dashboard,
+        text: 'Manage Hotels',
+        link: '/hotels',
+        protectedNavItem: true,
+      },
+    ],
+    hotel_staff: [
+      {
+        key: 'Manage Hotels',
+        icon: Dashboard,
+        text: 'Manage Hotels',
+        link: '/hotels',
+        protectedNavItem: true,
+      },
+    ],
   };
 
   const navItems = [];
-  for (const key in navItemsObj) {
-    navItems.push(navItemsObj[key]);
+
+  if (account && account.role && roleSpecificNavItems[account.role]) {
+    navItems.push(...roleSpecificNavItems[account.role]);
   }
+
+  navItems.push(...commonNavItems);
 
   useEffect(() => {
     const pathname = location.pathname;
-    for (const key in navItemsObj) {
-      const item = navItemsObj[key];
+    const allNavItems = [...navItems];
+
+    for (const item of allNavItems) {
       if (item.link) {
         if (item.link === '/') {
           if (pathname === '/') {
-            setCurrentNav(key);
+            setCurrentNav(item.key || item.text);
             return;
           }
         } else if (pathname.startsWith(item.link)) {
-          setCurrentNav(key);
+          setCurrentNav(item.key || item.text);
           return;
         }
       }
     }
-  }, [location.pathname, account, setCurrentNav]);
+  }, [location.pathname, account, navItems, setCurrentNav]);
 
   return (
     <>

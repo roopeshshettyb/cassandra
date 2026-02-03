@@ -14,11 +14,31 @@ import TermsAndConditions from './components/TermsAndConditions';
 import ShippingDeliveryPolicy from './components/ShippingDeliveryPolicy';
 import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
+import ManageHotels from './components/ManageHotels';
+import HotelDetails from './components/HotelDetails';
+import Rooms from './components/Rooms';
+import constants from './constants.json';
 import request from './helper/api';
 import logger from './services/logger.service';
 import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
+
+const ACCOUNT_ROLES = constants && constants.ACCOUNT_ROLES;
+
+const RoleBasedHome = ({ account }) => {
+  if (!account) {
+    return <Navigate to="/rooms" replace />;
+  }
+
+  const role = account.role;
+
+  if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
+    return <Navigate to="/hotels" replace />;
+  }
+
+  return <Navigate to="/rooms" replace />;
+};
 
 const AppContent = () => {
   const navigate = useNavigate();
@@ -217,6 +237,21 @@ const AppContent = () => {
       component: ContactUs,
       isProtected: false,
     },
+    {
+      path: '/rooms',
+      component: Rooms,
+      isProtected: false,
+    },
+    {
+      path: '/hotels',
+      component: ManageHotels,
+      isProtected: true,
+    },
+    {
+      path: '/hotels/:id',
+      component: HotelDetails,
+      isProtected: true,
+    },
   ];
 
   const smoothScrollToTop = () => {
@@ -262,6 +297,7 @@ const AppContent = () => {
           <Box sx={{ flex: 1 }}>
             <Grid style={{ paddingTop: '20px' }}>
               <Routes>
+                <Route path="/" element={<RoleBasedHome account={account} />} />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;

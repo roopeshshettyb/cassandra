@@ -1,11 +1,5 @@
 import { Table, Model, Column, DataType } from 'sequelize-typescript';
-
-export enum AccountRole {
-  ADMIN = 'admin',
-  HOTEL_OWNER = 'hotel_owner',
-  GUEST = 'guest',
-  HOTEL_STAFF = 'hotel_staff',
-}
+import { AccountRole } from '../common/constants/account-roles.constants';
 
 export enum AuthType {
   GOOGLE = 'google',
@@ -72,7 +66,6 @@ export class Account extends Model<Account> {
     defaultValue: AccountRole.GUEST,
   })
   role: AccountRole;
-
   @Column({
     type: DataType.STRING,
     allowNull: true,
@@ -87,3 +80,5 @@ export class Account extends Model<Account> {
   })
   otpExpiresAt: Date;
 }
+
+export { AccountRole };

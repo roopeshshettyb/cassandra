@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ACCOUNT_ROLES } from './account-roles.constants';
 
 const PLATFORM_DATA: any = {
   google: {
@@ -199,6 +200,8 @@ export class ConstantsService {
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
       DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Cassandra is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
+
+      ACCOUNT_ROLES,
 
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
