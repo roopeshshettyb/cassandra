@@ -254,7 +254,7 @@ function CassandraAssistant({ sessionId, accountUuid }) {
                     width: 140,
                     height: 140,
                     bgcolor: isListening ? 'error.main' : 'primary.main',
-                    color: 'white',
+                    color: isListening ? 'white' : 'common.black',
                     '&:hover': { bgcolor: isListening ? 'error.dark' : 'primary.dark' },
                     zIndex: 1,
                     boxShadow: 6,
@@ -289,7 +289,7 @@ function CassandraAssistant({ sessionId, accountUuid }) {
                       maxWidth: '85%',
                       alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                       bgcolor: m.role === 'user' ? 'primary.main' : 'action.selected',
-                      color: m.role === 'user' ? 'white' : 'text.primary',
+                      color: m.role === 'user' ? 'common.black' : 'text.primary',
                       borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                       boxShadow: 1,
                     }}

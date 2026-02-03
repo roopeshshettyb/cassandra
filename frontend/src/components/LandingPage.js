@@ -80,12 +80,12 @@ const BenefitCard = ({ data }) => {
       sx={{
         p: 4,
         height: '100%',
-        background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)'} 100%)`,
-        border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)'}`,
+        background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.mode === 'dark' ? 'rgba(212, 175, 55, 0.1)' : 'rgba(212, 175, 55, 0.05)'} 100%)`,
+        border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(212, 175, 55, 0.2)'}`,
         transition: 'all 0.3s ease',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: theme.palette.mode === 'dark' ? '0 8px 24px rgba(99, 102, 241, 0.3)' : '0 8px 24px rgba(99, 102, 241, 0.2)',
+          boxShadow: theme.palette.mode === 'dark' ? '0 8px 24px rgba(212, 175, 55, 0.3)' : '0 8px 24px rgba(212, 175, 55, 0.2)',
           borderColor: theme.palette.primary.main,
         },
       }}

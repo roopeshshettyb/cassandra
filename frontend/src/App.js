@@ -94,18 +94,18 @@ const AppContent = () => {
         palette: {
           mode,
           primary: {
-            main: '#6366f1',
+            main: '#D4AF37', // Gold
           },
           secondary: {
-            main: '#8b5cf6',
+            main: '#C5A022', // Slightly different gold for secondary
           },
           background: {
-            default: mode === 'dark' ? '#0a0a0a' : '#ffffff',
-            paper: mode === 'dark' ? '#1a1a1a' : '#ffffff',
+            default: mode === 'dark' ? '#000000' : '#F5F5F5',
+            paper: mode === 'dark' ? '#121212' : '#FFFFFF',
           },
           text: {
-            primary: mode === 'dark' ? '#ffffff' : '#1a1a1a',
-            secondary: mode === 'dark' ? '#a0a0a0' : '#6b7280',
+            primary: mode === 'dark' ? '#D4AF37' : '#333333',
+            secondary: mode === 'dark' ? '#B8860B' : '#666666',
           },
         },
         typography: {
@@ -153,6 +153,12 @@ const AppContent = () => {
                 textTransform: 'none',
                 borderRadius: 8,
                 fontWeight: 600,
+              },
+              containedPrimary: {
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#B8860B',
+                },
               },
             },
           },

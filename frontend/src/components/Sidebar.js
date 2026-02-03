@@ -62,7 +62,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
         }
         onClick={data.action}
         sx={{
-          color: isActive ? 'green' : 'text.primary',
+          color: isActive ? 'primary.main' : 'text.primary',
           textTransform: 'none',
           justifyContent: 'flex-start',
           minWidth: 'auto',
@@ -265,6 +265,9 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
               )}
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', mt: 'auto', px: 2, pb: 2 }}>
+                <IconButton onClick={toggleColorMode} sx={{ color: 'primary.main' }}>
+                  {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+                </IconButton>
                 <MapComponent
                   Component={NavButton}
                   data={navItems}

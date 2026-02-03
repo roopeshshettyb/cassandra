@@ -13,8 +13,9 @@ export enum AuthType {
 }
 
 export enum AccountType {
-  INFLUENCER = 'influencer',
-  ADVERTISER = 'advertiser',
+  HOTEL_OWNER = 'hotel_owner',
+  GUEST = 'guest',
+  HOTEL_STAFF = 'hotel_staff',
 }
 
 @Table({ tableName: 'accounts' })

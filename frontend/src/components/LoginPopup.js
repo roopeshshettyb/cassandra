@@ -29,12 +29,12 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
         py: 1.5,
         justifyContent: 'center',
         px: 2,
-        bgcolor: 'white',
-        color: 'black',
-        borderColor: 'rgba(0, 0, 0, 0.23)',
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+        borderColor: 'divider',
         '&:hover': {
-          bgcolor: 'rgba(0, 0, 0, 0.04)',
-          borderColor: 'rgba(0, 0, 0, 0.23)',
+          bgcolor: 'action.hover',
+          borderColor: 'primary.main',
         },
       },
     };

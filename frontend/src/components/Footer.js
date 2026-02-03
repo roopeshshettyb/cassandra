@@ -20,7 +20,7 @@ const Footer = ({ mode, smoothScrollToTop }) => {
     <Box
       component="footer"
       sx={{
-        bgcolor: mode === 'dark' ? '#1a1a1a' : '#f5f5f5',
+        bgcolor: mode === 'dark' ? '#000000' : '#f5f5f5',
         borderTop: `1px solid ${mode === 'dark' ? '#333' : '#e0e0e0'}`,
         py: 4,
       }}
