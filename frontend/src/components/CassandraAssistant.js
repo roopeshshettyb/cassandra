@@ -8,7 +8,7 @@ import request from '../helper/api';
 const MotionPaper = motion(Paper);
 const MotionBox = motion(Box);
 
-function CassandraAssistant({ sessionId, accountUuid }) {
+function CassandraAssistant({ sessionId }) {
   const [mode, setMode] = useState('voice'); // 'voice' or 'chat'
   const modeRef = useRef('voice');
   const [isListening, setIsListening] = useState(false);
@@ -40,7 +40,7 @@ function CassandraAssistant({ sessionId, accountUuid }) {
 
     socket.on('connect', () => {
       console.log('Connected to Cassandra server');
-      socket.emit('start-session', { sessionId, accountUuid });
+      socket.emit('start-session', { token: sessionStorage.getItem('token'), sessionId });
     });
 
     socket.on('openai-message', (message) => {
@@ -74,7 +74,7 @@ function CassandraAssistant({ sessionId, accountUuid }) {
       if (playbackContextRef.current) playbackContextRef.current.close();
       stopListening();
     };
-  }, [sessionId, accountUuid]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (mode === 'chat' && messagesEndRef.current) {

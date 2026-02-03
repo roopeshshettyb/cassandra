@@ -122,8 +122,8 @@ function VoiceAssistant({ sessionId }) {
       isPlayingRef.current = false;
       nextPlayTimeRef.current = 0;
 
-      // Start session with shared sessionId
-      socketRef.current.emit('start-session', { sessionId });
+      // Start session: frontend sessionId for conversation thread, JWT for identity
+      socketRef.current.emit('start-session', { token: sessionStorage.getItem('token'), sessionId });
 
       // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

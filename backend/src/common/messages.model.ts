@@ -21,16 +21,12 @@ export class Message extends Model<Message> {
   })
   id: number;
 
-  @ForeignKey(() => Account)
   @Column({
-    type: DataType.STRING,
+    type: DataType.INTEGER,
     allowNull: true,
-    field: 'account_uuid',
+    field: 'account_id',
   })
-  accountUuid: string;
-
-  @BelongsTo(() => Account)
-  account: Account;
+  accountId: number;
 
   @Column({
     type: DataType.STRING,

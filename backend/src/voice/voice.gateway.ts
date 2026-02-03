@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
 import { VoiceService } from './voice.service';
 import { ChatService } from '../chat/chat.service';
+import { AuthService } from '../auth/auth.service';
 import WebSocket from 'ws';
 import { CASSANDRA_SYSTEM_PROMPT, CASSANDRA_TOOLS } from '../common/cassandra.config';
 import { MessageRole, MessageType } from '../common/messages.model';
@@ -11,13 +12,9 @@ import { MessageRole, MessageType } from '../common/messages.model';
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private openaiConnections = new Map<string, WebSocket>();
-  private clientSessions = new Map<string, { sessionId: string; accountUuid?: string }>(); // clientId -> { sessionId, accountUuid }
+  private clientSessions = new Map<string, { sessionId: string; accountId: number }>();
 
-  constructor(
-    private configService: ConfigService,
-    private voiceService: VoiceService,
-    private chatService: ChatService,
-  ) {}
+  constructor(private configService: ConfigService, private voiceService: VoiceService, private chatService: ChatService, private authService: AuthService) {}
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
@@ -34,11 +31,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('start-session')
-  async handleStartSession(client: Socket, data: { sessionId: string; accountUuid?: string }) {
-    const sessionId = data?.sessionId || `voice-${Date.now()}`;
-    const accountUuid = data?.accountUuid;
+  async handleStartSession(client: Socket, data: { token: string; sessionId?: string }) {
+    if (!data?.token) {
+      client.emit('session-error', { message: 'Token required' });
+      return;
+    }
+    const account = await this.authService.verifyToken(data.token);
+    if (!account) {
+      client.emit('session-error', { message: 'Invalid or expired token' });
+      return;
+    }
+    const sessionId = data.sessionId ?? `voice-${Date.now()}`;
+    const accountId = account.id;
 
-    this.clientSessions.set(client.id, { sessionId, accountUuid });
+    this.clientSessions.set(client.id, { sessionId, accountId });
 
     // Get recent context
     const recentMessages = await this.chatService.getRecentMessages(sessionId, 10);
@@ -99,21 +105,21 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const message = JSON.parse(data.toString());
       const session = this.clientSessions.get(client.id);
       const sessionId = session?.sessionId;
-      const accountUuid = session?.accountUuid;
+      const accountId = session?.accountId;
 
       // Persist User Text (Transcribed by OpenAI)
       if (message.type === 'conversation.item.input_audio_transcription.completed') {
-        await this.chatService.saveMessage(sessionId, MessageRole.USER, message.transcript, MessageType.VOICE, accountUuid);
+        await this.chatService.saveMessage(sessionId, MessageRole.USER, message.transcript, MessageType.VOICE, accountId);
       }
 
       // Persist Assistant Text (from Voice)
       if (message.type === 'response.audio_transcript.done') {
-        await this.chatService.saveMessage(sessionId, MessageRole.ASSISTANT, message.transcript, MessageType.VOICE, accountUuid);
+        await this.chatService.saveMessage(sessionId, MessageRole.ASSISTANT, message.transcript, MessageType.VOICE, accountId);
       }
 
       // Persist Assistant Text (from Direct Text)
       if (message.type === 'response.text.done') {
-        await this.chatService.saveMessage(sessionId, MessageRole.ASSISTANT, message.text, MessageType.TEXT, accountUuid);
+        await this.chatService.saveMessage(sessionId, MessageRole.ASSISTANT, message.text, MessageType.TEXT, accountId);
       }
 
       // Handle function calls with result confirmation
@@ -164,11 +170,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const ws = this.openaiConnections.get(client.id);
     const session = this.clientSessions.get(client.id);
     const sessionId = session?.sessionId;
-    const accountUuid = session?.accountUuid;
+    const accountId = session?.accountId;
 
     if (ws?.readyState === WebSocket.OPEN) {
       // Save User Message
-      await this.chatService.saveMessage(sessionId, MessageRole.USER, data.text, MessageType.TEXT, accountUuid);
+      await this.chatService.saveMessage(sessionId, MessageRole.USER, data.text, MessageType.TEXT, accountId);
 
       // Send to OpenAI Realtime API as a conversation item
       ws.send(

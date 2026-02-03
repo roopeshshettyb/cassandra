@@ -58,8 +58,6 @@ export class OAuthService {
         email,
         name,
         profilePicUrl,
-        role: AccountRole.USER,
-        accountType,
       });
       account = upsertedAccount;
     }

@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
 import { Account } from './accounts/accounts.model';
-import { AccountRole, AccountType } from './accounts/accounts.model';
+import { AccountRole } from './accounts/accounts.model';
 import { randomUUID } from 'crypto';
 
 // Load environment variables from env file (same pattern as NestJS app)

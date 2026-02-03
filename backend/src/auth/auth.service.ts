@@ -14,7 +14,6 @@ export class AuthService {
       email: accountData.email,
       name: accountData.name,
       role: accountData.role,
-      accountType: accountData.accountType,
       defaultCurrency: accountData.defaultCurrency,
       profilePicUrl: accountData.profilePicUrl,
     });

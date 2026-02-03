@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, IsObject, IsNotEmpty } from 'class-validator';
-import { AccountRole, AuthType, AccountType } from './accounts.model';
+import { AccountRole, AuthType } from './accounts.model';
 
 export class CreateAccountDto {
   @IsOptional()
@@ -40,11 +40,6 @@ export class CreateAccountDto {
   @IsEnum(AccountRole)
   @ApiProperty({ required: false, enum: AccountRole })
   readonly role?: AccountRole;
-
-  @IsOptional()
-  @IsEnum(AccountType)
-  @ApiProperty({ required: false, enum: AccountType })
-  readonly accountType?: AccountType;
 }
 
 export class UpdateAccountDto {
@@ -67,12 +62,6 @@ export class UpdateAccountDto {
   @IsEnum(AccountRole)
   @ApiProperty({ required: false, enum: AccountRole })
   readonly role?: AccountRole;
-
-  @IsOptional()
-  @IsEnum(AccountType)
-  @ApiProperty({ required: false, enum: AccountType })
-  readonly accountType?: AccountType;
-
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })

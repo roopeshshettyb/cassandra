@@ -1,21 +1,16 @@
 import { Table, Model, Column, DataType } from 'sequelize-typescript';
 
 export enum AccountRole {
-  GUEST = 'guest',
   ADMIN = 'admin',
-  USER = 'user',
+  HOTEL_OWNER = 'hotel_owner',
+  GUEST = 'guest',
+  HOTEL_STAFF = 'hotel_staff',
 }
 
 export enum AuthType {
   GOOGLE = 'google',
   X = 'x',
   INSTAGRAM = 'instagram',
-}
-
-export enum AccountType {
-  HOTEL_OWNER = 'hotel_owner',
-  GUEST = 'guest',
-  HOTEL_STAFF = 'hotel_staff',
 }
 
 @Table({ tableName: 'accounts' })
@@ -76,13 +71,6 @@ export class Account extends Model<Account> {
     defaultValue: AccountRole.GUEST,
   })
   role: AccountRole;
-
-  @Column({
-    type: DataType.ENUM(...Object.values(AccountType)),
-    allowNull: true,
-    field: 'account_type',
-  })
-  accountType: AccountType;
 
   @Column({
     type: DataType.STRING,

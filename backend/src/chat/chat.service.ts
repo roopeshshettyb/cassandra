@@ -8,11 +8,7 @@ import { VoiceService } from '../voice/voice.service';
 
 @Injectable()
 export class ChatService {
-  constructor(
-    @Inject(MESSAGES_REPOSITORY) private messageModel: typeof Message,
-    private configService: ConfigService,
-    private voiceService: VoiceService,
-  ) {}
+  constructor(@Inject(MESSAGES_REPOSITORY) private messageModel: typeof Message, private configService: ConfigService, private voiceService: VoiceService) {}
 
   async getRecentMessages(sessionId: string, limit: number = 10): Promise<Message[]> {
     return this.messageModel.findAll({
@@ -22,20 +18,20 @@ export class ChatService {
     });
   }
 
-  async saveMessage(sessionId: string, role: MessageRole, content: string, type: MessageType = MessageType.TEXT, accountUuid?: string, toolCalls?: any[]): Promise<Message> {
+  async saveMessage(sessionId: string, role: MessageRole, content: string, type: MessageType = MessageType.TEXT, accountId?: number, toolCalls?: any[]): Promise<Message> {
     return this.messageModel.create({
       sessionId,
       role,
       content,
       type,
-      accountUuid,
+      accountId,
       toolCalls,
     });
   }
 
-  async sendMessage(sessionId: string, userMessage: string, accountUuid?: string): Promise<string> {
+  async sendMessage(sessionId: string, userMessage: string, accountId?: number): Promise<string> {
     // Save user message
-    await this.saveMessage(sessionId, MessageRole.USER, userMessage, MessageType.TEXT, accountUuid);
+    await this.saveMessage(sessionId, MessageRole.USER, userMessage, MessageType.TEXT, accountId);
 
     // Get recent messages for context
     const recentMessages = await this.getRecentMessages(sessionId, 10);
@@ -126,10 +122,10 @@ export class ChatService {
       finalResponse = confirmationResponse.data.choices[0].message.content;
 
       // Save with tool calls
-      await this.saveMessage(sessionId, MessageRole.ASSISTANT, finalResponse, MessageType.TEXT, accountUuid, assistantMessage.tool_calls);
+      await this.saveMessage(sessionId, MessageRole.ASSISTANT, finalResponse, MessageType.TEXT, accountId, assistantMessage.tool_calls);
     } else {
       // Save assistant message
-      await this.saveMessage(sessionId, MessageRole.ASSISTANT, finalResponse, MessageType.TEXT, accountUuid);
+      await this.saveMessage(sessionId, MessageRole.ASSISTANT, finalResponse, MessageType.TEXT, accountId);
     }
 
     return finalResponse;

@@ -28,7 +28,7 @@ function Dashboard({ isMobile, sidebarOpen, account, openLoginPopup, loading, se
         </MotionBox>
 
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <CassandraAssistant sessionId={sessionId} accountUuid={account?.uuid} />
+          <CassandraAssistant sessionId={sessionId} />
         </Box>
       </Container>
     </Box>
