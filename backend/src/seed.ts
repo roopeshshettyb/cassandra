@@ -11,31 +11,6 @@ const nodeEnv = process.env.NODE_ENV || 'dev';
 const envFile = 'prod.env';
 dotenv.config({ path: path.resolve(__dirname, `../${envFile}`) });
 
-const X_AD_SPACES = {
-  badge: {
-    label: 'Badge',
-    status: 'AVAILABLE',
-  },
-  header: {
-    label: 'Header',
-    status: 'AVAILABLE',
-    requiresMedia: true,
-  },
-  linkInBio: {
-    label: 'Link In Bio',
-    status: 'AVAILABLE',
-  },
-  textPost: {
-    label: 'Text Post',
-    status: 'UNAVAILABLE',
-  },
-  videoPost: {
-    label: 'Video Post',
-    status: 'AVAILABLE',
-    requiresMedia: true,
-  },
-};
-
 async function seed() {
   const dbHost = process.env.DB_HOST || 'localhost';
   const dbPort = parseInt(process.env.DB_PORT || '5432', 10);

@@ -158,7 +158,7 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 0 }}>
           <MapComponent Component={LoginButton} data={loginOptions} onError={handleError} profiles={[]} />
         </Box>
       </MotionBox>
