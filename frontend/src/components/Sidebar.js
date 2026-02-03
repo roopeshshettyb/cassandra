@@ -97,13 +97,6 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       variant: 'outlined',
       protectedNavItem: true,
     },
-    Dashboard: {
-      icon: Dashboard,
-      text: 'Dashboard',
-      link: '/dashboard',
-      variant: null,
-      protectedNavItem: true,
-    },
     Notifications: {
       icon: NotificationsIcon,
       text: 'Notifications',
@@ -111,13 +104,6 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       variant: null,
       protectedNavItem: true,
       showBadge: true,
-    },
-    Home: {
-      icon: Home,
-      text: 'Home',
-      link: '/',
-      variant: null,
-      protectedNavItem: false,
     },
   };
 
@@ -265,9 +251,9 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
               )}
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', mt: 'auto', px: 2, pb: 2 }}>
-                <IconButton onClick={toggleColorMode} sx={{ color: 'primary.main' }}>
+                {/* <IconButton onClick={toggleColorMode} sx={{ color: 'primary.main' }}>
                   {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
-                </IconButton>
+                </IconButton> */}
                 <MapComponent
                   Component={NavButton}
                   data={navItems}

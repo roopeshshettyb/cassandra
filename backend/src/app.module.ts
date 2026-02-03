@@ -13,8 +13,6 @@ import { AccountsModule } from './accounts/accounts.module';
 import { AuthModule } from './auth/auth.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { VoiceModule } from './voice/voice.module';
-import { ChatModule } from './chat/chat.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 @Module({
@@ -37,8 +35,6 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     AuthModule,
     OAuthModule,
     NotificationsModule,
-    VoiceModule,
-    ChatModule,
   ],
   controllers: [AppController],
   providers: [

@@ -2,13 +2,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Grid, useMediaQuery, Box } from '@mui/material';
+import { CssBaseline, Grid, useMediaQuery, Box, Typography } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import LandingPage from './components/LandingPage';
 import Sidebar from './components/Sidebar';
 import OAuthCallback from './components/OAuthCallback';
-import Dashboard from './components/Dashboard';
 import Notifications from './components/Notifications';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import FeesAndRefundPolicy from './components/FeesAndRefundPolicy';
@@ -24,7 +22,7 @@ import { Analytics } from '@vercel/analytics/react';
 
 const AppContent = () => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('dark');
+  const [mode, setMode] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [account, setAccount] = useState(null);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
@@ -185,19 +183,9 @@ const AppContent = () => {
 
   const routes = [
     {
-      path: '/',
-      component: LandingPage,
-      isProtected: false,
-    },
-    {
       path: '/oauth/callback',
       component: OAuthCallback,
       isProtected: false,
-    },
-    {
-      path: '/dashboard',
-      component: Dashboard,
-      isProtected: true,
     },
     {
       path: '/notifications',
@@ -279,6 +267,17 @@ const AppContent = () => {
                   const element = <Component {...commonProps} />;
                   return <Route key={route.path} path={route.path} element={element} />;
                 })}
+                <Route
+                  path="*"
+                  element={
+                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', p: 2, gap: 2 }}>
+                      <img src="/404.gif" alt="Page not found" style={{ maxWidth: '100%', height: 'auto', mixBlendMode: 'multiply' }} />
+                      <Typography variant="body1" color="text.secondary">
+                        You seem to be lost. There&apos;s nothing here.
+                      </Typography>
+                    </Box>
+                  }
+                />
               </Routes>
             </Grid>
           </Box>

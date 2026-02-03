@@ -32,7 +32,7 @@ const Footer = ({ mode, smoothScrollToTop }) => {
               {APP_NAME}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Connecting creators and advertisers for authentic social media placements.
+              Your Hotel Companion
             </Typography>
           </Grid>
           <Grid item xs={12} md={4}>

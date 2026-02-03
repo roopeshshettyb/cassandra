@@ -71,11 +71,4 @@ export class Account extends Model<Account> {
     defaultValue: AccountRole.GUEST,
   })
   role: AccountRole;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-    field: 'default_currency',
-  })
-  defaultCurrency: string;
 }
