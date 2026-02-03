@@ -65,15 +65,13 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   };
 
   const fetchHotels = async () => {
-    const res = await request({
+    await request({
       endpoint: '/hotels',
       method: 'GET',
       defaultData: [],
       alertError,
+      setData: setHotels,
     });
-    if (res && Array.isArray(res)) {
-      setHotels(res);
-    }
   };
 
   useEffect(() => {

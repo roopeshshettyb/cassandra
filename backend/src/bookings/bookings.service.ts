@@ -8,15 +8,12 @@ import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
-import { HOTEL_ACCOUNTS_REPOSITORY } from '../hotels/hotels.repository';
-import { HotelAccount } from '../hotels/hotel-accounts.model';
 import { Op } from 'sequelize';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
-    @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
     private readonly accountsService: AccountsService,
     private readonly hotelsService: HotelsService,
     private readonly mailerService: MailerService,
@@ -125,10 +122,8 @@ export class BookingsService {
       return { guestId: currentAccount.id };
     }
     if (currentAccount.role === AccountRole.HOTEL_OWNER || currentAccount.role === AccountRole.HOTEL_STAFF) {
-      const hotelAccounts = await this.hotelAccountsRepository.findAll({
-        where: { accountId: currentAccount.id },
-      });
-      const hotelIds = hotelAccounts.map((ha) => ha.hotelId);
+      const { data: hotels } = await this.hotelsService.findAllForAccount(currentAccount);
+      const hotelIds = hotels.map((h) => h.id);
       if (hotelIds.length === 0) {
         return { hotelId: -1 };
       }

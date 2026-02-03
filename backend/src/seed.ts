@@ -6,6 +6,7 @@ import { AccountRole } from './common/constants/account-roles.constants';
 import { Hotel } from './hotels/hotels.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
 import { Booking } from './bookings/bookings.model';
+import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/requests.model';
 
 // Load environment variables from env file (same pattern as NestJS app)
 const nodeEnv = process.env.NODE_ENV || 'dev';
@@ -28,7 +29,7 @@ async function seed() {
     password: dbPassword,
     database: dbName,
     logging: false,
-    models: [Account, Hotel, HotelAccount, Booking],
+    models: [Account, Hotel, HotelAccount, Booking, Request],
     define: {
       underscored: true,
       timestamps: true,
@@ -107,12 +108,87 @@ async function seed() {
     { guestId: accounts[4].id, hotelId: hotels[2].id, startTime: start3, endTime: end3 },
   ];
 
+  const bookings: Booking[] = [];
   for (const row of bookingData) {
-    await Booking.findOrCreate({
+    const [b] = await Booking.findOrCreate({
       where: {
         guestId: row.guestId,
         hotelId: row.hotelId,
         startTime: row.startTime,
+      } as any,
+      defaults: row as any,
+    });
+    bookings.push(b);
+  }
+
+  const requestData = [
+    {
+      hotelId: hotels[0].id,
+      guestId: accounts[3].id,
+      bookingId: bookings[0].id,
+      requestType: RequestType.ROOM_SERVICE,
+      userNotes: ['Please send to room 101', 'Extra napkins please'],
+      staffNotes: ['Delivered at 19:30'],
+      data: [
+        { name: 'Club Sandwich', quantity: 1, notes: 'No mayo' },
+        { name: 'Mineral Water', quantity: 2 },
+      ],
+      urgency: RequestUrgency.MEDIUM,
+      status: RequestStatus.COMPLETED,
+    },
+    {
+      hotelId: hotels[0].id,
+      guestId: accounts[3].id,
+      bookingId: bookings[0].id,
+      requestType: RequestType.HOUSE_KEEPING,
+      userNotes: ['Need extra towels'],
+      staffNotes: [],
+      data: { instructions: 'Second floor, room 101' },
+      urgency: RequestUrgency.LOW,
+      status: RequestStatus.PENDING,
+    },
+    {
+      hotelId: hotels[1].id,
+      guestId: accounts[3].id,
+      bookingId: bookings[1].id,
+      requestType: RequestType.LAUNDRY,
+      userNotes: [],
+      staffNotes: ['Picked up at 09:00'],
+      data: { items: ['2x Shirts', '1x Trousers'] },
+      urgency: RequestUrgency.LOW,
+      status: RequestStatus.PENDING,
+    },
+    {
+      hotelId: hotels[0].id,
+      guestId: accounts[4].id,
+      bookingId: bookings[2].id,
+      requestType: RequestType.AIRPORT_TRANSFER,
+      userNotes: ['Flight lands at 14:00'],
+      staffNotes: ['Driver assigned'],
+      data: { flightNumber: 'BA 123', pickupTime: '14:30', terminal: '5' },
+      urgency: RequestUrgency.HIGH,
+      status: RequestStatus.PENDING,
+    },
+    {
+      hotelId: hotels[2].id,
+      guestId: accounts[4].id,
+      bookingId: bookings[3].id,
+      requestType: RequestType.ROOM_SERVICE,
+      userNotes: [],
+      staffNotes: [],
+      data: [{ name: 'Breakfast set', quantity: 1 }],
+      urgency: RequestUrgency.LOW,
+      status: RequestStatus.PENDING,
+    },
+  ];
+
+  for (const row of requestData) {
+    await Request.findOrCreate({
+      where: {
+        hotelId: row.hotelId,
+        guestId: row.guestId,
+        bookingId: row.bookingId,
+        requestType: row.requestType,
       } as any,
       defaults: row as any,
     });

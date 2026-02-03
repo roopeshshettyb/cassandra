@@ -16,6 +16,7 @@ import { MailerModule } from './mailer/mailer.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HotelsModule } from './hotels/hotels.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { RequestsModule } from './requests/requests.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 @Module({
@@ -41,6 +42,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     NotificationsModule,
     HotelsModule,
     BookingsModule,
+    RequestsModule,
   ],
   controllers: [AppController],
   providers: [

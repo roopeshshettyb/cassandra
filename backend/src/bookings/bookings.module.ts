@@ -12,6 +12,6 @@ import { HotelsModule } from '../hotels/hotels.module';
   imports: [DatabaseModule, CommonModule, AccountsModule, MailerModule, forwardRef(() => HotelsModule)],
   controllers: [BookingsController],
   providers: [BookingsRepository, BookingsService],
-  exports: [BookingsRepository],
+  exports: [BookingsRepository, BookingsService],
 })
 export class BookingsModule {}
