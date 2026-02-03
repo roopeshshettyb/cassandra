@@ -304,7 +304,11 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
         transition={{ duration: 0.6 }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 0 }}>
-          {emailFlowStep ? renderEmailForm() : <MapComponent Component={LoginButton} data={loginOptions} onError={handleError} profiles={[]} onEmailSignInClick={() => setEmailFlowStep('email')} />}
+          {emailFlowStep ? (
+            renderEmailForm()
+          ) : (
+            <MapComponent Component={LoginButton} data={loginOptions} onError={handleError} profiles={[]} onEmailSignInClick={() => setEmailFlowStep('email')} isLoading={false} />
+          )}
         </Box>
       </MotionBox>
     </MotionBox>

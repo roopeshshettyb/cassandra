@@ -46,7 +46,7 @@ const AppContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [account, setAccount] = useState(null);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentNav, setCurrentNav] = useState('404');
 
   const handleLogout = () => {
@@ -281,6 +281,9 @@ const AppContent = () => {
     smoothScrollToTop,
   };
 
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const isAuthenticated = !!(account || token);
+
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <ThemeProvider theme={theme}>
@@ -301,7 +304,10 @@ const AppContent = () => {
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
-                  return <Route key={route.path} path={route.path} element={element} />;
+
+                  const guardedElement = route.isProtected && !isAuthenticated ? <Navigate to="/404" replace /> : element;
+
+                  return <Route key={route.path} path={route.path} element={guardedElement} />;
                 })}
                 <Route
                   path="*"

@@ -41,7 +41,7 @@ const HoursDisplayField = ({ data, hotel }) => {
   );
 };
 
-function HotelDetails({ setLoading, account, alertSuccess, alertError }) {
+function HotelDetails({ loading, setLoading, account, alertSuccess, alertError }) {
   const { id } = useParams();
   const [hotel, setHotel] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -153,7 +153,7 @@ function HotelDetails({ setLoading, account, alertSuccess, alertError }) {
                   <Grid item xs={12}>
                     <TextField fullWidth label="Address" value={editValues.address} onChange={handleInputChange('address')} />
                   </Grid>
-                  <MapComponent Component={HoursEditField} data={hoursFieldConfigs} editValues={editValues} handleInputChange={handleInputChange} showNoDataAvailable={false} />
+                  <MapComponent Component={HoursEditField} data={hoursFieldConfigs} editValues={editValues} handleInputChange={handleInputChange} showNoDataAvailable={false} isLoading={loading} />
                 </Grid>
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button type="submit" variant="contained" color="primary">
@@ -165,7 +165,7 @@ function HotelDetails({ setLoading, account, alertSuccess, alertError }) {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Typography variant="body1">{hotel.address}</Typography>
                 <Grid container spacing={2}>
-                  <MapComponent Component={HoursDisplayField} data={hoursFieldConfigs} hotel={hotel} showNoDataAvailable={false} />
+                  <MapComponent Component={HoursDisplayField} data={hoursFieldConfigs} hotel={hotel} showNoDataAvailable={false} isLoading={loading} />
                 </Grid>
               </Box>
             )}

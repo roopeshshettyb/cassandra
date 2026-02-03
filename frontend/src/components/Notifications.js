@@ -7,7 +7,7 @@ import MapComponent from './MapComponent';
 
 const MotionBox = motion(Box);
 
-function Notifications({ setLoading, account, navigate, alertSuccess, alertError }) {
+function Notifications({ loading, setLoading, account, navigate, alertSuccess, alertError }) {
   const [notifications, setNotifications] = useState([]);
 
   const fetchNotifications = async () => {
@@ -104,7 +104,7 @@ function Notifications({ setLoading, account, navigate, alertSuccess, alertError
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
         <Box>
-          <MapComponent Component={NotificationItem} data={notifications} onNotificationClick={handleNotificationClick} />
+          <MapComponent Component={NotificationItem} data={notifications} onNotificationClick={handleNotificationClick} isLoading={loading} />
         </Box>
       </MotionBox>
     </Container>

@@ -1,10 +1,15 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
 import NoDataFound from './NoDataFound';
 
-function MapComponent({ Component, data, showNoDataAvailable = true, ...props }) {
+function MapComponent({ Component, data, showNoDataAvailable = true, isLoading = false, ...props }) {
+  if (isLoading) {
+    return null;
+  }
+
+  const isTableRowComponent = !!(Component && (Component.displayName === 'TableRow' || /row/i.test(Component.name || '')));
+
   if (!data || !Array.isArray(data) || data.length === 0) {
-    if (showNoDataAvailable) {
+    if (showNoDataAvailable && !isTableRowComponent) {
       return <NoDataFound />;
     }
     return null;

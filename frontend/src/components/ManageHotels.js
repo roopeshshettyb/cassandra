@@ -36,7 +36,7 @@ const HotelRow = ({ data, navigate }) => {
   );
 };
 
-function ManageHotels({ setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
+function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -105,8 +105,6 @@ function ManageHotels({ setLoading, account, navigate, alertSuccess, alertError,
 
   const canAddHotel = account && account.role === 'admin';
 
-  const hasHotels = hotels && hotels.length > 0;
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -153,7 +151,7 @@ function ManageHotels({ setLoading, account, navigate, alertSuccess, alertError,
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  <MapComponent Component={HotelRow} data={hotels} navigate={navigate} />
+                  <MapComponent Component={HotelRow} data={hotels} navigate={navigate} isLoading={loading} />
                 </TableBody>
               </Table>
             </TableContainer>

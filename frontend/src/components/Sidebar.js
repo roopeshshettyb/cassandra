@@ -8,7 +8,7 @@ import request from '../helper/api';
 
 const MotionBox = motion(Box);
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading }) => {
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
@@ -299,6 +299,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   unreadCount={unreadCount}
                   smoothScrollToTop={smoothScrollToTop}
                   currentNav={currentNav}
+                  isLoading={loading}
                 />
               </Box>
             </MotionBox>

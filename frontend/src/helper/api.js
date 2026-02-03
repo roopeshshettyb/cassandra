@@ -47,7 +47,7 @@ async function request({ endpoint, method = 'GET', data, token, headers = {}, se
   if (setLoading) {
     loadingTimeout = setTimeout(() => {
       setLoading(true);
-    }, 300);
+    }, 700);
   }
 
   try {
