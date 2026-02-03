@@ -88,7 +88,7 @@ const OAuthCallback = ({ setAccount, fetchProfiles, navigate, alertError }) => {
         throw: true,
       });
 
-      sessionStorage.setItem('token', response.token);
+      localStorage.setItem('token', response.token);
 
       switch (authType) {
         case 'x':
@@ -97,7 +97,7 @@ const OAuthCallback = ({ setAccount, fetchProfiles, navigate, alertError }) => {
       }
 
       setAccount(response.account);
-      window.location.href = '/dashboard';
+      window.location.href = '/';
     } catch (error) {
       logger.error({
         error,

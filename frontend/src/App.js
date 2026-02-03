@@ -24,9 +24,18 @@ import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
 
-const ACCOUNT_ROLES = constants && constants.ACCOUNT_ROLES;
+const ACCOUNT_ROLES = constants?.ACCOUNT_ROLES ?? {
+  ADMIN: 'admin',
+  HOTEL_OWNER: 'hotel_owner',
+  GUEST: 'guest',
+  HOTEL_STAFF: 'hotel_staff',
+};
 
-const RoleBasedHome = ({ account }) => {
+const RoleBasedHome = ({ account, loading }) => {
+  if (loading) {
+    return null;
+  }
+
   if (!account) {
     return <Navigate to="/404" replace />;
   }
@@ -50,7 +59,7 @@ const AppContent = () => {
   const [currentNav, setCurrentNav] = useState('404');
 
   const handleLogout = () => {
-    sessionStorage.removeItem('token');
+    localStorage.removeItem('token');
     setAccount(null);
     window.location.href = '/';
   };
@@ -82,7 +91,7 @@ const AppContent = () => {
 
   useEffect(() => {
     const fetchAccount = async () => {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       if (token) {
         try {
           await request({
@@ -282,7 +291,7 @@ const AppContent = () => {
     smoothScrollToTop,
   };
 
-  const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const isAuthenticated = !!(account || token);
 
   return (
@@ -301,7 +310,7 @@ const AppContent = () => {
           <Box sx={{ flex: 1 }}>
             <Grid style={{ paddingTop: '20px' }}>
               <Routes>
-                <Route path="/" element={<RoleBasedHome account={account} />} />
+                <Route path="/" element={<RoleBasedHome account={account} loading={loading} />} />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;

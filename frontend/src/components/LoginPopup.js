@@ -82,10 +82,10 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
         alertError,
         throw: true,
       });
-      sessionStorage.setItem('token', response.token);
+      localStorage.setItem('token', response.token);
       setAccount?.(response.account);
       closeLoginPopup?.();
-      navigate?.('/dashboard');
+      navigate?.('/');
     } catch (err) {
       logger.error({
         error: err,
