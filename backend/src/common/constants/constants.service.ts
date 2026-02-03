@@ -7,6 +7,11 @@ const PLATFORM_DATA: any = {
     disabled: false,
     social: false,
   },
+  email: {
+    label: 'Email',
+    disabled: false,
+    social: false,
+  },
   // x: {
   //   label: 'X',
   //   disabled: true,
@@ -191,8 +196,8 @@ export class ConstantsService {
     return {
       // App Configuration
       APP_NAME: this.configService.get<string>('APP_NAME', 'Cassandra'),
-      TAGLINE: this.configService.get<string>('TAGLINE', 'Capture Social Media Aura'),
-      DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Transform profile pictures and headers into powerful advertising spaces. Reach millions where they engage most.'),
+      TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
+      DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Cassandra is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
 
       // Platform Configuration
@@ -251,6 +256,10 @@ export class ConstantsService {
 
       // RapidAPI Configuration
       RAPID_API_KEY: this.configService.get<string>('RAPID_API_KEY'),
+
+      // GoDaddy Email (Mailer)
+      GODADDY_EMAIL: this.configService.get<string>('GODADDY_EMAIL'),
+      GODADDY_PASSWORD: this.configService.get<string>('GODADDY_PASSWORD'),
     };
   }
 }

@@ -1,10 +1,11 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { OAuthService } from './oauth.service';
+import { EmailService } from './email/email.service';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 
 @Controller('oauth')
 export class OAuthController {
-  constructor(private oauthService: OAuthService) {}
+  constructor(private oauthService: OAuthService, private emailService: EmailService) {}
 
   @Post('callback')
   async callback(@Body() body: any, @CurrentAccount() account?: any) {
@@ -14,5 +15,15 @@ export class OAuthController {
 
     const { account: resultAccount, token: jwtToken } = await this.oauthService.handleCallback(body, account);
     return { account: resultAccount, token: jwtToken };
+  }
+
+  @Post('email/send-otp')
+  async sendOtp(@Body() body: { email?: string }) {
+    const email = body?.email;
+    if (!email || typeof email !== 'string') {
+      throw new Error('Email is required');
+    }
+    await this.emailService.sendOtp(email);
+    return { success: true };
   }
 }

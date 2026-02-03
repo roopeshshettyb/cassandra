@@ -3,7 +3,6 @@ import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
 import { Brightness4, Brightness7, Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
-import LoginPopup from './LoginPopup';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 

@@ -27,7 +27,7 @@ const AppContent = () => {
   const [account, setAccount] = useState(null);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [currentNav, setCurrentNav] = useState('Home');
+  const [currentNav, setCurrentNav] = useState('404');
 
   const handleLogout = () => {
     sessionStorage.removeItem('token');

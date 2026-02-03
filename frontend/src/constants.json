@@ -1,11 +1,16 @@
 {
   "APP_NAME": "Cassandra",
-  "TAGLINE": "Capture Social Media Aura",
-  "DESCRIPTION": "Transform profile pictures and headers into powerful advertising spaces. Reach millions where they engage most.",
+  "TAGLINE": "With you, always",
+  "DESCRIPTION": "Cassandra is your personal concierge and will make your stay a breeze.",
   "X_API_URL": "https://api.twitter.com",
   "PLATFORM_DATA_MAPPING": {
     "google": {
       "label": "Google",
+      "disabled": false,
+      "social": false
+    },
+    "email": {
+      "label": "Email",
       "disabled": false,
       "social": false
     },
@@ -14,6 +19,12 @@
         {
           "provider": "google",
           "label": "Google",
+          "disabled": false,
+          "social": false
+        },
+        {
+          "provider": "email",
+          "label": "Email",
           "disabled": false,
           "social": false
         }

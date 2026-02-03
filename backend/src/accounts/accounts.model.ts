@@ -10,6 +10,7 @@ export enum AccountRole {
 export enum AuthType {
   GOOGLE = 'google',
   X = 'x',
+  EMAIL = 'email',
   INSTAGRAM = 'instagram',
 }
 
@@ -71,4 +72,18 @@ export class Account extends Model<Account> {
     defaultValue: AccountRole.GUEST,
   })
   role: AccountRole;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'otp',
+  })
+  otp: string;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    field: 'otp_expires_at',
+  })
+  otpExpiresAt: Date;
 }

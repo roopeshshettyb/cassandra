@@ -12,6 +12,7 @@ import { CronModule } from './cron/cron.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { AuthModule } from './auth/auth.module';
 import { OAuthModule } from './oauth/oauth.module';
+import { MailerModule } from './mailer/mailer.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
@@ -34,6 +35,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     AccountsModule,
     AuthModule,
     OAuthModule,
+    MailerModule,
     NotificationsModule,
   ],
   controllers: [AppController],

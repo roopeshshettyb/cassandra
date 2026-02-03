@@ -4,6 +4,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { GoogleService } from './google/google.service';
 import { XService } from './x/x.service';
+import { EmailService } from './email/email.service';
 import { ConstantsService } from '../common/constants/constants.service';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class OAuthService {
     private accountsService: AccountsService,
     private googleService: GoogleService,
     private xService: XService,
+    private emailService: EmailService,
     private constantsService: ConstantsService,
   ) {}
 
@@ -21,6 +23,7 @@ export class OAuthService {
     const serviceMap: { [key: string]: any } = {
       google: this.googleService,
       x: this.xService,
+      email: this.emailService,
     };
 
     const providerService = serviceMap[authType];
