@@ -48,15 +48,16 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
   });
 
   const fetchHotels = async () => {
-    const data = await request({
+    const response = await request({
       endpoint: '/hotels',
       method: 'GET',
       setLoading,
       defaultData: [],
       alertError,
+      setData: setHotels,
     });
-    if (data) {
-      setHotels(data || []);
+    if (response?.data?.length === 1) {
+      navigate(`/hotels/${response.data[0].id}`);
     }
   };
 

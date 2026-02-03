@@ -25,7 +25,7 @@ export class HotelsService {
     return this.hotelsRepository.create<Hotel>(createHotelDto);
   }
 
-  async findAllForAccount(currentAccount: Account): Promise<Hotel[]> {
+  async findAllForAccount(currentAccount: Account): Promise<any> {
     const hotelsWhere: any = {};
 
     if (currentAccount.role !== AccountRole.ADMIN) {
@@ -37,10 +37,10 @@ export class HotelsService {
       // If no linked hotels, use an impossible condition to return an empty array
       hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
     }
-
-    return this.hotelsRepository.findAll({
+    const data = await this.hotelsRepository.findAll({
       where: hotelsWhere,
     });
+    return { success: true, message: 'Hotels Fetched', data };
   }
 
   async findByIdForAccount(id: number, currentAccount: Account): Promise<Hotel> {

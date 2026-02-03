@@ -51,7 +51,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   });
 
   const fetchBookings = async () => {
-    await request({
+    const response = await request({
       endpoint: '/bookings',
       method: 'GET',
       setLoading,
@@ -59,6 +59,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       defaultData: [],
       alertError,
     });
+    if (response?.data?.length === 1) {
+      navigate(`/bookings/${response.data[0].id}`);
+    }
   };
 
   const fetchHotels = async () => {
