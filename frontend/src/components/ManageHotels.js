@@ -115,8 +115,15 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: 2 }}>
-            <Typography variant="h4">Manage Hotels</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              justifyContent: isMobile ? 'flex-start' : 'flex-end',
+              alignItems: isMobile ? 'flex-end' : 'center',
+              gap: 2,
+            }}
+          >
             {canAddHotel && (
               <Button variant="contained" color="primary" onClick={() => setShowAddForm(true)}>
                 Add Hotel

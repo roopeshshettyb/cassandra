@@ -3,6 +3,12 @@
   "TAGLINE": "With you, always",
   "DESCRIPTION": "Cassandra is your personal concierge and will make your stay a breeze.",
   "X_API_URL": "https://api.twitter.com",
+  "ACCOUNT_ROLES": {
+    "ADMIN": "admin",
+    "HOTEL_OWNER": "hotel_owner",
+    "GUEST": "guest",
+    "HOTEL_STAFF": "hotel_staff"
+  },
   "PLATFORM_DATA_MAPPING": {
     "google": {
       "label": "Google",

@@ -24,12 +24,7 @@ import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
 
-const ACCOUNT_ROLES = constants?.ACCOUNT_ROLES ?? {
-  ADMIN: 'admin',
-  HOTEL_OWNER: 'hotel_owner',
-  GUEST: 'guest',
-  HOTEL_STAFF: 'hotel_staff',
-};
+const ACCOUNT_ROLES = constants?.ACCOUNT_ROLES;
 
 const RoleBasedHome = ({ account, loading }) => {
   if (loading) {
@@ -108,7 +103,7 @@ const AppContent = () => {
             actionName: 'fetchAccount',
             error,
           });
-          handleLogout();
+          if (error.code !== 'ERR_NETWORK') handleLogout();
         }
       }
       setLoading(false);
