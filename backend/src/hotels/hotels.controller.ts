@@ -32,6 +32,13 @@ export class HotelsController {
     return this.hotelsService.updateHotel(Number(id), updateHotelDto, account);
   }
 
+  @Delete(':id')
+  @AdminOnly()
+  async delete(@Param('id') id: string, @CurrentAccount() account: Account) {
+    await this.hotelsService.deleteHotel(Number(id), account);
+    return { success: true, message: 'Hotel deleted', data: null };
+  }
+
   @Get(':id/staff')
   async listStaff(@Param('id') id: string, @CurrentAccount() account: Account) {
     const staff = await this.hotelsService.listStaffForHotel(Number(id), account);

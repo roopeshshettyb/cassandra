@@ -7,12 +7,15 @@ import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
+import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
+import { Booking } from '../bookings/bookings.model';
 
 @Injectable()
 export class HotelsService {
   constructor(
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
+    @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
     private readonly accountsService: AccountsService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
@@ -68,6 +71,19 @@ export class HotelsService {
     }
 
     return hotel;
+  }
+
+  async deleteHotel(id: number, currentAccount: Account): Promise<void> {
+    if (currentAccount.role !== AccountRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+    const hotel = await this.hotelsRepository.findByPk(id);
+    if (!hotel) {
+      throw new NotFoundException();
+    }
+    await this.bookingsRepository.destroy({ where: { hotelId: id } });
+    await this.hotelAccountsRepository.destroy({ where: { hotelId: id } });
+    await this.hotelsRepository.destroy({ where: { id } });
   }
 
   async updateHotel(id: number, updateHotelDto: UpdateHotelDto, currentAccount: Account): Promise<Hotel> {

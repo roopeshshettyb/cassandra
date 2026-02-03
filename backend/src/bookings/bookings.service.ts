@@ -162,4 +162,17 @@ export class BookingsService {
 
     return { success: true, message: null, data: booking };
   }
+
+  async deleteForAccount(id: number, currentAccount: Account) {
+    const where = await this.getWhereForAccount(currentAccount);
+    const findWhere = where ? { ...where, id } : { id };
+    const booking = await this.bookingsRepository.findOne({ where: findWhere });
+
+    if (!booking) {
+      throw new NotFoundException();
+    }
+
+    await this.bookingsRepository.destroy({ where: { id } });
+    return { success: true, message: 'Booking deleted', data: null };
+  }
 }

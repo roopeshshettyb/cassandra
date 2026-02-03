@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, ValidationPipe, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards, ValidationPipe, ParseIntPipe } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './bookings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,5 +23,10 @@ export class BookingsController {
   @Post()
   async create(@Body(ValidationPipe) dto: CreateBookingDto, @CurrentAccount() account: Account) {
     return this.bookingsService.createBooking(dto, account);
+  }
+
+  @Delete(':id')
+  async delete(@Param('id', ParseIntPipe) id: number, @CurrentAccount() account: Account) {
+    return this.bookingsService.deleteForAccount(id, account);
   }
 }

@@ -2,16 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import DataTable from './DataTable';
-import MapComponent from './MapComponent';
 import request from '../helper/api';
 
 const MotionBox = motion(Box);
-
-const HotelMenuItem = ({ data }) => (
-  <MenuItem key={data.id} value={data.id}>
-    {data.name}
-  </MenuItem>
-);
 
 const BookingRow = ({ data, navigate }) => {
   const booking = data;
@@ -50,7 +43,6 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [bookings, setBookings] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [createValues, setCreateValues] = useState({
     startDate: '',
     endDate: '',
@@ -105,23 +97,18 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       alertError && alertError('End date must be on or after start date');
       return;
     }
-    setCreating(true);
-    try {
-      const result = await request({
-        endpoint: '/bookings',
-        method: 'POST',
-        data: { startDate, endDate, guestEmail, hotelId: Number(hotelId) },
-        setLoading,
-        alertSuccess,
-        alertError,
-      });
-      if (result && result.success) {
-        setCreateValues({ startDate: '', endDate: '', guestEmail: '', hotelId: '' });
-        setShowCreateDialog(false);
-        fetchBookings();
-      }
-    } finally {
-      setCreating(false);
+    const result = await request({
+      endpoint: '/bookings',
+      method: 'POST',
+      data: { startDate, endDate, guestEmail, hotelId: Number(hotelId) },
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
+    if (result && result.success) {
+      setCreateValues({ startDate: '', endDate: '', guestEmail: '', hotelId: '' });
+      setShowCreateDialog(false);
+      fetchBookings();
     }
   };
 
@@ -159,16 +146,36 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                   <TextField fullWidth label="Start Date" type="date" value={createValues.startDate} onChange={handleCreateInput('startDate')} InputLabelProps={{ shrink: true }} />
                   <TextField fullWidth label="End Date" type="date" value={createValues.endDate} onChange={handleCreateInput('endDate')} InputLabelProps={{ shrink: true }} />
                   <TextField fullWidth label="Guest Email" type="email" value={createValues.guestEmail} onChange={handleCreateInput('guestEmail')} required />
-                  <TextField fullWidth select label="Hotel" value={createValues.hotelId} onChange={handleCreateInput('hotelId')} required>
-                    <MenuItem value="">Select hotel</MenuItem>
-                    <MapComponent Component={HotelMenuItem} data={hotels} showNoDataAvailable={false} />
+                  <TextField
+                    fullWidth
+                    select
+                    label="Hotel"
+                    value={createValues.hotelId}
+                    onChange={handleCreateInput('hotelId')}
+                    required
+                    SelectProps={{
+                      displayEmpty: true,
+                      renderValue: (v) => {
+                        if (v === '') return 'Select hotel';
+                        const h = hotels.find((x) => String(x.id) === String(v));
+                        return h ? h.name : 'Select hotel';
+                      },
+                      MenuProps: { sx: { zIndex: 1400 } },
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  >
+                    {hotels.map((h) => (
+                      <MenuItem key={h.id} value={String(h.id)}>
+                        {h.name}
+                      </MenuItem>
+                    ))}
                   </TextField>
                 </Box>
               </DialogContent>
               <DialogActions>
                 <Button onClick={() => setShowCreateDialog(false)}>Cancel</Button>
-                <Button type="submit" variant="contained" color="primary" disabled={creating}>
-                  {creating ? 'Creating...' : 'Create Booking'}
+                <Button type="submit" variant="contained" color="primary">
+                  Create Booking
                 </Button>
               </DialogActions>
             </Box>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Card, CardContent, Container, Grid, TableCell, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -68,12 +68,13 @@ const StaffRow = ({ data, canManageStaff, onRevoke }) => {
   );
 };
 
-function HotelDetails({ loading, setLoading, account, alertSuccess, alertError, isLoading }) {
+function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, alertError, isLoading }) {
   const { id } = useParams();
   const [hotel, setHotel] = useState(null);
   const [staff, setStaff] = useState([]);
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
   const [editValues, setEditValues] = useState({
     name: '',
     address: '',
@@ -141,6 +142,7 @@ function HotelDetails({ loading, setLoading, account, alertSuccess, alertError, 
   }, [id]);
 
   const canEdit = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
+  const canDeleteHotel = account && account.role === 'admin';
 
   const handleAddStaff = async (e) => {
     e.preventDefault();
@@ -202,6 +204,24 @@ function HotelDetails({ loading, setLoading, account, alertSuccess, alertError, 
     }
   };
 
+  const handleDeleteHotelClick = () => setShowDeleteHotelConfirm(true);
+  const handleDeleteHotelCancel = () => setShowDeleteHotelConfirm(false);
+
+  const handleDeleteHotelConfirm = async () => {
+    setShowDeleteHotelConfirm(false);
+    if (!id) return;
+    const result = await request({
+      endpoint: `/hotels/${id}`,
+      method: 'DELETE',
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
+    if (result && result.success) {
+      navigate('/hotels');
+    }
+  };
+
   if (!hotel) {
     return;
   }
@@ -211,13 +231,20 @@ function HotelDetails({ loading, setLoading, account, alertSuccess, alertError, 
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Card>
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
               <Typography variant="h4">{hotel.name}</Typography>
-              {canEdit && (
-                <Button variant="contained" color="primary" onClick={() => setIsEditing((prev) => !prev)}>
-                  {isEditing ? 'Cancel' : 'Edit'}
-                </Button>
-              )}
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {canEdit && (
+                  <Button variant="contained" color="primary" onClick={() => setIsEditing((prev) => !prev)}>
+                    {isEditing ? 'Cancel' : 'Edit'}
+                  </Button>
+                )}
+                {canDeleteHotel && (
+                  <Button variant="outlined" color="error" onClick={handleDeleteHotelClick}>
+                    Delete Hotel
+                  </Button>
+                )}
+              </Box>
             </Box>
 
             {isEditing ? (
@@ -269,6 +296,21 @@ function HotelDetails({ loading, setLoading, account, alertSuccess, alertError, 
                 />
               </Box>
             )}
+
+            <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">
+              <DialogTitle id="delete-hotel-title">Delete hotel</DialogTitle>
+              <DialogContent>
+                <DialogContentText id="delete-hotel-description">Are you sure you want to delete this hotel? All bookings and staff links will be removed. This cannot be undone.</DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleDeleteHotelCancel} color="primary" autoFocus>
+                  Cancel
+                </Button>
+                <Button onClick={handleDeleteHotelConfirm} color="error" variant="contained">
+                  Delete
+                </Button>
+              </DialogActions>
+            </Dialog>
           </CardContent>
         </Card>
       </MotionBox>

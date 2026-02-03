@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Card, CardContent, Container, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import HotelInfoCard from './HotelInfoCard';
 
 const MotionBox = motion(Box);
 
-function BookingDetails({ setLoading, alertError }) {
+function BookingDetails({ setLoading, account, navigate, alertSuccess, alertError }) {
   const { id } = useParams();
   const [booking, setBooking] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const canDeleteBooking = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
 
   useEffect(() => {
     if (id) {
@@ -24,6 +27,24 @@ function BookingDetails({ setLoading, alertError }) {
     }
   }, []);
 
+  const handleDeleteClick = () => setShowDeleteConfirm(true);
+  const handleDeleteCancel = () => setShowDeleteConfirm(false);
+
+  const handleDeleteConfirm = async () => {
+    setShowDeleteConfirm(false);
+    if (!id) return;
+    const result = await request({
+      endpoint: `/bookings/${id}`,
+      method: 'DELETE',
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
+    if (result && result.success) {
+      navigate('/bookings');
+    }
+  };
+
   if (!booking) {
     return null;
   }
@@ -36,9 +57,14 @@ function BookingDetails({ setLoading, alertError }) {
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Card>
           <CardContent>
-            <Typography variant="h4" sx={{ mb: 3 }}>
-              Booking Details
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h4">Booking Details</Typography>
+              {canDeleteBooking && (
+                <Button variant="outlined" color="error" onClick={handleDeleteClick}>
+                  Delete Booking
+                </Button>
+              )}
+            </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Check-in
@@ -60,6 +86,21 @@ function BookingDetails({ setLoading, alertError }) {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={showDeleteConfirm} onClose={handleDeleteCancel} aria-labelledby="delete-booking-title" aria-describedby="delete-booking-description">
+          <DialogTitle id="delete-booking-title">Delete booking</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="delete-booking-description">Are you sure you want to delete this booking? This cannot be undone.</DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteCancel} color="primary" autoFocus>
+              Cancel
+            </Button>
+            <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       </MotionBox>
     </Container>
   );

@@ -7,3 +7,4 @@
 7. All styling should be used from theme ONLY AND ONLY.
 8. Run build and ensure no issues.
 9. Only one useeffect per page and with dependencies as [], if you're doing otherwise ask me
+10. Only use loading , setLoading for loading states dont create any new loading states
