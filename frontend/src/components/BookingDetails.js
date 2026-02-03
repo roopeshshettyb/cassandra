@@ -78,7 +78,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
 
             {booking.hotel && (
               <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
+                <Typography variant="h5" sx={{ mb: 2 }}>
                   Hotel
                 </Typography>
                 <HotelInfoCard hotel={booking.hotel} />

@@ -232,7 +232,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="h4">{hotel.name}</Typography>
+              <Typography variant="h4">Hotel</Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {canEdit && (
                   <Button variant="contained" color="primary" onClick={() => setIsEditing((prev) => !prev)}>

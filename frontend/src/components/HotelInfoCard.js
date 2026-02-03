@@ -36,6 +36,11 @@ function HotelInfoCard({ hotel, loading }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {hotel.name && (
+        <Typography variant="h6" color="text.primary">
+          {hotel.name}
+        </Typography>
+      )}
       {hotel.address && (
         <Typography variant="body1" color="text.primary">
           {hotel.address}
