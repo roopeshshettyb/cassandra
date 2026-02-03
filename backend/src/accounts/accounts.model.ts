@@ -14,6 +14,7 @@ export class Account extends Model<Account> {
     type: DataType.INTEGER,
     autoIncrement: true,
     primaryKey: false,
+    unique: true,
   })
   id: number;
 

@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+
+const HH_MM_REGEX = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
 
 export class CreateHotelDto {
   @IsString()
@@ -86,11 +88,13 @@ export class UpdateHotelDto {
 
   @IsOptional()
   @IsString()
+  @Matches(HH_MM_REGEX, { message: 'checkInTime must be HH:MM' })
   @ApiProperty({ required: false })
   readonly checkInTime?: string;
 
   @IsOptional()
   @IsString()
+  @Matches(HH_MM_REGEX, { message: 'checkOutTime must be HH:MM' })
   @ApiProperty({ required: false })
   readonly checkOutTime?: string;
 

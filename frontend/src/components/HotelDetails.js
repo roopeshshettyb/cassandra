@@ -5,12 +5,13 @@ import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import DataTable from './DataTable';
+import HotelInfoCard from './HotelInfoCard';
 
 const MotionBox = motion(Box);
 
 const hoursFieldConfigs = [
-  { key: 'checkInTime', label: 'Check-in Time' },
-  { key: 'checkOutTime', label: 'Check-out Time' },
+  { key: 'checkInTime', label: 'Check-in Time', type: 'time' },
+  { key: 'checkOutTime', label: 'Check-out Time', type: 'time' },
   { key: 'poolHours', label: 'Pool Hours' },
   { key: 'gymHours', label: 'Gym Hours' },
   { key: 'restaurantHours', label: 'Restaurant Hours' },
@@ -26,18 +27,14 @@ const hoursFieldConfigs = [
 const HoursEditField = ({ data, editValues, handleInputChange }) => {
   return (
     <Grid item xs={12} sm={6}>
-      <TextField fullWidth label={data.label} value={editValues[data.key]} onChange={handleInputChange(data.key)} />
-    </Grid>
-  );
-};
-
-const HoursDisplayField = ({ data, hotel }) => {
-  return (
-    <Grid item xs={12} sm={6}>
-      <Typography variant="subtitle2" color="text.secondary">
-        {data.label}
-      </Typography>
-      <Typography variant="body2">{hotel[data.key] || '-'}</Typography>
+      <TextField
+        fullWidth
+        label={data.label}
+        type={data.type || 'text'}
+        value={editValues[data.key] || ''}
+        onChange={handleInputChange(data.key)}
+        inputProps={data.type === 'time' ? { step: 60 } : undefined}
+      />
     </Grid>
   );
 };
@@ -241,12 +238,7 @@ function HotelDetails({ loading, setLoading, account, alertSuccess, alertError, 
                 </Box>
               </Box>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Typography variant="body1">{hotel.address}</Typography>
-                <Grid container spacing={2}>
-                  <MapComponent Component={HoursDisplayField} data={hoursFieldConfigs} hotel={hotel} showNoDataAvailable={false} isLoading={loading} />
-                </Grid>
-              </Box>
+              <HotelInfoCard hotel={hotel} loading={loading} />
             )}
 
             {canManageStaff && (

@@ -16,6 +16,8 @@ import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
 import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
+import ManageBookings from './components/ManageBookings';
+import BookingDetails from './components/BookingDetails';
 import Rooms from './components/Rooms';
 import constants from './constants.json';
 import request from './helper/api';
@@ -39,6 +41,10 @@ const RoleBasedHome = ({ account, loading }) => {
 
   if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
     return <Navigate to="/hotels" replace />;
+  }
+
+  if (role === ACCOUNT_ROLES.GUEST) {
+    return <Navigate to="/bookings" replace />;
   }
 
   return <Navigate to="/404" replace />;
@@ -255,6 +261,16 @@ const AppContent = () => {
     {
       path: '/hotels/:id',
       component: HotelDetails,
+      isProtected: true,
+    },
+    {
+      path: '/bookings',
+      component: ManageBookings,
+      isProtected: true,
+    },
+    {
+      path: '/bookings/:id',
+      component: BookingDetails,
       isProtected: true,
     },
   ];

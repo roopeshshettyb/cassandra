@@ -11,6 +11,6 @@ import { MailerModule } from '../mailer/mailer.module';
   imports: [DatabaseModule, CommonModule, AccountsModule, MailerModule],
   controllers: [HotelsController],
   providers: [HotelsRepository, HotelAccountsRepository, HotelsService],
-  exports: [HotelsService],
+  exports: [HotelsService, HotelAccountsRepository],
 })
 export class HotelsModule {}
