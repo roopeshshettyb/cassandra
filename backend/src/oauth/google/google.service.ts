@@ -34,8 +34,8 @@ export class GoogleService {
     });
 
     const payload = ticket.getPayload();
-    const uuid = payload.sub;
     const email = payload.email;
+    const uuid = email;
     const name = payload.name || '';
     const profilePicUrl = payload.picture;
 

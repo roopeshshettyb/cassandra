@@ -1,0 +1,24 @@
+import React from 'react';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import MapComponent from './MapComponent';
+
+function DataTable({ columns, RowComponent, data, isLoading, showNoDataAvailable = false, ...rowProps }) {
+  return (
+    <TableContainer>
+      <Table>
+        <TableHead>
+          <TableRow>
+            {columns.map((col) => (
+              <TableCell key={col.key}>{col.label}</TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          <MapComponent Component={RowComponent} data={data} isLoading={isLoading} showNoDataAvailable={showNoDataAvailable} {...rowProps} />
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+}
+
+export default DataTable;

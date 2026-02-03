@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, ValidationPipe } from '@nestjs/common';
 import { HotelsService } from './hotels.service';
-import { CreateHotelDto, GrantHotelAccessDto, UpdateHotelDto } from './hotels.dto';
+import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, UpdateHotelDto } from './hotels.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
@@ -30,6 +30,36 @@ export class HotelsController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body(ValidationPipe) updateHotelDto: UpdateHotelDto, @CurrentAccount() account: Account) {
     return this.hotelsService.updateHotel(Number(id), updateHotelDto, account);
+  }
+
+  @Get(':id/staff')
+  async listStaff(@Param('id') id: string, @CurrentAccount() account: Account) {
+    const staff = await this.hotelsService.listStaffForHotel(Number(id), account);
+    return {
+      success: true,
+      message: null,
+      data: staff,
+    };
+  }
+
+  @Post(':id/staff')
+  async addStaff(@Param('id') id: string, @Body(ValidationPipe) body: AddHotelStaffDto, @CurrentAccount() account: Account) {
+    const staff = await this.hotelsService.addStaffByEmail(Number(id), body, account);
+    return {
+      success: true,
+      message: 'Staff access granted',
+      data: staff,
+    };
+  }
+
+  @Delete(':id/staff/:accountId')
+  async revokeStaff(@Param('id') id: string, @Param('accountId') accountId: string, @CurrentAccount() account: Account) {
+    await this.hotelsService.revokeStaffAccess(Number(id), Number(accountId), account);
+    return {
+      success: true,
+      message: 'Access revoked',
+      data: null,
+    };
   }
 
   @Post(':id/access')

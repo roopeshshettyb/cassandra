@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
-import MapComponent from './MapComponent';
+import DataTable from './DataTable';
 import request from '../helper/api';
 
 const MotionBox = motion(Box);
@@ -105,6 +105,12 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
 
   const canAddHotel = account && account.role === 'admin';
 
+  const hotelColumns = [
+    { key: 'name', label: 'Name' },
+    { key: 'address', label: 'Address' },
+    { key: 'checkInOut', label: 'Check-in / Check-out' },
+  ];
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -141,20 +147,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
           </Dialog>
 
           <Box>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Address</TableCell>
-                    <TableCell>Check-in / Check-out</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  <MapComponent Component={HotelRow} data={hotels} navigate={navigate} isLoading={loading} />
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <DataTable columns={hotelColumns} RowComponent={HotelRow} data={hotels} isLoading={loading} navigate={navigate} />
           </Box>
         </Box>
       </MotionBox>

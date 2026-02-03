@@ -10,3 +10,5 @@ In the where condition the accountId would be passed by default when called by a
 3. Update seed.ts with proper seeding for every model with ample amount of data
 
 4. Run build and ensure no issues.
+
+5. standard response structure for api is {success,message,data}

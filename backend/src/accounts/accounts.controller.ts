@@ -24,7 +24,7 @@ export class AccountsController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@CurrentAccount() account: Account) {
-    return account;
+    return { data: account, success: true };
   }
 
   @Get(':id')

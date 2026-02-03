@@ -28,7 +28,7 @@ const ACCOUNT_ROLES = constants && constants.ACCOUNT_ROLES;
 
 const RoleBasedHome = ({ account }) => {
   if (!account) {
-    return <Navigate to="/rooms" replace />;
+    return <Navigate to="/404" replace />;
   }
 
   const role = account.role;
@@ -37,7 +37,7 @@ const RoleBasedHome = ({ account }) => {
     return <Navigate to="/hotels" replace />;
   }
 
-  return <Navigate to="/rooms" replace />;
+  return <Navigate to="/404" replace />;
 };
 
 const AppContent = () => {
@@ -102,6 +102,7 @@ const AppContent = () => {
           handleLogout();
         }
       }
+      setLoading(false);
     };
     fetchAccount();
   }, []);
@@ -240,7 +241,7 @@ const AppContent = () => {
     {
       path: '/rooms',
       component: Rooms,
-      isProtected: false,
+      isProtected: true,
     },
     {
       path: '/hotels',

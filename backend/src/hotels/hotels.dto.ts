@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateHotelDto {
   @IsString()
@@ -149,4 +149,16 @@ export class GrantHotelAccessDto {
   @IsInt()
   @ApiProperty()
   readonly accountId: number;
+}
+
+export class AddHotelStaffDto {
+  @IsEmail()
+  @IsNotEmpty()
+  @ApiProperty()
+  readonly email: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly name?: string;
 }

@@ -53,10 +53,9 @@ async function request({ endpoint, method = 'GET', data, token, headers = {}, se
   try {
     const response = await axiosInstance.request(config);
     const responseData = response.data;
-
     // If setData is provided, automatically set the data
-    if (setData) {
-      setData(responseData || defaultData);
+    if (setData && responseData.data) {
+      setData(responseData.data || defaultData);
     }
 
     // Show success toast if alertSuccess is provided and message exists

@@ -2,7 +2,7 @@ import React from 'react';
 import NoDataFound from './NoDataFound';
 
 function MapComponent({ Component, data, showNoDataAvailable = true, isLoading = false, ...props }) {
-  if (isLoading) {
+  if (isLoading && !(data?.length > 0)) {
     return null;
   }
 

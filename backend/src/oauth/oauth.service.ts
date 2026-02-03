@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { AccountsService } from '../accounts/accounts.service';
-import { Account, AccountRole } from '../accounts/accounts.model';
+import { Account, AccountRole, AuthType } from '../accounts/accounts.model';
 import { GoogleService } from './google/google.service';
 import { XService } from './x/x.service';
 import { EmailService } from './email/email.service';
@@ -19,7 +19,7 @@ export class OAuthService {
   ) {}
 
   async handleCallback(body: any, existingAccount?: any): Promise<{ account: any; token: string }> {
-    const { authType, accountType } = body;
+    let { authType } = body;
     const serviceMap: { [key: string]: any } = {
       google: this.googleService,
       x: this.xService,
@@ -55,6 +55,7 @@ export class OAuthService {
         throw new Error('Account not found after update');
       }
     } else {
+      if (authType === AuthType.GOOGLE) authType = AuthType.EMAIL;
       const [upsertedAccount] = await this.accountsService.upsert({
         uuid: `${authType}:${uuid}`,
         oauthMeta,
