@@ -5,7 +5,6 @@ import { LoggerService } from '../common/logger.service';
 import { Sample } from '../sample/sample.model';
 import { Account } from '../accounts/accounts.model';
 import { Notification } from '../notifications/notifications.model';
-import { Message } from '../common/messages.model';
 import { Hotel } from '../hotels/hotels.model';
 import { HotelAccount } from '../hotels/hotel-accounts.model';
 import { Booking } from '../bookings/bookings.model';
@@ -20,7 +19,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification, Message, Hotel, HotelAccount, Booking, Request],
+        models: [Sample, Account, Notification, Hotel, HotelAccount, Booking, Request],
       });
       await sequelize.authenticate();
       await sequelize.sync();
