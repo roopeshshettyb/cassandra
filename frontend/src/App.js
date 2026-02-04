@@ -18,6 +18,7 @@ import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
 import ManageBookings from './components/ManageBookings';
 import BookingDetails from './components/BookingDetails';
+import ChatBox from './components/ChatBox';
 import Rooms from './components/Rooms';
 import constants from './constants.json';
 import request from './helper/api';

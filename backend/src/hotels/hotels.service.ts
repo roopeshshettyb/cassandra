@@ -157,12 +157,11 @@ export class HotelsService {
       return [];
     }
 
-    const staffAccounts = await this.accountsService.findAll({
-      where: {
-        id: accountIds,
-        role: AccountRole.HOTEL_STAFF,
-      } as any,
-    });
+    const where: any = {
+      id: accountIds,
+      role: AccountRole.HOTEL_STAFF,
+    };
+    const staffAccounts = await this.accountsService.findAll({ where });
 
     return staffAccounts;
   }

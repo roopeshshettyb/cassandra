@@ -17,6 +17,10 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { HotelsModule } from './hotels/hotels.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { RequestsModule } from './requests/requests.module';
+import { ChatModule } from './chat/chat.module';
+import { MessagesModule } from './messages/messages.module';
+import { ChatContextModule } from './chat-context/chat-context.module';
+import { LangGraphModule } from './langgraph/langgraph.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 @Module({
@@ -43,6 +47,10 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     HotelsModule,
     BookingsModule,
     RequestsModule,
+    ChatModule,
+    MessagesModule,
+    ChatContextModule,
+    LangGraphModule,
   ],
   controllers: [AppController],
   providers: [

@@ -57,7 +57,8 @@ async function seed() {
 
   const accounts: Account[] = [];
   for (const row of accountData) {
-    const [acc] = await Account.upsert({ ...row } as any);
+    const rowAny: any = { ...row };
+    const [acc] = await Account.upsert(rowAny);
     accounts.push(acc);
   }
 
@@ -69,28 +70,29 @@ async function seed() {
 
   const hotels: Hotel[] = [];
   for (const row of hotelData) {
+    const rowAny: any = row;
     const [h] = await Hotel.findOrCreate({
       where: { name: row.name },
-      defaults: row as any,
+      defaults: rowAny,
     });
     hotels.push(h);
   }
 
   await HotelAccount.findOrCreate({
     where: { hotelId: hotels[0].id, accountId: accounts[1].id },
-    defaults: { hotelId: hotels[0].id, accountId: accounts[1].id } as any,
+    defaults: { hotelId: hotels[0].id, accountId: accounts[1].id },
   });
   await HotelAccount.findOrCreate({
     where: { hotelId: hotels[0].id, accountId: accounts[2].id },
-    defaults: { hotelId: hotels[0].id, accountId: accounts[2].id } as any,
+    defaults: { hotelId: hotels[0].id, accountId: accounts[2].id },
   });
   await HotelAccount.findOrCreate({
     where: { hotelId: hotels[1].id, accountId: accounts[1].id },
-    defaults: { hotelId: hotels[1].id, accountId: accounts[1].id } as any,
+    defaults: { hotelId: hotels[1].id, accountId: accounts[1].id },
   });
   await HotelAccount.findOrCreate({
     where: { hotelId: hotels[2].id, accountId: accounts[1].id },
-    defaults: { hotelId: hotels[2].id, accountId: accounts[1].id } as any,
+    defaults: { hotelId: hotels[2].id, accountId: accounts[1].id },
   });
 
   const now = new Date();
@@ -110,13 +112,15 @@ async function seed() {
 
   const bookings: Booking[] = [];
   for (const row of bookingData) {
+    const whereAny: any = {
+      guestId: row.guestId,
+      hotelId: row.hotelId,
+      startTime: row.startTime,
+    };
+    const rowAny: any = row;
     const [b] = await Booking.findOrCreate({
-      where: {
-        guestId: row.guestId,
-        hotelId: row.hotelId,
-        startTime: row.startTime,
-      } as any,
-      defaults: row as any,
+      where: whereAny,
+      defaults: rowAny,
     });
     bookings.push(b);
   }
@@ -183,14 +187,16 @@ async function seed() {
   ];
 
   for (const row of requestData) {
+    const whereAny: any = {
+      hotelId: row.hotelId,
+      guestId: row.guestId,
+      bookingId: row.bookingId,
+      requestType: row.requestType,
+    };
+    const rowAny: any = row;
     await Request.findOrCreate({
-      where: {
-        hotelId: row.hotelId,
-        guestId: row.guestId,
-        bookingId: row.bookingId,
-        requestType: row.requestType,
-      } as any,
-      defaults: row as any,
+      where: whereAny,
+      defaults: rowAny,
     });
   }
 

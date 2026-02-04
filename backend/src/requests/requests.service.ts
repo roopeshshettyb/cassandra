@@ -66,6 +66,7 @@ export class RequestsService {
       staffNotes,
       data: dto.data ?? null,
       urgency: dto.urgency,
+      chatId: dto.chatId ?? null,
     });
 
     return {

@@ -69,6 +69,11 @@ export class CreateRequestDto {
   @IsString({ each: true })
   @ApiPropertyOptional({ type: [String], default: [] })
   readonly staffNotes?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @ApiPropertyOptional({ description: 'Chat id when created via AI agent' })
+  readonly chatId?: number;
 }
 
 export class UpdateRequestDto {

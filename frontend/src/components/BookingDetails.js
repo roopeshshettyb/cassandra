@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography, Grid } from '@mui/material';
 import { motion } from 'framer-motion';
+import Schedule from '@mui/icons-material/Schedule';
 import request from '../helper/api';
 import HotelInfoCard from './HotelInfoCard';
+import ChatBox from './ChatBox';
 
 const MotionBox = motion(Box);
 
@@ -51,13 +53,20 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
 
   const startStr = booking.startTime ? new Date(booking.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '-';
   const endStr = booking.endTime ? new Date(booking.endTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+  const bookingId = parseInt(id, 10);
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <ChatBox bookingId={bookingId} alertError={alertError} />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
               <Typography variant="h4">Booking Details</Typography>
               {canDeleteBooking && (
                 <Button variant="outlined" color="error" onClick={handleDeleteClick}>
@@ -65,16 +74,30 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                 </Button>
               )}
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Check-in
-              </Typography>
-              <Typography variant="body1">{startStr}</Typography>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                Check-out
-              </Typography>
-              <Typography variant="body1">{endStr}</Typography>
-            </Box>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Schedule sx={{ color: 'text.secondary', fontSize: 20, mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Check-in
+                    </Typography>
+                    <Typography variant="body2">{startStr}</Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Schedule sx={{ color: 'text.secondary', fontSize: 20, mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Check-out
+                    </Typography>
+                    <Typography variant="body2">{endStr}</Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
 
             {booking.hotel && (
               <Box sx={{ mt: 3 }}>

@@ -180,7 +180,7 @@ const PLATFORM_DATA: any = {
 };
 const LOGIN_OPTIONS: any[] = [];
 for (const [provider, data] of Object.entries(PLATFORM_DATA)) {
-  const platformData = data as any;
+  const platformData: any = data;
   LOGIN_OPTIONS.push({
     provider,
     label: platformData.label,

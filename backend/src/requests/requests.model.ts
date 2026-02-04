@@ -2,6 +2,7 @@ import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize
 import { Hotel } from '../hotels/hotels.model';
 import { Account } from '../accounts/accounts.model';
 import { Booking } from '../bookings/bookings.model';
+import { Chat } from '../chat/chat.model';
 
 export enum RequestType {
   ROOM_SERVICE = 'room_service',
@@ -96,6 +97,14 @@ export class Request extends Model<Request> {
   })
   status: RequestStatus;
 
+  @ForeignKey(() => Chat)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'chat_id',
+  })
+  chatId: number | null;
+
   @BelongsTo(() => Hotel, { foreignKey: 'hotelId', as: 'hotel' })
   hotel: Hotel;
 
@@ -104,4 +113,7 @@ export class Request extends Model<Request> {
 
   @BelongsTo(() => Booking, { foreignKey: 'bookingId', as: 'booking' })
   booking: Booking;
+
+  @BelongsTo(() => Chat, { foreignKey: 'chatId', as: 'chat' })
+  chat: Chat;
 }

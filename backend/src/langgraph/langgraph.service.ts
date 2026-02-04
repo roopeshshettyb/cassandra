@@ -1,0 +1,122 @@
+import { Injectable } from '@nestjs/common';
+import { ChatOpenAI } from '@langchain/openai';
+import { createAgent } from 'langchain';
+import { BaseMessage, HumanMessage, SystemMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
+import { StringOutputParser } from '@langchain/core/output_parsers';
+import { createAgentTools } from './langgraph.tools';
+import { AgentToolContext } from './langgraph-tools.context';
+import { BookingsService } from '../bookings/bookings.service';
+import { RequestsService } from '../requests/requests.service';
+
+const TEXT_MODEL = 'gpt-4o-mini';
+
+export interface ToolCallRecord {
+  toolName: string;
+  toolCallId: string;
+  input: Record<string, unknown>;
+  output?: unknown;
+  error?: string;
+}
+
+export interface ChatMessageInput {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface StreamInput {
+  messages: ChatMessageInput[];
+  systemContext?: string;
+}
+
+@Injectable()
+export class LangGraphService {
+  private readonly outputParser = new StringOutputParser();
+
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly requestsService: RequestsService,
+  ) {}
+
+  private createModel(): ChatOpenAI {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is required');
+    }
+    return new ChatOpenAI({
+      modelName: TEXT_MODEL,
+      apiKey,
+      temperature: 0.7,
+    });
+  }
+
+  private parseMessages(messages: ChatMessageInput[]): BaseMessage[] {
+    return messages.map((msg) => {
+      if (msg.role === 'user') {
+        return new HumanMessage(msg.content);
+      }
+      if (msg.role === 'assistant') {
+        return new AIMessage(msg.content);
+      }
+      return new SystemMessage(msg.content);
+    });
+  }
+
+  private extractToolCalls(messages: BaseMessage[]): ToolCallRecord[] {
+    const toolResults = new Map<string, { output?: unknown; error?: string }>();
+    for (const msg of messages) {
+      if (msg instanceof ToolMessage) {
+        toolResults.set(msg.tool_call_id ?? '', {
+          output: typeof msg.content === 'string' ? msg.content : msg.content,
+          error: undefined,
+        });
+      }
+    }
+    const toolCalls: ToolCallRecord[] = [];
+    for (const msg of messages) {
+      if ((msg instanceof AIMessage || msg instanceof AIMessageChunk) && msg.tool_calls?.length) {
+        for (const tc of msg.tool_calls) {
+          const id = tc.id ?? '';
+          const result = toolResults.get(id);
+          toolCalls.push({
+            toolName: tc.name ?? '',
+            toolCallId: id,
+            input: (tc.args as Record<string, unknown>) ?? {},
+            output: result?.output,
+            error: result?.error,
+          });
+        }
+      }
+    }
+    return toolCalls;
+  }
+
+  async *stream(input: StreamInput, ctx: AgentToolContext): AsyncGenerator<string | { toolCalls: ToolCallRecord[] }, void, unknown> {
+    const messages = this.parseMessages(input.messages);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService);
+    const model = this.createModel();
+    const agent = createAgent({ model, tools });
+
+    const threadId = `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let lastResult: { messages?: BaseMessage[] } | null = null;
+
+    const state: any = { messages };
+    const eventStream = agent.streamEvents(state, { version: 'v2', configurable: { thread_id: threadId } });
+
+    for await (const event of eventStream) {
+      if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
+        const parsed = await this.outputParser.invoke(event.data.chunk);
+        if (parsed) yield parsed;
+      }
+      if (event.event === 'on_chain_end' && event.data?.output) {
+        lastResult = event.data.output as { messages?: BaseMessage[] };
+      }
+    }
+
+    if (lastResult?.messages?.length) {
+      const toolCalls = this.extractToolCalls(lastResult.messages);
+      if (toolCalls.length > 0) {
+        yield { toolCalls };
+      }
+    }
+  }
+}

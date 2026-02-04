@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConstantsService } from './common/constants/constants.service';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useWebSocketAdapter(new IoAdapter(app));
   const constantsService = app.get(ConstantsService);
   const frontendUrl = constantsService.private.FRONTEND_URL;
 

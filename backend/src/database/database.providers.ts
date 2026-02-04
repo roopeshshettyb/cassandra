@@ -9,6 +9,8 @@ import { Hotel } from '../hotels/hotels.model';
 import { HotelAccount } from '../hotels/hotel-accounts.model';
 import { Booking } from '../bookings/bookings.model';
 import { Request } from '../requests/requests.model';
+import { Chat } from '../chat/chat.model';
+import { Message } from '../messages/message.model';
 
 export const SEQUELIZE_DATABASE_PROVIDER = 'SEQUELIZE_DATABASE_PROVIDER';
 
@@ -19,7 +21,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification, Hotel, HotelAccount, Booking, Request],
+        models: [Sample, Account, Notification, Hotel, HotelAccount, Booking, Chat, Message, Request],
       });
       await sequelize.authenticate();
       await sequelize.sync();
