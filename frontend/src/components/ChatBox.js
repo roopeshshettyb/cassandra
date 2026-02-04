@@ -11,6 +11,9 @@ const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\
 function ChatBox({ bookingId, alertError }) {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
+  const [voiceSocket, setVoiceSocket] = useState(null);
+  const [voiceReady, setVoiceReady] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streamingContent, setStreamingContent] = useState('');
@@ -20,6 +23,12 @@ function ChatBox({ bookingId, alertError }) {
   const scrollContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
+  const voiceSocketRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const processorRef = useRef(null);
+  const playbackAudioContextRef = useRef(null);
+  const playbackTimeRef = useRef(0);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const focusInput = useCallback(() => {
@@ -152,6 +161,118 @@ function ChatBox({ bookingId, alertError }) {
     };
   }, [bookingId, alertError, focusInput, scrollToBottom]);
 
+  // Voice socket on /voice namespace
+  useEffect(() => {
+    if (!bookingId || isNaN(bookingId)) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return;
+    }
+
+    const connectUrl = getBackendUrl();
+    if (!connectUrl) {
+      return;
+    }
+
+    const voiceInstance = io(`${connectUrl}/voice`, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      query: { token, bookingId: String(bookingId) },
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 8000,
+      randomizationFactor: 0.2,
+    });
+
+    voiceSocketRef.current = voiceInstance;
+    setVoiceSocket(voiceInstance);
+
+    voiceInstance.on('connect', () => {
+      setVoiceReady(false);
+    });
+
+    voiceInstance.on('disconnect', () => {
+      setVoiceReady(false);
+      setIsRecording(false);
+    });
+
+    voiceInstance.on('auth_required', () => {
+      voiceInstance.emit('auth', { token, bookingId });
+    });
+
+    voiceInstance.on('ready', () => {
+      // Auth OK for voice namespace.
+      setVoiceReady(true);
+    });
+
+    voiceInstance.on('voice_ready', () => {
+      setVoiceReady(true);
+    });
+
+    voiceInstance.on('voice_text_chunk', (payload) => {
+      setStreamingContent((prev) => prev + (payload.delta || ''));
+    });
+
+    voiceInstance.on('voice_text_end', (payload) => {
+      const text = payload?.text || '';
+      const toolCalls = payload?.toolCalls || [];
+      setStreamingContent('');
+      if (text) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `assistant-voice-${Date.now()}`, role: 'assistant', content: text, createdAt: new Date().toISOString(), toolCalls },
+        ]);
+      }
+      setSending(false);
+      focusInput();
+    });
+
+    voiceInstance.on('voice_user_message', (payload) => {
+      const text = payload?.text || '';
+      if (!text.trim()) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `user-voice-${Date.now()}`,
+          role: 'user',
+          content: text,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    });
+
+    voiceInstance.on('voice_audio_chunk', (payload) => {
+      const delta = payload?.delta;
+      if (!delta) return;
+      playPcmChunk(delta, playbackAudioContextRef, playbackTimeRef);
+    });
+
+    voiceInstance.on('voice_audio_end', () => {
+      // Nothing special to do; playback is fire-and-forget.
+    });
+
+    voiceInstance.on('error', (payload) => {
+      setStreamingContent('');
+      setSending(false);
+      alertError?.(payload?.message || 'Something went wrong with voice');
+      focusInput();
+    });
+
+    voiceInstance.on('connect_error', (err) => {
+      alertError?.(err?.message || 'Voice connection failed');
+    });
+
+    return () => {
+      voiceInstance.removeAllListeners();
+      voiceInstance.disconnect();
+      voiceSocketRef.current = null;
+      setVoiceReady(false);
+      setIsRecording(false);
+    };
+  }, [bookingId, alertError, focusInput]);
+
   const handleSend = () => {
     const text = input.trim();
     if (!text || !socket?.connected || sending) return;
@@ -163,9 +284,72 @@ function ChatBox({ bookingId, alertError }) {
     socket.emit('message', { content: text });
   };
 
-  const handleVoice = () => {
-    if (!socket?.connected) return;
-    socket.emit('voice_start');
+  const startRecording = async () => {
+    if (isRecording) return;
+    if (!voiceSocketRef.current?.connected || !voiceReady) {
+      alertError?.('Voice connection is not ready yet');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextImpl({ sampleRate: 24000 });
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm = floatTo16BitPCM(inputData);
+        const base64 = arrayBufferToBase64(pcm.buffer);
+        if (voiceSocketRef.current?.connected) {
+          voiceSocketRef.current.emit('voice_client_chunk', { audio: base64 });
+        }
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      audioContextRef.current = audioContext;
+      mediaStreamRef.current = stream;
+      processorRef.current = processor;
+      setIsRecording(true);
+    } catch (err) {
+      alertError?.(err?.message || 'Could not access microphone');
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current.onaudioprocess = null;
+      processorRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const handleVoice = async () => {
+    if (!voiceSocketRef.current?.connected || !voiceReady) {
+      alertError?.('Voice is not ready yet');
+      return;
+    }
+    if (isRecording) {
+      // Stop current turn.
+      stopRecording();
+      voiceSocketRef.current.emit('voice_stop');
+      return;
+    }
+    // Start a new voice turn.
+    voiceSocketRef.current.emit('voice_start');
+    await startRecording();
   };
 
   if (!bookingId || isNaN(bookingId)) {
@@ -274,7 +458,7 @@ function ChatBox({ bookingId, alertError }) {
           multiline
           maxRows={4}
         />
-        <IconButton color="primary" onClick={handleVoice} disabled={!ready} aria-label="Voice">
+        <IconButton color={isRecording ? 'secondary' : 'primary'} onClick={handleVoice} disabled={!ready || !voiceReady} aria-label="Voice">
           <MicIcon />
         </IconButton>
         <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>
@@ -306,5 +490,60 @@ function ChatBox({ bookingId, alertError }) {
     </Box>
   );
 }
+
+// Helpers for audio encoding/decoding.
+const floatTo16BitPCM = (input) => {
+  const buffer = new ArrayBuffer(input.length * 2);
+  const view = new DataView(buffer);
+  let offset = 0;
+  for (let i = 0; i < input.length; i += 1, offset += 2) {
+    let s = Math.max(-1, Math.min(1, input[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Int16Array(buffer);
+};
+
+const arrayBufferToBase64 = (buffer) => {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+};
+
+const base64ToUint8Array = (base64) => {
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
+const playPcmChunk = (base64, audioContextRef, playbackTimeRef) => {
+  const bytes = base64ToUint8Array(base64);
+  const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+  if (!audioContextRef.current) {
+    audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
+  }
+  const audioContext = audioContextRef.current;
+  const bufferLength = bytes.byteLength / 2;
+  const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
+  const channelData = audioBuffer.getChannelData(0);
+  const dataView = new DataView(bytes.buffer);
+  for (let i = 0; i < bufferLength; i += 1) {
+    const sample = dataView.getInt16(i * 2, true);
+    channelData[i] = sample / 0x8000;
+  }
+  const source = audioContext.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(audioContext.destination);
+  const now = audioContext.currentTime;
+  const startAt = Math.max(playbackTimeRef.current || now, now);
+  source.start(startAt);
+  playbackTimeRef.current = startAt + audioBuffer.duration;
+};
 
 export default ChatBox;

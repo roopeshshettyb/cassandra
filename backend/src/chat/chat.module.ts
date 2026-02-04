@@ -8,6 +8,8 @@ import { LangGraphModule } from '../langgraph/langgraph.module';
 import { ChatRepository } from './chat.repository';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './gateway/chat.gateway';
+import { VoiceRealtimeService } from './voice-realtime.service';
+import { VoiceGateway } from './gateway/voice.gateway';
 
 @Module({
   imports: [
@@ -18,7 +20,7 @@ import { ChatGateway } from './gateway/chat.gateway';
     ChatContextModule,
     LangGraphModule,
   ],
-  providers: [ChatRepository, ChatService, ChatGateway],
+  providers: [ChatRepository, ChatService, ChatGateway, VoiceRealtimeService, VoiceGateway],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}

@@ -9,6 +9,7 @@ import { ChatContextService } from '../../chat-context/chat-context.service';
 import { LangGraphService, ToolCallRecord } from '../../langgraph/langgraph.service';
 import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
+import { buildChatPrompt } from '../chat-prompt.builder';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
 @Injectable()
@@ -56,31 +57,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async processMessage(chatId: any, userMessage: string): Promise<any> {
-    const contextData = await this.chatContextService.buildChatContext(chatId);
-
-    let userMessageContent: string | any[] = userMessage;
-    const textContents = [];
-
-    const systemContent = `You are Cassandra
-    
-  You are a hotel companion that lives with a guest in the hotel.
-   
-  Use your tools when helpful and help the user to your best ability.
-
-  Always respond in Markdown.`;
-
-    const messages: any[] = [
-      { role: 'system', content: systemContent },
-      { role: 'system', content: `This is the context of the coversation so far : ${contextData.context}` },
-    ];
-
-    if (textContents.length > 0) {
-      messages.push({ role: 'system', content: `This is the content from the attachments the user has shared: ${textContents.join('\n\n')}` });
-    }
-    messages.push({
-      role: 'user',
-      content: userMessageContent,
-    });
+    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage);
 
     return {
       contextData,
