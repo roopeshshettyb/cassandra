@@ -8,7 +8,6 @@ async function bootstrap() {
   app.useWebSocketAdapter(new IoAdapter(app));
   const constantsService = app.get(ConstantsService);
   const frontendUrl = constantsService.private.FRONTEND_URL;
-
   app.enableCors({
     origin: frontendUrl,
     credentials: true,
@@ -19,5 +18,6 @@ async function bootstrap() {
   const port = process.env.PORT || 6767;
   await app.listen(port);
   console.log(`Application is running on: ${constantsService.private.BACKEND_URL}`);
+  console.log(frontendUrl);
 }
 bootstrap();
