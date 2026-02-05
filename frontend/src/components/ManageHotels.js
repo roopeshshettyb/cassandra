@@ -56,9 +56,6 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
       alertError,
       setData: setHotels,
     });
-    if (response?.data?.length === 1) {
-      navigate(`/hotels/${response.data[0].id}`);
-    }
   };
 
   useEffect(() => {

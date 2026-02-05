@@ -59,9 +59,6 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       defaultData: [],
       alertError,
     });
-    if (response?.data?.length === 1) {
-      navigate(`/bookings/${response.data[0].id}`);
-    }
   };
 
   const fetchHotels = async () => {
