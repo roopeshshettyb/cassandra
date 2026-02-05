@@ -44,7 +44,7 @@ export class MailerService {
       APP_NAME: pub.APP_NAME,
       TAGLINE: pub.TAGLINE || '',
       FRONTEND_URL: frontendUrl,
-      LOGO_URL: `${frontendUrl}/logo.png`,
+      LOGO_URL: pub.LOGO,
       YEAR: `${new Date().getFullYear()}`,
       CONTENT: contentHtml,
       ...extraVars,
