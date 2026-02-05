@@ -6,6 +6,25 @@ export interface ChatPromptResult {
   messages: ChatMessageInput[];
 }
 
+export function describeSpeakerRole(role: string | undefined | null): string {
+  if (!role) {
+    return 'a user';
+  }
+  if (role === 'guest') {
+    return 'a hotel guest staying at the property';
+  }
+  if (role === 'hotel_owner') {
+    return 'the hotel owner';
+  }
+  if (role === 'hotel_staff') {
+    return 'a member of the hotel staff';
+  }
+  if (role === 'admin') {
+    return 'an admin user of the platform';
+  }
+  return 'a user';
+}
+
 /**
  * Build the shared Cassandra system instructions and conversational context
  * string for a given chat. This is suitable for passing to
@@ -17,13 +36,18 @@ export async function buildSystemInstructions(
 ): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
-  const systemContent = `You are Cassandra
-    
-  You are a hotel companion that lives with a guest in the hotel.
-   
-  Use your tools when helpful and help the user to your best ability.
+  const systemContent = `You are Cassandra, a hotel companion that helps with anything related to the guest's stay.
 
-  Always respond in Markdown.`;
+The person speaking to you over chat or voice may be:
+- a room guest staying at the hotel,
+- the hotel owner,
+- or a member of the hotel staff.
+
+Do not assume they are always the guest. Infer who is speaking from the conversation and respond appropriately for their role (for example, give operational guidance to staff, and guest-facing guidance to guests).
+
+Use your tools when helpful and help the user to your best ability.
+
+Always respond in Markdown.`;
 
   const parts: string[] = [
     systemContent,
@@ -49,15 +73,22 @@ export async function buildChatPrompt(
   chatContextService: ChatContextService,
   chatId: number,
   userMessage: string,
+  speakerRole?: string,
 ): Promise<ChatPromptResult> {
   const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId);
 
   // In the future this can include attachment-derived content as well.
   const textContents: string[] = [];
 
-  const messages: ChatMessageInput[] = [
-    { role: 'system', content: instructions },
-  ];
+  const messages: ChatMessageInput[] = [{ role: 'system', content: instructions }];
+
+  if (speakerRole) {
+    const roleDescription = describeSpeakerRole(speakerRole);
+    messages.push({
+      role: 'system',
+      content: `For this turn, the person speaking to you is ${roleDescription}. Address them appropriately for that role.`,
+    });
+  }
 
   if (textContents.length > 0) {
     messages.push({

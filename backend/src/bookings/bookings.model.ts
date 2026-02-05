@@ -1,6 +1,7 @@
-import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
+import { Table, Model, Column, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
 import { Hotel } from '../hotels/hotels.model';
 import { Account } from '../accounts/accounts.model';
+import { Request } from '../requests/requests.model';
 
 @Table({ tableName: 'bookings' })
 export class Booking extends Model<Booking> {
@@ -46,4 +47,7 @@ export class Booking extends Model<Booking> {
 
   @BelongsTo(() => Account, { foreignKey: 'guestId', targetKey: 'id', as: 'guest' })
   guest: Account;
+
+  @HasMany(() => Request, { foreignKey: 'bookingId', as: 'requests' })
+  requests: Request[];
 }

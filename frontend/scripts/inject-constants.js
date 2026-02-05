@@ -15,7 +15,7 @@ const indexHtml = fs.readFileSync(indexPath, 'utf8');
 const APP_NAME = constants.APP_NAME || 'Aura';
 const TAGLINE = constants.TAGLINE || 'Capture Social Media Aura';
 const DESCRIPTION = constants.DESCRIPTION || 'Transform profile pictures and headers into powerful advertising spaces. Reach millions where they engage most.';
-const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:6768';
+const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:5657';
 
 let updatedHtml = indexHtml
   .replace(/<title>.*?<\/title>/, `<title>${APP_NAME} - ${TAGLINE}</title>`)

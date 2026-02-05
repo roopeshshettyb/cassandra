@@ -9,6 +9,9 @@ import { Hotel } from '../hotels/hotels.model';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { Op } from 'sequelize';
+import { Chat } from '../chat/chat.model';
+import { Request } from '../requests/requests.model';
+import { Message } from '../messages/message.model';
 
 @Injectable()
 export class BookingsService {
@@ -148,7 +151,14 @@ export class BookingsService {
     const findWhere = where ? { ...where, id } : { id };
     const booking = await this.bookingsRepository.findOne({
       where: findWhere,
-      include: [{ model: Hotel, as: 'hotel' }],
+      include: [
+        { model: Hotel, as: 'hotel' },
+        {
+          model: Request,
+          as: 'requests',
+          attributes: ['id', 'requestType', 'urgency', 'status', 'userNotes', 'staffNotes'],
+        },
+      ],
     });
 
     if (!booking) {
@@ -165,6 +175,17 @@ export class BookingsService {
 
     if (!booking) {
       throw new NotFoundException();
+    }
+
+    // Clean up dependent records that reference this booking to satisfy
+    // database foreign key constraints (e.g. chats_booking_id_fkey, messages_chat_id_fkey).
+    await Request.destroy({ where: { bookingId: id } });
+
+    const chats = await Chat.findAll({ where: { bookingId: id } });
+    if (chats.length > 0) {
+      const chatIds = chats.map((c) => c.id);
+      await Message.destroy({ where: { chatId: { [Op.in]: chatIds } } });
+      await Chat.destroy({ where: { id: { [Op.in]: chatIds } } });
     }
 
     await this.bookingsRepository.destroy({ where: { id } });

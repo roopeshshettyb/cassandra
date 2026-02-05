@@ -24,28 +24,20 @@ export function createAgentTools(ctx: AgentToolContext, bookingsService: Booking
         const bookingAny: any = booking;
         const hotelId = bookingAny?.hotelId;
         const guestId = bookingAny?.guestId;
-        if (hotelId == null || guestId == null) {
-          const { data: b } = await bookingsService.findByIdForAccount(bookingId, account);
-          const dto: CreateRequestDto = {
-            hotelId: b.hotelId,
-            guestId: b.guestId,
-            bookingId,
-            requestType: args.requestType,
-            urgency: args.urgency,
-            userNotes: args.userNotes ?? [],
-            chatId,
-            ...(args.data != null && { data: args.data }),
-          };
-          const result = await requestsService.create(dto, account);
-          return JSON.stringify(result);
+        const userNotes: { text: string; addedAt: string }[] = [];
+        const rawUserNotes: string[] = args.userNotes ?? [];
+        const nowIso = new Date().toISOString();
+        for (let i = 0; i < rawUserNotes.length; i += 1) {
+          userNotes.push({ text: rawUserNotes[i], addedAt: nowIso });
         }
+
         const dto: CreateRequestDto = {
           hotelId,
           guestId,
           bookingId,
           requestType: args.requestType,
           urgency: args.urgency,
-          userNotes: args.userNotes ?? [],
+          userNotes,
           chatId,
           ...(args.data != null && { data: args.data }),
         };
@@ -69,25 +61,29 @@ export function createAgentTools(ctx: AgentToolContext, bookingsService: Booking
       },
     }),
     new DynamicStructuredTool({
-      name: 'append_user_message',
-      description: 'Append a user (guest) message to an existing request.',
-      schema: z.object({
-        requestId: z.number(),
-        message: z.string(),
-      }),
-      func: async (args) => {
-        const result = await requestsService.appendUserMessage(args.requestId, args.message, account);
-        return JSON.stringify(result);
+      name: 'get_pending_requests',
+      description: 'Get all pending requests for the current booking (status is pending). Use this to summarize or act on outstanding requests.',
+      schema: z.object({}),
+      func: async () => {
+        const pending = await requestsService.findByBookingId(bookingId, account, RequestStatus.PENDING);
+        return JSON.stringify(pending);
       },
     }),
     new DynamicStructuredTool({
-      name: 'append_staff_message',
-      description: 'Append a staff note to an existing request. Use when acting on behalf of hotel staff.',
+      name: 'append_message',
+      description: 'Append a message to an existing request. If the current speaker is a guest, it will be added as a user note; if hotel owner/staff, it will be added as a staff note.',
       schema: z.object({
-        requestId: z.number(),
-        message: z.string(),
+        requestId: z.number().describe('The id of the request to update'),
+        message: z.string().describe('The message to append as a note'),
       }),
       func: async (args) => {
+        // Route to the appropriate append method based on the current account role.
+        if (account.role === 'guest') {
+          const result = await requestsService.appendUserMessage(args.requestId, args.message, account);
+          return JSON.stringify(result);
+        }
+
+        // Admins, hotel owners, and hotel staff should write staff notes.
         const result = await requestsService.appendStaffMessage(args.requestId, args.message, account);
         return JSON.stringify(result);
       },

@@ -22,6 +22,11 @@ export enum RequestStatus {
   COMPLETED = 'completed',
 }
 
+export interface RequestNote {
+  text: string;
+  addedAt?: string;
+}
+
 @Table({ tableName: 'requests' })
 export class Request extends Model<Request> {
   @Column({
@@ -68,7 +73,7 @@ export class Request extends Model<Request> {
     defaultValue: [],
     field: 'user_notes',
   })
-  userNotes: string[];
+  userNotes: RequestNote[];
 
   @Column({
     type: DataType.JSONB,
@@ -76,7 +81,7 @@ export class Request extends Model<Request> {
     defaultValue: [],
     field: 'staff_notes',
   })
-  staffNotes: string[];
+  staffNotes: RequestNote[];
 
   @Column({
     type: DataType.JSONB,

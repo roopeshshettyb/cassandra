@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsArray, IsString } from 'class-validator';
 import { RequestType, RequestUrgency, RequestStatus } from './requests.model';
 
 /** room_service: data is array of items */
@@ -60,15 +60,13 @@ export class CreateRequestDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  @ApiPropertyOptional({ type: [String], default: [] })
-  readonly userNotes?: string[];
+  @ApiPropertyOptional({ type: [Object], default: [] })
+  readonly userNotes?: any[];
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  @ApiPropertyOptional({ type: [String], default: [] })
-  readonly staffNotes?: string[];
+  @ApiPropertyOptional({ type: [Object], default: [] })
+  readonly staffNotes?: any[];
 
   @IsOptional()
   @IsInt()

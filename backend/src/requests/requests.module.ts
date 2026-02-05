@@ -4,10 +4,11 @@ import { RequestsRepository } from './requests.repository';
 import { RequestsService } from './requests.service';
 import { BookingsModule } from '../bookings/bookings.module';
 import { HotelsModule } from '../hotels/hotels.module';
+import { RequestsController } from './requests.controller';
 
 @Module({
   imports: [DatabaseModule, BookingsModule, HotelsModule],
-  controllers: [],
+  controllers: [RequestsController],
   providers: [RequestsRepository, RequestsService],
   exports: [RequestsRepository, RequestsService],
 })

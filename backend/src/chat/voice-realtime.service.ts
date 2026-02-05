@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import { ChatContextService } from '../chat-context/chat-context.service';
 import { AgentToolContext } from '../langgraph/langgraph-tools.context';
 import { RealtimeToolsService, RealtimeToolDefinition } from '../langgraph/realtime-tools.service';
-import { buildSystemInstructions } from './chat-prompt.builder';
+import { buildSystemInstructions, describeSpeakerRole } from './chat-prompt.builder';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 
 export interface VoiceSessionHandlers {
@@ -71,6 +71,8 @@ export class VoiceRealtimeService {
       state.isOpen = true;
       try {
         const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId);
+        const speakerRoleDescription = describeSpeakerRole((ctx.account as any)?.role);
+        const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.`;
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
         const sessionUpdate = {
@@ -78,7 +80,7 @@ export class VoiceRealtimeService {
           session: {
             type: 'realtime',
             model,
-            instructions,
+            instructions: instructionsWithSpeaker,
             tools,
             tool_choice: 'auto',
             // Use audio-only; we derive text from output_audio_transcript events.

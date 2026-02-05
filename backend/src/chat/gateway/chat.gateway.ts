@@ -56,8 +56,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.authenticateAndInit(client, token, bookingId);
   }
 
-  async processMessage(chatId: any, userMessage: string): Promise<any> {
-    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage);
+  async processMessage(chatId: any, userMessage: string, account: any): Promise<any> {
+    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, account?.role);
 
     return {
       contextData,
@@ -133,7 +133,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       await this.messagesService.create(session.chatId, MessageRole.USER, content);
-      const { messages } = await this.processMessage(session.chatId, content);
+      const { messages } = await this.processMessage(session.chatId, content, session.account);
 
       const toolContext = {
         account: session.account,

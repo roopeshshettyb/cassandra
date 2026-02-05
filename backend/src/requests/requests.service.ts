@@ -1,6 +1,6 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { REQUESTS_REPOSITORY } from './requests.repository';
-import { Request } from './requests.model';
+import { Request, RequestStatus } from './requests.model';
 import { CreateRequestDto, UpdateRequestDto } from './requests.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
@@ -85,12 +85,41 @@ export class RequestsService {
       throw new NotFoundException();
     }
 
+    // Only hotel staff/owner (or admin) can mark a request as completed.
+    if (dto.status === RequestStatus.COMPLETED) {
+      const isStaffOrOwner =
+        currentAccount.role === AccountRole.ADMIN ||
+        currentAccount.role === AccountRole.HOTEL_OWNER ||
+        currentAccount.role === AccountRole.HOTEL_STAFF;
+
+      if (!isStaffOrOwner) {
+        throw new ForbiddenException('Only hotel staff or owner can mark a request as completed');
+      }
+    }
+
     await request.update(dto);
 
     return {
       success: true,
       message: 'Request updated',
       data: request,
+    };
+  }
+
+  async findByBookingId(bookingId: number, currentAccount: Account, status?: RequestStatus) {
+    const whereForAccount = await this.getWhereForAccount(currentAccount);
+    const where: any = { bookingId };
+    if (whereForAccount) {
+      Object.assign(where, whereForAccount);
+    }
+    if (status) {
+      where.status = status;
+    }
+    const requests = await this.requestsRepository.findAll({ where });
+    return {
+      success: true,
+      message: null,
+      data: requests,
     };
   }
 
@@ -107,8 +136,10 @@ export class RequestsService {
       throw new ForbiddenException();
     }
 
-    const userNotes = Array.isArray(request.userNotes) ? [...request.userNotes] : [];
-    userNotes.push(message);
+    const userNotes: any[] = Array.isArray(request.userNotes)
+      ? JSON.parse(JSON.stringify(request.userNotes))
+      : [];
+    userNotes.push({ text: message, addedAt: new Date().toISOString() });
     await request.update({ userNotes });
 
     return {
@@ -131,8 +162,10 @@ export class RequestsService {
       await this.hotelsService.findByIdForAccount(request.hotelId, currentAccount);
     }
 
-    const staffNotes = Array.isArray(request.staffNotes) ? [...request.staffNotes] : [];
-    staffNotes.push(message);
+    const staffNotes: any[] = Array.isArray(request.staffNotes)
+      ? JSON.parse(JSON.stringify(request.staffNotes))
+      : [];
+    staffNotes.push({ text: message, addedAt: new Date().toISOString() });
     await request.update({ staffNotes });
 
     return {
