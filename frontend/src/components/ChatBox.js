@@ -1,12 +1,28 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Button, CircularProgress, IconButton, TextField, Typography } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import MicIcon from '@mui/icons-material/Mic';
+import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { keyframes } from '@mui/system';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+
+const pulseWave = keyframes({
+  '0%': {
+    transform: 'scaleY(1)',
+    opacity: 0.7,
+  },
+  '50%': {
+    transform: 'scaleY(1.3)',
+    opacity: 1,
+  },
+  '100%': {
+    transform: 'scaleY(1)',
+    opacity: 0.7,
+  },
+});
 
 function ChatBox({ bookingId, alertError }) {
   const [socket, setSocket] = useState(null);
@@ -437,6 +453,26 @@ function ChatBox({ bookingId, alertError }) {
             {renderMarkdown(streamingContent)}
           </Box>
         )}
+        {!streamingContent && sending && (
+          <Box
+            sx={{
+              alignSelf: 'flex-start',
+              maxWidth: '85%',
+              px: 2,
+              py: 1.5,
+              borderRadius: 2,
+              bgcolor: 'action.hover',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              Cassandra is thinking…
+            </Typography>
+          </Box>
+        )}
         <div ref={messagesEndRef} />
       </Box>
 
@@ -458,8 +494,22 @@ function ChatBox({ bookingId, alertError }) {
           multiline
           maxRows={4}
         />
-        <IconButton color={isRecording ? 'secondary' : 'primary'} onClick={handleVoice} disabled={!ready || !voiceReady} aria-label="Voice">
-          <MicIcon />
+        <IconButton
+          color={isRecording ? 'secondary' : 'primary'}
+          onClick={handleVoice}
+          disabled={!ready || !voiceReady}
+          aria-label="Voice"
+          sx={{
+            transition: 'transform 0.2s ease, opacity 0.2s ease',
+            transform: isRecording ? 'scale(1.15)' : 'scale(1)',
+            opacity: !ready || !voiceReady ? 0.4 : 1,
+          }}
+        >
+          <GraphicEqIcon
+            sx={{
+              animation: isRecording ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
+            }}
+          />
         </IconButton>
         <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>
           Send
