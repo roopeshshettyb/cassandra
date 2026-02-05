@@ -115,7 +115,13 @@ export class RequestsService {
     if (status) {
       where.status = status;
     }
-    const requests = await this.requestsRepository.findAll({ where });
+    const requests = await this.requestsRepository.findAll({
+      where,
+      order: [
+        ['createdAt', 'DESC'],
+        ['urgency', 'DESC'],
+      ],
+    });
     return {
       success: true,
       message: null,

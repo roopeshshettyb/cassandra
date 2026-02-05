@@ -1,8 +1,11 @@
 {
-  "APP_NAME": "Cassandra",
+  "APP_NAME": "Samantha",
   "TAGLINE": "With you, always",
-  "DESCRIPTION": "Cassandra is your personal concierge and will make your stay a breeze.",
+  "DESCRIPTION": "Samantha is your personal concierge and will make your stay a breeze.",
   "X_API_URL": "https://api.twitter.com",
+  "LOGO": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
+  "PROD_FRONTEND_URL": "https://samantha.flashpact.in",
+  "HERO": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
   "ACCOUNT_ROLES": {
     "ADMIN": "admin",
     "HOTEL_OWNER": "hotel_owner",

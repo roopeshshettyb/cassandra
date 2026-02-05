@@ -26,17 +26,18 @@ export function describeSpeakerRole(role: string | undefined | null): string {
 }
 
 /**
- * Build the shared Cassandra system instructions and conversational context
+ * Build the shared system instructions and conversational context
  * string for a given chat. This is suitable for passing to
  * `session.instructions` in the Realtime API.
  */
 export async function buildSystemInstructions(
   chatContextService: ChatContextService,
   chatId: number,
+  appName: string,
 ): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
-  const systemContent = `You are Cassandra, a hotel companion that helps with anything related to the guest's stay.
+  const systemContent = `You are ${appName}, a hotel companion that helps with anything related to the guest's stay.
 
 The person speaking to you over chat or voice may be:
 - a room guest staying at the hotel,
@@ -63,7 +64,7 @@ Always respond in Markdown.`;
 }
 
 /**
- * Build the shared Cassandra system instructions and conversational context
+ * Build the shared system instructions and conversational context
  * for a given chat, plus the current user message.
  *
  * This helper is reused for both text (`/chat`) and voice (`/voice`) flows
@@ -73,9 +74,10 @@ export async function buildChatPrompt(
   chatContextService: ChatContextService,
   chatId: number,
   userMessage: string,
+  appName: string,
   speakerRole?: string,
 ): Promise<ChatPromptResult> {
-  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId);
+  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName);
 
   // In the future this can include attachment-derived content as well.
   const textContents: string[] = [];

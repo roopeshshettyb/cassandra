@@ -196,10 +196,13 @@ export class ConstantsService {
   get public() {
     return {
       // App Configuration
-      APP_NAME: this.configService.get<string>('APP_NAME', 'Cassandra'),
+      APP_NAME: this.configService.get<string>('APP_NAME', 'Samantha'),
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
-      DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Cassandra is your personal concierge and will make your stay a breeze.'),
+      DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Samantha is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
+      LOGO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+      PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
+      HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
 
       ACCOUNT_ROLES,
 

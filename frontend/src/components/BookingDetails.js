@@ -1,6 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography, Grid, Chip, Divider, Stack, TextField, MenuItem, IconButton } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Typography,
+  Grid,
+  Chip,
+  Divider,
+  Stack,
+  TextField,
+  MenuItem,
+  IconButton,
+} from '@mui/material';
 import { motion } from 'framer-motion';
 import Schedule from '@mui/icons-material/Schedule';
 import RoomServiceIcon from '@mui/icons-material/RoomService';
@@ -226,18 +245,8 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                               textTransform: 'uppercase',
                               fontSize: 10,
                               borderRadius: '999px',
-                              borderColor:
-                                req.urgency === 'high'
-                                  ? 'error.main'
-                                  : req.urgency === 'medium'
-                                  ? 'warning.main'
-                                  : 'success.main',
-                              color:
-                                req.urgency === 'high'
-                                  ? 'error.main'
-                                  : req.urgency === 'medium'
-                                  ? 'warning.main'
-                                  : 'success.main',
+                              borderColor: req.urgency === 'high' ? 'error.main' : req.urgency === 'medium' ? 'warning.main' : 'success.main',
+                              color: req.urgency === 'high' ? 'error.main' : req.urgency === 'medium' ? 'warning.main' : 'success.main',
                               fontWeight: 600,
                               letterSpacing: 0.5,
                             }}
@@ -258,11 +267,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                               SelectProps={{
                                 renderValue: (value) => (
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    {value === 'completed' ? (
-                                      <CheckCircleOutlineIcon sx={{ fontSize: 16 }} color="success" />
-                                    ) : (
-                                      <PendingIcon sx={{ fontSize: 16, color: 'action.active' }} />
-                                    )}
+                                    {value === 'completed' ? <CheckCircleOutlineIcon sx={{ fontSize: 16 }} color="success" /> : <PendingIcon sx={{ fontSize: 16, color: 'action.active' }} />}
                                     <Typography variant="body2" sx={{ fontSize: 12, textTransform: 'capitalize' }}>
                                       {value}
                                     </Typography>
@@ -290,13 +295,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                           ) : (
                             <Chip
                               size="small"
-                              icon={
-                                req.status === 'completed' ? (
-                                  <CheckCircleOutlineIcon sx={{ fontSize: 14 }} />
-                                ) : (
-                                  <PendingIcon sx={{ fontSize: 14 }} />
-                                )
-                              }
+                              icon={req.status === 'completed' ? <CheckCircleOutlineIcon sx={{ fontSize: 14 }} /> : <PendingIcon sx={{ fontSize: 14 }} />}
                               label={req.status === 'completed' ? 'Completed' : 'Pending'}
                               variant={req.status === 'completed' ? 'filled' : 'outlined'}
                               color={req.status === 'completed' ? 'success' : 'default'}
@@ -366,13 +365,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                                 }))
                               }
                             />
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => handleAppendNote(req.id)}
-                              disabled={!pendingNotes[req.id]?.trim()}
-                              aria-label="Add note"
-                            >
+                            <IconButton size="small" color="primary" onClick={() => handleAppendNote(req.id)} disabled={!pendingNotes[req.id]?.trim()} aria-label="Add note">
                               <AddIcon fontSize="small" />
                             </IconButton>
                           </Box>

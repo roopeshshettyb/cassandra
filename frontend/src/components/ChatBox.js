@@ -6,6 +6,9 @@ import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { keyframes } from '@mui/system';
+import constants from '../constants.json';
+
+const { APP_NAME } = constants;
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
@@ -72,7 +75,7 @@ function ChatBox({ bookingId, alertError }) {
     if (!bookingId || isNaN(bookingId)) return;
     const token = localStorage.getItem('token');
     if (!token) {
-      alertError?.('Please log in to talk to Cassandra');
+      alertError?.(`Please log in to talk to ${APP_NAME}`);
       return;
     }
 
@@ -236,10 +239,7 @@ function ChatBox({ bookingId, alertError }) {
       const toolCalls = payload?.toolCalls || [];
       setStreamingContent('');
       if (text) {
-        setMessages((prev) => [
-          ...prev,
-          { id: `assistant-voice-${Date.now()}`, role: 'assistant', content: text, createdAt: new Date().toISOString(), toolCalls },
-        ]);
+        setMessages((prev) => [...prev, { id: `assistant-voice-${Date.now()}`, role: 'assistant', content: text, createdAt: new Date().toISOString(), toolCalls }]);
       }
       setSending(false);
       focusInput();
@@ -469,7 +469,7 @@ function ChatBox({ bookingId, alertError }) {
           >
             <CircularProgress size={16} />
             <Typography variant="body2" color="text.secondary">
-              Cassandra is thinking…
+              {APP_NAME} is thinking…
             </Typography>
           </Box>
         )}
@@ -521,7 +521,7 @@ function ChatBox({ bookingId, alertError }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '60vh', width: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Typography variant="h6">Cassandra will help you with this booking</Typography>
+        <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
         {(sending || streamingContent) && <CircularProgress size={16} />}
         {connectionNote ? (
           <Typography variant="caption" color="text.secondary">

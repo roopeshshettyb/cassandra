@@ -10,6 +10,7 @@ import { LangGraphService, ToolCallRecord } from '../../langgraph/langgraph.serv
 import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
 import { buildChatPrompt } from '../chat-prompt.builder';
+import { ConstantsService } from '../../common/constants/constants.service';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
 @Injectable()
@@ -26,6 +27,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatContextService: ChatContextService,
     private readonly langGraphService: LangGraphService,
     private readonly bookingsService: BookingsService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   async handleConnection(client: any) {
@@ -57,7 +59,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async processMessage(chatId: any, userMessage: string, account: any): Promise<any> {
-    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, account?.role);
+    const appName = this.constantsService.public.APP_NAME;
+    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, appName, account?.role);
 
     return {
       contextData,

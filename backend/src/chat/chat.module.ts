@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { MessagesModule } from '../messages/messages.module';
 import { ChatContextModule } from '../chat-context/chat-context.module';
 import { LangGraphModule } from '../langgraph/langgraph.module';
+import { CommonModule } from '../common/common.module';
 import { ChatRepository } from './chat.repository';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './gateway/chat.gateway';
@@ -19,6 +20,7 @@ import { VoiceGateway } from './gateway/voice.gateway';
     MessagesModule,
     ChatContextModule,
     LangGraphModule,
+    CommonModule,
   ],
   providers: [ChatRepository, ChatService, ChatGateway, VoiceRealtimeService, VoiceGateway],
   exports: [ChatRepository, ChatService],

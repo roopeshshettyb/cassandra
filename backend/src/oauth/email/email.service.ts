@@ -42,7 +42,7 @@ export class EmailService {
     const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
     await this.accountsService.update({ otp, otpExpiresAt }, { uuid });
 
-    const appName = this.constantsService.public.APP_NAME || 'Cassandra';
+    const appName = this.constantsService.public.APP_NAME;
     const subject = `${appName} - Your sign in code`;
     const text = `Your verification code is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
     const html = this.mailerService.buildOtpEmailHtml({ otp, otpExpiryMinutes: OTP_EXPIRY_MINUTES });

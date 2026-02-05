@@ -101,8 +101,8 @@ export class BookingsService {
     const priv = this.constantsService.private;
     const appName = pub.APP_NAME;
     const frontendUrl = priv.FRONTEND_URL;
-    const subject = 'Your booking is confirmed - open Cassandra to help with your stay';
-    const bodyText = 'Open Cassandra to help with your stay.';
+    const subject = `Your booking is confirmed - open ${appName} to help with your stay`;
+    const bodyText = `Open ${appName} to help with your stay.`;
 
     const greeting = guestName ? `Hi ${guestName},` : 'Hi,';
     const text = `${greeting}\n\nYour booking at ${hotel.name} is confirmed.\n\n${bodyText}\n\n${frontendUrl}`;
@@ -158,6 +158,10 @@ export class BookingsService {
           as: 'requests',
           attributes: ['id', 'requestType', 'urgency', 'status', 'userNotes', 'staffNotes'],
         },
+      ],
+      order: [
+        [{ model: Request, as: 'requests' }, 'createdAt', 'DESC'],
+        [{ model: Request, as: 'requests' }, 'urgency', 'DESC'],
       ],
     });
 

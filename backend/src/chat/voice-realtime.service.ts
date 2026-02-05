@@ -5,6 +5,7 @@ import { AgentToolContext } from '../langgraph/langgraph-tools.context';
 import { RealtimeToolsService, RealtimeToolDefinition } from '../langgraph/realtime-tools.service';
 import { buildSystemInstructions, describeSpeakerRole } from './chat-prompt.builder';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
+import { ConstantsService } from '../common/constants/constants.service';
 
 export interface VoiceSessionHandlers {
   onServerEvent?: (event: any) => void;
@@ -32,6 +33,7 @@ export class VoiceRealtimeService {
   constructor(
     private readonly chatContextService: ChatContextService,
     private readonly realtimeToolsService: RealtimeToolsService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   /**
@@ -70,7 +72,8 @@ export class VoiceRealtimeService {
     ws.on('open', async () => {
       state.isOpen = true;
       try {
-        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId);
+        const appName = this.constantsService.public.APP_NAME;
+        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName);
         const speakerRoleDescription = describeSpeakerRole((ctx.account as any)?.role);
         const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.`;
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);

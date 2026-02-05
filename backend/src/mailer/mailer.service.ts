@@ -41,7 +41,7 @@ export class MailerService {
     const priv = this.constantsService.private;
     const frontendUrl = priv.FRONTEND_URL || 'http://localhost:6768';
     const vars: Record<string, string> = {
-      APP_NAME: pub.APP_NAME || 'Cassandra',
+      APP_NAME: pub.APP_NAME,
       TAGLINE: pub.TAGLINE || '',
       FRONTEND_URL: frontendUrl,
       LOGO_URL: `${frontendUrl}/logo.png`,
@@ -57,7 +57,7 @@ export class MailerService {
     const pub = this.constantsService.public;
     const inner = this.readTemplate('otpEmailTemplate.html');
     const contentHtml = this.render(inner, {
-      APP_NAME: pub.APP_NAME || 'Cassandra',
+      APP_NAME: pub.APP_NAME,
       OTP: params.otp,
       OTP_EXPIRY_MINUTES: `${params.otpExpiryMinutes}`,
     });
@@ -90,7 +90,7 @@ export class MailerService {
     const privateConstants = this.constantsService.private;
     const publicConstants = this.constantsService.public;
     const email = privateConstants.GODADDY_EMAIL;
-    const appName = publicConstants.APP_NAME || 'Cassandra';
+    const appName = publicConstants.APP_NAME;
     const from = email ? `"${appName}" <${email}>` : 'noreply@example.com';
     const transport = this.getTransporter();
     await transport.sendMail({
