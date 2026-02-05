@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
+const dotenv = require('dotenv');
+const envFile = '.env.development';
+
+dotenv.config({ path: path.join(__dirname, '..', envFile) });
+
 const constantsPath = path.join(__dirname, '..', 'src', 'constants.json');
 const indexPath = path.join(__dirname, '..', 'public', 'index.html');
 
@@ -15,7 +20,7 @@ const indexHtml = fs.readFileSync(indexPath, 'utf8');
 const APP_NAME = constants.APP_NAME || 'Aura';
 const TAGLINE = constants.TAGLINE || 'Capture Social Media Aura';
 const DESCRIPTION = constants.DESCRIPTION || 'Transform profile pictures and headers into powerful advertising spaces. Reach millions where they engage most.';
-const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:5657';
+const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL;
 
 let updatedHtml = indexHtml
   .replace(/<title>.*?<\/title>/, `<title>${APP_NAME} - ${TAGLINE}</title>`)

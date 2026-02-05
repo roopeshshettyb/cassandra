@@ -218,8 +218,8 @@ export class ConstantsService {
       // Environment Configuration
       NODE_ENV: this.configService.get<string>('NODE_ENV', 'development'),
       BACKEND_PORT: this.configService.get<number>('PORT', 3000),
-      FRONTEND_URL: this.configService.get<string>('FRONTEND_URL', 'http://localhost:6768'),
-      BACKEND_URL: this.configService.get<string>('BACKEND_URL', 'http://localhost:6767'),
+      FRONTEND_URL: this.configService.get<string>('FRONTEND_URL'),
+      BACKEND_URL: this.configService.get<string>('BACKEND_URL'),
       GOOGLE_CLIENT_ID: this.configService.get<string>('GOOGLE_CLIENT_ID'),
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 

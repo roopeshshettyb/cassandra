@@ -15,9 +15,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  const port = process.env.PORT || 6767;
+  const port = constantsService.private.BACKEND_PORT;
   await app.listen(port);
-  console.log(`Application is running on: ${constantsService.private.BACKEND_URL}`);
-  console.log(frontendUrl);
+  console.log(`${constantsService.private.NODE_ENV}: Application is running on: ${port}`);
 }
 bootstrap();

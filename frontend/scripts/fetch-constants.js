@@ -2,8 +2,15 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:5656';
+// Load the correct .env file so that process.env values are available in this Node script
+const envFile = '.env.development';
+
+dotenv.config({ path: path.join(__dirname, '..', envFile) });
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
 const OUTPUT_PATH = path.join(__dirname, '..', 'src', 'constants.json');
 
 function fetchConstants() {
