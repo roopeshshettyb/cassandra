@@ -11,6 +11,8 @@ const MotionBox = motion(Box);
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
+const ACCOUNT_ROLES = constants?.ACCOUNT_ROLES;
+
 const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navigate, setAccount }) => {
   const [emailFlowStep, setEmailFlowStep] = useState(null);
   const [emailValue, setEmailValue] = useState('');
@@ -83,9 +85,18 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
         throw: true,
       });
       localStorage.setItem('token', response.token);
-      setAccount?.(response.account);
+      const loggedInAccount = response.account;
+      setAccount?.(loggedInAccount);
       closeLoginPopup?.();
-      navigate?.('/');
+
+      const role = loggedInAccount?.role;
+      if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
+        navigate?.('/hotels');
+      } else if (role === ACCOUNT_ROLES.GUEST) {
+        navigate?.('/bookings');
+      } else {
+        navigate?.('/');
+      }
     } catch (err) {
       logger.error({
         error: err,

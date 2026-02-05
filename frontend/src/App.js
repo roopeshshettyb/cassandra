@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Grid, useMediaQuery, Box, Typography } from '@mui/material';
@@ -19,38 +19,13 @@ import HotelDetails from './components/HotelDetails';
 import ManageBookings from './components/ManageBookings';
 import BookingDetails from './components/BookingDetails';
 import ManageRequests from './components/ManageRequests';
-import ChatBox from './components/ChatBox';
 import Rooms from './components/Rooms';
-import constants from './constants.json';
 import request from './helper/api';
 import logger from './services/logger.service';
 import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
-
-const ACCOUNT_ROLES = constants?.ACCOUNT_ROLES;
-
-const RoleBasedHome = ({ account, loading }) => {
-  if (loading) {
-    return null;
-  }
-
-  if (!account) {
-    return <Navigate to="/404" replace />;
-  }
-
-  const role = account.role;
-
-  if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
-    return <Navigate to="/hotels" replace />;
-  }
-
-  if (role === ACCOUNT_ROLES.GUEST) {
-    return <Navigate to="/bookings" replace />;
-  }
-
-  return <Navigate to="/404" replace />;
-};
+import Home from './components/Home';
 
 const AppContent = () => {
   const navigate = useNavigate();
@@ -124,12 +99,8 @@ const AppContent = () => {
       createTheme({
         palette: {
           mode,
-          primary: {
-            main: '#D4AF37', // Gold
-          },
-          secondary: {
-            main: '#C5A022', // Slightly different gold for secondary
-          },
+          primary: { main: '#D4AF37' },
+          secondary: { main: '#C5A022' },
           background: {
             default: mode === 'dark' ? '#000000' : '#F5F5F5',
             paper: mode === 'dark' ? '#121212' : '#FFFFFF',
@@ -141,33 +112,14 @@ const AppContent = () => {
         },
         typography: {
           fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-          h1: {
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-          },
-          h2: {
-            fontWeight: 700,
-            letterSpacing: '-0.01em',
-          },
-          h3: {
-            fontWeight: 600,
-          },
-          h4: {
-            fontWeight: 600,
-          },
-          h5: {
-            fontWeight: 500,
-          },
-          h6: {
-            fontWeight: 600,
-          },
-          body1: {
-            fontSize: '1.1rem',
-            lineHeight: 1.7,
-          },
-          body2: {
-            lineHeight: 1.6,
-          },
+          h1: { fontWeight: 700, letterSpacing: '-0.02em' },
+          h2: { fontWeight: 700, letterSpacing: '-0.01em' },
+          h3: { fontWeight: 600 },
+          h4: { fontWeight: 600 },
+          h5: { fontWeight: 500 },
+          h6: { fontWeight: 600 },
+          body1: { fontSize: '1.1rem', lineHeight: 1.7 },
+          body2: { lineHeight: 1.6 },
         },
         components: {
           MuiCard: {
@@ -197,9 +149,7 @@ const AppContent = () => {
             styleOverrides: {
               root: {
                 borderRadius: 8,
-                '&:before': {
-                  display: 'none',
-                },
+                '&:before': { display: 'none' },
               },
             },
           },
@@ -209,77 +159,25 @@ const AppContent = () => {
   );
 
   const toggleColorMode = () => {
-    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
+    setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const isMobile = useMediaQuery('(max-width:768px)');
 
   const routes = [
-    {
-      path: '/oauth/callback',
-      component: OAuthCallback,
-      isProtected: false,
-    },
-    {
-      path: '/notifications',
-      component: Notifications,
-      isProtected: true,
-    },
-    {
-      path: '/privacy-policy',
-      component: PrivacyPolicy,
-      isProtected: false,
-    },
-    {
-      path: '/fees-refund-policy',
-      component: FeesAndRefundPolicy,
-      isProtected: false,
-    },
-    {
-      path: '/terms-conditions',
-      component: TermsAndConditions,
-      isProtected: false,
-    },
-    {
-      path: '/shipping-delivery-policy',
-      component: ShippingDeliveryPolicy,
-      isProtected: false,
-    },
-    {
-      path: '/contact',
-      component: ContactUs,
-      isProtected: false,
-    },
-    {
-      path: '/rooms',
-      component: Rooms,
-      isProtected: true,
-    },
-    {
-      path: '/hotels',
-      component: ManageHotels,
-      isProtected: true,
-    },
-    {
-      path: '/hotels/:id',
-      component: HotelDetails,
-      isProtected: true,
-    },
-    {
-      path: '/bookings',
-      component: ManageBookings,
-      isProtected: true,
-    },
-    {
-      path: '/bookings/:id',
-      component: BookingDetails,
-      isProtected: true,
-    },
-    {
-      path: '/requests',
-      component: ManageRequests,
-      isProtected: true,
-    },
+    { path: '/oauth/callback', component: OAuthCallback, isProtected: false },
+    { path: '/notifications', component: Notifications, isProtected: true },
+    { path: '/privacy-policy', component: PrivacyPolicy, isProtected: false },
+    { path: '/fees-refund-policy', component: FeesAndRefundPolicy, isProtected: false },
+    { path: '/terms-conditions', component: TermsAndConditions, isProtected: false },
+    { path: '/shipping-delivery-policy', component: ShippingDeliveryPolicy, isProtected: false },
+    { path: '/contact', component: ContactUs, isProtected: false },
+    { path: '/rooms', component: Rooms, isProtected: true },
+    { path: '/hotels', component: ManageHotels, isProtected: true },
+    { path: '/hotels/:id', component: HotelDetails, isProtected: true },
+    { path: '/bookings', component: ManageBookings, isProtected: true },
+    { path: '/bookings/:id', component: BookingDetails, isProtected: true },
+    { path: '/requests', component: ManageRequests, isProtected: true },
   ];
 
   const smoothScrollToTop = () => {
@@ -328,19 +226,27 @@ const AppContent = () => {
           <Box sx={{ flex: 1 }}>
             <Grid style={{ paddingTop: '20px' }}>
               <Routes>
-                <Route path="/" element={<RoleBasedHome account={account} loading={loading} />} />
+                <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
-
                   const guardedElement = route.isProtected && !isAuthenticated ? <Navigate to="/404" replace /> : element;
-
                   return <Route key={route.path} path={route.path} element={guardedElement} />;
                 })}
                 <Route
                   path="*"
                   element={
-                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', p: 2, gap: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        minHeight: '60vh',
+                        p: 2,
+                        gap: 2,
+                      }}
+                    >
                       <img src="/404.gif" alt="Page not found" style={{ maxWidth: '100%', height: 'auto', mixBlendMode: 'multiply' }} />
                       <Typography variant="body1" color="text.secondary">
                         You seem to be lost. There&apos;s nothing here.
@@ -354,8 +260,7 @@ const AppContent = () => {
           <LoginPopup {...commonProps} />
           {loading && <Loader isMobile={isMobile} />}
           <Grid style={{ padding: '10px' }}>
-            {' '}
-            <ToastContainer position="top-right" autoClose={2000} hideProgressBar={true} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
+            <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
           <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />
         </Box>

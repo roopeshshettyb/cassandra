@@ -5,6 +5,8 @@ import request from '../helper/api';
 import logger from '../services/logger.service';
 import constants from '../constants.json';
 
+const ACCOUNT_ROLES = constants?.ACCOUNT_ROLES;
+
 const OAuthCallback = ({ setAccount, fetchProfiles, navigate, alertError }) => {
   const preProcessForX = (code, state) => {
     if (!code) {
@@ -96,8 +98,17 @@ const OAuthCallback = ({ setAccount, fetchProfiles, navigate, alertError }) => {
           break;
       }
 
-      setAccount(response.account);
-      window.location.href = '/';
+      const loggedInAccount = response.account;
+      setAccount(loggedInAccount);
+
+      const role = loggedInAccount?.role;
+      if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
+        window.location.href = '/hotels';
+      } else if (role === ACCOUNT_ROLES.GUEST) {
+        window.location.href = '/bookings';
+      } else {
+        window.location.href = '/';
+      }
     } catch (error) {
       logger.error({
         error,

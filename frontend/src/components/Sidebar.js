@@ -77,6 +77,14 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
 
   const commonNavItems = [
     {
+      key: 'Home',
+      icon: Home,
+      text: 'Home',
+      link: '/',
+      variant: null,
+      protectedNavItem: false,
+    },
+    {
       key: 'Login',
       icon: LoginIcon,
       text: 'Login',
@@ -88,6 +96,15 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       protectedNavItem: false,
     },
     {
+      key: 'Notifications',
+      icon: NotificationsIcon,
+      text: 'Notifications',
+      link: '/notifications',
+      variant: null,
+      protectedNavItem: true,
+      showBadge: true,
+    },
+    {
       key: 'Logout',
       icon: Logout,
       text: 'Logout',
@@ -97,15 +114,6 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       },
       variant: 'outlined',
       protectedNavItem: true,
-    },
-    {
-      key: 'Notifications',
-      icon: NotificationsIcon,
-      text: 'Notifications',
-      link: '/notifications',
-      variant: null,
-      protectedNavItem: true,
-      showBadge: true,
     },
   ];
 
