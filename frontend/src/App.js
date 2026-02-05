@@ -18,6 +18,7 @@ import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
 import ManageBookings from './components/ManageBookings';
 import BookingDetails from './components/BookingDetails';
+import ManageRequests from './components/ManageRequests';
 import ChatBox from './components/ChatBox';
 import Rooms from './components/Rooms';
 import constants from './constants.json';
@@ -272,6 +273,11 @@ const AppContent = () => {
     {
       path: '/bookings/:id',
       component: BookingDetails,
+      isProtected: true,
+    },
+    {
+      path: '/requests',
+      component: ManageRequests,
       isProtected: true,
     },
   ];

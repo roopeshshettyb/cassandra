@@ -5,6 +5,8 @@ import { CreateRequestDto, UpdateRequestDto } from './requests.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
+import { Hotel } from '../hotels/hotels.model';
+import { Booking } from '../bookings/bookings.model';
 import { Op } from 'sequelize';
 
 @Injectable()
@@ -44,6 +46,34 @@ export class RequestsService {
       return;
     }
     throw new ForbiddenException();
+  }
+
+  async findAllForAccount(currentAccount: Account) {
+    const where = await this.getWhereForAccount(currentAccount);
+
+    const findOptions: any = {
+      order: [
+        ['createdAt', 'DESC'],
+        ['urgency', 'DESC'],
+      ],
+      include: [
+        { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
+        { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
+        { model: Booking, as: 'booking', attributes: ['id'] },
+      ],
+    };
+
+    if (where) {
+      findOptions.where = where;
+    }
+
+    const requests = await this.requestsRepository.findAll(findOptions);
+
+    return {
+      success: true,
+      message: null,
+      data: requests,
+    };
   }
 
   async create(dto: CreateRequestDto, currentAccount: Account) {

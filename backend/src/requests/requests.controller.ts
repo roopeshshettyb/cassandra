@@ -10,6 +10,11 @@ import { AppendMessageDto, CreateRequestDto, UpdateRequestDto } from './requests
 export class RequestsController {
   constructor(private readonly requestsService: RequestsService) {}
 
+  @Get()
+  async findAll(@CurrentAccount() account: Account) {
+    return this.requestsService.findAllForAccount(account);
+  }
+
   @Post()
   async create(@Body(ValidationPipe) dto: CreateRequestDto, @CurrentAccount() account: Account) {
     return this.requestsService.create(dto, account);
