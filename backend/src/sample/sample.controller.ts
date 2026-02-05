@@ -22,7 +22,7 @@ export class SampleController {
   async count(@Query('filter') filter?: string) {
     const countOptions: CountOptions = filter ? JSON.parse(filter) : {};
     return this.sampleService.count(countOptions);
-  }
+  } //d
 
   @Get(':id')
   async findById(@Param('id', ParseIntPipe) id: number) {
