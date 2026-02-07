@@ -15,6 +15,8 @@ import { ChatContextService } from '../../chat-context/chat-context.service';
 import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
 import { VoiceRealtimeService } from '../voice-realtime.service';
+import { ConstantsService } from '../../common/constants/constants.service';
+import { ensureWithinStayWindow } from './stay-window.guard';
 
 @WebSocketGateway({ cors: true, namespace: '/voice' })
 @Injectable()
@@ -31,6 +33,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatContextService: ChatContextService,
     private readonly bookingsService: BookingsService,
     private readonly voiceRealtimeService: VoiceRealtimeService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   async handleConnection(client: any) {
@@ -72,10 +75,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const chat = await this.chatService.findOrCreateForBooking(bookingId, account);
       const { data: booking } = await this.bookingsService.findByIdForAccount(bookingId, account);
-      const hotelModel: any = booking.hotel;
-      const bookingModel: any = booking;
-      const hotel = hotelModel ? hotelModel.get({ plain: true }) : null;
-      const bookingPlain = bookingModel.get({ plain: true });
+      if (!ensureWithinStayWindow(client, booking.isWithinStay, this.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
+        return;
+      }
+      const hotel = (booking.hotel || null) as Record<string, unknown> | null;
+      const bookingPlain = booking as Record<string, unknown>;
       const messages = await this.messagesService.findRecentByChatId(chat.id, 50);
       const session: ChatSession = {
         account,

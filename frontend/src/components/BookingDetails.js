@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import Schedule from '@mui/icons-material/Schedule';
+import PersonIcon from '@mui/icons-material/Person';
 import RoomServiceIcon from '@mui/icons-material/RoomService';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import LocalLaundryServiceIcon from '@mui/icons-material/LocalLaundryService';
@@ -160,7 +161,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <ChatBox bookingId={bookingId} alertError={alertError} />
+            <ChatBox bookingId={bookingId} alertError={alertError} isWithinStay={booking.isWithinStay} />
           </CardContent>
         </Card>
 
@@ -198,6 +199,38 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                 </Box>
               </Grid>
             </Grid>
+
+            {booking.guest && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h5" sx={{ mb: 2 }}>
+                  Guest
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <PersonIcon sx={{ color: 'text.secondary', fontSize: 20, mt: 0.25 }} />
+                      <Box>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Name
+                        </Typography>
+                        <Typography variant="body2">{booking.guest.name || '-'}</Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <PersonIcon sx={{ color: 'text.secondary', fontSize: 20, mt: 0.25 }} />
+                      <Box>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Email
+                        </Typography>
+                        <Typography variant="body2">{booking.guest.email || '-'}</Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
 
             {booking.hotel && (
               <Box sx={{ mt: 3 }}>

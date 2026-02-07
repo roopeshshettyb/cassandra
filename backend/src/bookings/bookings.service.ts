@@ -161,6 +161,7 @@ export class BookingsService {
       where: findWhere,
       include: [
         { model: Hotel, as: 'hotel' },
+        { model: Account, as: 'guest', attributes: ['id', 'email', 'name'] },
         {
           model: Request,
           as: 'requests',
@@ -177,7 +178,10 @@ export class BookingsService {
       throw new NotFoundException();
     }
 
-    return { success: true, message: null, data: booking };
+    const plain = booking.get({ plain: true }) as unknown as Record<string, unknown>;
+    const now = new Date();
+    plain.isWithinStay = now >= new Date(plain.startTime as Date) && now <= new Date(plain.endTime as Date);
+    return { success: true, message: null, data: plain };
   }
 
   async deleteForAccount(id: number, currentAccount: Account) {

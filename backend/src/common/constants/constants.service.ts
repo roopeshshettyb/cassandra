@@ -205,6 +205,7 @@ export class ConstantsService {
       HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
 
       ACCOUNT_ROLES,
+      ERROR_CHAT_ONLY_DURING_STAY: 'Chat and voice are only available during your stay (check-in to check-out)',
 
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
