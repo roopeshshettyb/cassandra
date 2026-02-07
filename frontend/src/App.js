@@ -26,6 +26,7 @@ import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './components/Home';
+import InviteHandler from './components/InviteHandler';
 
 const AppContent = () => {
   const navigate = useNavigate();
@@ -165,6 +166,7 @@ const AppContent = () => {
   const isMobile = useMediaQuery('(max-width:768px)');
 
   const routes = [
+    { path: '/invite', component: InviteHandler, isProtected: false },
     { path: '/oauth/callback', component: OAuthCallback, isProtected: false },
     { path: '/notifications', component: Notifications, isProtected: true },
     { path: '/privacy-policy', component: PrivacyPolicy, isProtected: false },

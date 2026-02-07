@@ -5,6 +5,7 @@ import { HotelAccount } from './hotel-accounts.model';
 import { CreateHotelDto, UpdateHotelDto, GrantHotelAccessDto, AddHotelStaffDto } from './hotels.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
+import { AuthService } from '../auth/auth.service';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
@@ -17,6 +18,7 @@ export class HotelsService {
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
     private readonly accountsService: AccountsService,
+    private readonly authService: AuthService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
   ) {}
@@ -216,7 +218,14 @@ export class HotelsService {
       },
     });
 
-    await this.sendStaffInviteEmail(hotel, account);
+    const inviteToken = await this.authService.generateInviteToken(account, {
+      hotelId: hotel.id,
+      type: 'staff',
+    });
+    const frontendUrl = this.constantsService.private.FRONTEND_URL;
+    const inviteUrl = `${frontendUrl}/invite?token=${encodeURIComponent(inviteToken)}`;
+
+    await this.sendStaffInviteEmail(hotel, account, inviteUrl);
 
     return {
       id: account.id,
@@ -237,29 +246,29 @@ export class HotelsService {
     });
   }
 
-  private async sendStaffInviteEmail(hotel: Hotel, account: Account): Promise<void> {
+  private async sendStaffInviteEmail(hotel: Hotel, account: Account, inviteUrl: string): Promise<void> {
     if (!account.email) {
       return;
     }
 
     const publicConstants = this.constantsService.public;
-    const privateConstants = this.constantsService.private;
-
     const appName = publicConstants.APP_NAME;
-    const frontendUrl = privateConstants.FRONTEND_URL;
 
     const subject = `${appName} - You have been granted hotel staff access`;
 
     const greetingName = account.name ? ` ${account.name}` : '';
+    const cta = 'Start talking with Samantha by clicking here';
     const text = `Hi${greetingName},
 
 You have been granted staff access for ${hotel.name} on ${appName}.
 
-You can log in using your email address at ${frontendUrl}.`;
+${cta}
+
+${inviteUrl}`;
 
     const contentHtml = `<p>Hi${greetingName},</p>
 <p>You have been granted staff access for <strong>${hotel.name}</strong> on <strong>${appName}</strong>.</p>
-<p>You can log in using your email address at <a href="${frontendUrl}">${frontendUrl}</a>.</p>`;
+<p>Start talking with Samantha by clicking <a href="${inviteUrl}">here</a>.</p>`;
 
     const html = this.mailerService.buildBaseEmailHtml(contentHtml);
 
