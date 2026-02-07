@@ -6,6 +6,7 @@ import request from '../helper/api';
 import MapComponent from './MapComponent';
 import DataTable from './DataTable';
 import HotelInfoCard from './HotelInfoCard';
+import ManageRestaurant from './ManageRestaurant';
 
 const MotionBox = motion(Box);
 
@@ -68,7 +69,7 @@ const StaffRow = ({ data, canManageStaff, onRevoke }) => {
   );
 };
 
-function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, alertError, isLoading }) {
+function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, alertError, isLoading, isMobile }) {
   const { id } = useParams();
   const [hotel, setHotel] = useState(null);
   const [staff, setStaff] = useState([]);
@@ -295,6 +296,18 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   onRevoke={handleRevokeStaff}
                 />
               </Box>
+            )}
+
+            {canEdit && (
+              <ManageRestaurant
+                hotelId={id}
+                loading={loading}
+                setLoading={setLoading}
+                account={account}
+                alertSuccess={alertSuccess}
+                alertError={alertError}
+                isMobile={isMobile}
+              />
             )}
 
             <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">

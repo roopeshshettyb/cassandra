@@ -3,10 +3,16 @@ import { z } from 'zod';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
+import { RestaurantService } from '../restaurant/restaurant.service';
 import { RequestType, RequestUrgency, RequestStatus } from '../requests/requests.model';
 import { CreateRequestDto } from '../requests/requests.dto';
 
-export function createAgentTools(ctx: AgentToolContext, bookingsService: BookingsService, requestsService: RequestsService): DynamicStructuredTool[] {
+export function createAgentTools(
+  ctx: AgentToolContext,
+  bookingsService: BookingsService,
+  requestsService: RequestsService,
+  restaurantService: RestaurantService,
+): DynamicStructuredTool[] {
   const { account, bookingId, chatId, hotel, booking } = ctx;
 
   return [
@@ -103,6 +109,29 @@ export function createAgentTools(ctx: AgentToolContext, bookingsService: Booking
       schema: z.object({}),
       func: async () => {
         return JSON.stringify(hotel);
+      },
+    }),
+    new DynamicStructuredTool({
+      name: 'search_restaurant_menu',
+      description:
+        'Search the restaurant menu for the current hotel. Use when guests ask about menu items, food options, prices, vegetarian/vegan options, dietary restrictions, or what is available to order. Returns available menu items (name, description, price, category, dietary tags, available times).',
+      schema: z.object({
+        keywords: z
+          .string()
+          .optional()
+          .describe('Comma-separated search terms to filter by name or description (e.g. "vegetarian, pasta, gluten-free")'),
+      }),
+      func: async (args) => {
+        const bookingAny: any = booking;
+        const hotelId = bookingAny?.hotelId;
+        if (!hotelId) {
+          return JSON.stringify({ error: 'No hotel in booking context' });
+        }
+        const result = await restaurantService.searchMenuItems(hotelId, account, {
+          booking: bookingAny ? { hotelId, guestId: bookingAny.guestId } : undefined,
+          keywords: args.keywords,
+        });
+        return JSON.stringify(result.data);
       },
     }),
   ];

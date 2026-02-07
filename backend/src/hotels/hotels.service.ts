@@ -10,6 +10,7 @@ import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
+import { MenuItem } from '../restaurant/restaurant.model';
 
 @Injectable()
 export class HotelsService {
@@ -85,6 +86,7 @@ export class HotelsService {
     }
     await this.bookingsRepository.destroy({ where: { hotelId: id } });
     await this.hotelAccountsRepository.destroy({ where: { hotelId: id } });
+    await MenuItem.destroy({ where: { hotelId: id } });
     await this.hotelsRepository.destroy({ where: { id } });
   }
 

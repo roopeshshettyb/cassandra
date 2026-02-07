@@ -21,6 +21,7 @@ import { ChatModule } from './chat/chat.module';
 import { MessagesModule } from './messages/messages.module';
 import { ChatContextModule } from './chat-context/chat-context.module';
 import { LangGraphModule } from './langgraph/langgraph.module';
+import { RestaurantModule } from './restaurant/restaurant.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 @Module({
@@ -51,6 +52,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     MessagesModule,
     ChatContextModule,
     LangGraphModule,
+    RestaurantModule,
   ],
   controllers: [AppController],
   providers: [
