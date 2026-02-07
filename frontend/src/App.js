@@ -226,7 +226,7 @@ const AppContent = () => {
           <Box sx={{ flex: 1 }}>
             <Grid style={{ paddingTop: '20px' }}>
               <Routes>
-                <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />
+                <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} alertError={alertError} />} />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
