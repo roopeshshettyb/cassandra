@@ -11,6 +11,7 @@ import { ChatService } from './chat.service';
 import { ChatGateway } from './gateway/chat.gateway';
 import { VoiceRealtimeService } from './voice-realtime.service';
 import { VoiceGateway } from './gateway/voice.gateway';
+import { CostsModule } from '../costs/costs.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { VoiceGateway } from './gateway/voice.gateway';
     ChatContextModule,
     LangGraphModule,
     CommonModule,
+    CostsModule,
   ],
   providers: [ChatRepository, ChatService, ChatGateway, VoiceRealtimeService, VoiceGateway],
   exports: [ChatRepository, ChatService],

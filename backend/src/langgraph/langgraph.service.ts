@@ -92,7 +92,10 @@ export class LangGraphService {
     return toolCalls;
   }
 
-  async *stream(input: StreamInput, ctx: AgentToolContext): AsyncGenerator<string | { toolCalls: ToolCallRecord[] }, void, unknown> {
+  async *stream(
+    input: StreamInput,
+    ctx: AgentToolContext,
+  ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
     const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService);
     const model = this.createModel();
@@ -100,6 +103,8 @@ export class LangGraphService {
 
     const threadId = `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let lastResult: { messages?: BaseMessage[] } | null = null;
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
 
     const state: any = { messages };
     const eventStream = agent.streamEvents(state, { version: 'v2', configurable: { thread_id: threadId } });
@@ -109,6 +114,16 @@ export class LangGraphService {
         const parsed = await this.outputParser.invoke(event.data.chunk);
         if (parsed) yield parsed;
       }
+      if (event.event === 'on_chat_model_end' && event.data?.output) {
+        const output = event.data.output;
+        const maybeUsage = output.usage_metadata as
+          | { input_tokens?: number; output_tokens?: number; total_tokens?: number }
+          | undefined;
+        if (maybeUsage) {
+          totalPromptTokens += maybeUsage.input_tokens ?? 0;
+          totalCompletionTokens += maybeUsage.output_tokens ?? 0;
+        }
+      }
       if (event.event === 'on_chain_end' && event.data?.output) {
         lastResult = event.data.output as { messages?: BaseMessage[] };
       }
@@ -116,9 +131,12 @@ export class LangGraphService {
 
     if (lastResult?.messages?.length) {
       const toolCalls = this.extractToolCalls(lastResult.messages);
-      if (toolCalls.length > 0) {
-        yield { toolCalls };
-      }
+      const usage: { promptTokens: number; completionTokens: number; totalTokens: number } = {
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+        totalTokens: totalPromptTokens + totalCompletionTokens,
+      };
+      yield { toolCalls, usage };
     }
   }
 }

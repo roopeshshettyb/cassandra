@@ -197,22 +197,48 @@ export class VoiceRealtimeService {
    * tool call records for a session. Intended to be called by the gateway
    * when a model response has completed.
    */
-  consumeTranscriptsAndTools(
-    sessionId: string,
-  ): { userTranscript?: string; assistantText?: string; toolCalls: ToolCallRecord[] } {
+  consumeTranscriptsAndTools(sessionId: string): {
+    userTranscript?: string;
+    assistantText?: string;
+    toolCalls: ToolCallRecord[];
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  } {
     const state = this.sessions.get(sessionId);
     if (!state) {
       return { toolCalls: [] };
     }
+    const snapshotUser = state.userTranscript;
+    const snapshotAssistant = state.assistantText;
+    const promptTokens = this.countTokens(snapshotUser);
+    const completionTokens = this.countTokens(snapshotAssistant);
+    const totalTokens = promptTokens + completionTokens;
+
     const snapshot = {
-      userTranscript: state.userTranscript,
-      assistantText: state.assistantText,
+      userTranscript: snapshotUser,
+      assistantText: snapshotAssistant,
       toolCalls: [...state.toolCalls],
+      usage: {
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      },
     };
     state.userTranscript = undefined;
     state.assistantText = undefined;
     state.toolCalls = [];
     return snapshot;
+  }
+
+  private countTokens(text?: string): number {
+    if (!text) {
+      return 0;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return 0;
+    }
+    const parts = trimmed.split(/\s+/);
+    return parts.length;
   }
 
   private async handleServerEvent(sessionId: string, state: VoiceSessionState, event: any): Promise<void> {
@@ -322,4 +348,3 @@ export class VoiceRealtimeService {
     state.ws.send(JSON.stringify(responseCreateEvent));
   }
 }
-
