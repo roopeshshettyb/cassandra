@@ -35,11 +35,13 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import request from '../helper/api';
 import HotelInfoCard from './HotelInfoCard';
 import ChatBox from './ChatBox';
+import { useHotelTheme } from '../context/HotelThemeContext';
 
 const MotionBox = motion(Box);
 
 function BookingDetails({ setLoading, account, navigate, alertSuccess, alertError }) {
   const { id } = useParams();
+  const { setThemeConfig } = useHotelTheme();
   const [booking, setBooking] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingNotes, setPendingNotes] = useState({});
@@ -123,12 +125,19 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
         endpoint: `/bookings/${id}`,
         method: 'GET',
         setLoading,
-        setData: setBooking,
+        setData: (data) => {
+          setBooking(data);
+          setThemeConfig(data?.hotel?.themeConfig || null);
+        },
         defaultData: null,
         alertError,
       });
     }
-  }, []);
+  }, [id, setThemeConfig]);
+
+  useEffect(() => {
+    return () => setThemeConfig(null);
+  }, [setThemeConfig]);
 
   const handleDeleteClick = () => setShowDeleteConfirm(true);
   const handleDeleteCancel = () => setShowDeleteConfirm(false);

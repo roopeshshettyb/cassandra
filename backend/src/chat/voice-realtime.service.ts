@@ -73,8 +73,11 @@ export class VoiceRealtimeService {
       state.isOpen = true;
       try {
         const appName = this.constantsService.public.APP_NAME;
-        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName);
-        const speakerRoleDescription = describeSpeakerRole((ctx.account as any)?.role);
+        const hotel: any = ctx.hotel;
+        const llmInstructions = hotel?.llmInstructions;
+        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions);
+        const account: any = ctx.account;
+        const speakerRoleDescription = describeSpeakerRole(account?.role);
         const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.`;
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
@@ -290,12 +293,14 @@ export class VoiceRealtimeService {
     const output = typeof result === 'string' ? result : JSON.stringify(result);
 
     // Track tool call metadata for later persistence into Messages.
+    const resultAny: any = result;
+    const errorMsg = typeof result === 'object' && result !== null && 'error' in result ? String(resultAny.error) : undefined;
     state.toolCalls.push({
       toolName: name,
       toolCallId: callId,
       input: args,
       output: result,
-      error: typeof result === 'object' && result !== null && 'error' in (result as any) ? String((result as any).error) : undefined,
+      error: errorMsg,
     });
 
     // Inject a function_call_output item back into the conversation.

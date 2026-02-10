@@ -190,7 +190,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     switch (event.type) {
       case 'conversation.item.input_audio_transcription.completed': {
-        const transcript = (event as any)?.transcript;
+        const ev: any = event;
+        const transcript = ev?.transcript;
         if (typeof transcript === 'string' && transcript.trim().length) {
           client.emit('voice_user_message', { text: transcript });
         }
@@ -205,11 +206,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           client.id,
         );
 
+        const ev: any = event;
         const finalAssistantText =
           (assistantText && assistantText.trim().length ? assistantText : undefined) ??
-          (typeof (event as any).output_text === 'string' ? (event as any).output_text : undefined) ??
-          (typeof (event as any).output_audio_transcript === 'string'
-            ? (event as any).output_audio_transcript
+          (typeof ev.output_text === 'string' ? ev.output_text : undefined) ??
+          (typeof ev.output_audio_transcript === 'string'
+            ? ev.output_audio_transcript
             : undefined) ??
           '';
         const cleanUser = userTranscript?.trim();

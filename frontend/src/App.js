@@ -27,9 +27,11 @@ import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './components/Home';
 import InviteHandler from './components/InviteHandler';
+import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 
 const AppContent = () => {
   const navigate = useNavigate();
+  const { themeConfig } = useHotelTheme();
   const [mode, setMode] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [account, setAccount] = useState(null);
@@ -95,24 +97,29 @@ const AppContent = () => {
     fetchAccount();
   }, []);
 
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          primary: { main: '#D4AF37' },
-          secondary: { main: '#C5A022' },
-          background: {
-            default: mode === 'dark' ? '#000000' : '#F5F5F5',
-            paper: mode === 'dark' ? '#121212' : '#FFFFFF',
-          },
-          text: {
-            primary: mode === 'dark' ? '#D4AF37' : '#333333',
-            secondary: mode === 'dark' ? '#B8860B' : '#666666',
-          },
+  const theme = useMemo(() => {
+    const primaryMain = themeConfig?.primaryColor || '#D4AF37';
+    const secondaryMain = themeConfig?.secondaryColor || '#C5A022';
+    const darkTextSecondary = themeConfig?.secondaryColor || '#B8860B';
+    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F5F5F5');
+    const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? '#121212' : '#FFFFFF');
+    const fontFamily = themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
+    return createTheme({
+      palette: {
+        mode,
+        primary: { main: primaryMain },
+        secondary: { main: secondaryMain },
+        background: {
+          default: bgDefault,
+          paper: bgPaper,
         },
+        text: {
+          primary: mode === 'dark' ? primaryMain : '#333333',
+          secondary: mode === 'dark' ? darkTextSecondary : '#666666',
+        },
+      },
         typography: {
-          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
+          fontFamily,
           h1: { fontWeight: 700, letterSpacing: '-0.02em' },
           h2: { fontWeight: 700, letterSpacing: '-0.01em' },
           h3: { fontWeight: 600 },
@@ -141,7 +148,7 @@ const AppContent = () => {
               containedPrimary: {
                 color: '#000000',
                 '&:hover': {
-                  backgroundColor: '#B8860B',
+                  backgroundColor: themeConfig?.primaryHoverColor || '#B8860B',
                 },
               },
             },
@@ -155,9 +162,8 @@ const AppContent = () => {
             },
           },
         },
-      }),
-    [mode],
-  );
+      });
+  }, [mode, themeConfig]);
 
   const toggleColorMode = () => {
     setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
@@ -275,7 +281,9 @@ const AppContent = () => {
 function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <HotelThemeProvider>
+        <AppContent />
+      </HotelThemeProvider>
     </BrowserRouter>
   );
 }

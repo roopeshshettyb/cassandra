@@ -34,10 +34,11 @@ export async function buildSystemInstructions(
   chatContextService: ChatContextService,
   chatId: number,
   appName: string,
+  llmInstructions?: string | null,
 ): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
-  const systemContent = `You are ${appName}, a hotel companion that helps with anything related to the guest's stay.
+  let systemContent = `You are ${appName}, a hotel companion that helps with anything related to the guest's stay.
 
 The person speaking to you over chat or voice may be:
 - a room guest staying at the hotel,
@@ -49,6 +50,10 @@ Do not assume they are always the guest. Infer who is speaking from the conversa
 Use your tools when helpful and help the user to your best ability.
 
 Always respond in Markdown.`;
+
+  if (llmInstructions && llmInstructions.trim().length > 0) {
+    systemContent += `\n\nHotel-specific instructions:\n${llmInstructions.trim()}`;
+  }
 
   const parts: string[] = [
     systemContent,
@@ -76,8 +81,9 @@ export async function buildChatPrompt(
   userMessage: string,
   appName: string,
   speakerRole?: string,
+  llmInstructions?: string | null,
 ): Promise<ChatPromptResult> {
-  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName);
+  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions);
 
   // In the future this can include attachment-derived content as well.
   const textContents: string[] = [];
