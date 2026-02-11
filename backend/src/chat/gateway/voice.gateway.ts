@@ -1,20 +1,18 @@
-import {
-  WebSocketGateway,
-  WebSocketServer,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  SubscribeMessage,
-} from '@nestjs/websockets';
+import { WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { ChatService } from '../chat.service';
 import { MessagesService } from '../../messages/messages.service';
-import { MessageRole } from '../../messages/message.model';
+import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
 import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
 import { VoiceRealtimeService } from '../voice-realtime.service';
+import { ConstantsService } from '../../common/constants/constants.service';
+import { CostsService } from '../../costs/costs.service';
+import { CostType } from '../../costs/costs.model';
+import { ensureWithinStayWindow } from './stay-window.guard';
 
 @WebSocketGateway({ cors: true, namespace: '/voice' })
 @Injectable()
@@ -31,6 +29,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatContextService: ChatContextService,
     private readonly bookingsService: BookingsService,
     private readonly voiceRealtimeService: VoiceRealtimeService,
+    private readonly constantsService: ConstantsService,
+    private readonly costsService: CostsService,
   ) {}
 
   async handleConnection(client: any) {
@@ -72,10 +72,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const chat = await this.chatService.findOrCreateForBooking(bookingId, account);
       const { data: booking } = await this.bookingsService.findByIdForAccount(bookingId, account);
-      const hotelModel: any = booking.hotel;
-      const bookingModel: any = booking;
-      const hotel = hotelModel ? hotelModel.get({ plain: true }) : null;
-      const bookingPlain = bookingModel.get({ plain: true });
+      if (!ensureWithinStayWindow(client, booking.isWithinStay, this.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
+        return;
+      }
+      const hotel = booking.hotel || null;
+      const bookingPlain = booking;
       const messages = await this.messagesService.findRecentByChatId(chat.id, 50);
       const session: ChatSession = {
         account,
@@ -186,7 +187,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     switch (event.type) {
       case 'conversation.item.input_audio_transcription.completed': {
-        const transcript = (event as any)?.transcript;
+        const ev: any = event;
+        const transcript = ev?.transcript;
         if (typeof transcript === 'string' && transcript.trim().length) {
           client.emit('voice_user_message', { text: transcript });
         }
@@ -197,37 +199,52 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('voice_text_chunk', { delta: event.delta || '' });
         break;
       case 'response.done': {
-        const { userTranscript, assistantText, toolCalls } = this.voiceRealtimeService.consumeTranscriptsAndTools(
-          client.id,
-        );
+        const { userTranscript, assistantText, toolCalls, usage } = this.voiceRealtimeService.consumeTranscriptsAndTools(client.id);
 
+        const ev: any = event;
         const finalAssistantText =
           (assistantText && assistantText.trim().length ? assistantText : undefined) ??
-          (typeof (event as any).output_text === 'string' ? (event as any).output_text : undefined) ??
-          (typeof (event as any).output_audio_transcript === 'string'
-            ? (event as any).output_audio_transcript
-            : undefined) ??
+          (typeof ev.output_text === 'string' ? ev.output_text : undefined) ??
+          (typeof ev.output_audio_transcript === 'string' ? ev.output_audio_transcript : undefined) ??
           '';
         const cleanUser = userTranscript?.trim();
         const cleanAssistant = finalAssistantText?.trim();
 
+        let assistantMessage: Message | null = null;
         try {
           if (cleanUser) {
             await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
           }
           if (cleanAssistant) {
-            await this.messagesService.create(
-              session.chatId,
-              MessageRole.ASSISTANT,
-              cleanAssistant,
-              toolCalls.length ? toolCalls : undefined,
-            );
+            assistantMessage = await this.messagesService.create(session.chatId, MessageRole.ASSISTANT, cleanAssistant, toolCalls.length ? toolCalls : undefined);
           }
           await this.chatContextService.rebuildCache(session.chatId);
         } catch (err) {
           this.logger.error('Failed to persist voice messages', err as Error);
         }
 
+        // Record LLM voice cost. Realtime API does not expose official token
+        // usage, so we approximate tokens from user/assistant transcripts.
+        if (cleanAssistant) {
+          this.costsService.recordLlmCost({
+            type: CostType.LLM_VOICE,
+            usage: {
+              promptTokens: usage?.promptTokens ?? 0,
+              completionTokens: usage?.completionTokens ?? 0,
+              totalTokens: usage?.totalTokens ?? 0,
+            },
+            audio: {
+              inputMs: 0,
+              outputMs: 0,
+            },
+            bookingId: session.bookingId,
+            hotelId: session.booking ? session.booking.hotelId : null,
+            accountId: session.account.id,
+            role: session.account.role,
+            chatId: session.chatId,
+            messageId: assistantMessage ? assistantMessage.id : null,
+          });
+        }
         client.emit('voice_text_end', { text: finalAssistantText, toolCalls });
         break;
       }
@@ -252,4 +269,3 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     delete client.sessionPending;
   }
 }
-

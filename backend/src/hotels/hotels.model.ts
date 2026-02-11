@@ -104,4 +104,18 @@ export class Hotel extends Model<Hotel> {
     field: 'room_service_hours',
   })
   roomServiceHours: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'llm_instructions',
+  })
+  llmInstructions: string;
+
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    field: 'theme_config',
+  })
+  themeConfig: Record<string, unknown>;
 }

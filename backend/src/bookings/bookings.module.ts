@@ -5,11 +5,12 @@ import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { BookingsRepository } from './bookings.repository';
 import { AccountsModule } from '../accounts/accounts.module';
+import { AuthModule } from '../auth/auth.module';
 import { MailerModule } from '../mailer/mailer.module';
 import { HotelsModule } from '../hotels/hotels.module';
 
 @Module({
-  imports: [DatabaseModule, CommonModule, AccountsModule, MailerModule, forwardRef(() => HotelsModule)],
+  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule)],
   controllers: [BookingsController],
   providers: [BookingsRepository, BookingsService],
   exports: [BookingsRepository, BookingsService],

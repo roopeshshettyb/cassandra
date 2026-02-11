@@ -4,6 +4,7 @@ import { Booking } from './bookings.model';
 import { CreateBookingDto } from './bookings.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
+import { AuthService } from '../auth/auth.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { MailerService } from '../mailer/mailer.service';
@@ -18,6 +19,7 @@ export class BookingsService {
   constructor(
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
     private readonly accountsService: AccountsService,
+    private readonly authService: AuthService,
     private readonly hotelsService: HotelsService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
@@ -83,7 +85,15 @@ export class BookingsService {
       endTime,
     });
 
-    await this.sendBookingConfirmationEmail(guest.email, guest.name, hotel);
+    const inviteToken = await this.authService.generateInviteToken(guest, {
+      bookingId: booking.id,
+      hotelId: hotel.id,
+      type: 'guest',
+    });
+    const frontendUrl = this.constantsService.private.FRONTEND_URL;
+    const inviteUrl = `${frontendUrl}/invite?token=${encodeURIComponent(inviteToken)}`;
+
+    await this.sendBookingConfirmationEmail(guest.email, guest.name, hotel, inviteUrl);
 
     return {
       success: true,
@@ -92,21 +102,19 @@ export class BookingsService {
     };
   }
 
-  private async sendBookingConfirmationEmail(toEmail: string, guestName: string | null, hotel: Hotel): Promise<void> {
+  private async sendBookingConfirmationEmail(toEmail: string, guestName: string | null, hotel: Hotel, inviteUrl: string): Promise<void> {
     if (!toEmail) {
       return;
     }
 
     const pub = this.constantsService.public;
-    const priv = this.constantsService.private;
     const appName = pub.APP_NAME;
-    const frontendUrl = priv.FRONTEND_URL;
     const subject = `Your booking is confirmed - open ${appName} to help with your stay`;
-    const bodyText = `Open ${appName} to help with your stay.`;
 
     const greeting = guestName ? `Hi ${guestName},` : 'Hi,';
-    const text = `${greeting}\n\nYour booking at ${hotel.name} is confirmed.\n\n${bodyText}\n\n${frontendUrl}`;
-    const contentHtml = `<p>${greeting}</p><p>Your booking at <strong>${hotel.name}</strong> is confirmed.</p><p>${bodyText}</p><p><a href="${frontendUrl}">${appName}</a></p>`;
+    const cta = 'Start talking with Samantha by clicking here';
+    const text = `${greeting}\n\nYour booking at ${hotel.name} is confirmed.\n\n${cta}\n\n${inviteUrl}`;
+    const contentHtml = `<p>${greeting}</p><p>Your booking at <strong>${hotel.name}</strong> is confirmed.</p><p>Start talking with Samantha by clicking <a href="${inviteUrl}">here</a>.</p>`;
     const html = this.mailerService.buildBaseEmailHtml(contentHtml);
 
     await this.mailerService.sendMail({
@@ -153,6 +161,7 @@ export class BookingsService {
       where: findWhere,
       include: [
         { model: Hotel, as: 'hotel' },
+        { model: Account, as: 'guest', attributes: ['id', 'email', 'name'] },
         {
           model: Request,
           as: 'requests',
@@ -169,7 +178,10 @@ export class BookingsService {
       throw new NotFoundException();
     }
 
-    return { success: true, message: null, data: booking };
+    const plain = booking.get({ plain: true }) as unknown as Record<string, unknown>;
+    const now = new Date();
+    plain.isWithinStay = now >= new Date(plain.startTime as Date) && now <= new Date(plain.endTime as Date);
+    return { success: true, message: null, data: plain };
   }
 
   async deleteForAccount(id: number, currentAccount: Account) {

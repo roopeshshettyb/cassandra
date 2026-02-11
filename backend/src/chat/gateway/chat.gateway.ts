@@ -4,13 +4,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { ChatService } from '../chat.service';
 import { MessagesService } from '../../messages/messages.service';
-import { MessageRole } from '../../messages/message.model';
+import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
 import { LangGraphService, ToolCallRecord } from '../../langgraph/langgraph.service';
 import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
 import { buildChatPrompt } from '../chat-prompt.builder';
 import { ConstantsService } from '../../common/constants/constants.service';
+import { ensureWithinStayWindow } from './stay-window.guard';
+import { CostsService } from '../../costs/costs.service';
+import { CostType } from '../../costs/costs.model';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
 @Injectable()
@@ -28,6 +31,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly langGraphService: LangGraphService,
     private readonly bookingsService: BookingsService,
     private readonly constantsService: ConstantsService,
+    private readonly costsService: CostsService,
   ) {}
 
   async handleConnection(client: any) {
@@ -58,9 +62,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.authenticateAndInit(client, token, bookingId);
   }
 
-  async processMessage(chatId: any, userMessage: string, account: any): Promise<any> {
+  async processMessage(chatId: any, userMessage: string, account: any, llmInstructions?: string | null): Promise<any> {
     const appName = this.constantsService.public.APP_NAME;
-    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, appName, account?.role);
+    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, appName, account?.role, llmInstructions);
 
     return {
       contextData,
@@ -79,10 +83,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const chat = await this.chatService.findOrCreateForBooking(bookingId, account);
       const { data: booking } = await this.bookingsService.findByIdForAccount(bookingId, account);
-      const hotelModel: any = booking.hotel;
-      const bookingModel: any = booking;
-      const hotel = hotelModel ? hotelModel.get({ plain: true }) : null;
-      const bookingPlain = bookingModel.get({ plain: true });
+      if (!ensureWithinStayWindow(client, booking.isWithinStay, this.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
+        return;
+      }
+      const hotel = booking.hotel || null;
+      const bookingPlain = booking;
       const messages = await this.messagesService.findRecentByChatId(chat.id, 50);
       const session: ChatSession = {
         account,
@@ -136,7 +141,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       await this.messagesService.create(session.chatId, MessageRole.USER, content);
-      const { messages } = await this.processMessage(session.chatId, content, session.account);
+      const hotel = session.hotel;
+      const llmInstructions = hotel.llmInstructions;
+      const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions);
 
       const toolContext = {
         account: session.account,
@@ -148,19 +155,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       let fullContent = '';
       let toolCalls: ToolCallRecord[] = [];
+      let usage:
+        | { promptTokens: number; completionTokens: number; totalTokens: number }
+        | null = null;
 
       for await (const chunk of this.langGraphService.stream({ messages }, toolContext)) {
         if (typeof chunk === 'string') {
           fullContent += chunk;
           client.emit('stream_chunk', { content: chunk });
-        } else if (chunk && typeof chunk === 'object' && 'toolCalls' in chunk) {
-          toolCalls = (chunk as { toolCalls: ToolCallRecord[] }).toolCalls;
+        } else if (chunk && typeof chunk === 'object') {
+          if ('toolCalls' in chunk) {
+            toolCalls = (chunk as { toolCalls: ToolCallRecord[] }).toolCalls;
+          }
+          if ('usage' in chunk && (chunk as any).usage) {
+            const u = (chunk as any).usage as {
+              promptTokens: number;
+              completionTokens: number;
+              totalTokens: number;
+            };
+            usage = u;
+          }
         }
       }
 
-      await this.messagesService.create(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? toolCalls : undefined);
+      const assistantMessage: Message = await this.messagesService.create(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? toolCalls : undefined);
       this.chatContextService.rebuildCache(session.chatId);
       client.emit('stream_end', { content: fullContent, toolCalls });
+
+      // Record LLM chat cost using LangGraph usage metadata for token counts.
+      this.costsService.recordLlmCost({
+        type: CostType.LLM_CHAT,
+        usage: {
+          promptTokens: usage?.promptTokens ?? 0,
+          completionTokens: usage?.completionTokens ?? 0,
+          totalTokens: usage?.totalTokens ?? 0,
+        },
+        bookingId: session.bookingId,
+        hotelId: session?.booking?.hotelId ?? null,
+        accountId: session.account.id,
+        role: session.account.role,
+        chatId: session.chatId,
+        messageId: assistantMessage.id,
+      });
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });

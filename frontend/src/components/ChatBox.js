@@ -27,7 +27,7 @@ const pulseWave = keyframes({
   },
 });
 
-function ChatBox({ bookingId, alertError }) {
+function ChatBox({ bookingId, alertError, isWithinStay = true }) {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
   const [voiceSocket, setVoiceSocket] = useState(null);
@@ -72,13 +72,12 @@ function ChatBox({ bookingId, alertError }) {
   }, [messages, streamingContent, shouldAutoScroll, scrollToBottom]);
 
   useEffect(() => {
-    if (!bookingId || isNaN(bookingId)) return;
+    if (!bookingId || isNaN(bookingId) || !isWithinStay) return;
     const token = localStorage.getItem('token') || 'demo-token';
     if (!token) {
       alertError?.(`Please log in to talk to ${APP_NAME}`);
       return;
     }
-
     const connectUrl = getBackendUrl();
     if (!connectUrl) {
       alertError?.('Backend URL not configured');
@@ -178,11 +177,11 @@ function ChatBox({ bookingId, alertError }) {
       socketInstance.disconnect();
       socketRef.current = null;
     };
-  }, [bookingId, alertError, focusInput, scrollToBottom]);
+  }, [bookingId, alertError, focusInput, scrollToBottom, isWithinStay]);
 
   // Voice socket on /voice namespace
   useEffect(() => {
-    if (!bookingId || isNaN(bookingId)) return;
+    if (!bookingId || isNaN(bookingId) || !isWithinStay) return;
     const token = localStorage.getItem('token');
     if (!token) {
       return;
@@ -287,7 +286,7 @@ function ChatBox({ bookingId, alertError }) {
       setVoiceReady(false);
       setIsRecording(false);
     };
-  }, [bookingId, alertError, focusInput]);
+  }, [bookingId, alertError, focusInput, isWithinStay]);
 
   const handleSend = () => {
     const text = input.trim();
@@ -370,6 +369,32 @@ function ChatBox({ bookingId, alertError }) {
 
   if (!bookingId || isNaN(bookingId)) {
     return null;
+  }
+
+  if (!isWithinStay) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '60vh', width: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
+        </Box>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'action.hover',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {APP_NAME} would be ready to talk to you as soon as you check in!
+          </Typography>
+        </Box>
+      </Box>
+    );
   }
 
   const handleScroll = () => {

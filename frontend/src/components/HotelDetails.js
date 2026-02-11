@@ -6,6 +6,8 @@ import request from '../helper/api';
 import MapComponent from './MapComponent';
 import DataTable from './DataTable';
 import HotelInfoCard from './HotelInfoCard';
+import ManageRestaurant from './ManageRestaurant';
+import { useHotelTheme } from '../context/HotelThemeContext';
 
 const MotionBox = motion(Box);
 
@@ -68,8 +70,9 @@ const StaffRow = ({ data, canManageStaff, onRevoke }) => {
   );
 };
 
-function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, alertError, isLoading }) {
+function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, alertError, isLoading, isMobile }) {
   const { id } = useParams();
+  const { setThemeConfig } = useHotelTheme();
   const [hotel, setHotel] = useState(null);
   const [staff, setStaff] = useState([]);
   const [newStaffEmail, setNewStaffEmail] = useState('');
@@ -90,6 +93,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     snacksHours: '',
     houseKeepingHours: '',
     roomServiceHours: '',
+    llmInstructions: '',
+    primaryColor: '',
+    secondaryColor: '',
+    primaryHoverColor: '',
+    fontFamily: '',
+    backgroundDefault: '',
+    backgroundPaper: '',
   });
 
   const fetchHotel = async () => {
@@ -103,6 +113,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
     if (data) {
       setHotel(data);
+      setThemeConfig(data.themeConfig || null);
       setEditValues({
         name: data.name || '',
         address: data.address || '',
@@ -118,6 +129,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         snacksHours: data.snacksHours || '',
         houseKeepingHours: data.houseKeepingHours || '',
         roomServiceHours: data.roomServiceHours || '',
+        llmInstructions: data.llmInstructions || '',
+        primaryColor: data.themeConfig?.primaryColor || '',
+        secondaryColor: data.themeConfig?.secondaryColor || '',
+        primaryHoverColor: data.themeConfig?.primaryHoverColor || '',
+        fontFamily: data.themeConfig?.fontFamily || '',
+        backgroundDefault: data.themeConfig?.backgroundDefault || '',
+        backgroundPaper: data.themeConfig?.backgroundPaper || '',
       });
     }
   };
@@ -140,6 +158,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     if (id) fetchHotel();
     if (canManageStaff) fetchStaff();
   }, [id]);
+
+  useEffect(() => {
+    return () => setThemeConfig(null);
+  }, [setThemeConfig]);
 
   const canEdit = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
   const canDeleteHotel = account && account.role === 'admin';
@@ -188,6 +210,20 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const handleSave = async (event) => {
     event.preventDefault();
     const payload = { ...editValues };
+    const themeObj = {};
+    if (editValues.primaryColor?.trim()) themeObj.primaryColor = editValues.primaryColor.trim();
+    if (editValues.secondaryColor?.trim()) themeObj.secondaryColor = editValues.secondaryColor.trim();
+    if (editValues.primaryHoverColor?.trim()) themeObj.primaryHoverColor = editValues.primaryHoverColor.trim();
+    if (editValues.fontFamily?.trim()) themeObj.fontFamily = editValues.fontFamily.trim();
+    if (editValues.backgroundDefault?.trim()) themeObj.backgroundDefault = editValues.backgroundDefault.trim();
+    if (editValues.backgroundPaper?.trim()) themeObj.backgroundPaper = editValues.backgroundPaper.trim();
+    payload.themeConfig = Object.keys(themeObj).length ? themeObj : null;
+    delete payload.primaryColor;
+    delete payload.secondaryColor;
+    delete payload.primaryHoverColor;
+    delete payload.fontFamily;
+    delete payload.backgroundDefault;
+    delete payload.backgroundPaper;
 
     const updated = await request({
       endpoint: `/hotels/${id}`,
@@ -200,6 +236,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
     if (updated) {
       setHotel(updated);
+      setThemeConfig(updated.themeConfig || null);
       setIsEditing(false);
     }
   };
@@ -258,6 +295,86 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   </Grid>
                   <MapComponent Component={HoursEditField} data={hoursFieldConfigs} editValues={editValues} handleInputChange={handleInputChange} showNoDataAvailable={false} isLoading={loading} />
                 </Grid>
+
+                <Box>
+                  <Typography variant="h6" sx={{ mb: 2 }}>LLM instructions</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Free text added to the AI system prompt for this hotel. Use for hotel-specific guidance (e.g. policies, tone, amenities to emphasize).
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={4}
+                    label="Hotel-specific LLM instructions"
+                    value={editValues.llmInstructions || ''}
+                    onChange={handleInputChange('llmInstructions')}
+                    placeholder="e.g. Always mention our complimentary breakfast. We are a boutique eco-friendly hotel."
+                  />
+                </Box>
+
+                <Box>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Theme</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Customize UI colors for guests viewing this hotel. Leave empty for defaults.
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        fullWidth
+                        label="Primary color"
+                        value={editValues.primaryColor || ''}
+                        onChange={handleInputChange('primaryColor')}
+                        placeholder="#D4AF37"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        fullWidth
+                        label="Secondary color"
+                        value={editValues.secondaryColor || ''}
+                        onChange={handleInputChange('secondaryColor')}
+                        placeholder="#C5A022"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        fullWidth
+                        label="Primary hover color"
+                        value={editValues.primaryHoverColor || ''}
+                        onChange={handleInputChange('primaryHoverColor')}
+                        placeholder="#B8860B"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Font family"
+                        value={editValues.fontFamily || ''}
+                        onChange={handleInputChange('fontFamily')}
+                        placeholder='"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Background default"
+                        value={editValues.backgroundDefault || ''}
+                        onChange={handleInputChange('backgroundDefault')}
+                        placeholder="#F5F5F5 or #000000"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Background paper"
+                        value={editValues.backgroundPaper || ''}
+                        onChange={handleInputChange('backgroundPaper')}
+                        placeholder="#FFFFFF or #121212"
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button type="submit" variant="contained" color="primary">
                     Save Changes
@@ -295,6 +412,18 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   onRevoke={handleRevokeStaff}
                 />
               </Box>
+            )}
+
+            {canEdit && (
+              <ManageRestaurant
+                hotelId={id}
+                loading={loading}
+                setLoading={setLoading}
+                account={account}
+                alertSuccess={alertSuccess}
+                alertError={alertError}
+                isMobile={isMobile}
+              />
             )}
 
             <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">

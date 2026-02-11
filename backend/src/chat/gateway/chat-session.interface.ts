@@ -5,6 +5,6 @@ export interface ChatSession {
   bookingId: number;
   chatId: number;
   /** Pre-fetched at connection */
-  hotel: Record<string, unknown> | null;
-  booking: Record<string, unknown> | null;
+  hotel: any;
+  booking: any;
 }

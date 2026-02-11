@@ -73,8 +73,11 @@ export class VoiceRealtimeService {
       state.isOpen = true;
       try {
         const appName = this.constantsService.public.APP_NAME;
-        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName);
-        const speakerRoleDescription = describeSpeakerRole((ctx.account as any)?.role);
+        const hotel: any = ctx.hotel;
+        const llmInstructions = hotel?.llmInstructions;
+        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions);
+        const account: any = ctx.account;
+        const speakerRoleDescription = describeSpeakerRole(account?.role);
         const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.`;
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
@@ -194,22 +197,48 @@ export class VoiceRealtimeService {
    * tool call records for a session. Intended to be called by the gateway
    * when a model response has completed.
    */
-  consumeTranscriptsAndTools(
-    sessionId: string,
-  ): { userTranscript?: string; assistantText?: string; toolCalls: ToolCallRecord[] } {
+  consumeTranscriptsAndTools(sessionId: string): {
+    userTranscript?: string;
+    assistantText?: string;
+    toolCalls: ToolCallRecord[];
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  } {
     const state = this.sessions.get(sessionId);
     if (!state) {
       return { toolCalls: [] };
     }
+    const snapshotUser = state.userTranscript;
+    const snapshotAssistant = state.assistantText;
+    const promptTokens = this.countTokens(snapshotUser);
+    const completionTokens = this.countTokens(snapshotAssistant);
+    const totalTokens = promptTokens + completionTokens;
+
     const snapshot = {
-      userTranscript: state.userTranscript,
-      assistantText: state.assistantText,
+      userTranscript: snapshotUser,
+      assistantText: snapshotAssistant,
       toolCalls: [...state.toolCalls],
+      usage: {
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      },
     };
     state.userTranscript = undefined;
     state.assistantText = undefined;
     state.toolCalls = [];
     return snapshot;
+  }
+
+  private countTokens(text?: string): number {
+    if (!text) {
+      return 0;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return 0;
+    }
+    const parts = trimmed.split(/\s+/);
+    return parts.length;
   }
 
   private async handleServerEvent(sessionId: string, state: VoiceSessionState, event: any): Promise<void> {
@@ -290,12 +319,14 @@ export class VoiceRealtimeService {
     const output = typeof result === 'string' ? result : JSON.stringify(result);
 
     // Track tool call metadata for later persistence into Messages.
+    const resultAny: any = result;
+    const errorMsg = typeof result === 'object' && result !== null && 'error' in result ? String(resultAny.error) : undefined;
     state.toolCalls.push({
       toolName: name,
       toolCallId: callId,
       input: args,
       output: result,
-      error: typeof result === 'object' && result !== null && 'error' in (result as any) ? String((result as any).error) : undefined,
+      error: errorMsg,
     });
 
     // Inject a function_call_output item back into the conversation.
@@ -317,4 +348,3 @@ export class VoiceRealtimeService {
     state.ws.send(JSON.stringify(responseCreateEvent));
   }
 }
-

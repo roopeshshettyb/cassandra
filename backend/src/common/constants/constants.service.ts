@@ -205,6 +205,7 @@ export class ConstantsService {
       HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
 
       ACCOUNT_ROLES,
+      ERROR_CHAT_ONLY_DURING_STAY: 'Chat and voice are only available during your stay (check-in to check-out)',
 
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
@@ -266,6 +267,21 @@ export class ConstantsService {
       // GoDaddy Email (Mailer)
       GODADDY_EMAIL: this.configService.get<string>('GODADDY_EMAIL'),
       GODADDY_PASSWORD: this.configService.get<string>('GODADDY_PASSWORD'),
+
+      // LLM Configuration (models and pricing)
+      LLM: {
+        TEXT_MODEL: 'gpt-4o-mini',
+        VOICE_MODEL: 'gpt-realtime',
+        PROVIDER: 'openai',
+        CURRENCY: 'usd',
+        TEXT_INPUT_PRICE_PER_1K: 0.00015,
+        TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
+        // Realtime audio pricing approximated as per-minute:
+        // - User audio: 1 token / 100ms, $32 / 1M audio input tokens  -> ~0.0192 $/min
+        // - Assistant audio: 1 token / 50ms, $64 / 1M audio output tokens -> ~0.0768 $/min
+        VOICE_INPUT_PER_MINUTE: 0.0192,
+        VOICE_OUTPUT_PER_MINUTE: 0.0768,
+      },
     };
   }
 }
