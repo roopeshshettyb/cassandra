@@ -11,17 +11,29 @@ import { useLipSync } from './hooks/useLipSync';
 import { VoiceStatus } from './types';
 import { getBrowserInfo } from './utils/deviceDetection';
 import { cn } from '../../lib/utils';
-import { MessageSquare, Mic, MicOff, AlertCircle, Send, Keyboard } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { MessageSquare, Mic, MicOff, AlertCircle, Send, Keyboard, UserCircle } from 'lucide-react';
 
 interface VoiceModeProps {
   avatarUrl: string;
   onSwitchToChat: () => void;
   theme: 'light' | 'dark';
+  avatarOptions: { id: string; name: string; url: string; }[];
+  onAvatarChange: (url: string) => void;
 }
 
 export const VoiceMode: React.FC<VoiceModeProps> = ({
   avatarUrl,
   onSwitchToChat,
+  avatarOptions,
+  onAvatarChange,
 }) => {
   // ... (keeping refs and state)
   const avatarRef = useRef<AvatarCanvasRef>(null);
@@ -190,10 +202,45 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
 
   return (
     <div className="relative w-full h-full overflow-hidden flex flex-col bg-gradient-to-b from-gray-900 to-gray-950">
+      {/* Avatar Selection Menu (Top Right) */}
+      <div className="absolute top-4 right-4 z-30">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-all shadow-lg"
+              title="Switch Avatar"
+            >
+              <UserCircle className="h-6 w-6" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-gray-900/90 backdrop-blur-xl border-white/10 text-white">
+            <DropdownMenuLabel>Switch Persona</DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-white/10" />
+            {avatarOptions.map((option) => (
+              <DropdownMenuItem
+                key={option.id}
+                onClick={() => onAvatarChange(option.url)}
+                className={cn(
+                  "flex items-center gap-2 cursor-pointer focus:bg-white/10 focus:text-white transition-colors",
+                  avatarUrl === option.url && "bg-blue-600/20 text-blue-400 font-medium"
+                )}
+              >
+                <div className={cn(
+                  "h-2 w-2 rounded-full",
+                  avatarUrl === option.url ? "bg-blue-400" : "bg-transparent"
+                )} />
+                {option.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {/* Avatar Container - Full Screen */}
       <div className="absolute inset-0 z-0">
         <AvatarCanvas
-          key="voice-avatar"
+          key={`voice-avatar-${avatarUrl}`}
           ref={avatarRef}
           avatarUrl={avatarUrl}
           className="w-full h-full object-cover"

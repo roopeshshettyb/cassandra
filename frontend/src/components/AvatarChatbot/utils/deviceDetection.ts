@@ -36,19 +36,17 @@ export function isSpeechSynthesisSupported(): boolean {
 
 export function getBrowserInfo(): { name: string; isSupported: boolean } {
   const userAgent = navigator.userAgent;
+  const hasFeatureSupport = isSpeechRecognitionSupported() && isSpeechSynthesisSupported();
 
-  if (userAgent.includes('Chrome') && !userAgent.includes('Edge')) {
-    return { name: 'Chrome', isSupported: true };
-  }
-  if (userAgent.includes('Edg')) {
-    return { name: 'Edge', isSupported: true };
-  }
-  if (userAgent.includes('Firefox')) {
-    return { name: 'Firefox', isSupported: false };
-  }
-  if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-    return { name: 'Safari', isSupported: false };
-  }
+  let name = 'Unknown';
+  if (userAgent.includes('Chrome') && !userAgent.includes('Edge')) name = 'Chrome';
+  else if (userAgent.includes('Edg')) name = 'Edge';
+  else if (userAgent.includes('Firefox')) name = 'Firefox';
+  else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) name = 'Safari';
 
-  return { name: 'Unknown', isSupported: false };
+  // Support is now based on whether the required APIs exist, not just the string "Chrome"
+  return {
+    name,
+    isSupported: hasFeatureSupport
+  };
 }

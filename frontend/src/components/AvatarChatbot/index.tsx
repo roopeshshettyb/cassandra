@@ -9,14 +9,21 @@ import { getBrowserInfo } from './utils/deviceDetection';
 import { cn } from '../../lib/utils';
 import { Mic, MessageSquare } from 'lucide-react';
 
-const DEFAULT_AVATAR_URL = 'https://models.readyplayer.me/6986ee82fcad0d2f3315ffb8.glb';
+const AVATAR_OPTIONS = [
+  { id: 'cassandra', name: 'Cassandra', url: '/model/casendra.glb' },
+  { id: 'model1', name: 'Model 1', url: '/model/Model1.glb' },
+  { id: 'model2', name: 'Model 2', url: '/model/model2.glb' },
+];
+
+const DEFAULT_AVATAR_URL = AVATAR_OPTIONS[0].url;
 
 export const AvatarChatbot: React.FC<AvatarChatbotProps> = ({
   theme = 'dark',
   position = 'center',
-  avatarUrl = DEFAULT_AVATAR_URL,
+  avatarUrl: initialAvatarUrl = DEFAULT_AVATAR_URL,
 }) => {
   const [mode, setMode] = useState<ChatModeType>('initial');
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState(initialAvatarUrl);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const avatarRef = useRef<AvatarCanvasRef>(null);
   const browserInfo = getBrowserInfo();
@@ -57,7 +64,7 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps> = ({
               <AvatarCanvas
                 key="initial-avatar"
                 ref={avatarRef}
-                avatarUrl={avatarUrl}
+                avatarUrl={selectedAvatarUrl}
                 className="rounded-t-lg"
               />
 
@@ -71,6 +78,26 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps> = ({
               <div className="text-center space-y-2">
                 <h2 className="text-2xl font-bold tracking-tight">How can I help you?</h2>
                 <p className="text-muted-foreground">Choose a mode to start the conversation</p>
+              </div>
+
+              {/* Avatar Selection Pills */}
+              <div className="flex flex-wrap justify-center gap-2 px-4">
+                {AVATAR_OPTIONS.map((option) => (
+                  <Button
+                    key={option.id}
+                    variant={selectedAvatarUrl === option.url ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedAvatarUrl(option.url)}
+                    className={cn(
+                      "h-8 rounded-full px-4 transition-all duration-300",
+                      selectedAvatarUrl === option.url
+                        ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                        : "bg-background/50 backdrop-blur-sm border-border/50 hover:bg-accent/50"
+                    )}
+                  >
+                    {option.name}
+                  </Button>
+                ))}
               </div>
 
               {/* Mode Selection Buttons */}
@@ -111,9 +138,11 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps> = ({
         {/* Voice Mode */}
         {mode === 'voice' && (
           <VoiceMode
-            avatarUrl={avatarUrl}
+            avatarUrl={selectedAvatarUrl}
             onSwitchToChat={() => handleModeChange('chat')}
             theme={theme}
+            avatarOptions={AVATAR_OPTIONS}
+            onAvatarChange={setSelectedAvatarUrl}
           />
         )}
 
