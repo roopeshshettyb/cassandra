@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from 'components/ui/button';
-import { Input } from 'components/ui/input';
-import { ScrollArea } from 'components/ui/scroll-area';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { ScrollArea } from '../ui/scroll-area';
 import { useSocketChat } from './hooks/useSocketChat';
-import { cn } from 'lib/utils';
+import { cn } from '../../lib/utils';
 import { Mic, Send, Loader2, Bot, User } from 'lucide-react';
 
 interface ChatModeProps {

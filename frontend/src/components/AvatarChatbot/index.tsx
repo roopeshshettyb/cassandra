@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Button } from 'components/ui/button';
-import { Card } from 'components/ui/card';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { AvatarCanvas, AvatarCanvasRef } from './AvatarCanvas';
 import { VoiceMode } from './VoiceMode';
 import { ChatMode } from './ChatMode';
 import { AvatarChatbotProps, ChatMode as ChatModeType } from './types';
 import { getBrowserInfo } from './utils/deviceDetection';
-import { cn } from 'lib/utils';
+import { cn } from '../../lib/utils';
 import { Mic, MessageSquare } from 'lucide-react';
 
 const DEFAULT_AVATAR_URL = 'https://models.readyplayer.me/6986ee82fcad0d2f3315ffb8.glb';
@@ -42,8 +42,8 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps> = ({
           'w-full overflow-hidden transition-all duration-300 flex flex-col',
           'bg-background/80 backdrop-blur-xl border-border/50',
           'shadow-2xl',
-          // Mobile: Full screen-ish
-          'h-[85vh] md:h-[600px] lg:h-[700px]',
+          // Mobile: Almost full screen for better avatar visibility
+          'h-[92vh] md:h-[600px] lg:h-[700px]',
           // Desktop: Wider
           'max-w-md md:max-w-2xl lg:max-w-4xl',
           isTransitioning && 'opacity-50 scale-98'

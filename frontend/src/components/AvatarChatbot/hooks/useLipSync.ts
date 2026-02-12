@@ -61,47 +61,79 @@ export function useLipSync({ onLipSyncUpdate, smoothing = 0.3 }: UseLipSyncProps
         isRunningRef.current = true;
         let phase = 0;
         let wordPhase = 0;
+        let consonantPhase = 0;
         let pauseTimer = 0;
         let isPausing = false;
-        
+        let consonantTimer = 0;
+        let isConsonant = false;
+
         const simulate = () => {
           if (!isRunningRef.current) return;
-          
-          // Simulate natural speech patterns with pauses between words
+
+          // Simulate natural speech patterns with pauses between words/phrases
           pauseTimer++;
-          if (pauseTimer > 8 && Math.random() > 0.92) {
+          // Variable pause frequency (sometimes short, sometimes longer)
+          const pauseThreshold = Math.random() > 0.5 ? 12 : 20;
+          if (pauseTimer > pauseThreshold && Math.random() > 0.85) {
             isPausing = true;
             pauseTimer = 0;
           }
-          if (isPausing && pauseTimer > 4) {
+          if (isPausing && pauseTimer > (Math.random() > 0.5 ? 3 : 6)) {
             isPausing = false;
             pauseTimer = 0;
           }
-          
+
+          // Simulate consonants (quick snaps)
+          consonantTimer++;
+          if (!isConsonant && consonantTimer > 5 && Math.random() > 0.88) {
+            isConsonant = true;
+            consonantTimer = 0;
+            consonantPhase = 0;
+          }
+          if (isConsonant && consonantTimer > 2) {
+            isConsonant = false;
+            consonantTimer = 0;
+          }
+
           if (isPausing) {
             // Quick close during pauses
-            currentValueRef.current = currentValueRef.current * 0.7;
+            currentValueRef.current = currentValueRef.current * 0.65;
+          } else if (isConsonant) {
+            // Quick snap for consonants (P, T, K, etc.)
+            consonantPhase += 1.2;
+            const snap = Math.max(0, Math.sin(consonantPhase) * 0.4);
+            currentValueRef.current = currentValueRef.current * 0.5 + snap * 0.5;
           } else {
-            // Simulate mouth movements with varied amplitude
-            phase += 0.18 + Math.random() * 0.08;
-            wordPhase += 0.07;
-            
-            // Primary mouth movement
-            const base = Math.sin(phase) * 0.5 + 0.5;
-            // Secondary variation for realism
-            const variation = Math.sin(phase * 2.3) * 0.2 + Math.sin(wordPhase) * 0.15;
+            // Simulate mouth movements with varied amplitude for vowels
+            phase += 0.15 + Math.random() * 0.12; // Variable speed
+            wordPhase += 0.06;
+
+            // Primary mouth movement (vowel sounds - more sustained)
+            const base = Math.sin(phase) * 0.45 + 0.55; // Bias toward open
+
+            // Secondary variation for realism (jaw movement)
+            const jawMovement = Math.sin(phase * 1.8) * 0.18;
+
+            // Tertiary layer (tongue/lip micro-movements)
+            const lipMovement = Math.sin(phase * 3.2) * 0.08 + Math.sin(wordPhase * 1.5) * 0.12;
+
             // Random micro-movements
-            const micro = (Math.random() - 0.5) * 0.1;
-            
-            const rawValue = Math.max(0, Math.min(1, base + variation + micro));
-            // Smooth transition
-            currentValueRef.current = currentValueRef.current * 0.6 + rawValue * 0.4;
+            const micro = (Math.random() - 0.5) * 0.08;
+
+            // Occasional emphasis (louder syllables)
+            const emphasis = Math.random() > 0.92 ? 0.15 : 0;
+
+            const rawValue = Math.max(0, Math.min(1, base + jawMovement + lipMovement + micro + emphasis));
+
+            // Smooth transition with adaptive smoothing
+            const smoothFactor = isConsonant ? 0.3 : 0.55; // Faster response for consonants
+            currentValueRef.current = currentValueRef.current * smoothFactor + rawValue * (1 - smoothFactor);
           }
-          
+
           onLipSyncUpdate(currentValueRef.current);
           animationFrameRef.current = requestAnimationFrame(simulate);
         };
-        
+
         simulate();
       },
       stop: () => {

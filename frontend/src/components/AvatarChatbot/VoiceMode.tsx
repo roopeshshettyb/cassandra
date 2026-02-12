@@ -1,15 +1,16 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Button } from 'components/ui/button';
-import { Input } from 'components/ui/input';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { AvatarCanvas, AvatarCanvasRef } from './AvatarCanvas';
 import { WaveformVisualizer } from './WaveformVisualizer';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { useSocketChat } from './hooks/useSocketChat';
 import { useTypingEffect } from './hooks/useTypingEffect';
+import { useLipSync } from './hooks/useLipSync';
 import { VoiceStatus } from './types';
 import { getBrowserInfo } from './utils/deviceDetection';
-import { cn } from 'lib/utils';
+import { cn } from '../../lib/utils';
 import { MessageSquare, Mic, MicOff, AlertCircle, Send, Keyboard } from 'lucide-react';
 
 interface VoiceModeProps {
@@ -41,18 +42,37 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
     wordsPerSecond: 3.5,
   });
 
+  // Lip Sync
+  const { initWithSpeechSynthesis } = useLipSync({
+    onLipSyncUpdate: useCallback((value: number) => {
+      avatarRef.current?.setLipSync(value);
+    }, []),
+    smoothing: 0.5,
+  });
+
+  const lipSyncAnim = useRef<ReturnType<typeof initWithSpeechSynthesis>>(null);
+
+  useEffect(() => {
+    lipSyncAnim.current = initWithSpeechSynthesis();
+    return () => {
+      lipSyncAnim.current?.stop();
+    };
+  }, [initWithSpeechSynthesis]);
+
   const handleSpeechEnd = useCallback(() => {
     setStatus('idle');
     setResponseText('');
-    // Return to idle animation when speaking ends
+    // Stop lip sync and return to idle animation
+    lipSyncAnim.current?.stop();
     avatarRef.current?.playIdle();
   }, []);
 
   const { speak, cancel: cancelSpeech, isSpeaking } = useSpeechSynthesis({
     onStart: () => {
       setStatus('speaking');
-      // Play talking animation when speaking starts
+      // Play talking animation and start lip sync when speaking starts
       avatarRef.current?.playTalking();
+      lipSyncAnim.current?.start();
     },
     onEnd: handleSpeechEnd,
   });
@@ -183,54 +203,39 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
         <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
       </div>
 
-      {/* Response Text Overlay (Top Center) - Only when speaking */}
-      {status === 'speaking' && responseText && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-sm z-10 animate-fade-in pointer-events-none">
-          <div className="mx-4 bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 shadow-2xl text-center ring-1 ring-white/5 min-h-[5rem] flex items-center justify-center">
-            <p className="text-xl md:text-2xl font-medium text-white leading-relaxed tracking-wide font-sans drop-shadow-md">
-              {(() => {
-                const words = displayedText.split(' ');
-                const chunkSize = 5;
-                // Calculate which chunk to show based on current word count
-                // If we have 13 words, we show words 10-14 (indices 10-13)
-                const currentChunkIndex = Math.floor((words.length - 1) / chunkSize);
-                const start = currentChunkIndex * chunkSize;
-                const end = start + chunkSize;
-                const visibleWords = words.slice(start, end);
-
-                return visibleWords.join(' ');
-              })()}
-              <span className="inline-block w-0.5 h-6 bg-blue-400 ml-1 animate-pulse align-middle shadow-[0_0_10px_rgba(96,165,250,0.8)]" />
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Control Island (Bottom) */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[95%] max-w-xl z-20">
-        <div className="bg-black/30 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-6 shadow-2xl transition-all duration-300 ring-1 ring-white/5 hover:bg-black/40">
+      <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 w-[96%] sm:w-[95%] max-w-xl z-20">
+        <div className="bg-black/30 backdrop-blur-2xl border border-white/10 rounded-3xl sm:rounded-[2rem] px-3 py-4 sm:p-6 shadow-2xl transition-all duration-300 ring-1 ring-white/5">
 
-          {/* Main Visualizer Area */}
-          <div className="mb-6 relative h-16 flex items-center justify-center">
-            {/* Dynamic Waveform */}
-            <div className="w-full h-full opacity-90">
-              <WaveformVisualizer
-                isActive={status !== 'idle'}
-                mode={status === 'listening' ? 'listening' : status === 'speaking' ? 'speaking' : 'idle'}
-                className="w-full h-full"
-              />
+          {/* Subtitle/Caption - Bottom Middle Above Input */}
+          {status === 'speaking' && responseText && (
+            <div className="mb-3 sm:mb-4 px-2 sm:px-4 animate-fade-in">
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-center min-h-[2.5rem] sm:min-h-[3rem] flex items-center justify-center">
+                <p className="text-xs sm:text-sm md:text-base font-medium text-white/90 leading-relaxed">
+                  {(() => {
+                    const words = displayedText.split(' ');
+                    const chunkSize = 5;
+                    const currentChunkIndex = Math.floor((words.length - 1) / chunkSize);
+                    const start = currentChunkIndex * chunkSize;
+                    const end = start + chunkSize;
+                    const visibleWords = words.slice(start, end);
+                    return visibleWords.join(' ');
+                  })()}
+                  <span className="inline-block w-0.5 h-3 sm:h-4 bg-blue-400 ml-1 animate-pulse align-middle" />
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Status Text (Floating above controls) */}
-          <div className="absolute -top-12 left-0 right-0 flex justify-center pointer-events-none">
+          <div className="absolute -top-10 sm:-top-12 left-0 right-0 flex justify-center pointer-events-none">
             <div className={cn(
-              "px-4 py-1.5 rounded-full backdrop-blur-md border border-white/5 shadow-lg transition-all duration-500",
+              "px-3 py-1 sm:px-4 sm:py-1.5 rounded-full backdrop-blur-md border border-white/5 shadow-lg transition-all duration-500 text-xs sm:text-sm",
               status === 'listening' ? "bg-blue-500/20 text-blue-200 border-blue-500/30" :
                 status === 'speaking' ? "bg-purple-500/20 text-purple-200 border-purple-500/30" :
                   "bg-black/40 text-gray-400"
             )}>
-              <p className="text-xs font-semibold tracking-wider uppercase">
+              <p className="font-semibold tracking-wider uppercase">
                 {error ? (
                   <span className="text-red-400 flex items-center gap-2">
                     <AlertCircle className="h-3 w-3" /> {error}
@@ -244,44 +249,42 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
 
           {/* Text Input Area (Collapsible) */}
           {showTextInput && (
-            <form onSubmit={handleTextSubmit} className="mb-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
-              <div className="flex gap-3">
+            <form onSubmit={handleTextSubmit} className="mb-4 sm:mb-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
+              <div className="flex gap-2 sm:gap-3">
                 <Input
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
-                  placeholder="Type a message to the avatar..."
+                  placeholder="Type a message..."
                   disabled={status === 'processing' || status === 'speaking'}
-                  className="bg-white/5 border-white/10 focus-visible:ring-blue-500/50 text-white placeholder:text-gray-500 h-12 text-base rounded-xl px-4"
+                  className="bg-white/5 border-white/10 focus-visible:ring-blue-500/50 text-white placeholder:text-gray-500 h-10 sm:h-12 text-sm sm:text-base rounded-xl px-3 sm:px-4"
                   autoFocus
                 />
                 <Button
                   type="submit"
                   size="icon"
-                  className="h-12 w-12 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
+                  className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
                   disabled={!textInput.trim()}
                 >
-                  <Send className="h-5 w-5" />
+                  <Send className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </div>
             </form>
           )}
 
           {/* Bottom Controls Row */}
-          <div className="flex items-center justify-between px-4">
-            {/* Switch Mode Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onSwitchToChat}
-              className="h-12 w-12 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-              title="Switch to Text Chat"
-            >
-              <MessageSquare className="h-6 w-6" />
-            </Button>
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            {/* Left: Small Waveform Visualizer */}
+            <div className="flex-shrink-0 w-16 h-12 sm:w-20 sm:h-14 bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+              <WaveformVisualizer
+                isActive={status !== 'idle'}
+                mode={status === 'listening' ? 'listening' : status === 'speaking' ? 'speaking' : 'idle'}
+                className="w-full h-full opacity-80"
+              />
+            </div>
 
-            {/* Mic Toggle (Center Piece) */}
-            <div className="relative group">
-              {/* Glow effect behind button */}
+            {/* Center: Mic Toggle (Main Control) */}
+            <div className="relative group flex-shrink-0">
+              {/* Glow effect */}
               <div className={cn(
                 "absolute inset-0 rounded-full blur-xl transition-opacity duration-500",
                 isListening ? "bg-red-500/40 opacity-100" :
@@ -294,7 +297,7 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
                 onClick={toggleListening}
                 disabled={status === 'processing' || showTextInput}
                 className={cn(
-                  'relative h-20 w-20 rounded-full shadow-2xl border-4 transition-all duration-300 scale-100 group-hover:scale-105 active:scale-95',
+                  'relative h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full shadow-2xl border-4 transition-all duration-300 scale-100 group-hover:scale-105 active:scale-95',
                   isListening
                     ? 'bg-red-600 border-red-400 hover:bg-red-500 text-white animate-pulse'
                     : status === 'speaking'
@@ -303,31 +306,45 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
                 )}
               >
                 {isListening ? (
-                  <MicOff className="h-8 w-8" />
+                  <MicOff className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
                 ) : (
-                  <Mic className="h-8 w-8" />
+                  <Mic className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
                 )}
               </Button>
             </div>
 
-            {/* Keyboard Toggle */}
-            <Button
-              variant={showTextInput ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => {
-                setShowTextInput(!showTextInput);
-                if (isListening) stopListening();
-              }}
-              className={cn(
-                "h-12 w-12 rounded-full transition-all duration-300",
-                showTextInput
-                  ? "bg-white text-black hover:bg-gray-200 shadow-lg"
-                  : "text-gray-400 hover:text-white hover:bg-white/10"
-              )}
-              title="Type Message"
-            >
-              <Keyboard className="h-6 w-6" />
-            </Button>
+            {/* Right: Action Buttons */}
+            <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+              {/* Keyboard Toggle */}
+              <Button
+                variant={showTextInput ? 'secondary' : 'ghost'}
+                size="icon"
+                onClick={() => {
+                  setShowTextInput(!showTextInput);
+                  if (isListening) stopListening();
+                }}
+                className={cn(
+                  "h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-all duration-300",
+                  showTextInput
+                    ? "bg-white text-black hover:bg-gray-200 shadow-lg"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
+                )}
+                title={showTextInput ? 'Hide Keyboard' : 'Show Keyboard'}
+              >
+                <Keyboard className="h-5 w-5 sm:h-6 sm:w-6" />
+              </Button>
+
+              {/* Switch Mode Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSwitchToChat}
+                className="h-10 w-10 sm:h-12 sm:w-12 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Switch to Text Chat"
+              >
+                <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

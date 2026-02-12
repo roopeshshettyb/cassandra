@@ -1,8 +1,8 @@
 import React, { useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import { useThreeScene } from './hooks/useThreeScene';
 import { detectDevice } from './utils/deviceDetection';
-import { cn } from 'lib/utils';
-import { Button } from 'components/ui/button';
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
 import { Loader2, RotateCcw } from 'lucide-react';
 
 interface AvatarCanvasProps {
@@ -18,6 +18,7 @@ export interface AvatarCanvasRef {
   playIdle: () => void;
   playThinking: () => void;
   resetCamera: () => void;
+  setLipSync: (value: number) => void;
 }
 
 export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(
@@ -27,7 +28,7 @@ export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(
     // Compute device capabilities once
     const [deviceCapabilities] = useState(() => detectDevice());
 
-    const { playWaving, playTalking, playIdle, playThinking, resetCamera } = useThreeScene({
+    const { playWaving, playTalking, playIdle, playThinking, resetCamera, setLipSync } = useThreeScene({
       containerRef,
       avatarUrl,
       deviceCapabilities,
@@ -47,7 +48,8 @@ export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(
       playIdle,
       playThinking,
       resetCamera,
-    }), [playWaving, playTalking, playIdle, playThinking, resetCamera]);
+      setLipSync,
+    }), [playWaving, playTalking, playIdle, playThinking, resetCamera, setLipSync]);
 
     return (
       <div className={cn('relative w-full h-full', className)}>
@@ -57,17 +59,6 @@ export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(
           role="img"
           aria-label="3D Avatar"
         />
-        {!isLoading && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={resetCamera}
-            className="absolute top-2 right-2 h-8 w-8 bg-background/50 hover:bg-background/80 backdrop-blur-sm"
-            aria-label="Reset camera view"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        )}
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">

@@ -191,7 +191,7 @@ for (const [provider, data] of Object.entries(PLATFORM_DATA)) {
 
 @Injectable()
 export class ConstantsService {
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) { }
 
   get public() {
     return {
@@ -236,6 +236,8 @@ export class ConstantsService {
       DB_SSL: this.configService.get<string>('DB_SSL', 'false') === 'true' || this.configService.get<string>('DB_SSL', 'false') === '1',
       DB_POOL_SIZE: parseInt(this.configService.get('DB_POOL_SIZE') || '5', 10),
       DB_LOGGING: this.configService.get<string>('DB_LOGGING', 'false') === 'true',
+      DB_DIALECT: this.configService.get<string>('DB_DIALECT', 'postgres'),
+      DB_STORAGE: this.configService.get<string>('DB_STORAGE'),
 
       // AWS Configuration
       AWS_ACCESS_KEY_ID: this.configService.get<string>('AWS_ACCESS_KEY_ID'),

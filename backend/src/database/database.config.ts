@@ -19,7 +19,8 @@ export class DatabaseConfig implements IDatabaseConfig {
     const privateConstants = this.constantsService.private;
 
     return {
-      dialect: 'postgres',
+      dialect: (privateConstants.DB_DIALECT as any) || 'postgres',
+      storage: privateConstants.DB_STORAGE,
       host: privateConstants.DB_HOST,
       port: privateConstants.DB_PORT,
       username: privateConstants.DB_USERNAME,
@@ -41,11 +42,11 @@ export class DatabaseConfig implements IDatabaseConfig {
       },
       dialectOptions: privateConstants.DB_SSL
         ? {
-            ssl: {
-              require: true,
-              rejectUnauthorized: false,
-            },
-          }
+          ssl: {
+            require: true,
+            rejectUnauthorized: false,
+          },
+        }
         : undefined,
     };
   }
