@@ -118,4 +118,17 @@ export class Hotel extends Model<Hotel> {
     field: 'theme_config',
   })
   themeConfig: Record<string, unknown>;
+
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    field: 'avatar_config',
+  })
+  avatarConfig: {
+    avatarUrl: string;
+    idleAnimationPath: string;
+    talkingAnimationPath: string;
+    hiAnimationPath: string;
+    thinkingAnimationPath: string;
+  };
 }

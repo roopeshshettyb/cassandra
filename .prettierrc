@@ -13,7 +13,7 @@
   "requirePragma": false,
   "insertPragma": false,
   "htmlWhitespaceSensitivity": "strict",
-  "vueIndentScriptAndStyle": false,
+  "vueIndentScriptAndStyle": false, 
   "endOfLine": "auto",
   "overrides": [
     {
