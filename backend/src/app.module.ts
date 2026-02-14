@@ -25,7 +25,7 @@ import { RestaurantModule } from './restaurant/restaurant.module';
 import { CostsModule } from './costs/costs.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
-import { AvatarConfigController } from './avatar-config/avatar-config.controller';
+
 
 @Module({
   imports: [
@@ -58,7 +58,7 @@ import { AvatarConfigController } from './avatar-config/avatar-config.controller
     RestaurantModule,
     CostsModule,
   ],
-  controllers: [AppController, AvatarConfigController],
+  controllers: [AppController],
   providers: [
     AppService,
     {

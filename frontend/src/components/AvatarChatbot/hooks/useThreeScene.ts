@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { detectDevice } from '../../../helper/utils';
 import { DeviceCapabilities } from '../types';
 
 interface UseThreeSceneProps {
@@ -68,15 +67,7 @@ interface SceneRefs {
   mouse: THREE.Vector2;
 }
 
-export function useThreeScene({
-  containerRef,
-  avatarUrl,
-  animationPaths,
-  deviceCapabilities,
-  onLoad,
-  onError,
-  backgroundColor,
-}: UseThreeSceneProps) {
+export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceCapabilities, onLoad, onError, backgroundColor }: UseThreeSceneProps) {
   const onLoadRef = useRef(onLoad);
   const onErrorRef = useRef(onError);
 
@@ -84,12 +75,20 @@ export function useThreeScene({
   onErrorRef.current = onError;
 
   const sceneRefs = useRef<SceneRefs>({
-    scene: null, camera: null, renderer: null, controls: null, avatar: null,
+    scene: null,
+    camera: null,
+    renderer: null,
+    controls: null,
+    avatar: null,
     meshes: { visemeMeshes: [], blinkMeshes: [], teeth: null, eyeLeft: null, eyeRight: null },
     bones: { leftEye: null, rightEye: null, neck: null, head: null, spine: null },
-    mixer: null, animationId: null, clock: new THREE.Clock(),
+    mixer: null,
+    animationId: null,
+    clock: new THREE.Clock(),
     actions: { waving: null, idle: null, talking: null, thinking: null },
-    currentAction: null, hasPlayedWaving: false, isInitialized: false,
+    currentAction: null,
+    hasPlayedWaving: false,
+    isInitialized: false,
     initialRotations: { head: null, neck: null, leftEye: null, rightEye: null },
     blinkState: { isBlinking: false, blinkStartTime: 0, nextBlinkTime: 0, duration: 200 },
     mouse: new THREE.Vector2(),
@@ -98,7 +97,9 @@ export function useThreeScene({
   const extractAnimationClip = useCallback((fbx: THREE.Group): THREE.AnimationClip | null => {
     if (fbx.animations && fbx.animations.length > 0) return fbx.animations[0];
     let foundClip: THREE.AnimationClip | null = null;
-    fbx.traverse((child: any) => { if (!foundClip && child.animations && child.animations.length > 0) foundClip = child.animations[0]; });
+    fbx.traverse((child: any) => {
+      if (!foundClip && child.animations && child.animations.length > 0) foundClip = child.animations[0];
+    });
     return foundClip;
   }, []);
 
@@ -136,7 +137,7 @@ export function useThreeScene({
 
   const setLipSync = useCallback((value: number) => {
     const { visemeMeshes } = sceneRefs.current.meshes;
-    visemeMeshes.forEach(mesh => {
+    visemeMeshes.forEach((mesh) => {
       if (mesh.morphTargetInfluences && mesh.morphTargetDictionary) {
         // Try standard RPM visemes first, then fallbacks
         const candidates = ['viseme_aa', 'mouthOpen', 'jawOpen', 'A'];
@@ -216,197 +217,251 @@ export function useThreeScene({
     const gltfLoader = new GLTFLoader();
     const fbxLoader = new FBXLoader();
 
-    gltfLoader.load(avatarUrl, async (gltf: GLTF) => {
-      const avatar = gltf.scene;
-      // Head centered at origin (approx height adjustment)
-      avatar.position.set(0, -1.4, 0);
-      avatar.scale.set(1.1, 1.1, 1.1);
+    gltfLoader.load(
+      avatarUrl,
+      async (gltf: GLTF) => {
+        const avatar = gltf.scene;
+        // Head centered at origin (approx height adjustment)
+        avatar.position.set(0, -1.4, 0);
+        avatar.scale.set(1.1, 1.1, 1.1);
 
-      const { meshes, bones } = sceneRefs.current;
-      console.group('Avatar Bone Structure');
-      avatar.traverse((child) => {
-        if (child instanceof THREE.Bone) {
-          console.log('Bone:', child.name);
-          const name = child.name;
-          if (name === 'LeftEye') bones.leftEye = child;
-          if (name === 'RightEye') bones.rightEye = child;
-          if (name === 'Neck') bones.neck = child;
-          if (name === 'Head') bones.head = child;
-          if (name === 'Hips' || name === 'Spine') bones.spine = child;
-        } else if (child instanceof THREE.Mesh) {
-          const name = child.name;
-          const lowerName = name.toLowerCase();
+        const { meshes, bones } = sceneRefs.current;
+        console.group('Avatar Bone Structure');
+        avatar.traverse((child) => {
+          if (child instanceof THREE.Bone) {
+            console.log('Bone:', child.name);
+            const name = child.name;
+            if (name === 'LeftEye') bones.leftEye = child;
+            if (name === 'RightEye') bones.rightEye = child;
+            if (name === 'Neck') bones.neck = child;
+            if (name === 'Head') bones.head = child;
+            if (name === 'Hips' || name === 'Spine') bones.spine = child;
+          } else if (child instanceof THREE.Mesh) {
+            const name = child.name;
+            const lowerName = name.toLowerCase();
 
-          if (child.morphTargetDictionary) {
-            // Check for visemes (talking)
-            const hasVisemes = ['viseme_aa', 'mouthOpen', 'jawOpen'].some(v => child.morphTargetDictionary![v] !== undefined);
-            if (hasVisemes) {
-              sceneRefs.current.meshes.visemeMeshes.push(child);
-              console.log(`Found viseme mesh: ${name}`);
-            }
+            if (child.morphTargetDictionary) {
+              // Check for visemes (talking)
+              const hasVisemes = ['viseme_aa', 'mouthOpen', 'jawOpen'].some((v) => child.morphTargetDictionary![v] !== undefined);
+              if (hasVisemes) {
+                sceneRefs.current.meshes.visemeMeshes.push(child);
+                console.log(`Found viseme mesh: ${name}`);
+              }
 
-            // Check for blinks
-            const hasBlinks = ['eyeBlinkLeft', 'eyeBlinkRight'].some(b => child.morphTargetDictionary![b] !== undefined);
-            if (hasBlinks) {
-              sceneRefs.current.meshes.blinkMeshes.push(child);
-              console.log(`Found blink mesh: ${name}`);
-            }
-          }
-
-          if (name === 'Wolf3D_Teeth') meshes.teeth = child;
-
-          if (name === 'Wolf3D_Outfit_Bottom' || name === 'Wolf3D_Outfit_Footwear' || name === 'Wolf3D_Outfit_Top') {
-            child.castShadow = true;
-            child.receiveShadow = true;
-          }
-          if (child.material) {
-            const material = child.material as THREE.MeshStandardMaterial;
-            if (material.map) { material.map.colorSpace = THREE.SRGBColorSpace; material.map.flipY = false; }
-            if (lowerName.includes('eye') || lowerName.includes('lash') || lowerName.includes('brow')) {
-              material.transparent = true;
-              material.alphaTest = 0.5;
-              material.depthWrite = true;
-              material.side = THREE.DoubleSide;
-            }
-          }
-        }
-      });
-      console.groupEnd();
-
-      scene.add(avatar);
-      sceneRefs.current.avatar = avatar;
-
-      const mixer = new THREE.AnimationMixer(avatar);
-      sceneRefs.current.mixer = mixer;
-
-      const validBoneNames = new Set<string>();
-      console.groupCollapsed('Avatar Bones (RPM)');
-      avatar.traverse((child) => {
-        if (child instanceof THREE.Bone) {
-          validBoneNames.add(child.name);
-          console.log(child.name);
-        }
-      });
-      console.groupEnd();
-
-      // Capture initial rotations for tracking offsets
-      if (bones.head) sceneRefs.current.initialRotations.head = bones.head.rotation.clone();
-      if (bones.neck) sceneRefs.current.initialRotations.neck = bones.neck.rotation.clone();
-      if (bones.leftEye) sceneRefs.current.initialRotations.leftEye = bones.leftEye.rotation.clone();
-      if (bones.rightEye) sceneRefs.current.initialRotations.rightEye = bones.rightEye.rotation.clone();
-
-      const retargetClip = (clip: THREE.AnimationClip) => {
-        const tracks: THREE.KeyframeTrack[] = [];
-        console.groupCollapsed(`Retargeting Clip: ${clip.name}`);
-
-        // Map Mixamo bones to Ready Player Me bones
-        const boneMap: { [key: string]: string } = {
-          'mixamorigHips': 'Hips', 'mixamorigSpine': 'Spine', 'mixamorigSpine1': 'Spine1', 'mixamorigSpine2': 'Spine2',
-          'mixamorigNeck': 'Neck', 'mixamorigHead': 'Head',
-          'mixamorigLeftShoulder': 'LeftShoulder', 'mixamorigLeftArm': 'LeftArm', 'mixamorigLeftForeArm': 'LeftForeArm', 'mixamorigLeftHand': 'LeftHand',
-          'mixamorigRightShoulder': 'RightShoulder', 'mixamorigRightArm': 'RightArm', 'mixamorigRightForeArm': 'RightForeArm', 'mixamorigRightHand': 'RightHand',
-          'mixamorigLeftUpLeg': 'LeftUpLeg', 'mixamorigLeftLeg': 'LeftLeg', 'mixamorigLeftFoot': 'LeftFoot',
-          'mixamorigRightUpLeg': 'RightUpLeg', 'mixamorigRightLeg': 'RightLeg', 'mixamorigRightFoot': 'RightFoot',
-          'mixamorigLeftHandThumb1': 'LeftHandThumb1', 'mixamorigLeftHandThumb2': 'LeftHandThumb2', 'mixamorigLeftHandThumb3': 'LeftHandThumb3',
-          'mixamorigLeftHandIndex1': 'LeftHandIndex1', 'mixamorigLeftHandIndex2': 'LeftHandIndex2', 'mixamorigLeftHandIndex3': 'LeftHandIndex3',
-          'mixamorigLeftHandMiddle1': 'LeftHandMiddle1', 'mixamorigLeftHandMiddle2': 'LeftHandMiddle2', 'mixamorigLeftHandMiddle3': 'LeftHandMiddle3',
-          'mixamorigLeftHandRing1': 'LeftHandRing1', 'mixamorigLeftHandRing2': 'LeftHandRing2', 'mixamorigLeftHandRing3': 'LeftHandRing3',
-          'mixamorigLeftHandPinky1': 'LeftHandPinky1', 'mixamorigLeftHandPinky2': 'LeftHandPinky2', 'mixamorigLeftHandPinky3': 'LeftHandPinky3',
-          'mixamorigRightHandThumb1': 'RightHandThumb1', 'mixamorigRightHandThumb2': 'RightHandThumb2', 'mixamorigRightHandThumb3': 'RightHandThumb3',
-          'mixamorigRightHandIndex1': 'RightHandIndex1', 'mixamorigRightHandIndex2': 'RightHandIndex2', 'mixamorigRightHandIndex3': 'RightHandIndex3',
-          'mixamorigRightHandMiddle1': 'RightHandMiddle1', 'mixamorigRightHandMiddle2': 'RightHandMiddle2', 'mixamorigRightHandMiddle3': 'RightHandMiddle3',
-          'mixamorigRightHandRing1': 'RightHandRing1', 'mixamorigRightHandRing2': 'RightHandRing2', 'mixamorigRightHandRing3': 'RightHandRing3',
-          'mixamorigRightHandPinky1': 'RightHandPinky1', 'mixamorigRightHandPinky2': 'RightHandPinky2', 'mixamorigRightHandPinky3': 'RightHandPinky3'
-        };
-
-        clip.tracks.forEach((track) => {
-          const [rawBoneName, property] = track.name.split('.');
-          if (property === 'scale') return;
-
-          // Strip prefixes (e.g. "Mixamorig:Hips" -> "Hips")
-          // Also handle spaces or other garbage
-          const strippedName = rawBoneName.split(':').pop()?.replace('Mixamorig', 'mixamorig') || rawBoneName;
-
-          let targetBoneName = boneMap[strippedName] || boneMap[rawBoneName];
-
-          // Fallback: Check if stripped name matches RPM bone
-          if (!targetBoneName && validBoneNames.has(strippedName)) {
-            targetBoneName = strippedName;
-          }
-          // Fallback: Check if raw name matches (e.g. "Hips")
-          if (!targetBoneName && validBoneNames.has(rawBoneName)) {
-            targetBoneName = rawBoneName;
-          }
-
-          if (targetBoneName) {
-            // For non-root bones, IGNORE position tracks to prevent stretching/distortion
-            if (property === 'position' && targetBoneName !== 'Hips') return;
-
-            const newTrack = track.clone();
-            newTrack.name = `${targetBoneName}.${property}`;
-
-            // Scale position only for Hips (root motion)
-            if (property === 'position' && targetBoneName === 'Hips') {
-              const sample = newTrack.values[0];
-              // Auto-detect cm vs m. If > 5 units, likely cm.
-              if (Math.abs(sample) > 5) {
-                for (let i = 0; i < newTrack.values.length; i++) newTrack.values[i] *= 0.01;
+              // Check for blinks
+              const hasBlinks = ['eyeBlinkLeft', 'eyeBlinkRight'].some((b) => child.morphTargetDictionary![b] !== undefined);
+              if (hasBlinks) {
+                sceneRefs.current.meshes.blinkMeshes.push(child);
+                console.log(`Found blink mesh: ${name}`);
               }
             }
-            tracks.push(newTrack);
-          } else {
-            console.warn(`Unmapped bone: ${rawBoneName} (stripped: ${strippedName})`);
+
+            if (name === 'Wolf3D_Teeth') meshes.teeth = child;
+
+            if (name === 'Wolf3D_Outfit_Bottom' || name === 'Wolf3D_Outfit_Footwear' || name === 'Wolf3D_Outfit_Top') {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+            if (child.material) {
+              const material = child.material as THREE.MeshStandardMaterial;
+              if (material.map) {
+                material.map.colorSpace = THREE.SRGBColorSpace;
+                material.map.flipY = false;
+              }
+              if (lowerName.includes('eye') || lowerName.includes('lash') || lowerName.includes('brow')) {
+                material.transparent = true;
+                material.alphaTest = 0.5;
+                material.depthWrite = true;
+                material.side = THREE.DoubleSide;
+              }
+            }
           }
         });
         console.groupEnd();
-        return new THREE.AnimationClip(clip.name, clip.duration, tracks);
-      };
 
-      const loadAnimationRetargeted = (path: string, opts: any = {}) => {
-        return new Promise<THREE.AnimationAction | null>((resolve) => {
-          fbxLoader.load(path, (fbx) => {
-            const clip = extractAnimationClip(fbx);
-            if (clip) {
-              const action = mixer.clipAction(retargetClip(clip));
-              if (opts.loop !== undefined) action.setLoop(opts.loop, 1);
-              if (opts.clampWhenFinished) action.clampWhenFinished = true;
-              resolve(action);
-            } else resolve(null);
-          }, undefined, () => resolve(null));
+        scene.add(avatar);
+        sceneRefs.current.avatar = avatar;
+
+        const mixer = new THREE.AnimationMixer(avatar);
+        sceneRefs.current.mixer = mixer;
+
+        const validBoneNames = new Set<string>();
+        console.groupCollapsed('Avatar Bones (RPM)');
+        avatar.traverse((child) => {
+          if (child instanceof THREE.Bone) {
+            validBoneNames.add(child.name);
+            console.log(child.name);
+          }
         });
-      };
+        console.groupEnd();
 
-      const paths = animationPaths || {
-        idle: '/animations/idle.fbx',
-        talking: '/animations/talking.fbx',
-        waving: '/animations/waving.fbx',
-        thinking: '/animations/thinking.fbx',
-      };
+        // Capture initial rotations for tracking offsets
+        if (bones.head) sceneRefs.current.initialRotations.head = bones.head.rotation.clone();
+        if (bones.neck) sceneRefs.current.initialRotations.neck = bones.neck.rotation.clone();
+        if (bones.leftEye) sceneRefs.current.initialRotations.leftEye = bones.leftEye.rotation.clone();
+        if (bones.rightEye) sceneRefs.current.initialRotations.rightEye = bones.rightEye.rotation.clone();
 
-      const [waving, idle, talking, thinking] = await Promise.all([
-        loadAnimationRetargeted(paths.waving, { loop: THREE.LoopOnce, clampWhenFinished: true }),
-        loadAnimationRetargeted(paths.idle),
-        loadAnimationRetargeted(paths.talking),
-        loadAnimationRetargeted(paths.thinking),
-      ]);
+        const retargetClip = (clip: THREE.AnimationClip) => {
+          const tracks: THREE.KeyframeTrack[] = [];
+          console.groupCollapsed(`Retargeting Clip: ${clip.name}`);
 
-      sceneRefs.current.actions = { waving, idle, talking, thinking };
+          // Map Mixamo bones to Ready Player Me bones
+          const boneMap: { [key: string]: string } = {
+            mixamorigHips: 'Hips',
+            mixamorigSpine: 'Spine',
+            mixamorigSpine1: 'Spine1',
+            mixamorigSpine2: 'Spine2',
+            mixamorigNeck: 'Neck',
+            mixamorigHead: 'Head',
+            mixamorigLeftShoulder: 'LeftShoulder',
+            mixamorigLeftArm: 'LeftArm',
+            mixamorigLeftForeArm: 'LeftForeArm',
+            mixamorigLeftHand: 'LeftHand',
+            mixamorigRightShoulder: 'RightShoulder',
+            mixamorigRightArm: 'RightArm',
+            mixamorigRightForeArm: 'RightForeArm',
+            mixamorigRightHand: 'RightHand',
+            mixamorigLeftUpLeg: 'LeftUpLeg',
+            mixamorigLeftLeg: 'LeftLeg',
+            mixamorigLeftFoot: 'LeftFoot',
+            mixamorigRightUpLeg: 'RightUpLeg',
+            mixamorigRightLeg: 'RightLeg',
+            mixamorigRightFoot: 'RightFoot',
+            mixamorigLeftHandThumb1: 'LeftHandThumb1',
+            mixamorigLeftHandThumb2: 'LeftHandThumb2',
+            mixamorigLeftHandThumb3: 'LeftHandThumb3',
+            mixamorigLeftHandIndex1: 'LeftHandIndex1',
+            mixamorigLeftHandIndex2: 'LeftHandIndex2',
+            mixamorigLeftHandIndex3: 'LeftHandIndex3',
+            mixamorigLeftHandMiddle1: 'LeftHandMiddle1',
+            mixamorigLeftHandMiddle2: 'LeftHandMiddle2',
+            mixamorigLeftHandMiddle3: 'LeftHandMiddle3',
+            mixamorigLeftHandRing1: 'LeftHandRing1',
+            mixamorigLeftHandRing2: 'LeftHandRing2',
+            mixamorigLeftHandRing3: 'LeftHandRing3',
+            mixamorigLeftHandPinky1: 'LeftHandPinky1',
+            mixamorigLeftHandPinky2: 'LeftHandPinky2',
+            mixamorigLeftHandPinky3: 'LeftHandPinky3',
+            mixamorigRightHandThumb1: 'RightHandThumb1',
+            mixamorigRightHandThumb2: 'RightHandThumb2',
+            mixamorigRightHandThumb3: 'RightHandThumb3',
+            mixamorigRightHandIndex1: 'RightHandIndex1',
+            mixamorigRightHandIndex2: 'RightHandIndex2',
+            mixamorigRightHandIndex3: 'RightHandIndex3',
+            mixamorigRightHandMiddle1: 'RightHandMiddle1',
+            mixamorigRightHandMiddle2: 'RightHandMiddle2',
+            mixamorigRightHandMiddle3: 'RightHandMiddle3',
+            mixamorigRightHandRing1: 'RightHandRing1',
+            mixamorigRightHandRing2: 'RightHandRing2',
+            mixamorigRightHandRing3: 'RightHandRing3',
+            mixamorigRightHandPinky1: 'RightHandPinky1',
+            mixamorigRightHandPinky2: 'RightHandPinky2',
+            mixamorigRightHandPinky3: 'RightHandPinky3',
+          };
 
-      // Ensure specific animations loop correctly
-      if (idle) idle.setLoop(THREE.LoopRepeat, Infinity);
-      if (talking) talking.setLoop(THREE.LoopRepeat, Infinity);
-      if (thinking) thinking.setLoop(THREE.LoopRepeat, Infinity);
+          clip.tracks.forEach((track) => {
+            const [rawBoneName, property] = track.name.split('.');
+            if (property === 'scale') return;
 
-      mixer.addEventListener('finished', (e) => {
-        if (e.action === waving && idle) {
+            // Strip prefixes (e.g. "Mixamorig:Hips" -> "Hips")
+            // Also handle spaces or other garbage
+            const strippedName = rawBoneName.split(':').pop()?.replace('Mixamorig', 'mixamorig') || rawBoneName;
+
+            let targetBoneName = boneMap[strippedName] || boneMap[rawBoneName];
+
+            // Fallback: Check if stripped name matches RPM bone
+            if (!targetBoneName && validBoneNames.has(strippedName)) {
+              targetBoneName = strippedName;
+            }
+            // Fallback: Check if raw name matches (e.g. "Hips")
+            if (!targetBoneName && validBoneNames.has(rawBoneName)) {
+              targetBoneName = rawBoneName;
+            }
+
+            if (targetBoneName) {
+              // For non-root bones, IGNORE position tracks to prevent stretching/distortion
+              if (property === 'position' && targetBoneName !== 'Hips') return;
+
+              const newTrack = track.clone();
+              newTrack.name = `${targetBoneName}.${property}`;
+
+              // Scale position only for Hips (root motion)
+              if (property === 'position' && targetBoneName === 'Hips') {
+                const sample = newTrack.values[0];
+                // Auto-detect cm vs m. If > 5 units, likely cm.
+                if (Math.abs(sample) > 5) {
+                  for (let i = 0; i < newTrack.values.length; i++) newTrack.values[i] *= 0.01;
+                }
+              }
+              tracks.push(newTrack);
+            } else {
+              console.warn(`Unmapped bone: ${rawBoneName} (stripped: ${strippedName})`);
+            }
+          });
+          console.groupEnd();
+          return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+        };
+
+        const loadAnimationRetargeted = (path: string, opts: any = {}) => {
+          return new Promise<THREE.AnimationAction | null>((resolve) => {
+            fbxLoader.load(
+              path,
+              (fbx) => {
+                const clip = extractAnimationClip(fbx);
+                if (clip) {
+                  const action = mixer.clipAction(retargetClip(clip));
+                  if (opts.loop !== undefined) action.setLoop(opts.loop, 1);
+                  if (opts.clampWhenFinished) action.clampWhenFinished = true;
+                  resolve(action);
+                } else resolve(null);
+              },
+              undefined,
+              () => resolve(null),
+            );
+          });
+        };
+
+        const paths = animationPaths || {
+          idle: '/animations/idle.fbx',
+          talking: '/animations/talking.fbx',
+          waving: '/animations/waving.fbx',
+          thinking: '/animations/thinking.fbx',
+        };
+
+        const [waving, idle, talking, thinking] = await Promise.all([
+          loadAnimationRetargeted(paths.waving, { loop: THREE.LoopOnce, clampWhenFinished: true }),
+          loadAnimationRetargeted(paths.idle),
+          loadAnimationRetargeted(paths.talking),
+          loadAnimationRetargeted(paths.thinking),
+        ]);
+
+        sceneRefs.current.actions = { waving, idle, talking, thinking };
+
+        // Ensure specific animations loop correctly
+        if (idle) idle.setLoop(THREE.LoopRepeat, Infinity);
+        if (talking) talking.setLoop(THREE.LoopRepeat, Infinity);
+        if (thinking) thinking.setLoop(THREE.LoopRepeat, Infinity);
+
+        mixer.addEventListener('finished', (e) => {
+          if (e.action === waving && idle) {
+            sceneRefs.current.hasPlayedWaving = true;
+            crossFadeTo(idle, 0.5);
+          }
+        });
+
+        if (waving) waving.play();
+        else if (idle) {
           sceneRefs.current.hasPlayedWaving = true;
-          crossFadeTo(idle, 0.5);
+          idle.play();
         }
-      });
-
-      if (waving) waving.play(); else if (idle) { sceneRefs.current.hasPlayedWaving = true; idle.play(); }
-      onLoadRef.current?.();
-    }, undefined, (err) => { console.error(err); onErrorRef.current?.(new Error('Load failed')); });
+        onLoadRef.current?.();
+      },
+      undefined,
+      (err) => {
+        console.error(err);
+        onErrorRef.current?.(new Error('Load failed'));
+      },
+    );
 
     const clock = new THREE.Clock();
     const avatarRenderLoop = (timestamp: number) => {
@@ -426,7 +481,7 @@ export function useThreeScene({
         // Smoothly interpolate current rotation to target
         // Head follows mouse slightly (neck/head rotation)
         const verticalGazeOffset = 0.05; // Reduced offset
-        const headRotationX = -targetY * 0.1 + (verticalGazeOffset * 0.5); // Reduced tracking range
+        const headRotationX = -targetY * 0.1 + verticalGazeOffset * 0.5; // Reduced tracking range
         const headRotationY = -targetX * 0.2; // Reduced tracking range
 
         // Apply relative rotation (Initial + Offset)
@@ -441,8 +496,8 @@ export function useThreeScene({
         bones.head.rotation.y = THREE.MathUtils.lerp(currentHeadY, targetHeadRotY, 0.1);
 
         if (bones.neck && initialRotations.neck) {
-          const targetNeckRotX = initialRotations.neck.x + (headRotationX * 0.5);
-          const targetNeckRotY = initialRotations.neck.y + (headRotationY * 0.5);
+          const targetNeckRotX = initialRotations.neck.x + headRotationX * 0.5;
+          const targetNeckRotY = initialRotations.neck.y + headRotationY * 0.5;
 
           bones.neck.rotation.x = THREE.MathUtils.lerp(bones.neck.rotation.x, targetNeckRotX, 0.1);
           bones.neck.rotation.y = THREE.MathUtils.lerp(bones.neck.rotation.y, targetNeckRotY, 0.1);
@@ -472,7 +527,7 @@ export function useThreeScene({
           const progress = (timestamp - blinkState.blinkStartTime) / blinkState.duration;
           if (progress >= 1) {
             blinkState.isBlinking = false;
-            meshes.blinkMeshes.forEach(mesh => {
+            meshes.blinkMeshes.forEach((mesh) => {
               const leftIdx = mesh.morphTargetDictionary!['eyeBlinkLeft'];
               const rightIdx = mesh.morphTargetDictionary!['eyeBlinkRight'];
               if (leftIdx !== undefined) mesh.morphTargetInfluences![leftIdx] = 0;
@@ -480,7 +535,7 @@ export function useThreeScene({
             });
           } else {
             const value = Math.sin(progress * Math.PI);
-            meshes.blinkMeshes.forEach(mesh => {
+            meshes.blinkMeshes.forEach((mesh) => {
               const leftIdx = mesh.morphTargetDictionary!['eyeBlinkLeft'];
               const rightIdx = mesh.morphTargetDictionary!['eyeBlinkRight'];
               if (leftIdx !== undefined) mesh.morphTargetInfluences![leftIdx] = value;
@@ -498,7 +553,10 @@ export function useThreeScene({
       if (animationId) cancelAnimationFrame(animationId);
       if (c) c.dispose();
       if (s) s.clear();
-      if (r) { r.dispose(); r.domElement.remove(); }
+      if (r) {
+        r.dispose();
+        r.domElement.remove();
+      }
       sceneRefs.current.isInitialized = false;
     };
   }, [containerRef, avatarUrl, deviceCapabilities]);

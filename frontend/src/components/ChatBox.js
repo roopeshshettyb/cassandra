@@ -3,8 +3,6 @@ import { Box, Button, CircularProgress, IconButton, TextField, Typography, Paper
 import SendIcon from '@mui/icons-material/Send';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import ThreeDRotationIcon from '@mui/icons-material/ThreeDRotation';
-import MicIcon from '@mui/icons-material/Mic';
-import ChatBubbleIcon from '@mui/icons-material/ChatBubble';
 import ChatIcon from '@mui/icons-material/Chat';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
@@ -14,12 +12,12 @@ import constants from '../constants.json';
 
 // Imports for Voice Mode (3D Avatar)
 import { AvatarCanvas } from './AvatarChatbot/AvatarCanvas';
-import { ChatMode } from './AvatarChatbot/ChatMode';
 import { useSocketChat } from './AvatarChatbot/hooks/useSocketChat';
 import { useLipSync } from './AvatarChatbot/hooks/useLipSync';
 
+import { DEFAULT_AVATAR_CONFIG } from '../config/default-avatar-config';
+
 const { APP_NAME } = constants;
-const DEFAULT_AVATAR_URL = 'https://models.readyplayer.me/698df165d9645a11b117e2fc.glb';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
@@ -30,11 +28,12 @@ const pulseWave = keyframes({
 });
 
 // --- Classic Chat Component (The Original UI) ---
-function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }) {
+function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile }) {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
   const [voiceSocket, setVoiceSocket] = useState(null);
   const [voiceReady, setVoiceReady] = useState(false);
+  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false); // Voice processing state
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -300,7 +299,9 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
         </Box>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
-          <Typography variant="body2" color="text.secondary">{APP_NAME} would be ready to talk to you as soon as you check in!</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {APP_NAME} would be ready to talk to you as soon as you check in!
+          </Typography>
         </Box>
       </Box>
     );
@@ -316,11 +317,17 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }
   const renderMarkdown = (content, variant = 'assistant') => {
     const isUser = variant === 'user';
     return (
-      <Box sx={{
-        '& p': { m: 0 }, '& ul, & ol': { m: 0, pl: 2.5 }, '& li': { mt: 0.5 }, '& a': { color: 'inherit' },
-        '& code': { fontFamily: 'monospace' }, '& pre': { m: 0, p: 1, overflow: 'auto', borderRadius: 1, bgcolor: isUser ? 'rgba(255, 0, 0, 0.18)' : 'action.hover' },
-        '& :not(pre) > code': { px: 0.6, py: 0.2, borderRadius: 0.8, bgcolor: isUser ? 'rgba(255,255,255,0.16)' : 'action.hover' },
-      }}>
+      <Box
+        sx={{
+          '& p': { m: 0 },
+          '& ul, & ol': { m: 0, pl: 2.5 },
+          '& li': { mt: 0.5 },
+          '& a': { color: 'inherit' },
+          '& code': { fontFamily: 'monospace' },
+          '& pre': { m: 0, p: 1, overflow: 'auto', borderRadius: 1, bgcolor: isUser ? 'rgba(255, 0, 0, 0.18)' : 'action.hover' },
+          '& :not(pre) > code': { px: 0.6, py: 0.2, borderRadius: 0.8, bgcolor: isUser ? 'rgba(255,255,255,0.16)' : 'action.hover' },
+        }}
+      >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || ''}</ReactMarkdown>
       </Box>
     );
@@ -330,19 +337,28 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }
     <>
       <Box ref={scrollContainerRef} onScroll={handleScroll} sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {messages.map((m) => (
-          <Box key={m.id} sx={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%', px: 2, py: 1, borderRadius: 2, bgcolor: m.role === 'user' ? 'primary.main' : 'action.hover', color: m.role === 'user' ? 'primary.contrastText' : 'text.primary' }}>
+          <Box
+            key={m.id}
+            sx={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '85%',
+              px: 2,
+              py: 1,
+              borderRadius: 2,
+              bgcolor: m.role === 'user' ? 'primary.main' : 'action.hover',
+              color: m.role === 'user' ? 'primary.contrastText' : 'text.primary',
+            }}
+          >
             {renderMarkdown(m.content, m.role)}
           </Box>
         ))}
-        {streamingContent && (
-          <Box sx={{ alignSelf: 'flex-start', maxWidth: '85%', px: 2, py: 1, borderRadius: 2, bgcolor: 'action.hover' }}>
-            {renderMarkdown(streamingContent)}
-          </Box>
-        )}
+        {streamingContent && <Box sx={{ alignSelf: 'flex-start', maxWidth: '85%', px: 2, py: 1, borderRadius: 2, bgcolor: 'action.hover' }}>{renderMarkdown(streamingContent)}</Box>}
         {!streamingContent && sending && (
           <Box sx={{ alignSelf: 'flex-start', maxWidth: '85%', px: 2, py: 1.5, borderRadius: 2, bgcolor: 'action.hover', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={16} />
-            <Typography variant="body2" color="text.secondary">{APP_NAME} is thinking…</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {APP_NAME} is thinking…
+            </Typography>
           </Box>
         )}
         <div ref={messagesEndRef} />
@@ -356,15 +372,28 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }
           placeholder="Type a message…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           disabled={!ready || sending}
           multiline
           maxRows={4}
         />
-        <IconButton color={isRecording ? 'secondary' : 'primary'} onClick={handleVoice} disabled={!ready || !voiceReady} aria-label="Voice" sx={{ transition: 'transform 0.2s ease, opacity 0.2s ease', transform: isRecording ? 'scale(1.15)' : 'scale(1)', opacity: !ready || !voiceReady ? 0.4 : 1 }}>
+        <IconButton
+          color={isRecording ? 'secondary' : 'primary'}
+          onClick={handleVoice}
+          disabled={!ready || !voiceReady}
+          aria-label="Voice"
+          sx={{ transition: 'transform 0.2s ease, opacity 0.2s ease', transform: isRecording ? 'scale(1.15)' : 'scale(1)', opacity: !ready || !voiceReady ? 0.4 : 1 }}
+        >
           <GraphicEqIcon sx={{ animation: isRecording ? `${pulseWave} 0.9s ease-in-out infinite` : 'none' }} />
         </IconButton>
-        <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>Send</Button>
+        <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>
+          Send
+        </Button>
       </Box>
     </>
   );
@@ -375,7 +404,17 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
           {(sending || streamingContent) && <CircularProgress size={16} />}
-          {connectionNote ? <Typography variant="caption" color="text.secondary">{connectionNote}</Typography> : !ready && <Typography variant="caption" color="text.secondary">Connecting…</Typography>}
+          {connectionNote ? (
+            <Typography variant="caption" color="text.secondary">
+              {connectionNote}
+            </Typography>
+          ) : (
+            !ready && (
+              <Typography variant="caption" color="text.secondary">
+                Connecting…
+              </Typography>
+            )
+          )}
         </Box>
 
         {/* Switch Mode Button (Restored) */}
@@ -392,9 +431,21 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice }
 }
 
 // --- Voice Chat Component (The New 3D UI) ---
-function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
-  const [avatarConfig, setAvatarConfig] = useState(null);
+function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile }) {
+
+  // State defined above: messages...
+
   const avatarRef = useRef(null);
+
+  const {
+    avatarUrl,
+    idleAnimationPath,
+    talkingAnimationPath,
+    hiAnimationPath,
+    thinkingAnimationPath,
+  } = avatarConfig || DEFAULT_AVATAR_CONFIG;
+
+  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
 
@@ -419,7 +470,9 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
   const lipSyncAnim = useRef(null);
   useEffect(() => {
     lipSyncAnim.current = initWithSpeechSynthesis();
-    return () => { if (lipSyncAnim.current) lipSyncAnim.current.stop(); };
+    return () => {
+      if (lipSyncAnim.current) lipSyncAnim.current.stop();
+    };
   }, [initWithSpeechSynthesis]);
 
   // Chat socket for shared message history (text mode uses this)
@@ -708,49 +761,43 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
     }
   };
 
-  const activeAvatarUrl = avatarConfig?.modelUrl || DEFAULT_AVATAR_URL;
-
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'}/avatar-config/${bookingId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setAvatarConfig(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch avatar config:', err);
-      }
-    };
-    if (bookingId) fetchConfig();
-  }, [bookingId]);
+  // Removed internal fetch logic - configuration is now passed as prop
 
   return (
     <Fade in={true} timeout={800}>
-      <Box sx={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        width: '100%', height: '60vh', position: 'relative', overflow: 'hidden',
-        bgcolor: '#F3F4F6', borderRadius: 4,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.1)' // Soft shadow for light mode
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '60vh',
+          position: 'relative',
+          overflow: 'hidden',
+          bgcolor: '#F3F4F6',
+          borderRadius: 4,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)', // Soft shadow for light mode
+        }}
+      >
         {/* Avatar Canvas */}
         <Box sx={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <AvatarCanvas
             ref={avatarRef}
-            avatarUrl={avatarConfig?.avatarUrl || DEFAULT_AVATAR_URL}
+            avatarUrl={avatarUrl}
             animationPaths={{
-              idle: avatarConfig?.idleAnimationPath || '/animations/idle.fbx',
-              talking: avatarConfig?.talkingAnimationPath || '/animations/talking.fbx',
-              waving: avatarConfig?.hiAnimationPath || '/animations/waving.fbx',
-              thinking: avatarConfig?.thinkingAnimationPath || '/animations/thinking.fbx',
+              idle: idleAnimationPath,
+              talking: talkingAnimationPath,
+              waving: hiAnimationPath,
+              thinking: thinkingAnimationPath,
             }}
             backgroundColor={'#F3F4F6'}
+            isMobile={isMobile}
           />
           {/* Gradient overlay - Light fade at bottom to blend with controls */}
-          <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to top, #F3F4F6 10%, rgba(243, 244, 246, 0), transparent)', pointerEvents: 'none' }} />
+          <Box
+            sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to top, #F3F4F6 10%, rgba(243, 244, 246, 0), transparent)', pointerEvents: 'none' }}
+          />
         </Box>
 
         {/* Chat Icon - Top Right */}
@@ -769,20 +816,22 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
             borderColor: 'primary.light',
             '&:hover': { bgcolor: 'action.hover', transform: 'scale(1.05)' },
             transition: 'all 0.2s ease',
-            boxShadow: 2
+            boxShadow: 2,
           }}
         >
           <ChatIcon sx={{ fontSize: 22 }} />
         </IconButton>
 
         {/* Mic / Waveform Button - Bottom Center */}
-        <Box sx={{
-          position: 'absolute',
-          bottom: 32,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 100,
-        }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 32,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+          }}
+        >
           <Box
             onClick={handleVoiceToggle}
             sx={{
@@ -802,21 +851,29 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
               '&:hover': {
                 bgcolor: isRecording ? 'error.light' : 'action.hover',
                 transform: 'scale(1.05)',
-                borderColor: isRecording ? 'error.dark' : 'primary.main'
-              }
+                borderColor: isRecording ? 'error.dark' : 'primary.main',
+              },
             }}
           >
-            <Box sx={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 44, height: 44, borderRadius: '50%',
-              bgcolor: isRecording ? 'error.main' : (isLoading ? 'primary.light' : 'primary.main'),
-              color: isRecording ? 'error.contrastText' : 'primary.contrastText',
-              transition: 'all 0.3s ease',
-            }}>
-              <GraphicEqIcon sx={{
-                fontSize: 24,
-                animation: (isRecording || isLoading) ? `${pulseWave} 0.9s ease-in-out infinite` : 'none'
-              }} />
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                bgcolor: isRecording ? 'error.main' : isLoading ? 'primary.light' : 'primary.main',
+                color: isRecording ? 'error.contrastText' : 'primary.contrastText',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <GraphicEqIcon
+                sx={{
+                  fontSize: 24,
+                  animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
+                }}
+              />
             </Box>
           </Box>
         </Box>
@@ -826,28 +883,14 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
 }
 
 // --- Main Wrapper Component ---
-const ChatBox = ({ bookingId, alertError, isWithinStay = true }) => {
+const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
 
   if (mode === 'chat') {
-    return (
-      <ClassicChatBox
-        bookingId={bookingId}
-        alertError={alertError}
-        isWithinStay={isWithinStay}
-        onSwitchToVoice={() => setMode('voice')}
-      />
-    );
+    return <ClassicChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToVoice={() => setMode('voice')} isMobile={isMobile} />;
   }
 
-  return (
-    <VoiceChatBox
-      bookingId={bookingId}
-      alertError={alertError}
-      isWithinStay={isWithinStay}
-      onSwitchToChat={() => setMode('chat')}
-    />
-  );
+  return <VoiceChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToChat={() => setMode('chat')} avatarConfig={avatarConfig} isMobile={isMobile} />;
 };
 
 // Helpers
