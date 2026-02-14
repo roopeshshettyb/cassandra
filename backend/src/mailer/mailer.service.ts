@@ -65,9 +65,6 @@ export class MailerService {
   }
 
   private getTransporter(): nodemailer.Transporter {
-    if (this.transporter) {
-      return this.transporter;
-    }
     const privateConstants = this.constantsService.private;
     const email = privateConstants.GODADDY_EMAIL;
     const password = privateConstants.GODADDY_PASSWORD;
@@ -75,7 +72,7 @@ export class MailerService {
       throw new Error('GODADDY_EMAIL and GODADDY_PASSWORD must be set');
     }
     this.transporter = nodemailer.createTransport({
-      host: 'smtpout.secureserver.net',
+      host: 'smtp.gmail.com',
       port: 465,
       secure: true,
       auth: {
