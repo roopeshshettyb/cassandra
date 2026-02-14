@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Button, CircularProgress, IconButton, TextField, Typography, Paper, Tooltip, Fade } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
-import MicIcon from '@mui/icons-material/Mic';
+
 import ChatIcon from '@mui/icons-material/Chat';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
@@ -31,10 +31,6 @@ const pulseWave = keyframes({
 function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile }) {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
-  const [voiceSocket, setVoiceSocket] = useState(null);
-  const [voiceReady, setVoiceReady] = useState(false);
-  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false); // Voice processing state
-  const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streamingContent, setStreamingContent] = useState('');
@@ -44,12 +40,6 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   const scrollContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
-  const voiceSocketRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const processorRef = useRef(null);
-  const playbackAudioContextRef = useRef(null);
-  const playbackTimeRef = useRef(0);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const focusInput = useCallback(() => {
@@ -153,82 +143,6 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
     };
   }, [bookingId, alertError, focusInput, scrollToBottom, isWithinStay]);
 
-  useEffect(() => {
-    if (!bookingId || isNaN(bookingId) || !isWithinStay) return;
-    const token = localStorage.getItem('token');
-    if (!token) {
-      return;
-    }
-    const connectUrl = getBackendUrl();
-    if (!connectUrl) {
-      return;
-    }
-
-    const voiceInstance = io(`${connectUrl}/voice`, {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      query: { token, bookingId: String(bookingId) },
-      auth: { token },
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 500,
-      reconnectionDelayMax: 8000,
-      randomizationFactor: 0.2,
-    });
-
-    voiceSocketRef.current = voiceInstance;
-    setVoiceSocket(voiceInstance);
-
-    voiceInstance.on('connect', () => setVoiceReady(false));
-    voiceInstance.on('disconnect', () => {
-      setVoiceReady(false);
-      setIsRecording(false);
-    });
-    voiceInstance.on('auth_required', () => {
-      voiceInstance.emit('auth', { token, bookingId });
-    });
-    voiceInstance.on('ready', () => {
-      setVoiceReady(true);
-    });
-    voiceInstance.on('voice_ready', () => {
-      setVoiceReady(true);
-    });
-    voiceInstance.on('voice_text_chunk', (payload) => setStreamingContent((prev) => prev + (payload.delta || '')));
-    voiceInstance.on('voice_text_end', (payload) => {
-      const text = payload?.text || '';
-      const toolCalls = payload?.toolCalls || [];
-      setStreamingContent('');
-      if (text) {
-        setMessages((prev) => [...prev, { id: `assistant-voice-${Date.now()}`, role: 'assistant', content: text, createdAt: new Date().toISOString(), toolCalls }]);
-      }
-      setSending(false);
-      focusInput();
-    });
-    voiceInstance.on('voice_user_message', (payload) => {
-      const text = payload?.text || '';
-      if (!text.trim()) return;
-      setMessages((prev) => [...prev, { id: `user-voice-${Date.now()}`, role: 'user', content: text, createdAt: new Date().toISOString() }]);
-    });
-    voiceInstance.on('voice_audio_chunk', (payload) => {
-      if (payload?.delta) playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef);
-    });
-    voiceInstance.on('error', (payload) => {
-      setStreamingContent('');
-      setSending(false);
-      alertError?.(payload?.message || 'Something went wrong with voice');
-      focusInput();
-    });
-    voiceInstance.on('connect_error', (err) => alertError?.(err?.message || 'Voice connection failed'));
-
-    return () => {
-      voiceInstance.removeAllListeners();
-      voiceInstance.disconnect();
-      voiceSocketRef.current = null;
-      setVoiceReady(false);
-      setIsRecording(false);
-    };
-  }, [bookingId, alertError, focusInput, isWithinStay]);
-
   const handleSend = () => {
     const text = input.trim();
     if (!text || !socket?.connected || sending) return;
@@ -240,71 +154,10 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
     socket.emit('message', { content: text });
   };
 
-  const startRecording = async () => {
-    if (isRecording) return;
-    if (!voiceSocketRef.current?.connected || !voiceReady) {
-      alertError?.('Voice connection is not ready yet');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
-      const audioContext = new AudioContextImpl({ sampleRate: 24000 });
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm = floatTo16BitPCM(inputData);
-        const base64 = arrayBufferToBase64(pcm.buffer);
-        if (voiceSocketRef.current?.connected) voiceSocketRef.current.emit('voice_client_chunk', { audio: base64 });
-      };
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-      audioContextRef.current = audioContext;
-      mediaStreamRef.current = stream;
-      processorRef.current = processor;
-      setIsRecording(true);
-    } catch (err) {
-      alertError?.(err?.message || 'Could not access microphone');
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current.onaudioprocess = null;
-      processorRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
-    setIsRecording(false);
-  };
-
-  const handleVoice = async () => {
-    if (!voiceSocketRef.current?.connected || !voiceReady) {
-      alertError?.('Voice is not ready yet');
-      return;
-    }
-    if (isRecording) {
-      stopRecording();
-      voiceSocketRef.current.emit('voice_stop');
-      return;
-    }
-    voiceSocketRef.current.emit('voice_start');
-    await startRecording();
-  };
-
   if (!bookingId || isNaN(bookingId)) return null;
   if (!isWithinStay) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '60vh', width: '100%' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
         </Box>
@@ -392,15 +245,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
           multiline
           maxRows={4}
         />
-        <IconButton
-          color={isRecording ? 'secondary' : 'primary'}
-          onClick={handleVoice}
-          disabled={!ready || !voiceReady}
-          aria-label="Voice"
-          sx={{ transition: 'transform 0.2s ease, opacity 0.2s ease', transform: isRecording ? 'scale(1.15)' : 'scale(1)', opacity: !ready || !voiceReady ? 0.4 : 1 }}
-        >
-          <GraphicEqIcon sx={{ animation: isRecording ? `${pulseWave} 0.9s ease-in-out infinite` : 'none' }} />
-        </IconButton>
+
         <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>
           Send
         </Button>
@@ -409,7 +254,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '60vh', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
@@ -429,8 +274,20 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
 
         {/* Switch Mode Button (Restored) */}
         <Tooltip title="Switch to Voice Mode">
-          <IconButton onClick={() => onSwitchToVoice && onSwitchToVoice()} size="small" sx={{ bgcolor: 'action.selected', color: 'primary.main' }}>
-            <MicIcon />
+          <IconButton
+            size="small"
+            onClick={() => onSwitchToVoice && onSwitchToVoice()}
+            aria-label="Switch to Voice Mode"
+            sx={{
+              color: 'primary.main',
+              transition: 'transform 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'scale(1.2)',
+                bgcolor: 'transparent',
+              },
+            }}
+          >
+            <GraphicEqIcon />
           </IconButton>
         </Tooltip>
       </Box>
@@ -758,7 +615,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           alignItems: 'center',
           justifyContent: 'center',
           width: '100%',
-          height: '60vh',
+          height: '75vh',
           position: 'relative',
           overflow: 'hidden',
           bgcolor: '#F3F4F6',
@@ -818,50 +675,32 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             zIndex: 100,
           }}
         >
-          <Box
+          <IconButton
             onClick={handleVoiceToggle}
             sx={{
-              px: 4,
+              width: 64,
               height: 64,
-              bgcolor: isRecording ? 'error.light' : 'background.paper', // Use theme error/background
-              borderRadius: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid',
-              borderColor: isRecording ? 'error.main' : 'divider',
-              boxShadow: isRecording ? 4 : 2, // Use theme shadows
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
+              bgcolor: isRecording ? 'error.main' : isLoading ? 'primary.light' : 'primary.main',
+              color: isRecording ? 'error.contrastText' : 'primary.contrastText',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: isRecording ? '0 0 20px rgba(211, 47, 47, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)',
               '&:hover': {
-                bgcolor: isRecording ? 'error.light' : 'action.hover',
-                transform: 'scale(1.05)',
-                borderColor: isRecording ? 'error.dark' : 'primary.main',
+                bgcolor: isRecording ? 'error.dark' : 'primary.dark',
+                transform: 'scale(1.1) translateY(-2px)',
+                boxShadow: isRecording ? '0 0 30px rgba(211, 47, 47, 0.6)' : '0 8px 24px rgba(0,0,0,0.2)',
+              },
+              '&:active': {
+                transform: 'scale(0.95)',
               },
             }}
           >
-            <Box
+            <GraphicEqIcon
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 44,
-                height: 44,
-                borderRadius: '50%',
-                bgcolor: isRecording ? 'error.main' : isLoading ? 'primary.light' : 'primary.main',
-                color: isRecording ? 'error.contrastText' : 'primary.contrastText',
-                transition: 'all 0.3s ease',
+                fontSize: 32,
+                animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
               }}
-            >
-              <GraphicEqIcon
-                sx={{
-                  fontSize: 24,
-                  animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
-                }}
-              />
-            </Box>
-          </Box>
+            />
+          </IconButton>
         </Box>
       </Box>
     </Fade>
