@@ -14,6 +14,7 @@ const InviteHandler = ({ alertError, alertSuccess, setAccount, setLoading }) => 
 
     const searchParams = new URLSearchParams(location.search || '');
     const token = searchParams.get('token');
+    const redirectPath = searchParams.get('redirectPath');
 
     if (!token) {
       alertError?.('Invalid invite link');
@@ -45,7 +46,8 @@ const InviteHandler = ({ alertError, alertSuccess, setAccount, setLoading }) => 
         setAccount?.(account);
       }
       alertSuccess?.('You are now logged in.');
-      navigate('/');
+      const path = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/';
+      navigate(path);
     };
 
     handleInvite();

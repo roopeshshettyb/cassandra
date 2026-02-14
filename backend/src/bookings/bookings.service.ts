@@ -91,7 +91,8 @@ export class BookingsService {
       type: 'guest',
     });
     const frontendUrl = this.constantsService.private.FRONTEND_URL;
-    const inviteUrl = `${frontendUrl}/invite?token=${encodeURIComponent(inviteToken)}`;
+    const redirectPath = `/bookings/${booking.id}`;
+    const inviteUrl = `${frontendUrl}/invite?token=${encodeURIComponent(inviteToken)}&redirectPath=${encodeURIComponent(redirectPath)}`;
 
     await this.sendBookingConfirmationEmail(guest.email, guest.name, hotel, inviteUrl);
 
