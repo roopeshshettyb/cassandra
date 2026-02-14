@@ -827,7 +827,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat }) {
 
 // --- Main Wrapper Component ---
 const ChatBox = ({ bookingId, alertError, isWithinStay = true }) => {
-  const [mode, setMode] = useState('chat'); // 'chat' | 'voice'
+  const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
 
   if (mode === 'chat') {
     return (
