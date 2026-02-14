@@ -23,6 +23,7 @@ import { ChatContextModule } from './chat-context/chat-context.module';
 import { LangGraphModule } from './langgraph/langgraph.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { CostsModule } from './costs/costs.module';
+import { AvatarConfigModule } from './avatar-config/avatar-config.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 @Module({
@@ -44,7 +45,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     AccountsModule,
     AuthModule,
     OAuthModule,
-    MailerModule,
+    // MailerModule,
     NotificationsModule,
     HotelsModule,
     BookingsModule,
@@ -55,6 +56,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     LangGraphModule,
     RestaurantModule,
     CostsModule,
+    AvatarConfigModule,
   ],
   controllers: [AppController],
   providers: [

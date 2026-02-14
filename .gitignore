@@ -1,0 +1,6 @@
+id_ed25519_cassandra
+id_ed25519_cassandra.pub
+.DS_Store
+node_modules
+dist
+.env

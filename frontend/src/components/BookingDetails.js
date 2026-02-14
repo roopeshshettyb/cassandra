@@ -28,13 +28,14 @@ import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import LocalLaundryServiceIcon from '@mui/icons-material/LocalLaundryService';
 import AirportShuttleIcon from '@mui/icons-material/AirportShuttle';
 import AddIcon from '@mui/icons-material/Add';
+import MessageSquare from '@mui/icons-material/Message';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import PendingIcon from '@mui/icons-material/Pending';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import request from '../helper/api';
 import HotelInfoCard from './HotelInfoCard';
-import ChatBox from './ChatBox';
+import AvatarChatbot from './AvatarChatbot';
 import { useHotelTheme } from '../context/HotelThemeContext';
 
 const MotionBox = motion(Box);
@@ -168,10 +169,20 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <ChatBox bookingId={bookingId} alertError={alertError} isWithinStay={booking.isWithinStay} />
-          </CardContent>
+        <Card sx={{ mb: 3, p: 0, overflow: 'hidden', position: 'relative', minHeight: '600px' }}>
+          {/* 3D Avatar Chatbot - Always rendered but styled */}
+          <Box sx={{
+            height: '600px',
+            width: '100%',
+            bgcolor: '#0f172a', // Deep premium blue
+            position: 'relative'
+          }}>
+            <AvatarChatbot
+              bookingId={bookingId}
+              theme="dark"
+              position="center"
+            />
+          </Box>
         </Card>
 
         <Card>

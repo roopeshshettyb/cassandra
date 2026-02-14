@@ -5,7 +5,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // Load the correct .env file so that process.env values are available in this Node script
-const envFile = '.env.development';
+const envFile = '.env';
 
 dotenv.config({ path: path.join(__dirname, '..', envFile) });
 
