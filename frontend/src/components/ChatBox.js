@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Button, CircularProgress, IconButton, TextField, Typography, Paper, Tooltip, Fade } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
-import ThreeDRotationIcon from '@mui/icons-material/ThreeDRotation';
+import MicIcon from '@mui/icons-material/Mic';
 import ChatIcon from '@mui/icons-material/Chat';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
@@ -156,9 +156,13 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   useEffect(() => {
     if (!bookingId || isNaN(bookingId) || !isWithinStay) return;
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      return;
+    }
     const connectUrl = getBackendUrl();
-    if (!connectUrl) return;
+    if (!connectUrl) {
+      return;
+    }
 
     const voiceInstance = io(`${connectUrl}/voice`, {
       path: '/socket.io',
@@ -180,9 +184,15 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
       setVoiceReady(false);
       setIsRecording(false);
     });
-    voiceInstance.on('auth_required', () => voiceInstance.emit('auth', { token, bookingId }));
-    voiceInstance.on('ready', () => setVoiceReady(true));
-    voiceInstance.on('voice_ready', () => setVoiceReady(true));
+    voiceInstance.on('auth_required', () => {
+      voiceInstance.emit('auth', { token, bookingId });
+    });
+    voiceInstance.on('ready', () => {
+      setVoiceReady(true);
+    });
+    voiceInstance.on('voice_ready', () => {
+      setVoiceReady(true);
+    });
     voiceInstance.on('voice_text_chunk', (payload) => setStreamingContent((prev) => prev + (payload.delta || '')));
     voiceInstance.on('voice_text_end', (payload) => {
       const text = payload?.text || '';
@@ -418,9 +428,9 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
         </Box>
 
         {/* Switch Mode Button (Restored) */}
-        <Tooltip title="Switch to 3D Avatar">
+        <Tooltip title="Switch to Voice Mode">
           <IconButton onClick={() => onSwitchToVoice && onSwitchToVoice()} size="small" sx={{ bgcolor: 'action.selected', color: 'primary.main' }}>
-            <ThreeDRotationIcon />
+            <MicIcon />
           </IconButton>
         </Tooltip>
       </Box>
@@ -592,23 +602,6 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           utterance.onend = () => {
             // Only stop if we were the ones speaking (not overridden by audio)
             if (isSpeakingVoiceRef.current && !voiceReady /* check if audio didn't take over */) {
-              // Actually simpler: just stop. If audio takes over, it will restart animation.
-              // But we need to be careful not to stop audio animation.
-              // If isSpeakingVoiceRef is true, it might be audio.
-              // Let's rely on voice_audio_end for cleanup if audio is involved.
-              // If this was purely TTS, we stop.
-              // We can't easily distinguish "TTS finished" vs "Audio still playing" with just one ref.
-              // But audio handler cancels TTS. So if we are here, TTS finished naturally.
-              // So safe to stop? No, audio might have started *during* TTS and cancelled it?
-              // If audio cancelled it, onend might fire? Yes.
-              // If audio is playing, we want animation to continue.
-              // Let's check window.speechSynthesis.speaking (it should be false now).
-              // Real audio doesn't set speechSynthes...
-              // The issue: if we stop animation here, we might stop the audio animation.
-              // Better: if isSpeakingVoiceRef is true, assume audio might be playing?
-              // No, we set isSpeakingVoiceRef=true for TTS too.
-              // Let's use a separate flag for "isPlayingBackendAudio"?
-              // Or just:
               console.log('[VoiceChatBox] TTS ended');
               isSpeakingVoiceRef.current = false;
               avatarRef.current?.playIdle();
