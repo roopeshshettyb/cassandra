@@ -432,18 +432,11 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
 
 // --- Voice Chat Component (The New 3D UI) ---
 function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile }) {
-
   // State defined above: messages...
 
   const avatarRef = useRef(null);
 
-  const {
-    avatarUrl,
-    idleAnimationPath,
-    talkingAnimationPath,
-    hiAnimationPath,
-    thinkingAnimationPath,
-  } = avatarConfig || DEFAULT_AVATAR_CONFIG;
+  const { avatarUrl, idleAnimationPath, talkingAnimationPath, hiAnimationPath, thinkingAnimationPath } = avatarConfig || DEFAULT_AVATAR_CONFIG;
 
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
