@@ -63,7 +63,6 @@
     "sequelize-typescript": "^2.1.6",
     "ws": "^8.19.0",
     "zod": "^4.3.6",
-    "socket.io": "^4.8.1",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
