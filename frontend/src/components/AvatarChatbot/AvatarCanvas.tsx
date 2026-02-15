@@ -15,6 +15,7 @@ interface AvatarCanvasProps {
   onError?: (error: Error) => void;
   backgroundColor?: string;
   isMobile?: boolean;
+  setLoading?: (loading: boolean) => void;
 }
 
 export interface AvatarCanvasRef {
@@ -26,7 +27,7 @@ export interface AvatarCanvasRef {
   setLipSync: (value: number) => void;
 }
 
-export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(function AvatarCanvas({ avatarUrl, className, animationPaths, onLoad, onError, backgroundColor, isMobile = false }, ref) {
+export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(function AvatarCanvas({ avatarUrl, className, animationPaths, onLoad, onError, backgroundColor, isMobile = false, setLoading }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,13 +48,23 @@ export const AvatarCanvas = forwardRef<AvatarCanvasRef, AvatarCanvasProps>(funct
     deviceCapabilities,
     onLoad: () => {
       setIsLoading(false);
+      if (setLoading) setLoading(false);
       onLoad?.();
     },
     onError: (error) => {
       setIsLoading(false);
+      if (setLoading) setLoading(false);
       onError?.(error);
     },
   });
+
+  // Effect to trigger loading state when component mounts or url changes
+  React.useEffect(() => {
+    if (setLoading) setLoading(true);
+    return () => {
+      if (setLoading) setLoading(false);
+    };
+  }, [avatarUrl, setLoading]);
 
   useImperativeHandle(
     ref,

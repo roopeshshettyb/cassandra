@@ -298,7 +298,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
 }
 
 // --- Voice Chat Component (The New 3D UI) ---
-function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile }) {
+function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading }) {
   // State defined above: messages...
 
   const avatarRef = useRef(null);
@@ -636,6 +636,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             }}
             backgroundColor={'#F3F4F6'}
             isMobile={isMobile}
+            setLoading={setLoading}
           />
           {/* Gradient overlay - Light fade at bottom to blend with controls */}
           <Box
@@ -708,14 +709,24 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 }
 
 // --- Main Wrapper Component ---
-const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile }) => {
+const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
 
   if (mode === 'chat') {
     return <ClassicChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToVoice={() => setMode('voice')} isMobile={isMobile} />;
   }
 
-  return <VoiceChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToChat={() => setMode('chat')} avatarConfig={avatarConfig} isMobile={isMobile} />;
+  return (
+    <VoiceChatBox
+      bookingId={bookingId}
+      alertError={alertError}
+      isWithinStay={isWithinStay}
+      onSwitchToChat={() => setMode('chat')}
+      avatarConfig={avatarConfig}
+      isMobile={isMobile}
+      setLoading={setLoading}
+    />
+  );
 };
 
 // Helpers
