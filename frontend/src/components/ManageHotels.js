@@ -1,40 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, TableCell, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { motion } from 'framer-motion';
-import DataTable from './DataTable';
 import request from '../helper/api';
+import DataGrid from './DataGrid';
+import HotelCard from './cards/HotelCard';
 
 const MotionBox = motion(Box);
-
-const HotelRow = ({ data, navigate }) => {
-  const hotel = data;
-
-  const handleClick = () => {
-    if (hotel && hotel.id) {
-      navigate(`/hotels/${hotel.id}`);
-    }
-  };
-
-  return (
-    <TableRow hover onClick={handleClick} sx={{ cursor: 'pointer' }}>
-      <TableCell>
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {hotel.name}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {hotel.address}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {hotel.checkInTime || '-'} / {hotel.checkOutTime || '-'}
-        </Typography>
-      </TableCell>
-    </TableRow>
-  );
-};
 
 function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
@@ -103,12 +74,6 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
 
   const canAddHotel = account && account.role === 'admin';
 
-  const hotelColumns = [
-    { key: 'name', label: 'Name' },
-    { key: 'address', label: 'Address' },
-    { key: 'checkInOut', label: 'Check-in / Check-out' },
-  ];
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -152,7 +117,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
           </Dialog>
 
           <Box>
-            <DataTable columns={hotelColumns} RowComponent={HotelRow} data={hotels} isLoading={loading} navigate={navigate} />
+            <DataGrid CardComponent={HotelCard} data={hotels} isLoading={loading} navigate={navigate} />
           </Box>
         </Box>
       </MotionBox>

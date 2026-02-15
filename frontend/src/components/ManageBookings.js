@@ -1,43 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TableCell, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { motion } from 'framer-motion';
-import DataTable from './DataTable';
 import request from '../helper/api';
+import DataGrid from './DataGrid';
+import BookingCard from './cards/BookingCard';
 
 const MotionBox = motion(Box);
-
-const BookingRow = ({ data, navigate }) => {
-  const booking = data;
-  const hotelName = booking.hotel?.name || '-';
-  const startStr = booking.startTime ? new Date(booking.startTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '-';
-  const endStr = booking.endTime ? new Date(booking.endTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '-';
-
-  const handleClick = () => {
-    if (booking && booking.id) {
-      navigate(`/bookings/${booking.id}`);
-    }
-  };
-
-  return (
-    <TableRow hover onClick={handleClick} sx={{ cursor: 'pointer' }}>
-      <TableCell>
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {hotelName}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {startStr}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {endStr}
-        </Typography>
-      </TableCell>
-    </TableRow>
-  );
-};
 
 function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [bookings, setBookings] = useState([]);
@@ -110,12 +78,6 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     }
   };
 
-  const bookingColumns = [
-    { key: 'hotel', label: 'Hotel' },
-    { key: 'start', label: 'Start' },
-    { key: 'end', label: 'End' },
-  ];
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -180,7 +142,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
           </Dialog>
 
           <Box>
-            <DataTable columns={bookingColumns} RowComponent={BookingRow} data={bookings} isLoading={loading} navigate={navigate} />
+            <DataGrid CardComponent={BookingCard} data={bookings} isLoading={loading} navigate={navigate} />
           </Box>
         </Box>
       </MotionBox>
