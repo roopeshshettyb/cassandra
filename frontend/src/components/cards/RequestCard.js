@@ -4,6 +4,29 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
+
+dayjs.locale('en', {
+  relativeTime: {
+    future: 'in %s',
+    past: '%s ago',
+    s: 'few seconds',
+    m: '1m',
+    mm: '%dm',
+    h: '1h',
+    hh: '%dh',
+    d: '1d',
+    dd: '%dd',
+    M: '1mo',
+    MM: '%dmo',
+    y: '1y',
+    yy: '%dy',
+  },
+});
+
 const RequestCard = ({ data, navigate, account }) => {
   const req = data;
   const hotelName = req.hotel?.name || '-';
@@ -57,7 +80,7 @@ const RequestCard = ({ data, navigate, account }) => {
           </Box>
 
           <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-            {req.createdAt ? new Date(req.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : ''}
+            {req.createdAt ? dayjs(req.createdAt).fromNow() : ''}
           </Typography>
         </Box>
 
@@ -67,7 +90,7 @@ const RequestCard = ({ data, navigate, account }) => {
 
         <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 2 }}>
           <Typography variant="caption" color="text.primary" fontWeight="bold" display="block" mb={0.5}>
-            Recent Requests:
+            Recent Notes:
           </Typography>
           {topNotes.length > 0 ? (
             <Stack spacing={0.5}>

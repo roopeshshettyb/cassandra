@@ -103,7 +103,8 @@ const AppContent = () => {
     const darkTextSecondary = themeConfig?.secondaryColor || '#B8860B';
     const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F5F5F5');
     const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? '#121212' : '#FFFFFF');
-    const fontFamily = themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
+    const fontFamily =
+      themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
     return createTheme({
       palette: {
         mode,
@@ -118,51 +119,51 @@ const AppContent = () => {
           secondary: mode === 'dark' ? darkTextSecondary : '#666666',
         },
       },
-        typography: {
-          fontFamily,
-          h1: { fontWeight: 700, letterSpacing: '-0.02em' },
-          h2: { fontWeight: 700, letterSpacing: '-0.01em' },
-          h3: { fontWeight: 600 },
-          h4: { fontWeight: 600 },
-          h5: { fontWeight: 500 },
-          h6: { fontWeight: 600 },
-          body1: { fontSize: '1.1rem', lineHeight: 1.7 },
-          body2: { lineHeight: 1.6 },
+      typography: {
+        fontFamily,
+        h1: { fontWeight: 700, letterSpacing: '-0.02em' },
+        h2: { fontWeight: 700, letterSpacing: '-0.01em' },
+        h3: { fontWeight: 600 },
+        h4: { fontWeight: 600 },
+        h5: { fontWeight: 500 },
+        h6: { fontWeight: 600 },
+        body1: { fontSize: '1.1rem', lineHeight: 1.7 },
+        body2: { lineHeight: 1.6 },
+      },
+      components: {
+        MuiCard: {
+          styleOverrides: {
+            root: {
+              borderRadius: 12,
+              boxShadow: mode === 'dark' ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
+            },
+          },
         },
-        components: {
-          MuiCard: {
-            styleOverrides: {
-              root: {
-                borderRadius: 12,
-                boxShadow: mode === 'dark' ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
-              },
+        MuiButton: {
+          styleOverrides: {
+            root: {
+              textTransform: 'none',
+              borderRadius: 8,
+              fontWeight: 600,
             },
-          },
-          MuiButton: {
-            styleOverrides: {
-              root: {
-                textTransform: 'none',
-                borderRadius: 8,
-                fontWeight: 600,
-              },
-              containedPrimary: {
-                color: '#000000',
-                '&:hover': {
-                  backgroundColor: themeConfig?.primaryHoverColor || '#B8860B',
-                },
-              },
-            },
-          },
-          MuiAccordion: {
-            styleOverrides: {
-              root: {
-                borderRadius: 8,
-                '&:before': { display: 'none' },
+            containedPrimary: {
+              color: '#000000',
+              '&:hover': {
+                backgroundColor: themeConfig?.primaryHoverColor || '#B8860B',
               },
             },
           },
         },
-      });
+        MuiAccordion: {
+          styleOverrides: {
+            root: {
+              borderRadius: 8,
+              '&:before': { display: 'none' },
+            },
+          },
+        },
+      },
+    });
   }, [mode, themeConfig]);
 
   const toggleColorMode = () => {

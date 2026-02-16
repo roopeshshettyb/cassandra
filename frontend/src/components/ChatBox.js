@@ -163,7 +163,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
         </Box>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
           <Typography variant="body2" color="text.secondary">
-            {APP_NAME} would be ready to talk to you as soon as you check in!
+            We'll be ready to talk to you as soon as you check in.
           </Typography>
         </Box>
       </Box>

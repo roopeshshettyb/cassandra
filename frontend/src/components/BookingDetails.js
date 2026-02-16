@@ -52,6 +52,24 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
 
   dayjs.extend(relativeTime);
 
+  dayjs.locale('en', {
+    relativeTime: {
+      future: 'in %s',
+      past: '%s ago',
+      s: 'few seconds',
+      m: '1m',
+      mm: '%dm',
+      h: '1h',
+      hh: '%dh',
+      d: '1d',
+      dd: '%dd',
+      M: '1mo',
+      MM: '%dmo',
+      y: '1y',
+      yy: '%dy',
+    },
+  });
+
   const getRequestTypeIcon = (requestType) => {
     switch (requestType) {
       case 'room_service':
@@ -170,7 +188,18 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <ChatBox bookingId={bookingId} alertError={alertError} isWithinStay={booking.isWithinStay} avatarConfig={booking.hotel?.avatarConfig} isMobile={isMobile} setLoading={setLoading} />
+            {booking.isWithinStay ? (
+              <ChatBox bookingId={bookingId} alertError={alertError} isWithinStay={true} avatarConfig={booking.hotel?.avatarConfig} isMobile={isMobile} setLoading={setLoading} />
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 2, textAlign: 'center' }}>
+                <Typography variant="h6" color="primary">
+                  We'll be ready to talk to you as soon as you check in.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Our virtual assistant is available during your stay to help with any requests.
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </Card>
 
