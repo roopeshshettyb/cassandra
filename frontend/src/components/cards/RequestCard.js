@@ -1,11 +1,9 @@
-import React from 'react';
 import { Card, CardContent, Typography, Box, Avatar, Stack, Chip } from '@mui/material';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 
 import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 
 const RequestCard = ({ data, navigate, account }) => {
   const req = data;

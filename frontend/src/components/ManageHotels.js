@@ -102,8 +102,24 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
                   <TextField fullWidth label="Name" value={formValues.name} onChange={handleInputChange('name')} />
                   <TextField fullWidth label="Address" value={formValues.address} onChange={handleInputChange('address')} />
                   <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 2 }}>
-                    <TextField fullWidth label="Check-in Time" type="time" value={formValues.checkInTime} onChange={handleInputChange('checkInTime')} inputProps={{ step: 60 }} />
-                    <TextField fullWidth label="Check-out Time" type="time" value={formValues.checkOutTime} onChange={handleInputChange('checkOutTime')} inputProps={{ step: 60 }} />
+                    <TextField
+                      fullWidth
+                      label="Check-in Time"
+                      type="time"
+                      value={formValues.checkInTime}
+                      onChange={handleInputChange('checkInTime')}
+                      inputProps={{ step: 60 }}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Check-out Time"
+                      type="time"
+                      value={formValues.checkOutTime}
+                      onChange={handleInputChange('checkOutTime')}
+                      inputProps={{ step: 60 }}
+                      InputLabelProps={{ shrink: true }}
+                    />
                   </Box>
                 </Box>
               </DialogContent>
