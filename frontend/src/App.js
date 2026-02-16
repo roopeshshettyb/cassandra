@@ -5,6 +5,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Grid, useMediaQuery, Box, Typography } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import './utils/dayjsConfig';
 import Sidebar from './components/Sidebar';
 import OAuthCallback from './components/OAuthCallback';
 import Notifications from './components/Notifications';

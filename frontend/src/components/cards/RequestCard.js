@@ -7,26 +7,6 @@ import BusinessIcon from '@mui/icons-material/Business';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
-dayjs.extend(relativeTime);
-
-dayjs.locale('en', {
-  relativeTime: {
-    future: 'in %s',
-    past: '%s ago',
-    s: 'few seconds',
-    m: '1m',
-    mm: '%dm',
-    h: '1h',
-    hh: '%dh',
-    d: '1d',
-    dd: '%dd',
-    M: '1mo',
-    MM: '%dmo',
-    y: '1y',
-    yy: '%dy',
-  },
-});
-
 const RequestCard = ({ data, navigate, account }) => {
   const req = data;
   const hotelName = req.hotel?.name || '-';

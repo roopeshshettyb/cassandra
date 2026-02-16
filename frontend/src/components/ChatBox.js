@@ -155,20 +155,6 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   };
 
   if (!bookingId || isNaN(bookingId)) return null;
-  if (!isWithinStay) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
-        </Box>
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
-          <Typography variant="body2" color="text.secondary">
-            We'll be ready to talk to you as soon as you check in.
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
 
   const handleScroll = () => {
     const el = scrollContainerRef.current;
@@ -711,6 +697,21 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 // --- Main Wrapper Component ---
 const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
+
+  if (!isWithinStay) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
+        </Box>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Typography variant="body2" color="text.secondary">
+            {APP_NAME} would be ready to talk to you as soon as you check in!
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
 
   if (mode === 'chat') {
     return <ClassicChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToVoice={() => setMode('voice')} isMobile={isMobile} />;
