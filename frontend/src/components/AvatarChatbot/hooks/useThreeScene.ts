@@ -5,6 +5,11 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DeviceCapabilities } from '../types';
 
+// Frame only top half of model (head + shoulders) on all screens
+const CAMERA_Z = 0.8;
+const CAMERA_Y = 0.4;
+const TARGET_Y = 0.24;
+
 interface UseThreeSceneProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   avatarUrl: string;
@@ -65,6 +70,14 @@ interface SceneRefs {
     duration: number;
   };
   mouse: THREE.Vector2;
+  // Reusable for eye look-at-camera (avoid per-frame alloc)
+  _eyePos: THREE.Vector3;
+  _dirToCamera: THREE.Vector3;
+  _dirInHeadSpace: THREE.Vector3;
+  _headWorldQuat: THREE.Quaternion;
+  _eyeLookQuat: THREE.Quaternion;
+  _eyeForward: THREE.Vector3;
+  _eyeEuler: THREE.Euler;
 }
 
 export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceCapabilities, onLoad, onError, backgroundColor }: UseThreeSceneProps) {
@@ -92,6 +105,13 @@ export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceC
     initialRotations: { head: null, neck: null, leftEye: null, rightEye: null },
     blinkState: { isBlinking: false, blinkStartTime: 0, nextBlinkTime: 0, duration: 200 },
     mouse: new THREE.Vector2(),
+    _eyePos: new THREE.Vector3(),
+    _dirToCamera: new THREE.Vector3(),
+    _dirInHeadSpace: new THREE.Vector3(),
+    _headWorldQuat: new THREE.Quaternion(),
+    _eyeLookQuat: new THREE.Quaternion(),
+    _eyeForward: new THREE.Vector3(0, 0, 1),
+    _eyeEuler: new THREE.Euler(0, 0, 0, 'YXZ'),
   });
 
   const extractAnimationClip = useCallback((fbx: THREE.Group): THREE.AnimationClip | null => {
@@ -156,15 +176,10 @@ export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceC
     const { camera, controls } = sceneRefs.current;
     if (!camera || !controls) return;
 
-    const { isMobile, isTablet } = deviceCapabilities;
-    let cameraZ = 1.2;
-    if (isMobile) cameraZ = 1.6;
-    else if (isTablet) cameraZ = 1.4;
-
-    camera.position.set(0, 0, cameraZ);
-    controls.target.set(0, 0, 0);
+    camera.position.set(0, CAMERA_Y, CAMERA_Z);
+    controls.target.set(0, TARGET_Y, 0);
     controls.update();
-  }, [deviceCapabilities]);
+  }, []);
 
   useEffect(() => {
     if (sceneRefs.current.isInitialized) return;
@@ -179,14 +194,8 @@ export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceC
       scene.background = new THREE.Color(backgroundColor);
     }
     const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
-    // Dynamic camera positioning
-    const { isTablet } = deviceCapabilities;
-    let cameraZ = 1.2; // Desktop default
-    if (isMobile) cameraZ = 1.6;
-    else if (isTablet) cameraZ = 1.4;
-
-    camera.position.set(0, 0.4, cameraZ);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, CAMERA_Y, CAMERA_Z);
+    camera.lookAt(0, TARGET_Y, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: !isMobile, alpha: true, powerPreference: isMobile ? 'low-power' : 'high-performance' });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -201,7 +210,7 @@ export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceC
     controls.enablePan = false;
     controls.enableZoom = false;
     controls.enableRotate = false;
-    controls.target.set(0, 0, 0);
+    controls.target.set(0, TARGET_Y, 0);
     controls.update();
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -470,49 +479,51 @@ export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceC
       if (sceneRefs.current.mixer) sceneRefs.current.mixer.update(delta);
       sceneRefs.current.controls?.update();
 
-      const { blinkState, meshes, bones, mouse, initialRotations } = sceneRefs.current;
+      const { blinkState, meshes, bones, mouse, initialRotations, avatar } = sceneRefs.current;
+      const cameraRef = sceneRefs.current.camera;
+      const t = sceneRefs.current;
 
-      // Eye and Head Tracking
-      if (bones.head && bones.leftEye && bones.rightEye && initialRotations.head && initialRotations.leftEye && initialRotations.rightEye) {
-        // Target look position (invert mouse Y for 3D space)
+      // Eyes: look at camera (user). Direction eye→camera in head-local space → rotation so eye +Z aligns; clamp to natural range (~±30° vert, ±45° horiz).
+      if (bones.head && bones.leftEye && bones.rightEye && cameraRef && avatar) {
+        avatar.updateWorldMatrix(true, true);
+        bones.head.getWorldQuaternion(t._headWorldQuat).conjugate();
+
+        const applyEyeLookAt = (eyeBone: THREE.Bone) => {
+          eyeBone.getWorldPosition(t._eyePos);
+          t._dirToCamera.copy(cameraRef.position).sub(t._eyePos).normalize();
+          t._dirInHeadSpace.copy(t._dirToCamera).applyQuaternion(t._headWorldQuat);
+          if (t._eyeLookQuat.setFromUnitVectors(t._eyeForward, t._dirInHeadSpace)) {
+            t._eyeEuler.setFromQuaternion(t._eyeLookQuat, 'YXZ');
+            t._eyeEuler.x = THREE.MathUtils.clamp(t._eyeEuler.x, -0.55, 0.55);
+            t._eyeEuler.y = THREE.MathUtils.clamp(t._eyeEuler.y, -0.75, 0.75);
+            t._eyeEuler.z = 0;
+            const damp = 0.25;
+            eyeBone.rotation.x = THREE.MathUtils.lerp(eyeBone.rotation.x, t._eyeEuler.x, damp);
+            eyeBone.rotation.y = THREE.MathUtils.lerp(eyeBone.rotation.y, t._eyeEuler.y, damp);
+            eyeBone.rotation.z = 0;
+          }
+        };
+        applyEyeLookAt(bones.leftEye);
+        applyEyeLookAt(bones.rightEye);
+      }
+
+      // Head: subtle follow toward camera + mouse for liveliness
+      if (bones.head && bones.neck && initialRotations.head && initialRotations.neck) {
         const targetX = mouse.x * 0.5;
         const targetY = mouse.y * 0.5;
+        const verticalGazeOffset = 0.05;
+        const headRotationX = -targetY * 0.1 + verticalGazeOffset * 0.5;
+        const headRotationY = -targetX * 0.2;
 
-        // Smoothly interpolate current rotation to target
-        // Head follows mouse slightly (neck/head rotation)
-        const verticalGazeOffset = 0.05; // Reduced offset
-        const headRotationX = -targetY * 0.1 + verticalGazeOffset * 0.5; // Reduced tracking range
-        const headRotationY = -targetX * 0.2; // Reduced tracking range
-
-        // Apply relative rotation (Initial + Offset)
-        const currentHeadX = bones.head.rotation.x;
-        const currentHeadY = bones.head.rotation.y;
-
-        // Calculate target total rotation
         const targetHeadRotX = initialRotations.head.x + headRotationX;
         const targetHeadRotY = initialRotations.head.y + headRotationY;
+        bones.head.rotation.x = THREE.MathUtils.lerp(bones.head.rotation.x, targetHeadRotX, 0.1);
+        bones.head.rotation.y = THREE.MathUtils.lerp(bones.head.rotation.y, targetHeadRotY, 0.1);
 
-        bones.head.rotation.x = THREE.MathUtils.lerp(currentHeadX, targetHeadRotX, 0.1);
-        bones.head.rotation.y = THREE.MathUtils.lerp(currentHeadY, targetHeadRotY, 0.1);
-
-        if (bones.neck && initialRotations.neck) {
-          const targetNeckRotX = initialRotations.neck.x + headRotationX * 0.5;
-          const targetNeckRotY = initialRotations.neck.y + headRotationY * 0.5;
-
-          bones.neck.rotation.x = THREE.MathUtils.lerp(bones.neck.rotation.x, targetNeckRotX, 0.1);
-          bones.neck.rotation.y = THREE.MathUtils.lerp(bones.neck.rotation.y, targetNeckRotY, 0.1);
-        }
-
-        // Eyes follow more aggressively
-        const eyeRotationX = -targetY * 0.2 + verticalGazeOffset; // Reduced tracking range
-        const eyeRotationY = -targetX * 0.4;
-
-        // Apply to initial rotation
-        bones.leftEye.rotation.x = initialRotations.leftEye.x + eyeRotationX;
-        bones.leftEye.rotation.y = initialRotations.leftEye.y + eyeRotationY;
-
-        bones.rightEye.rotation.x = initialRotations.rightEye.x + eyeRotationX;
-        bones.rightEye.rotation.y = initialRotations.rightEye.y + eyeRotationY;
+        const targetNeckRotX = initialRotations.neck.x + headRotationX * 0.5;
+        const targetNeckRotY = initialRotations.neck.y + headRotationY * 0.5;
+        bones.neck.rotation.x = THREE.MathUtils.lerp(bones.neck.rotation.x, targetNeckRotX, 0.1);
+        bones.neck.rotation.y = THREE.MathUtils.lerp(bones.neck.rotation.y, targetNeckRotY, 0.1);
       }
 
       if (meshes.blinkMeshes.length > 0) {
@@ -544,7 +555,7 @@ export function useThreeScene({ containerRef, avatarUrl, animationPaths, deviceC
           }
         }
       }
-      renderer.render(scene, camera);
+      if (cameraRef) renderer.render(scene, cameraRef);
     };
     avatarRenderLoop(0);
 

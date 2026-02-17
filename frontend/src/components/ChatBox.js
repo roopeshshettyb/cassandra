@@ -240,7 +240,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
@@ -284,7 +284,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
 }
 
 // --- Voice Chat Component (The New 3D UI) ---
-function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading }) {
+function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading, autoStartVoice, onVoiceAutoStarted }) {
   // State defined above: messages...
 
   const avatarRef = useRef(null);
@@ -590,7 +590,12 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     }
   };
 
-  // Removed internal fetch logic - configuration is now passed as prop
+  // Auto-start voice when user switches from chat to voice (once connection is ready)
+  useEffect(() => {
+    if (!autoStartVoice || !voiceReady || isRecording) return;
+    onVoiceAutoStarted?.();
+    startRecording();
+  }, [autoStartVoice, voiceReady]);
 
   return (
     <Fade in={true} timeout={800}>
@@ -601,12 +606,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           alignItems: 'center',
           justifyContent: 'center',
           width: '100%',
-          height: '75vh',
+          height: '100%',
           position: 'relative',
           overflow: 'hidden',
           bgcolor: '#F3F4F6',
           borderRadius: 4,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)', // Soft shadow for light mode
         }}
       >
         {/* Avatar Canvas */}
@@ -624,35 +628,31 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             isMobile={isMobile}
             setLoading={setLoading}
           />
-          {/* Gradient overlay - Light fade at bottom to blend with controls */}
-          <Box
-            sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to top, #F3F4F6 10%, rgba(243, 244, 246, 0), transparent)', pointerEvents: 'none' }}
-          />
         </Box>
 
         {/* Chat Icon - Top Right */}
         <IconButton
           onClick={() => onSwitchToChat()}
+          aria-label="Switch to Chat"
           sx={{
             position: 'absolute',
             top: 16,
             right: 16,
             zIndex: 100,
-            bgcolor: 'background.paper',
             color: 'primary.main',
-            width: 44,
-            height: 44,
-            border: '1px solid',
-            borderColor: 'primary.light',
-            '&:hover': { bgcolor: 'action.hover', transform: 'scale(1.05)' },
-            transition: 'all 0.2s ease',
-            boxShadow: 2,
+            width: 30,
+            height: 30,
+            transition: 'transform 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'scale(1.2)',
+              bgcolor: 'transparent',
+            },
           }}
         >
-          <ChatIcon sx={{ fontSize: 22 }} />
+          <ChatIcon sx={{ fontSize: 30 }} />
         </IconButton>
 
-        {/* Mic / Waveform Button - Bottom Center */}
+        {/* Mic / Waveform Button - Bottom Center (same style/size as corner voice toggle) */}
         <Box
           sx={{
             position: 'absolute',
@@ -663,30 +663,31 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           }}
         >
           <IconButton
+            size="small"
             onClick={handleVoiceToggle}
+            aria-label={isRecording ? 'Stop recording' : voiceReady ? 'Start voice' : 'Connecting…'}
+            disabled={!voiceReady}
             sx={{
-              width: 64,
-              height: 64,
-              bgcolor: isRecording ? 'error.main' : isLoading ? 'primary.light' : 'primary.main',
-              color: isRecording ? 'error.contrastText' : 'primary.contrastText',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: isRecording ? '0 0 20px rgba(211, 47, 47, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)',
+              color: isRecording ? 'error.main' : 'primary.main',
+              width: 56,
+              height: 56,
+              transition: 'transform 0.2s ease-in-out',
               '&:hover': {
-                bgcolor: isRecording ? 'error.dark' : 'primary.dark',
-                transform: 'scale(1.1) translateY(-2px)',
-                boxShadow: isRecording ? '0 0 30px rgba(211, 47, 47, 0.6)' : '0 8px 24px rgba(0,0,0,0.2)',
-              },
-              '&:active': {
-                transform: 'scale(0.95)',
+                transform: 'scale(1.2)',
+                bgcolor: 'transparent',
               },
             }}
           >
-            <GraphicEqIcon
-              sx={{
-                fontSize: 32,
-                animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
-              }}
-            />
+            {voiceReady ? (
+              <GraphicEqIcon
+                sx={{
+                  fontSize: 48,
+                  animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
+                }}
+              />
+            ) : (
+              <CircularProgress size={48} sx={{ color: 'inherit' }} />
+            )}
           </IconButton>
         </Box>
       </Box>
@@ -697,6 +698,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 // --- Main Wrapper Component ---
 const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
+  const [autoStartVoice, setAutoStartVoice] = useState(false);
 
   if (!isWithinStay) {
     return (
@@ -713,20 +715,43 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
     );
   }
 
-  if (mode === 'chat') {
-    return <ClassicChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToVoice={() => setMode('voice')} isMobile={isMobile} />;
-  }
+  // Mobile: voice 50vh, chat 75vh; desktop: 75vh both. Single wrapper so height animates when switching.
+  const wrapperHeight = isMobile ? (mode === 'voice' ? '50vh' : '75vh') : '75vh';
 
   return (
-    <VoiceChatBox
-      bookingId={bookingId}
-      alertError={alertError}
-      isWithinStay={isWithinStay}
-      onSwitchToChat={() => setMode('chat')}
-      avatarConfig={avatarConfig}
-      isMobile={isMobile}
-      setLoading={setLoading}
-    />
+    <Box
+      sx={{
+        height: wrapperHeight,
+        width: '100%',
+        overflow: 'hidden',
+        transition: 'height 0.35s ease-in-out',
+      }}
+    >
+      {mode === 'chat' ? (
+        <ClassicChatBox
+          bookingId={bookingId}
+          alertError={alertError}
+          isWithinStay={isWithinStay}
+          onSwitchToVoice={() => {
+            setMode('voice');
+            setAutoStartVoice(true);
+          }}
+          isMobile={isMobile}
+        />
+      ) : (
+        <VoiceChatBox
+          bookingId={bookingId}
+          alertError={alertError}
+          isWithinStay={isWithinStay}
+          onSwitchToChat={() => setMode('chat')}
+          avatarConfig={avatarConfig}
+          isMobile={isMobile}
+          setLoading={setLoading}
+          autoStartVoice={autoStartVoice}
+          onVoiceAutoStarted={() => setAutoStartVoice(false)}
+        />
+      )}
+    </Box>
   );
 };
 
