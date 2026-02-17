@@ -28,7 +28,7 @@ const pulseWave = keyframes({
 });
 
 // --- Classic Chat Component (The Original UI) ---
-function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile }) {
+function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile, containerHeight = '75vh' }) {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -240,7 +240,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
@@ -696,13 +696,14 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 }
 
 // --- Main Wrapper Component ---
-const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading }) => {
+const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading, isDashboard }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
   const [autoStartVoice, setAutoStartVoice] = useState(false);
+  const containerHeight = isDashboard ? '500px' : '75vh';
 
   if (!isWithinStay) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
         </Box>
@@ -716,7 +717,7 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
   }
 
   // Mobile: voice 50vh, chat 75vh; desktop: 75vh both. Single wrapper so height animates when switching.
-  const wrapperHeight = isMobile ? (mode === 'voice' ? '50vh' : '75vh') : '75vh';
+  const wrapperHeight = isDashboard ? '500px' : isMobile ? (mode === 'voice' ? '50vh' : '75vh') : '75vh';
 
   return (
     <Box
