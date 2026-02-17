@@ -78,7 +78,7 @@ export class VoiceRealtimeService {
         const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions);
         const account: any = ctx.account;
         const speakerRoleDescription = describeSpeakerRole(account?.role);
-        const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.`;
+        const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.\n\nOnly use and respond in one of these languages: English, Hindi, Kannada, Tamil, Telugu. If the user speaks in any other language, politely ask them to use one of these five.`;
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
         const sessionUpdate = {
