@@ -686,7 +686,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
                 }}
               />
             ) : (
-              <CircularProgress size={48} sx={{ color: 'inherit' }} />
+              <CircularProgress size={48} sx={{ color: 'primary.main' }} />
             )}
           </IconButton>
         </Box>
