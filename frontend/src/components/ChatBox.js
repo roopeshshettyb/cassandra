@@ -28,7 +28,7 @@ const pulseWave = keyframes({
 });
 
 // --- Classic Chat Component (The Original UI) ---
-function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile }) {
+function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile, containerHeight = '75vh' }) {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -240,7 +240,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
@@ -284,7 +284,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
 }
 
 // --- Voice Chat Component (The New 3D UI) ---
-function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading }) {
+function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading, containerHeight = '75vh' }) {
   // State defined above: messages...
 
   const avatarRef = useRef(null);
@@ -601,7 +601,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           alignItems: 'center',
           justifyContent: 'center',
           width: '100%',
-          height: '75vh',
+          height: containerHeight,
           position: 'relative',
           overflow: 'hidden',
           bgcolor: '#F3F4F6',
@@ -695,12 +695,13 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 }
 
 // --- Main Wrapper Component ---
-const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading }) => {
+const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading, isDashboard }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
+  const containerHeight = isDashboard ? '500px' : '75vh';
 
   if (!isWithinStay) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '75vh', width: '100%' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
         </Box>
@@ -714,7 +715,7 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
   }
 
   if (mode === 'chat') {
-    return <ClassicChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToVoice={() => setMode('voice')} isMobile={isMobile} />;
+    return <ClassicChatBox bookingId={bookingId} alertError={alertError} isWithinStay={isWithinStay} onSwitchToVoice={() => setMode('voice')} isMobile={isMobile} containerHeight={containerHeight} />;
   }
 
   return (
@@ -726,6 +727,7 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
       avatarConfig={avatarConfig}
       isMobile={isMobile}
       setLoading={setLoading}
+      containerHeight={containerHeight}
     />
   );
 };

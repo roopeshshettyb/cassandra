@@ -27,6 +27,7 @@ import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './components/Home';
+import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 
@@ -176,6 +177,7 @@ const AppContent = () => {
   const routes = [
     { path: '/invite', component: InviteHandler, isProtected: false },
     { path: '/oauth/callback', component: OAuthCallback, isProtected: false },
+    { path: '/dashboard', component: Dashboard, isProtected: true },
     { path: '/notifications', component: Notifications, isProtected: true },
     { path: '/privacy-policy', component: PrivacyPolicy, isProtected: false },
     { path: '/fees-refund-policy', component: FeesAndRefundPolicy, isProtected: false },

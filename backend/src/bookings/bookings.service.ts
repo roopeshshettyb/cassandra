@@ -146,8 +146,9 @@ export class BookingsService {
 
   async findAllForAccount(currentAccount: Account) {
     const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address'] };
+    const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
     const where = await this.getWhereForAccount(currentAccount);
-    const options: any = { include: [includeHotel], order: [['startTime', 'DESC']] };
+    const options: any = { include: [includeHotel, includeGuest], order: [['startTime', 'DESC']] };
     if (where) {
       options.where = where;
     }

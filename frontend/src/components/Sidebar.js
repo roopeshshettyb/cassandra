@@ -1,12 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
-import { Brightness4, Brightness7, Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business } from '@mui/icons-material';
+import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 
 const MotionBox = motion(Box);
+
+// --- Navigation Configuration ---
+const COMMON_NAV_ITEMS = [
+  {
+    key: 'Home',
+    icon: Home,
+    text: 'Home',
+    link: '/',
+    variant: null,
+    protectedNavItem: false,
+  },
+  {
+    key: 'Login',
+    icon: LoginIcon,
+    text: 'Login',
+    link: null,
+    action: 'login', // Special action identifier
+    variant: 'outlined',
+    protectedNavItem: false,
+  },
+  {
+    key: 'Notifications',
+    icon: NotificationsIcon,
+    text: 'Notifications',
+    link: '/notifications',
+    variant: null,
+    protectedNavItem: true,
+    showBadge: true,
+  },
+  {
+    key: 'Logout',
+    icon: Logout,
+    text: 'Logout',
+    link: null,
+    action: 'logout', // Special action identifier
+    variant: 'outlined',
+    protectedNavItem: true,
+  },
+];
+
+const ROLE_SPECIFIC_ITEMS = {
+  admin: [
+    { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
+    { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
+    { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
+    { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
+  ],
+  hotel_owner: [
+    { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
+    { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
+    { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
+    { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
+  ],
+  hotel_staff: [
+    { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
+    { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
+    { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
+    { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
+  ],
+  guest: [
+    { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
+    { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
+  ],
+};
 
 const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading }) => {
   const location = useLocation();
@@ -33,21 +97,52 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     fetchUnreadCount();
   }, [account, sidebarOpen]);
 
-  const NavButton = ({ data, account, navigate, setSidebarOpen, unreadCount, smoothScrollToTop, currentNav }) => {
+  // Merge items based on role
+  const navItems = [...(account && account.role && ROLE_SPECIFIC_ITEMS[account.role] ? ROLE_SPECIFIC_ITEMS[account.role] : []), ...COMMON_NAV_ITEMS];
+
+  useEffect(() => {
+    const pathname = location.pathname;
+
+    // Find the item that matches the current path.
+    // We iterate through all items to find the best match.
+    // Prioritize exact matches or detailed sub-paths if necessary,
+    // but here referencing the original logic which was simple first-found or specific logic.
+
+    // Simple logic: Check exact path first, then startsWith for non-root
+    const activeItem = navItems.find((item) => {
+      if (item.link === '/') return pathname === '/';
+      return item.link && pathname.startsWith(item.link);
+    });
+
+    if (activeItem) {
+      setCurrentNav(activeItem.key || activeItem.text);
+    }
+  }, [location.pathname, account, setCurrentNav]); // navItems is now derived from account/constant, so safe to omit or include if memoized. relying on account change.
+
+  const NavButton = ({ data }) => {
     const Icon = data.icon;
     let shouldShow = data.protectedNavItem === true ? account && account?.id : true;
     if (data.text === 'Login') {
       shouldShow = !account;
     }
-    if (data.link) {
-      data.action = () => {
+
+    const handleClick = () => {
+      if (data.action === 'login') {
+        openLoginPopup();
+      } else if (data.action === 'logout') {
+        handleLogout();
+      } else if (data.link) {
         navigate(data.link);
         smoothScrollToTop();
         setSidebarOpen(false);
-      };
-    }
+      }
+    };
+
     const showBadge = data.showBadge && unreadCount > 0;
     const isActive = currentNav === data.text;
+
+    if (!shouldShow) return null;
+
     return (
       <Button
         startIcon={
@@ -59,14 +154,14 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
             <Icon />
           )
         }
-        onClick={data.action}
+        onClick={handleClick}
         sx={{
           color: isActive ? 'primary.main' : 'text.primary',
           textTransform: 'none',
           justifyContent: 'flex-start',
           minWidth: 'auto',
           px: 2,
-          display: shouldShow ? 'flex' : 'none',
+          display: 'flex',
           ...(data.variant && { variant: data.variant }),
         }}
       >
@@ -74,156 +169,6 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
       </Button>
     );
   };
-
-  const commonNavItems = [
-    {
-      key: 'Home',
-      icon: Home,
-      text: 'Home',
-      link: '/',
-      variant: null,
-      protectedNavItem: false,
-    },
-    {
-      key: 'Login',
-      icon: LoginIcon,
-      text: 'Login',
-      link: null,
-      action: () => {
-        openLoginPopup();
-      },
-      variant: 'outlined',
-      protectedNavItem: false,
-    },
-    {
-      key: 'Notifications',
-      icon: NotificationsIcon,
-      text: 'Notifications',
-      link: '/notifications',
-      variant: null,
-      protectedNavItem: true,
-      showBadge: true,
-    },
-    {
-      key: 'Logout',
-      icon: Logout,
-      text: 'Logout',
-      link: null,
-      action: () => {
-        handleLogout();
-      },
-      variant: 'outlined',
-      protectedNavItem: true,
-    },
-  ];
-
-  const roleSpecificNavItems = {
-    admin: [
-      {
-        key: 'Manage Hotels',
-        icon: Dashboard,
-        text: 'Manage Hotels',
-        link: '/hotels',
-        protectedNavItem: true,
-      },
-      {
-        key: 'Manage Bookings',
-        icon: People,
-        text: 'Manage Bookings',
-        link: '/bookings',
-        protectedNavItem: true,
-      },
-      {
-        key: 'Manage Requests',
-        icon: ShoppingCart,
-        text: 'Manage Requests',
-        link: '/requests',
-        protectedNavItem: true,
-      },
-    ],
-    hotel_owner: [
-      {
-        key: 'Manage Hotels',
-        icon: Dashboard,
-        text: 'Manage Hotels',
-        link: '/hotels',
-        protectedNavItem: true,
-      },
-      {
-        key: 'Manage Bookings',
-        icon: People,
-        text: 'Manage Bookings',
-        link: '/bookings',
-        protectedNavItem: true,
-      },
-      {
-        key: 'Manage Requests',
-        icon: ShoppingCart,
-        text: 'Manage Requests',
-        link: '/requests',
-        protectedNavItem: true,
-      },
-    ],
-    hotel_staff: [
-      {
-        key: 'Manage Hotels',
-        icon: Dashboard,
-        text: 'Manage Hotels',
-        link: '/hotels',
-        protectedNavItem: true,
-      },
-      {
-        key: 'Manage Bookings',
-        icon: People,
-        text: 'Manage Bookings',
-        link: '/bookings',
-        protectedNavItem: true,
-      },
-      {
-        key: 'Manage Requests',
-        icon: ShoppingCart,
-        text: 'Manage Requests',
-        link: '/requests',
-        protectedNavItem: true,
-      },
-    ],
-    guest: [
-      {
-        key: 'Manage Bookings',
-        icon: People,
-        text: 'Manage Bookings',
-        link: '/bookings',
-        protectedNavItem: true,
-      },
-    ],
-  };
-
-  const navItems = [];
-
-  if (account && account.role && roleSpecificNavItems[account.role]) {
-    navItems.push(...roleSpecificNavItems[account.role]);
-  }
-
-  navItems.push(...commonNavItems);
-
-  useEffect(() => {
-    const pathname = location.pathname;
-    const allNavItems = [...navItems];
-
-    for (const item of allNavItems) {
-      if (item.link) {
-        if (item.link === '/') {
-          if (pathname === '/') {
-            setCurrentNav(item.key || item.text);
-            return;
-          }
-        } else if (pathname.startsWith(item.link)) {
-          setCurrentNav(item.key || item.text);
-          return;
-        }
-      }
-    }
-  }, [location.pathname, account, navItems, setCurrentNav]);
 
   return (
     <>
@@ -346,19 +291,12 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
               )}
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', mt: 'auto', px: 2, pb: 2 }}>
-                {/* <IconButton onClick={toggleColorMode} sx={{ color: 'primary.main' }}>
-                  {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
-                </IconButton> */}
                 <MapComponent
                   Component={NavButton}
                   data={navItems}
-                  account={account}
-                  navigate={navigate}
-                  setSidebarOpen={setSidebarOpen}
-                  unreadCount={unreadCount}
-                  smoothScrollToTop={smoothScrollToTop}
-                  currentNav={currentNav}
-                  isLoading={loading}
+                  // account, navigate, etc are used inside NavButton or logic above,
+                  // but MapComponent might pass them as props if it maps 'data' to 'Component'.
+                  // Standard MapComponent usually iterates data and renders Component with item as 'data' prop.
                 />
               </Box>
             </MotionBox>
