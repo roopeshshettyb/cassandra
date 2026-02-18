@@ -75,6 +75,7 @@ const Dashboard = ({ setLoading, account, navigate, alertError, isMobile }) => {
                       setLoading={setLoading}
                       dataset={null} // Pass null or minimal data if needed
                       isDashboard={true}
+                      guestName={account?.name || latestBooking?.guest?.name}
                     />
                   </CardContent>
                 </Card>

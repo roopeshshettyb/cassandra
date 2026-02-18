@@ -47,7 +47,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
   const [pendingNotes, setPendingNotes] = useState({});
 
   const canDeleteBooking = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
-  const canViewCost = account && (account.role === 'admin' || account.role === 'hotel_owner');
+  const canViewCost = account && account.role === 'admin';
   const isGuest = account?.role === 'guest';
   const isStaffOrOwner = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
 
@@ -171,7 +171,15 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <ChatBox bookingId={bookingId} alertError={alertError} isWithinStay={booking.isWithinStay} avatarConfig={booking.hotel?.avatarConfig} isMobile={isMobile} setLoading={setLoading} />
+            <ChatBox
+              bookingId={bookingId}
+              alertError={alertError}
+              isWithinStay={booking.isWithinStay}
+              avatarConfig={booking.hotel?.avatarConfig}
+              isMobile={isMobile}
+              setLoading={setLoading}
+              guestName={booking.guest?.name}
+            />
           </CardContent>
         </Card>
 

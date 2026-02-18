@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Button, CircularProgress, IconButton, TextField, Typography, Paper, Tooltip, Fade } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import SendIcon from '@mui/icons-material/Send';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 
@@ -284,10 +285,11 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
 }
 
 // --- Voice Chat Component (The New 3D UI) ---
-function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading, autoStartVoice, onVoiceAutoStarted }) {
+function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading, autoStartVoice, onVoiceAutoStarted, guestName }) {
   // State defined above: messages...
 
   const avatarRef = useRef(null);
+  const theme = useTheme();
 
   const { avatarUrl, idleAnimationPath, talkingAnimationPath, hiAnimationPath, thinkingAnimationPath } = avatarConfig || DEFAULT_AVATAR_CONFIG;
 
@@ -597,40 +599,120 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     startRecording();
   }, [autoStartVoice, voiceReady]);
 
+  // Derive initial from guestName
+  const guestInitial = guestName ? guestName.charAt(0).toUpperCase() : 'G';
+
   return (
     <Fade in={true} timeout={800}>
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
+          flexDirection: isMobile ? 'column' : 'row',
           width: '100%',
           height: '100%',
           position: 'relative',
           overflow: 'hidden',
-          bgcolor: '#F3F4F6',
           borderRadius: 4,
+          bgcolor: 'background.paper',
         }}
       >
-        {/* Avatar Canvas */}
-        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <AvatarCanvas
-            ref={avatarRef}
-            avatarUrl={avatarUrl}
-            animationPaths={{
-              idle: idleAnimationPath,
-              talking: talkingAnimationPath,
-              waving: hiAnimationPath,
-              thinking: thinkingAnimationPath,
+        {/* Agent Side (Top on Mobile, Left on Desktop) */}
+        <Box
+          sx={{
+            flex: 1,
+            bgcolor: 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            borderRight: isMobile ? 'none' : '3px solid',
+            borderBottom: isMobile ? '3px solid' : 'none',
+            borderColor: theme.palette.mode === 'light' ? theme.palette.grey[400] : theme.palette.grey[700],
+          }}
+        >
+          {/* Circular Container for Agent */}
+          <Box
+            sx={{
+              width: 150,
+              height: 150,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: `4px solid ${theme.palette.background.paper}`,
+              boxShadow: theme.shadows[4],
+              position: 'relative',
+              bgcolor: theme.palette.background.paper,
             }}
-            backgroundColor={'#F3F4F6'}
-            isMobile={isMobile}
-            setLoading={setLoading}
-          />
+          >
+            <AvatarCanvas
+              ref={avatarRef}
+              avatarUrl={avatarUrl}
+              animationPaths={{
+                idle: idleAnimationPath,
+                talking: talkingAnimationPath,
+                waving: hiAnimationPath,
+                thinking: thinkingAnimationPath,
+              }}
+              backgroundColor={theme.palette.background.paper}
+              isMobile={isMobile}
+              setLoading={setLoading}
+            />
+          </Box>
         </Box>
 
-        {/* Chat Icon - Top Right */}
+        {/* User Side (Bottom on Mobile, Right on Desktop) */}
+        <Box
+          sx={{
+            flex: 1,
+            bgcolor: 'transparent',
+            color: theme.palette.text.primary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+          }}
+        >
+          {/* Circular Container for User */}
+          <Box
+            sx={{
+              width: 120,
+              height: 120,
+              borderRadius: '50%',
+              border: `4px solid ${theme.palette.primary.main}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'transparent',
+              position: 'relative',
+            }}
+          >
+            {/* Simple Initial Avatar */}
+            <Typography variant="h2" sx={{ color: theme.palette.primary.main, fontWeight: 'bold' }}>
+              {guestInitial}
+            </Typography>
+
+            {/* Pulse Effect when User is Speaking/Recording */}
+            {isRecording && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -6,
+                  left: -6,
+                  right: -6,
+                  bottom: -6,
+                  borderRadius: '50%',
+                  border: `2px solid ${theme.palette.primary.main}`,
+                  opacity: 0.6,
+                  animation: `${pulseWave} 1.5s infinite`,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+          </Box>
+        </Box>
+
+        {/* --- Shared Overlays --- */}
+
+        {/* Chat Icon - Top Right (Absolute) */}
         <IconButton
           onClick={() => onSwitchToChat()}
           aria-label="Switch to Chat"
@@ -639,26 +721,28 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             top: 16,
             right: 16,
             zIndex: 100,
-            color: 'primary.main',
+            zIndex: 100,
+            color: theme.palette.primary.main,
             width: 30,
             height: 30,
             transition: 'transform 0.2s ease-in-out',
+            bgcolor: 'rgba(0, 0, 0, 0.2)',
             '&:hover': {
               transform: 'scale(1.2)',
-              bgcolor: 'transparent',
+              bgcolor: 'rgba(0, 0, 0, 0.4)',
             },
           }}
         >
-          <ChatIcon sx={{ fontSize: 30 }} />
+          <ChatIcon sx={{ fontSize: 20 }} />
         </IconButton>
 
-        {/* Mic / Waveform Button - Bottom Center (same style/size as corner voice toggle) */}
+        {/* Mic / Waveform Button - Absolute Center */}
         <Box
           sx={{
             position: 'absolute',
-            bottom: 32,
+            top: '50%',
             left: '50%',
-            transform: 'translateX(-50%)',
+            transform: 'translate(-50%, -50%)',
             zIndex: 100,
           }}
         >
@@ -668,25 +752,27 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             aria-label={isRecording ? 'Stop recording' : voiceReady ? 'Start voice' : 'Connecting…'}
             disabled={!voiceReady}
             sx={{
-              color: isRecording ? 'error.main' : 'primary.main',
+              color: isRecording ? theme.palette.error.main : theme.palette.background.paper,
+              bgcolor: theme.palette.text.primary, // Strong contrast button
               width: 56,
               height: 56,
+              boxShadow: theme.shadows[6],
               transition: 'transform 0.2s ease-in-out',
               '&:hover': {
-                transform: 'scale(1.2)',
-                bgcolor: 'transparent',
+                transform: 'scale(1.1)',
+                bgcolor: theme.palette.text.secondary,
               },
             }}
           >
             {voiceReady ? (
               <GraphicEqIcon
                 sx={{
-                  fontSize: 48,
+                  fontSize: 28,
                   animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
                 }}
               />
             ) : (
-              <CircularProgress size={48} sx={{ color: 'primary.main' }} />
+              <CircularProgress size={28} sx={{ color: theme.palette.background.paper }} />
             )}
           </IconButton>
         </Box>
@@ -696,7 +782,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 }
 
 // --- Main Wrapper Component ---
-const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading, isDashboard }) => {
+const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading, isDashboard, guestName }) => {
   const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
   const [autoStartVoice, setAutoStartVoice] = useState(false);
   const containerHeight = isDashboard ? '500px' : '75vh';
@@ -750,6 +836,7 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
           setLoading={setLoading}
           autoStartVoice={autoStartVoice}
           onVoiceAutoStarted={() => setAutoStartVoice(false)}
+          guestName={guestName}
         />
       )}
     </Box>
