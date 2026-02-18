@@ -1,8 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { COSTS_REPOSITORY } from './costs.repository';
 import { Cost, CostType } from './costs.model';
 import { ConstantsService } from '../common/constants/constants.service';
 import { AudioUsage, PricingConfig, TokenUsage, calculateTextCost, calculateVoiceCost } from './costs.pricing';
+import { Account, AccountRole } from '../accounts/accounts.model';
+import { Hotel } from '../hotels/hotels.model';
+import { Booking } from '../bookings/bookings.model';
+import { Op } from 'sequelize';
+import { HotelsService } from '../hotels/hotels.service';
 
 export interface ChatCostMeta {
   model?: string;
@@ -34,6 +39,7 @@ export class CostsService {
   constructor(
     @Inject(COSTS_REPOSITORY) private readonly costsRepository: typeof Cost,
     private readonly constantsService: ConstantsService,
+    @Inject(forwardRef(() => HotelsService)) private readonly hotelsService: HotelsService,
   ) {}
 
   async recordCost(params: {
@@ -131,6 +137,69 @@ export class CostsService {
       success: true,
       message: null,
       data: costs,
+    };
+  }
+
+  async aggregateCosts(currentAccount: Account) {
+    if (currentAccount.role === AccountRole.GUEST) {
+      return { success: true, message: null, data: [] };
+    }
+
+    const where: any = {};
+
+    if (currentAccount.role === AccountRole.HOTEL_OWNER) {
+      const { data: hotels } = await this.hotelsService.findAllForAccount(currentAccount);
+      const hotelIds = hotels.map((h) => h.id);
+      if (hotelIds.length === 0) {
+        return { success: true, message: null, data: [] };
+      }
+      where.hotelId = { [Op.in]: hotelIds };
+    }
+
+    const costs = await this.costsRepository.findAll({
+      where,
+      include: [
+        {
+          model: Booking,
+          as: 'booking',
+          include: [{ model: Account, as: 'guest', attributes: ['id', 'name', 'email'] }],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const aggregated: Record<string, any> = {};
+
+    for (const cost of costs) {
+      // Group by booking ID. If no booking ID, skip or group under 'Other'
+      const key = cost.bookingId ? `booking-${cost.bookingId}` : `other`;
+      
+      if (!aggregated[key]) {
+        aggregated[key] = {
+          id: key,
+          bookingId: cost.bookingId,
+          guestName: cost.booking?.guest?.name || 'Unknown',
+          guestEmail: cost.booking?.guest?.email || 'Unknown',
+          totalCost: 0,
+          currency: cost.currency,
+          breakdown: [],
+        };
+      }
+
+      // Simple addition assuming same currency or we just sum raw values for now as per plan
+      aggregated[key].totalCost += parseFloat(cost.amount);
+      aggregated[key].breakdown.push({
+        id: cost.id,
+        type: cost.type,
+        amount: cost.amount,
+        createdAt: cost.createdAt,
+      });
+    }
+
+    return {
+      success: true,
+      message: null,
+      data: Object.values(aggregated),
     };
   }
 }

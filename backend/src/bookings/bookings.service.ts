@@ -13,6 +13,8 @@ import { Op } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
+import { forwardRef } from '@nestjs/common';
+import { CostsService } from '../costs/costs.service';
 
 @Injectable()
 export class BookingsService {
@@ -23,6 +25,7 @@ export class BookingsService {
     private readonly hotelsService: HotelsService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
+    @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
   ) {}
 
   private parseDateTime(dateStr: string, timeStr: string): Date {
@@ -183,6 +186,16 @@ export class BookingsService {
     const plain = booking.get({ plain: true }) as unknown as Record<string, unknown>;
     const now = new Date();
     plain.isWithinStay = now >= new Date(plain.startTime as Date) && now <= new Date(plain.endTime as Date);
+
+    if (currentAccount.role === AccountRole.ADMIN || currentAccount.role === AccountRole.HOTEL_OWNER) {
+      const costsResult = await this.costsService.findByBookingId(id);
+      if (costsResult && costsResult.data) {
+        const total = costsResult.data.reduce((sum, c) => sum + parseFloat(c.amount), 0);
+        plain.totalCost = total;
+        plain.currency = costsResult.data[0]?.currency || 'USD';
+      }
+    }
+
     return { success: true, message: null, data: plain };
   }
 

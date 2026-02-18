@@ -47,6 +47,7 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
   const [pendingNotes, setPendingNotes] = useState({});
 
   const canDeleteBooking = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
+  const canViewCost = account && (account.role === 'admin' || account.role === 'hotel_owner');
   const isGuest = account?.role === 'guest';
   const isStaffOrOwner = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
 
@@ -207,6 +208,23 @@ function BookingDetails({ setLoading, account, navigate, alertSuccess, alertErro
                   </Box>
                 </Box>
               </Grid>
+              {booking.totalCost !== undefined && canViewCost && (
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 0.25 }}>
+                      💰
+                    </Typography>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Total Cost
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                        {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(booking.currency?.toLowerCase() === 'usd' ? booking.totalCost * 86 : booking.totalCost)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              )}
             </Grid>
 
             {booking.guest && (
