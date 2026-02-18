@@ -32,4 +32,11 @@ export class Chat extends Model<Chat> {
 
   @BelongsTo(() => Booking, { foreignKey: 'bookingId', as: 'booking' })
   booking: Booking;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'language_code',
+  })
+  languageCode: string | null;
 }

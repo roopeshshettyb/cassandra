@@ -62,9 +62,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.authenticateAndInit(client, token, bookingId);
   }
 
-  async processMessage(chatId: any, userMessage: string, account: any, llmInstructions?: string | null): Promise<any> {
+  async processMessage(chatId: any, userMessage: string, account: any, llmInstructions?: string | null, languageCode?: string | null): Promise<any> {
     const appName = this.constantsService.public.APP_NAME;
-    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, appName, account?.role, llmInstructions);
+    const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, appName, account?.role, llmInstructions, languageCode);
 
     return {
       contextData,
@@ -95,6 +95,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatId: chat.id,
         hotel,
         booking: bookingPlain,
+        languageCode: chat.languageCode ?? null,
       };
       client.session = session;
       delete client.sessionPending;
@@ -143,7 +144,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.messagesService.create(session.chatId, MessageRole.USER, content);
       const hotel = session.hotel;
       const llmInstructions = hotel.llmInstructions;
-      const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions);
+      const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions, session.languageCode ?? null);
 
       const toolContext = {
         account: session.account,
@@ -151,6 +152,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatId: session.chatId,
         hotel: session.hotel,
         booking: session.booking,
+        languageCode: session.languageCode ?? null,
       };
 
       let fullContent = '';

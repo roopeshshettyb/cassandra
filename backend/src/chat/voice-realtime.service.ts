@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import { ChatContextService } from '../chat-context/chat-context.service';
 import { AgentToolContext } from '../langgraph/langgraph-tools.context';
 import { RealtimeToolsService, RealtimeToolDefinition } from '../langgraph/realtime-tools.service';
-import { buildSystemInstructions, describeSpeakerRole } from './chat-prompt.builder';
+import { buildSystemInstructions } from './chat-prompt.builder';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 import { ConstantsService } from '../common/constants/constants.service';
 
@@ -23,6 +23,7 @@ interface VoiceSessionState {
   isOpen: boolean;
   pendingEvents: unknown[];
   sessionConfigured: boolean;
+  transcriptionModel: string;
 }
 
 @Injectable()
@@ -51,6 +52,8 @@ export class VoiceRealtimeService {
     const baseUrl = process.env.OPENAI_REALTIME_URL || 'wss://api.openai.com/v1/realtime';
     const url = `${baseUrl}?model=${encodeURIComponent(model)}`;
 
+    const transcriptionModel = process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe';
+
     const ws = new WebSocket(url, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -65,6 +68,7 @@ export class VoiceRealtimeService {
       isOpen: false,
       pendingEvents: [],
       sessionConfigured: false,
+      transcriptionModel,
     };
 
     this.sessions.set(sessionId, state);
@@ -75,10 +79,9 @@ export class VoiceRealtimeService {
         const appName = this.constantsService.public.APP_NAME;
         const hotel: any = ctx.hotel;
         const llmInstructions = hotel?.llmInstructions;
-        const { instructions } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions);
         const account: any = ctx.account;
-        const speakerRoleDescription = describeSpeakerRole(account?.role);
-        const instructionsWithSpeaker = `${instructions}\n\nFor this voice session, the authenticated speaker is ${speakerRoleDescription}. Address them appropriately for that role.\n\nOnly use and respond in one of these languages: English, Hindi, Kannada, Tamil, Telugu. If the user speaks in any other language, politely ask them to use one of these five.`;
+        const languageCode = ctx.languageCode ?? null;
+        const { instructions: instructionsWithSpeaker } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions, account?.role, languageCode);
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
         const sessionUpdate = {
@@ -96,8 +99,8 @@ export class VoiceRealtimeService {
                 format: { type: 'audio/pcm', rate: 24000 },
                 // Enable transcription so we get conversation.item.input_audio_transcription.*
                 transcription: {
-                  model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe',
-                  // language and prompt are optional; defaults are fine for now.
+                  model: transcriptionModel,
+                  ...(languageCode ? { language: languageCode } : {}),
                 },
                 noise_reduction: null,
                 turn_detection: {
@@ -314,6 +317,44 @@ export class VoiceRealtimeService {
       result = {
         error: (err as Error)?.message ?? String(err),
       };
+    }
+
+    // If the model requested a chat language change, persist it on the Chat
+    // and update the Realtime session configuration (transcription language
+    // and instructions) so subsequent turns are consistent.
+    if (name === 'set_chat_language') {
+      const argsAny: any = args;
+      const newLanguageCodeRaw: unknown = argsAny?.languageCode;
+      const newLanguageCode = typeof newLanguageCodeRaw === 'string' ? newLanguageCodeRaw : null;
+      if (newLanguageCode) {
+        try {
+          state.ctx.languageCode = newLanguageCode;
+          const appName = this.constantsService.public.APP_NAME;
+          const hotel: any = state.ctx.hotel;
+          const llmInstructions = hotel?.llmInstructions;
+          const account: any = state.ctx.account;
+          const { instructions: updatedInstructions } = await buildSystemInstructions(this.chatContextService, state.ctx.chatId, appName, llmInstructions, account?.role, newLanguageCode);
+
+          const sessionUpdateEvent = {
+            type: 'session.update',
+            session: {
+              type: 'realtime',
+              instructions: updatedInstructions,
+              audio: {
+                input: {
+                  transcription: {
+                    model: state.transcriptionModel,
+                    language: newLanguageCode,
+                  },
+                },
+              },
+            },
+          };
+          state.ws.send(JSON.stringify(sessionUpdateEvent));
+        } catch (err) {
+          this.logger.error('Failed to apply language change from set_chat_language tool', err as Error);
+        }
+      }
     }
 
     const output = typeof result === 'string' ? result : JSON.stringify(result);

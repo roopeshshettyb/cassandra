@@ -35,6 +35,8 @@ export async function buildSystemInstructions(
   chatId: number,
   appName: string,
   llmInstructions?: string | null,
+  speakerRole?: string,
+  languageCode?: string | null,
 ): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
@@ -55,10 +57,28 @@ Always respond in Markdown.`;
     systemContent += `\n\nHotel-specific instructions:\n${llmInstructions.trim()}`;
   }
 
-  const parts: string[] = [
-    systemContent,
-    `This is the context of the coversation so far : ${contextData.context}`,
-  ];
+  const parts: string[] = [systemContent, `This is the context of the coversation so far : ${contextData.context}`];
+
+  const roleDescription = describeSpeakerRole(speakerRole);
+  parts.push(`For this ${languageCode ? 'voice' : 'chat'} session, the authenticated speaker is ${roleDescription}. Address them appropriately for that role.`);
+
+  const languageDisplayMap: Record<string, string> = {
+    en: 'English',
+    hi: 'Hindi',
+    kn: 'Kannada',
+    ta: 'Tamil',
+    te: 'Telugu',
+  };
+
+  if (languageCode && languageDisplayMap[languageCode]) {
+    parts.push(
+      `For this session, the primary language is ${languageDisplayMap[languageCode]}. You must respond only in ${languageDisplayMap[languageCode]}. If the user speaks in another language, switch immediately to that language and update the stored language using the set_chat_language tool.`,
+    );
+  } else if (!languageCode) {
+    parts.push(
+      'Currently a language for this chat is not set. Only use and respond in one of these languages: English, Hindi, Kannada, Tamil, Telugu. If the user speaks in any other language, politely ask them to use one of these five. After the users first message once you have deduced the language use the set_chat_language tool and update it.',
+    );
+  }
 
   const instructions = parts.join('\n\n');
 
@@ -82,21 +102,14 @@ export async function buildChatPrompt(
   appName: string,
   speakerRole?: string,
   llmInstructions?: string | null,
+  languageCode?: string | null,
 ): Promise<ChatPromptResult> {
-  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions);
+  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode);
 
   // In the future this can include attachment-derived content as well.
   const textContents: string[] = [];
 
   const messages: ChatMessageInput[] = [{ role: 'system', content: instructions }];
-
-  if (speakerRole) {
-    const roleDescription = describeSpeakerRole(speakerRole);
-    messages.push({
-      role: 'system',
-      content: `For this turn, the person speaking to you is ${roleDescription}. Address them appropriately for that role.`,
-    });
-  }
 
   if (textContents.length > 0) {
     messages.push({
@@ -115,4 +128,3 @@ export async function buildChatPrompt(
     messages,
   };
 }
-
