@@ -8,9 +8,10 @@ import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
 import { MailerModule } from '../mailer/mailer.module';
 import { HotelsModule } from '../hotels/hotels.module';
+import { CostsModule } from '../costs/costs.module';
 
 @Module({
-  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule)],
+  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule), forwardRef(() => CostsModule)],
   controllers: [BookingsController],
   providers: [BookingsRepository, BookingsService],
   exports: [BookingsRepository, BookingsService],

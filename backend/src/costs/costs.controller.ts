@@ -1,6 +1,8 @@
 import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { CostsService } from './costs.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentAccount } from '../auth/decorators/account.decorator';
+import { Account } from '../accounts/accounts.model';
 
 @Controller('costs')
 @UseGuards(JwtAuthGuard)
@@ -15,6 +17,11 @@ export class CostsController {
   @Get('by-hotel/:hotelId')
   async findByHotel(@Param('hotelId', ParseIntPipe) hotelId: number) {
     return this.costsService.findByHotelId(hotelId);
+  }
+
+  @Get('aggregate')
+  async aggregate(@CurrentAccount() account: Account) {
+    return this.costsService.aggregateCosts(account);
   }
 }
 
