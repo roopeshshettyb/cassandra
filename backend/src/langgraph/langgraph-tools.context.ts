@@ -6,4 +6,5 @@ export interface AgentToolContext {
   chatId: number;
   hotel: Record<string, unknown> | null;
   booking: Record<string, unknown> | null;
+   languageCode?: string | null;
 }

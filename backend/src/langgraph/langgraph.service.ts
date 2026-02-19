@@ -8,6 +8,7 @@ import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { ChatService } from '../chat/chat.service';
 
 const TEXT_MODEL = 'gpt-4o-mini';
 
@@ -37,6 +38,7 @@ export class LangGraphService {
     private readonly bookingsService: BookingsService,
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
+    private readonly chatService: ChatService,
   ) {}
 
   private createModel(): ChatOpenAI {
@@ -97,7 +99,7 @@ export class LangGraphService {
     ctx: AgentToolContext,
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
     const model = this.createModel();
     const agent = createAgent({ model, tools });
 

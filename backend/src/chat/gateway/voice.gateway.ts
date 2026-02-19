@@ -84,6 +84,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatId: chat.id,
         hotel,
         booking: bookingPlain,
+        languageCode: chat.languageCode ?? null,
       };
       client.session = session;
       delete client.sessionPending;
@@ -117,6 +118,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       chatId: session.chatId,
       hotel: session.hotel,
       booking: session.booking,
+        languageCode: session.languageCode ?? null,
     };
 
     try {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { AuthModule } from '../auth/auth.module';
@@ -20,7 +20,7 @@ import { CostsModule } from '../costs/costs.module';
     AuthModule,
     MessagesModule,
     ChatContextModule,
-    LangGraphModule,
+    forwardRef(() => LangGraphModule),
     CommonModule,
     CostsModule,
   ],

@@ -4,6 +4,7 @@ import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { ChatService } from '../chat/chat.service';
 import { RequestType, RequestUrgency, RequestStatus } from '../requests/requests.model';
 import { CreateRequestDto } from '../requests/requests.dto';
 
@@ -12,8 +13,9 @@ export function createAgentTools(
   bookingsService: BookingsService,
   requestsService: RequestsService,
   restaurantService: RestaurantService,
+  chatService: ChatService,
 ): DynamicStructuredTool[] {
-  const { account, bookingId, chatId, hotel, booking } = ctx;
+  const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
 
   return [
     new DynamicStructuredTool({
@@ -109,6 +111,30 @@ export function createAgentTools(
       schema: z.object({}),
       func: async () => {
         return JSON.stringify(hotel);
+      },
+    }),
+    new DynamicStructuredTool({
+      name: 'set_chat_language',
+      description:
+        'Propose setting the language for this chat to one of the supported languages (English, Hindi, Kannada, Tamil, or Telugu). This tool does not itself change any configuration; the application will apply the chosen language.',
+      schema: z.object({
+        languageCode: z
+          .enum(['en', 'hi', 'kn', 'ta', 'te'])
+          .describe('The ISO-639-1 language code to use for this chat (en, hi, kn, ta, or te).'),
+        reason: z
+          .string()
+          .optional()
+          .describe('Optional explanation for why the language is being changed.'),
+      }),
+      func: async (args) => {
+        const previous = languageCode ?? null;
+        const next = args.languageCode;
+        await chatService.updateLanguageCode(chatId, next);
+        return JSON.stringify({
+          previousLanguageCode: previous,
+          nextLanguageCode: next,
+          reason: args.reason ?? null,
+        });
       },
     }),
     new DynamicStructuredTool({

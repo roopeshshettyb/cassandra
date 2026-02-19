@@ -6,6 +6,7 @@ import { createAgentTools } from './langgraph.tools';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { ChatService } from '../chat/chat.service';
 
 export interface RealtimeToolDefinition {
   type: 'function';
@@ -20,6 +21,7 @@ export class RealtimeToolsService {
     private readonly bookingsService: BookingsService,
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
+    private readonly chatService: ChatService,
   ) {}
 
   /**
@@ -27,7 +29,7 @@ export class RealtimeToolsService {
    * OpenAI Realtime `session.tools`.
    */
   getToolsMetadata(ctx: AgentToolContext): RealtimeToolDefinition[] {
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
 
     return tools.map((tool: DynamicStructuredTool) => {
       const openaiTool = convertToOpenAITool(tool);
@@ -51,7 +53,7 @@ export class RealtimeToolsService {
    * text and voice paths.
    */
   async executeTool(ctx: AgentToolContext, name: string, args: Record<string, unknown>): Promise<unknown> {
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
     const tool = tools.find((t: DynamicStructuredTool) => t.name === name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);

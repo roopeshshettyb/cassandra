@@ -26,4 +26,14 @@ export class ChatService {
     }
     return this.chatRepository.create({ accountId: account.id, bookingId });
   }
+
+  async updateLanguageCode(chatId: number, languageCode: string | null): Promise<Chat> {
+    const chat = await this.chatRepository.findByPk(chatId);
+    if (!chat) {
+      throw new Error(`Chat not found for id: ${chatId}`);
+    }
+    chat.languageCode = languageCode;
+    await chat.save();
+    return chat;
+  }
 }

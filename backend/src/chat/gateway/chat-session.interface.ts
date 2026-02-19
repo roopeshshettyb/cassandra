@@ -7,4 +7,5 @@ export interface ChatSession {
   /** Pre-fetched at connection */
   hotel: any;
   booking: any;
+  languageCode?: string | null;
 }
