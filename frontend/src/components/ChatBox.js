@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, TextField, Typography, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
@@ -199,11 +199,7 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, isMobile, contain
       </Box>
 
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: 1, borderColor: 'divider', borderRadius: 2 }}>
-        <Box
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}
-        >
+        <Box ref={scrollContainerRef} onScroll={handleScroll} sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {messages.map((m) => (
             <Box
               key={m.id}
@@ -274,16 +270,18 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, isMobile, contain
             disabled={!ready || sending}
             multiline
             maxRows={4}
+            InputProps={{
+              endAdornment: (
+                <IconButton
+                  color="primary"
+                  onClick={handleSend}
+                  disabled={!ready || sending || !input.trim()}
+                >
+                  <SendIcon />
+                </IconButton>
+              ),
+            }}
           />
-
-          <Button
-            variant="contained"
-            onClick={handleSend}
-            disabled={!ready || sending || !input.trim()}
-            endIcon={<SendIcon />}
-          >
-            Send
-          </Button>
         </Box>
       </Box>
     </Box>
