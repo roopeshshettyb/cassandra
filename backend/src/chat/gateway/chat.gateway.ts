@@ -115,18 +115,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('voice_start')
-  async onVoiceStart(client: any) {
-    const session = client.session as ChatSession | undefined;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-    // Placeholder: OpenAI Realtime API server-side proxy to be implemented.
-    // Same session (account, bookingId, chatId) and tools will be used for voice.
-    client.emit('voice_ready', { message: 'Voice not yet implemented; use text for now' });
-  }
-
   @SubscribeMessage('message')
   async onMessage(client: any, payload: { content: string }) {
     const session = client.session as ChatSession | undefined;
@@ -144,7 +132,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.messagesService.create(session.chatId, MessageRole.USER, content);
       const hotel = session.hotel;
       const llmInstructions = hotel.llmInstructions;
-      const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions, session.languageCode ?? null);
+      const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions, session.languageCode);
 
       const toolContext = {
         account: session.account,
@@ -157,9 +145,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       let fullContent = '';
       let toolCalls: ToolCallRecord[] = [];
-      let usage:
-        | { promptTokens: number; completionTokens: number; totalTokens: number }
-        | null = null;
+      let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
 
       for await (const chunk of this.langGraphService.stream({ messages }, toolContext)) {
         if (typeof chunk === 'string') {

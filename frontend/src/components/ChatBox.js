@@ -1,34 +1,17 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Box, Button, CircularProgress, IconButton, TextField, Typography, Paper, Tooltip, Fade } from '@mui/material';
+import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import GraphicEqIcon from '@mui/icons-material/GraphicEq';
-
-import ChatIcon from '@mui/icons-material/Chat';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { keyframes } from '@mui/system';
 import constants from '../constants.json';
-
-// Imports for Voice Mode (3D Avatar)
-import { AvatarCanvas } from './AvatarChatbot/AvatarCanvas';
-import { useSocketChat } from './AvatarChatbot/hooks/useSocketChat';
-import { useLipSync } from './AvatarChatbot/hooks/useLipSync';
-
-import { DEFAULT_AVATAR_CONFIG } from '../config/default-avatar-config';
 
 const { APP_NAME } = constants;
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
-const pulseWave = keyframes({
-  '0%': { transform: 'scaleY(1)', opacity: 0.7 },
-  '50%': { transform: 'scaleY(1.3)', opacity: 1 },
-  '100%': { transform: 'scaleY(1)', opacity: 0.7 },
-});
-
-// --- Classic Chat Component (The Original UI) ---
-function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, isMobile, containerHeight = '75vh' }) {
+// Text chat component
+const ChatBox = ({ bookingId, alertError, isWithinStay = true, isMobile, containerHeight = '75vh' }) => {
   const [socket, setSocket] = useState(null);
   const [ready, setReady] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -154,7 +137,20 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
     socket.emit('message', { content: text });
   };
 
-  if (!bookingId || isNaN(bookingId)) return null;
+  if (!bookingId || isNaN(bookingId) || !isWithinStay) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
+        </Box>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Typography variant="body2" color="text.secondary">
+            {APP_NAME} would be ready to talk to you as soon as you check in!
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
 
   const handleScroll = () => {
     const el = scrollContainerRef.current;
@@ -182,65 +178,8 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
     );
   };
 
-  const chatInner = (
-    <>
-      <Box ref={scrollContainerRef} onScroll={handleScroll} sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {messages.map((m) => (
-          <Box
-            key={m.id}
-            sx={{
-              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              px: 2,
-              py: 1,
-              borderRadius: 2,
-              bgcolor: m.role === 'user' ? 'primary.main' : 'action.hover',
-              color: m.role === 'user' ? 'primary.contrastText' : 'text.primary',
-            }}
-          >
-            {renderMarkdown(m.content, m.role)}
-          </Box>
-        ))}
-        {streamingContent && <Box sx={{ alignSelf: 'flex-start', maxWidth: '85%', px: 2, py: 1, borderRadius: 2, bgcolor: 'action.hover' }}>{renderMarkdown(streamingContent)}</Box>}
-        {!streamingContent && sending && (
-          <Box sx={{ alignSelf: 'flex-start', maxWidth: '85%', px: 2, py: 1.5, borderRadius: 2, bgcolor: 'action.hover', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-            <CircularProgress size={16} />
-            <Typography variant="body2" color="text.secondary">
-              {APP_NAME} is thinking…
-            </Typography>
-          </Box>
-        )}
-        <div ref={messagesEndRef} />
-      </Box>
-
-      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-        <TextField
-          inputRef={inputRef}
-          fullWidth
-          size="small"
-          placeholder="Type a message…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          disabled={!ready || sending}
-          multiline
-          maxRows={4}
-        />
-
-        <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>
-          Send
-        </Button>
-      </Box>
-    </>
-  );
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', p: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
@@ -257,558 +196,98 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
             )
           )}
         </Box>
-
-        {/* Switch Mode Button (Restored) */}
-        <Tooltip title="Switch to Voice Mode">
-          <IconButton
-            size="small"
-            onClick={() => onSwitchToVoice && onSwitchToVoice()}
-            aria-label="Switch to Voice Mode"
-            sx={{
-              color: 'primary.main',
-              transition: 'transform 0.2s ease-in-out',
-              '&:hover': {
-                transform: 'scale(1.2)',
-                bgcolor: 'transparent',
-              },
-            }}
-          >
-            <GraphicEqIcon />
-          </IconButton>
-        </Tooltip>
       </Box>
 
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: 1, borderColor: 'divider', borderRadius: 2 }}>{chatInner}</Box>
-    </Box>
-  );
-}
-
-// --- Voice Chat Component (The New 3D UI) ---
-function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading, autoStartVoice, onVoiceAutoStarted }) {
-  // State defined above: messages...
-
-  const avatarRef = useRef(null);
-
-  const { avatarUrl, idleAnimationPath, talkingAnimationPath, hiAnimationPath, thinkingAnimationPath } = avatarConfig || DEFAULT_AVATAR_CONFIG;
-
-  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [voiceReady, setVoiceReady] = useState(false);
-
-  // Voice socket refs (same pattern as ClassicChatBox)
-  const voiceSocketRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const processorRef = useRef(null);
-  const playbackAudioContextRef = useRef(null);
-  const playbackTimeRef = useRef(0);
-
-  // Lip Sync Simulation
-  const { initWithSpeechSynthesis } = useLipSync({
-    onLipSyncUpdate: useCallback((value) => {
-      if (avatarRef.current) {
-        avatarRef.current.setLipSync(value);
-      }
-    }, []),
-    smoothing: 0.5,
-  });
-
-  const lipSyncAnim = useRef(null);
-  useEffect(() => {
-    lipSyncAnim.current = initWithSpeechSynthesis();
-    return () => {
-      if (lipSyncAnim.current) lipSyncAnim.current.stop();
-    };
-  }, [initWithSpeechSynthesis]);
-
-  // Chat socket for shared message history (text mode uses this)
-  const { messages, isLoading, error, sendMessage, addMessage } = useSocketChat(bookingId);
-  const prevIsLoading = useRef(isLoading);
-
-  // Track if currently playing voice audio
-  const isSpeakingVoiceRef = useRef(false);
-  // Track last spoken message ID to prevent repeating TTS
-  const lastSpokenMsgId = useRef('');
-
-  // Avatar animation based on loading state from chat socket
-  useEffect(() => {
-    if (isSpeakingVoiceRef.current) return; // Don't override voice animation
-    if (isLoading) {
-      avatarRef.current?.playThinking();
-    } else if (prevIsLoading.current && !isLoading) {
-      avatarRef.current?.playIdle();
-    }
-    prevIsLoading.current = isLoading;
-  }, [isLoading]);
-
-  // Handle TTS for text-chat messages ONLY (when user types in classic mode and switches)
-  useEffect(() => {
-    if (isSpeakingVoiceRef.current) return;
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg || lastMsg.role !== 'assistant' || isLoading) return;
-    if (lastSpokenMsgId.current === lastMsg.id) return; // Already spoken
-    lastSpokenMsgId.current = lastMsg.id;
-
-    const text = lastMsg.content;
-    if (text && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onstart = () => {
-        avatarRef.current?.playTalking();
-        lipSyncAnim.current?.start();
-      };
-      utterance.onend = () => {
-        avatarRef.current?.playIdle();
-        lipSyncAnim.current?.stop();
-      };
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [messages, isLoading]);
-
-  // --- Voice Socket Connection ---
-  useEffect(() => {
-    if (!bookingId || isNaN(bookingId) || !isWithinStay) return;
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    const connectUrl = getBackendUrl();
-    if (!connectUrl) return;
-
-    console.log('[VoiceChatBox] Connecting voice socket to:', `${connectUrl}/voice`);
-
-    const voiceInstance = io(`${connectUrl}/voice`, {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      query: { token, bookingId: String(bookingId) },
-      auth: { token },
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 500,
-    });
-
-    voiceSocketRef.current = voiceInstance;
-
-    voiceInstance.on('connect', () => {
-      console.log('[VoiceChatBox] Voice socket connected');
-      setVoiceReady(false); // Wait for ready/voice_ready
-    });
-    voiceInstance.on('disconnect', () => {
-      console.log('[VoiceChatBox] Voice socket disconnected');
-      setVoiceReady(false);
-      setIsRecording(false);
-    });
-    voiceInstance.on('auth_required', () => voiceInstance.emit('auth', { token, bookingId }));
-    voiceInstance.on('ready', () => {
-      console.log('[VoiceChatBox] Voice ready');
-      setVoiceReady(true);
-    });
-    voiceInstance.on('voice_ready', () => {
-      console.log('[VoiceChatBox] Voice ready (voice_ready)');
-      setVoiceReady(true);
-    });
-
-    // When user's voice is transcribed by the backend
-    voiceInstance.on('voice_user_message', (payload) => {
-      const text = payload?.text || '';
-      console.log('[VoiceChatBox] User transcription:', text);
-      if (text.trim()) {
-        addMessage({ id: `user-voice-${Date.now()}`, role: 'user', content: text, timestamp: new Date() });
-        // Show thinking animation while waiting for response
-        avatarRef.current?.playThinking();
-      }
-    });
-
-    // Voice response: text complete — use this to trigger TTS + talking animation if audio isn't already playing
-    voiceInstance.on('voice_text_end', (payload) => {
-      const text = payload?.text || '';
-      console.log('[VoiceChatBox] Voice text end:', text.substring(0, 50) + '...');
-      if (text) {
-        // Add assistant response to shared message history
-        const msgId = `assistant-voice-${Date.now()}`;
-        addMessage({ id: msgId, role: 'assistant', content: text, timestamp: new Date() });
-        lastSpokenMsgId.current = msgId; // Prevent the messages effect from also speaking it
-
-        // Trigger TTS with talking animation + lip sync ONLY if not already speaking backend audio
-        if (!isSpeakingVoiceRef.current && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.onstart = () => {
-            console.log('[VoiceChatBox] TTS started — playing talking animation');
-            // Check again in case audio started while initializing
-            if (isSpeakingVoiceRef.current) {
-              window.speechSynthesis.cancel();
-              return;
-            }
-            isSpeakingVoiceRef.current = true;
-            avatarRef.current?.playTalking();
-            lipSyncAnim.current?.start();
-          };
-          utterance.onend = () => {
-            // Only stop if we were the ones speaking (not overridden by audio)
-            if (isSpeakingVoiceRef.current && !voiceReady /* check if audio didn't take over */) {
-              console.log('[VoiceChatBox] TTS ended');
-              isSpeakingVoiceRef.current = false;
-              avatarRef.current?.playIdle();
-              lipSyncAnim.current?.stop();
-            }
-          };
-          utterance.onerror = () => {
-            console.log('[VoiceChatBox] TTS error/cancelled');
-            // Don't stop animation if cancelled (might be due to audio override)
-            if (!isSpeakingVoiceRef.current) {
-              avatarRef.current?.playIdle();
-              lipSyncAnim.current?.stop();
-            }
-          };
-          window.speechSynthesis.speak(utterance);
-        }
-      }
-    });
-
-    // Streaming text chunks (for future subtitle display)
-    voiceInstance.on('voice_text_chunk', (payload) => {
-      // Could show real-time subtitle here
-    });
-
-    // Voice response: audio playback chunks (backup animation trigger)
-    voiceInstance.on('voice_audio_chunk', (payload) => {
-      if (payload?.delta) {
-        playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef);
-
-        // Start animation if TTS hasn't started it OR if TTS is running (cancel it)
-        if (!isSpeakingVoiceRef.current || window.speechSynthesis.speaking) {
-          console.log('[VoiceChatBox] Audio chunk -> overriding TTS/starting animation');
-          window.speechSynthesis.cancel(); // Stop TTS immediately
-          isSpeakingVoiceRef.current = true;
-          avatarRef.current?.playTalking();
-          lipSyncAnim.current?.start();
-        }
-      }
-    });
-
-    voiceInstance.on('voice_audio_end', () => {
-      console.log('[VoiceChatBox] Server audio stream ended');
-
-      // Calculate when the audio will ACTUALLY finish playing
-      let delay = 1000; // Default fallback
-
-      const context = playbackAudioContextRef.current;
-      const scheduledEndTime = playbackTimeRef.current;
-
-      if (context && scheduledEndTime > 0) {
-        const remainingTime = (scheduledEndTime - context.currentTime) * 1000;
-        if (remainingTime > 0) {
-          delay = remainingTime + 300; // Add 300ms buffer for smooth transition
-          console.log(`[VoiceChatBox] Audio still playing for ${Math.round(remainingTime)}ms. Scheduling idle animation in ${Math.round(delay)}ms`);
-        }
-      }
-
-      setTimeout(() => {
-        // Only stop if we are still marked as speaking (and not TTS)
-        if (isSpeakingVoiceRef.current) {
-          console.log('[VoiceChatBox] Audio playback finished — stopping animation');
-          isSpeakingVoiceRef.current = false;
-          avatarRef.current?.playIdle();
-          lipSyncAnim.current?.stop();
-        }
-      }, delay);
-    });
-
-    voiceInstance.on('error', (payload) => {
-      console.error('[VoiceChatBox] Voice error:', payload);
-      isSpeakingVoiceRef.current = false;
-      setIsRecording(false);
-      alertError?.(payload?.message || 'Voice error');
-    });
-
-    return () => {
-      voiceInstance.removeAllListeners();
-      voiceInstance.disconnect();
-      voiceSocketRef.current = null;
-      setVoiceReady(false);
-      setIsRecording(false);
-      isSpeakingVoiceRef.current = false;
-    };
-  }, [bookingId, alertError, isWithinStay, addMessage]);
-
-  // --- Recording Functions (same as ClassicChatBox) ---
-  const startRecording = async () => {
-    if (isRecording) return;
-    if (!voiceSocketRef.current?.connected || !voiceReady) {
-      alertError?.('Voice connection is not ready yet');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
-      const audioContext = new AudioContextImpl({ sampleRate: 24000 });
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm = floatTo16BitPCM(inputData);
-        const base64 = arrayBufferToBase64(pcm.buffer);
-        if (voiceSocketRef.current?.connected) voiceSocketRef.current.emit('voice_client_chunk', { audio: base64 });
-      };
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-      audioContextRef.current = audioContext;
-      mediaStreamRef.current = stream;
-      processorRef.current = processor;
-      voiceSocketRef.current.emit('voice_start');
-      setIsRecording(true);
-    } catch (err) {
-      alertError?.(err?.message || 'Could not access microphone');
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current.onaudioprocess = null;
-      processorRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
-    if (voiceSocketRef.current?.connected) {
-      voiceSocketRef.current.emit('voice_stop');
-    }
-    setIsRecording(false);
-  };
-
-  const handleVoiceToggle = async () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      await startRecording();
-    }
-  };
-
-  // Auto-start voice when user switches from chat to voice (once connection is ready)
-  useEffect(() => {
-    if (!autoStartVoice || !voiceReady || isRecording) return;
-    onVoiceAutoStarted?.();
-    startRecording();
-  }, [autoStartVoice, voiceReady]);
-
-  return (
-    <Fade in={true} timeout={800}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          overflow: 'hidden',
-          bgcolor: '#F3F4F6',
-          borderRadius: 4,
-        }}
-      >
-        {/* Avatar Canvas */}
-        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <AvatarCanvas
-            ref={avatarRef}
-            avatarUrl={avatarUrl}
-            animationPaths={{
-              idle: idleAnimationPath,
-              talking: talkingAnimationPath,
-              waving: hiAnimationPath,
-              thinking: thinkingAnimationPath,
-            }}
-            backgroundColor={'#F3F4F6'}
-            isMobile={isMobile}
-            setLoading={setLoading}
-          />
-        </Box>
-
-        {/* Chat Icon - Top Right */}
-        <IconButton
-          onClick={() => onSwitchToChat()}
-          aria-label="Switch to Chat"
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            zIndex: 100,
-            color: 'primary.main',
-            width: 30,
-            height: 30,
-            transition: 'transform 0.2s ease-in-out',
-            '&:hover': {
-              transform: 'scale(1.2)',
-              bgcolor: 'transparent',
-            },
-          }}
-        >
-          <ChatIcon sx={{ fontSize: 30 }} />
-        </IconButton>
-
-        {/* Mic / Waveform Button - Bottom Center (same style/size as corner voice toggle) */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: 1, borderColor: 'divider', borderRadius: 2 }}>
         <Box
-          sx={{
-            position: 'absolute',
-            bottom: 32,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 100,
-          }}
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}
         >
-          <IconButton
+          {messages.map((m) => (
+            <Box
+              key={m.id}
+              sx={{
+                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '85%',
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                bgcolor: m.role === 'user' ? 'primary.main' : 'action.hover',
+                color: m.role === 'user' ? 'primary.contrastText' : 'text.primary',
+              }}
+            >
+              {renderMarkdown(m.content, m.role)}
+            </Box>
+          ))}
+          {streamingContent && (
+            <Box
+              sx={{
+                alignSelf: 'flex-start',
+                maxWidth: '85%',
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                bgcolor: 'action.hover',
+              }}
+            >
+              {renderMarkdown(streamingContent)}
+            </Box>
+          )}
+          {!streamingContent && sending && (
+            <Box
+              sx={{
+                alignSelf: 'flex-start',
+                maxWidth: '85%',
+                px: 2,
+                py: 1.5,
+                borderRadius: 2,
+                bgcolor: 'action.hover',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              <CircularProgress size={16} />
+              <Typography variant="body2" color="text.secondary">
+                {APP_NAME} is thinking…
+              </Typography>
+            </Box>
+          )}
+          <div ref={messagesEndRef} />
+        </Box>
+
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+          <TextField
+            inputRef={inputRef}
+            fullWidth
             size="small"
-            onClick={handleVoiceToggle}
-            aria-label={isRecording ? 'Stop recording' : voiceReady ? 'Start voice' : 'Connecting…'}
-            disabled={!voiceReady}
-            sx={{
-              color: isRecording ? 'error.main' : 'primary.main',
-              width: 56,
-              height: 56,
-              transition: 'transform 0.2s ease-in-out',
-              '&:hover': {
-                transform: 'scale(1.2)',
-                bgcolor: 'transparent',
-              },
+            placeholder="Type a message…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
             }}
+            disabled={!ready || sending}
+            multiline
+            maxRows={4}
+          />
+
+          <Button
+            variant="contained"
+            onClick={handleSend}
+            disabled={!ready || sending || !input.trim()}
+            endIcon={<SendIcon />}
           >
-            {voiceReady ? (
-              <GraphicEqIcon
-                sx={{
-                  fontSize: 48,
-                  animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
-                }}
-              />
-            ) : (
-              <CircularProgress size={48} sx={{ color: 'primary.main' }} />
-            )}
-          </IconButton>
+            Send
+          </Button>
         </Box>
       </Box>
-    </Fade>
-  );
-}
-
-// --- Main Wrapper Component ---
-const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isMobile, setLoading, isDashboard }) => {
-  const [mode, setMode] = useState('voice'); // 'chat' | 'voice'
-  const [autoStartVoice, setAutoStartVoice] = useState(false);
-  const containerHeight = isDashboard ? '500px' : '75vh';
-
-  if (!isWithinStay) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
-        </Box>
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
-          <Typography variant="body2" color="text.secondary">
-            {APP_NAME} would be ready to talk to you as soon as you check in!
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
-
-  // Mobile: voice 50vh, chat 75vh; desktop: 75vh both. Single wrapper so height animates when switching.
-  const wrapperHeight = isDashboard ? '500px' : isMobile ? (mode === 'voice' ? '50vh' : '75vh') : '75vh';
-
-  return (
-    <Box
-      sx={{
-        height: wrapperHeight,
-        width: '100%',
-        overflow: 'hidden',
-        transition: 'height 0.35s ease-in-out',
-      }}
-    >
-      {mode === 'chat' ? (
-        <ClassicChatBox
-          bookingId={bookingId}
-          alertError={alertError}
-          isWithinStay={isWithinStay}
-          onSwitchToVoice={() => {
-            setMode('voice');
-            setAutoStartVoice(true);
-          }}
-          isMobile={isMobile}
-        />
-      ) : (
-        <VoiceChatBox
-          bookingId={bookingId}
-          alertError={alertError}
-          isWithinStay={isWithinStay}
-          onSwitchToChat={() => setMode('chat')}
-          avatarConfig={avatarConfig}
-          isMobile={isMobile}
-          setLoading={setLoading}
-          autoStartVoice={autoStartVoice}
-          onVoiceAutoStarted={() => setAutoStartVoice(false)}
-        />
-      )}
     </Box>
   );
-};
-
-// Helpers
-const floatTo16BitPCM = (input) => {
-  const buffer = new ArrayBuffer(input.length * 2);
-  const view = new DataView(buffer);
-  let offset = 0;
-  for (let i = 0; i < input.length; i += 1, offset += 2) {
-    let s = Math.max(-1, Math.min(1, input[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-  return new Int16Array(buffer);
-};
-
-const arrayBufferToBase64 = (buffer) => {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return window.btoa(binary);
-};
-
-const base64ToUint8Array = (base64) => {
-  const binaryString = window.atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i += 1) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-};
-
-const playPcmChunk = (base64, audioContextRef, playbackTimeRef) => {
-  const bytes = base64ToUint8Array(base64);
-  const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
-  if (!audioContextRef.current) {
-    audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
-  }
-  const audioContext = audioContextRef.current;
-  const bufferLength = bytes.byteLength / 2;
-  const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
-  const channelData = audioBuffer.getChannelData(0);
-  const dataView = new DataView(bytes.buffer);
-  for (let i = 0; i < bufferLength; i += 1) {
-    const sample = dataView.getInt16(i * 2, true);
-    channelData[i] = sample / 0x8000;
-  }
-  const source = audioContext.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(audioContext.destination);
-  const now = audioContext.currentTime;
-  const startAt = Math.max(playbackTimeRef.current || now, now);
-  source.start(startAt);
-  playbackTimeRef.current = startAt + audioBuffer.duration;
 };
 
 export default ChatBox;

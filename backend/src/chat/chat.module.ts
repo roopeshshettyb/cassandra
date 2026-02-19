@@ -9,8 +9,6 @@ import { CommonModule } from '../common/common.module';
 import { ChatRepository } from './chat.repository';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './gateway/chat.gateway';
-import { VoiceRealtimeService } from './voice-realtime.service';
-import { VoiceGateway } from './gateway/voice.gateway';
 import { CostsModule } from '../costs/costs.module';
 
 @Module({
@@ -24,7 +22,7 @@ import { CostsModule } from '../costs/costs.module';
     CommonModule,
     CostsModule,
   ],
-  providers: [ChatRepository, ChatService, ChatGateway, VoiceRealtimeService, VoiceGateway],
+  providers: [ChatRepository, ChatService, ChatGateway],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}

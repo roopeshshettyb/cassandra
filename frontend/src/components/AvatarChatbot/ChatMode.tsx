@@ -1,15 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Button, IconButton, Typography, TextField, Fade, Paper, CircularProgress, Slide } from '@mui/material';
-import { cn } from '../../helper/utils';
+import { Box, Button, Typography, TextField, Paper, Slide } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import MessageIcon from '@mui/icons-material/Message';
-import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import { Message } from './types';
 
 interface ChatModeProps {
-  onSwitchToVoice: () => void;
+  onSwitchToVoice: (() => void) | undefined;
   isVoiceSupported: boolean;
   theme: 'light' | 'dark';
   bookingId: number;

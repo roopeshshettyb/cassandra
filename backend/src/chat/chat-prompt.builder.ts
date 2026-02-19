@@ -40,14 +40,7 @@ export async function buildSystemInstructions(
 ): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
-  let systemContent = `You are ${appName}, a hotel companion that helps with anything related to the guest's stay.
-
-The person speaking to you over chat or voice may be:
-- a room guest staying at the hotel,
-- the hotel owner,
-- or a member of the hotel staff.
-
-Do not assume they are always the guest. Infer who is speaking from the conversation and respond appropriately for their role (for example, give operational guidance to staff, and guest-facing guidance to guests).
+  let systemContent = `You are ${appName}, a hotel companion that helps with anything related to hotel operations.
 
 Use your tools when helpful and help the user to your best ability.
 
@@ -57,10 +50,10 @@ Always respond in Markdown.`;
     systemContent += `\n\nHotel-specific instructions:\n${llmInstructions.trim()}`;
   }
 
-  const parts: string[] = [systemContent, `This is the context of the coversation so far : ${contextData.context}`];
+  const parts: string[] = [systemContent];
 
   const roleDescription = describeSpeakerRole(speakerRole);
-  parts.push(`For this ${languageCode ? 'voice' : 'chat'} session, the authenticated speaker is ${roleDescription}. Address them appropriately for that role.`);
+  parts.push(`The authenticated speaker is ${roleDescription}. Address them appropriately for that role.`);
 
   const languageDisplayMap: Record<string, string> = {
     en: 'English',
@@ -72,7 +65,7 @@ Always respond in Markdown.`;
 
   if (languageCode && languageDisplayMap[languageCode]) {
     parts.push(
-      `For this session, the primary language is ${languageDisplayMap[languageCode]}. You must respond only in ${languageDisplayMap[languageCode]}. If the user speaks in another language, switch immediately to that language and update the stored language using the set_chat_language tool.`,
+      `The primary language is ${languageDisplayMap[languageCode]}. You must respond only in ${languageDisplayMap[languageCode]}. If the user speaks in another language, switch immediately to that language and update the stored language using the set_chat_language tool.`,
     );
   } else if (!languageCode) {
     parts.push(
@@ -80,7 +73,11 @@ Always respond in Markdown.`;
     );
   }
 
-  const instructions = parts.join('\n\n');
+  parts.push(`This is the context of the coversation so far : ${contextData.context}`);
+
+  const instructions: any = parts.map((ele) => {
+    return { role: 'system', content: ele };
+  });
 
   return {
     contextData,
@@ -106,17 +103,7 @@ export async function buildChatPrompt(
 ): Promise<ChatPromptResult> {
   const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode);
 
-  // In the future this can include attachment-derived content as well.
-  const textContents: string[] = [];
-
-  const messages: ChatMessageInput[] = [{ role: 'system', content: instructions }];
-
-  if (textContents.length > 0) {
-    messages.push({
-      role: 'system',
-      content: `This is the content from the attachments the user has shared: ${textContents.join('\n\n')}`,
-    });
-  }
+  const messages: any = instructions;
 
   messages.push({
     role: 'user',

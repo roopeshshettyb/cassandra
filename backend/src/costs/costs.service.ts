@@ -2,7 +2,7 @@ import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { COSTS_REPOSITORY } from './costs.repository';
 import { Cost, CostType } from './costs.model';
 import { ConstantsService } from '../common/constants/constants.service';
-import { AudioUsage, PricingConfig, TokenUsage, calculateTextCost, calculateVoiceCost } from './costs.pricing';
+import { PricingConfig, TokenUsage, calculateTextCost } from './costs.pricing';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Booking } from '../bookings/bookings.model';
@@ -21,19 +21,6 @@ export interface ChatCostMeta {
   [key: string]: unknown;
 }
 
-export interface VoiceCostMeta {
-  model?: string;
-  provider?: string;
-  requestId?: string;
-  tokensPrompt?: number;
-  tokensOutput?: number;
-  tokensTotal?: number;
-  audioInputMs?: number;
-  audioOutputMs?: number;
-  pricingVersion?: string;
-  [key: string]: unknown;
-}
-
 @Injectable()
 export class CostsService {
   constructor(
@@ -46,7 +33,7 @@ export class CostsService {
     type: CostType;
     amount: string;
     currency: string;
-    meta?: ChatCostMeta | VoiceCostMeta;
+    meta?: ChatCostMeta;
     bookingId?: number | null;
     hotelId?: number | null;
     accountId?: number | null;
@@ -62,7 +49,6 @@ export class CostsService {
   async recordLlmCost(params: {
     type: CostType;
     usage: TokenUsage;
-    audio?: AudioUsage;
     bookingId: number;
     hotelId: number | null;
     accountId: number;
@@ -75,27 +61,14 @@ export class CostsService {
       currency: llm.CURRENCY,
       textInputPricePer1K: llm.TEXT_INPUT_PRICE_PER_1K,
       textOutputPricePer1K: llm.TEXT_OUTPUT_PRICE_PER_1K,
-      voiceInputPricePerMinute: llm.VOICE_INPUT_PER_MINUTE,
-      voiceOutputPricePerMinute: llm.VOICE_OUTPUT_PER_MINUTE,
     };
 
-    let pricing;
-    if (params.type === CostType.LLM_CHAT) {
-      pricing = calculateTextCost({
-        model: llm.TEXT_MODEL,
-        provider: llm.PROVIDER,
-        usage: params.usage,
-        config: pricingConfig,
-      });
-    } else {
-      pricing = calculateVoiceCost({
-        model: llm.VOICE_MODEL,
-        provider: llm.PROVIDER,
-        usage: params.usage,
-        audio: params.audio,
-        config: pricingConfig,
-      });
-    }
+    const pricing = calculateTextCost({
+      model: llm.TEXT_MODEL,
+      provider: llm.PROVIDER,
+      usage: params.usage,
+      config: pricingConfig,
+    });
 
     this.recordCost({
       type: params.type,

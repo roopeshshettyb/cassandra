@@ -1,14 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Button, Paper, Typography, Fade, Fab } from '@mui/material';
-import MicIcon from '@mui/icons-material/Mic';
-import ChatIcon from '@mui/icons-material/Chat';
-import GraphicEqIcon from '@mui/icons-material/GraphicEq';
-import { IconButton } from '@mui/material';
+import React, { useState, useRef, useEffect } from 'react';
+import { Box, Paper, Typography } from '@mui/material';
 import { AvatarCanvas, AvatarCanvasRef } from './AvatarCanvas';
-import { VoiceMode } from './VoiceMode';
 import { ChatMode } from './ChatMode';
 import { AvatarChatbotProps, ChatMode as ChatModeType } from './types';
-import { getBrowserInfo } from '../../helper/utils';
 import { useSocketChat } from './hooks/useSocketChat';
 
 import constants from '../../constants.json';
@@ -25,26 +19,15 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps & { initialMode?: ChatMo
   isWithinStay = true,
   alertError,
 }) => {
-  const [mode, setMode] = useState<ChatModeType>('voice'); // Start directly in voice mode
+  const [mode] = useState<ChatModeType>('chat');
 
   useEffect(() => {
-    if (initialMode) {
-      setMode(initialMode);
-    }
+    // initialMode is ignored for now since we only support chat
   }, [initialMode]);
 
   // Use modelUrl from backend if available, fallback to initialAvatarUrl
   const [isTransitioning, setIsTransitioning] = useState(false);
   const avatarRef = useRef<AvatarCanvasRef>(null);
-  const browserInfo = getBrowserInfo();
-
-  const handleModeChange = useCallback((newMode: ChatModeType) => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setMode(newMode);
-      setIsTransitioning(false);
-    }, 300);
-  }, []);
 
   const { messages, isLoading, error, sendMessage, addMessage } = useSocketChat(bookingId);
   const [avatarConfig, setAvatarConfig] = useState<{
@@ -108,8 +91,12 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps & { initialMode?: ChatMo
         elevation={24}
         sx={{
           position: 'relative',
-          width: '100%', display: 'flex', flexDirection: 'column',
-          bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.05)',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: 'rgba(15, 23, 42, 0.8)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
           borderRadius: 4,
           height: { xs: '92vh', md: '600px', lg: '700px' },
           maxWidth: { xs: '100%', md: '800px', lg: '1000px' },
@@ -118,27 +105,6 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps & { initialMode?: ChatMo
           transform: isTransitioning ? 'scale(0.98)' : 'scale(1)',
         }}
       >
-        {/* Chat Icon - Top Right (Voice Mode Only) */}
-        {mode === 'voice' && (
-          <IconButton
-            onClick={() => handleModeChange('chat')}
-            sx={{
-              position: 'absolute',
-              top: 12,
-              right: 12,
-              zIndex: 100,
-              bgcolor: 'rgba(37, 99, 235, 0.15)',
-              color: '#60a5fa',
-              width: 44,
-              height: 44,
-              '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.25)' },
-              transition: 'all 0.2s'
-            }}
-          >
-            <ChatIcon sx={{ fontSize: 22 }} />
-          </IconButton>
-        )}
-
         {/* Persistent Avatar Canvas */}
         <Box sx={{
           position: 'absolute', inset: 0, zIndex: 0, transition: 'all 0.7s ease-in-out',
@@ -153,54 +119,17 @@ export const AvatarChatbot: React.FC<AvatarChatbotProps & { initialMode?: ChatMo
           />
         </Box>
 
-        {/* Chat Icon - Top Right (Voice Mode Only) - TESTING WITH VERY VISIBLE STYLING */}
-        {mode === 'voice' && (
-          <IconButton
-            onClick={() => {
-              console.log('CHAT ICON CLICKED!');
-              handleModeChange('chat');
-            }}
-            sx={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              zIndex: 9999,
-              bgcolor: '#ff0000', // Bright red for testing
-              color: '#ffffff',
-              width: 60,
-              height: 60,
-              '&:hover': { bgcolor: '#cc0000' },
-              border: '3px solid yellow', // Yellow border for visibility
-              boxShadow: '0 0 20px rgba(255, 0, 0, 0.8)'
-            }}
-          >
-            <ChatIcon sx={{ fontSize: 32 }} />
-          </IconButton>
-        )}
-
-        {/* Voice Mode - Contains microphone button */}
-        {mode === 'voice' && (
-          <VoiceMode
-            onSwitchToChat={() => handleModeChange('chat')}
-            isVoiceSupported={browserInfo.isSupported}
-            bookingId={bookingId}
-            parentAvatarRef={avatarRef}
-            addMessage={addMessage}
-          />
-        )}
-
-        {mode === 'chat' && (
-          <ChatMode
-            onSwitchToVoice={() => handleModeChange('voice')}
-            isVoiceSupported={browserInfo.isSupported}
-            theme={theme}
-            bookingId={bookingId}
-            messages={messages}
-            sendMessage={sendMessage}
-            isLoading={isLoading}
-            error={error}
-          />
-        )}
+        {/* Chat mode only */}
+        <ChatMode
+          onSwitchToVoice={undefined}
+          isVoiceSupported={false}
+          theme={theme}
+          bookingId={bookingId}
+          messages={messages}
+          sendMessage={sendMessage}
+          isLoading={isLoading}
+          error={error}
+        />
       </Paper>
     </Box>
   );
