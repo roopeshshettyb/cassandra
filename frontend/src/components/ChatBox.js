@@ -244,7 +244,7 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
+          <WordByWordText variant="h6" text={`${APP_NAME} will help you with this booking`} />
           {(sending || streamingContent) && <CircularProgress size={16} />}
           {connectionNote ? (
             <Typography variant="caption" color="text.secondary">
@@ -283,6 +283,160 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
     </Box>
   );
 }
+// --- Waveform Component ---
+// --- Waveform Component ---
+const Waveform = ({ isActive, color, analyser }) => {
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let phase = 0;
+    const numWaves = 3;
+
+    const draw = () => {
+      animationRef.current = requestAnimationFrame(draw);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      let averageAmplitude = 0;
+      if (isActive && analyser) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        const count = Math.min(bufferLength, 20);
+        for (let i = 0; i < count; i++) {
+          sum += dataArray[i];
+        }
+        averageAmplitude = sum / count;
+      }
+
+      // Phase increment for animation speed
+      phase += 0.05 + (averageAmplitude / 255) * 0.15;
+
+      for (let n = 0; n < numWaves; n++) {
+        const nFactor = n / (numWaves - 1 || 1);
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2 - nFactor;
+        ctx.globalAlpha = isActive ? 0.15 + (1 - nFactor) * 0.4 : 0.1;
+
+        // Amplitude base and dynamic sensitivity
+        const amplitudeScaling = isActive ? 4 + (averageAmplitude / 255) * 35 : 3;
+        const frequency = 0.02 + n * 0.005;
+
+        for (let x = 0; x < canvas.width; x++) {
+          const envelope = Math.sin((x / (canvas.width - 1)) * Math.PI);
+          const y = canvas.height / 2 + Math.sin(x * frequency + phase + n * 2) * amplitudeScaling * envelope;
+
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    };
+
+    draw();
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [isActive, analyser, color]);
+
+  // Helper for rounded rect
+  const roundRect = (ctx, x, y, w, h, r) => {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  // Fallback CSS animation if no analyser but active?
+  // We'll stick to canvas if provided, else CSS fallback
+  if (!analyser && isActive) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 60, mt: 2, width: '100%', overflow: 'hidden', position: 'relative' }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            width: '100%',
+            height: '2px',
+            bgcolor: color,
+            opacity: 0.15,
+            animation: 'waveScroll 4s linear infinite',
+            background: `linear-gradient(90deg, transparent, ${color}, transparent, ${color}, transparent)`,
+          }}
+        />
+        <style>{`
+          @keyframes waveScroll {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 60, mt: 2, width: '100%' }}>
+      <canvas ref={canvasRef} width={400} height={60} style={{ width: '100%', maxWidth: '300px', height: '100%' }} />
+    </Box>
+  );
+};
+
+// --- WordByWordText Component for smooth reveal ---
+const WordByWordText = ({ text, onComplete, variant = 'body1', sx = {} }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const words = text ? text.split(' ') : [];
+  const currentIndex = useRef(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    // Reset if text changes significantly (e.g., new message)
+    if (!text || !text.startsWith(displayedText)) {
+      setDisplayedText('');
+      currentIndex.current = 0;
+    }
+
+    const revealNextWord = () => {
+      if (currentIndex.current < words.length) {
+        const nextWord = words[currentIndex.current];
+        if (nextWord !== undefined && nextWord !== null) {
+          setDisplayedText((prev) => (prev ? `${prev} ${nextWord}` : nextWord));
+        }
+        currentIndex.current++;
+        timerRef.current = setTimeout(revealNextWord, 60); // 60ms per word
+      } else if (onComplete) {
+        onComplete();
+      }
+    };
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (words.length > currentIndex.current) {
+      revealNextWord();
+    }
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [text]);
+
+  return (
+    <Typography variant={variant} sx={{ fontWeight: 500, lineHeight: 1.4, ...sx }}>
+      {displayedText}
+    </Typography>
+  );
+};
 
 // --- Voice Chat Component (The New 3D UI) ---
 function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, avatarConfig, isMobile, setLoading, autoStartVoice, onVoiceAutoStarted, guestName }) {
@@ -296,6 +450,10 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
+  const [agentSubtitle, setAgentSubtitle] = useState('');
+  const [userSubtitle, setUserSubtitle] = useState('');
+  const agentSubtitleTimeoutRef = useRef(null);
+  const userSubtitleTimeoutRef = useRef(null);
 
   // Voice socket refs (same pattern as ClassicChatBox)
   const voiceSocketRef = useRef(null);
@@ -304,9 +462,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const processorRef = useRef(null);
   const playbackAudioContextRef = useRef(null);
   const playbackTimeRef = useRef(0);
+  const agentAnalyserRef = useRef(null);
+  const userAnalyserRef = useRef(null);
 
-  // Lip Sync Simulation
-  const { initWithSpeechSynthesis } = useLipSync({
+  // Lip Sync Logic
+  const { initWithSpeechSynthesis, initWithAnalyser } = useLipSync({
     onLipSyncUpdate: useCallback((value) => {
       if (avatarRef.current) {
         avatarRef.current.setLipSync(value);
@@ -316,10 +476,14 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   });
 
   const lipSyncAnim = useRef(null);
+  const realLipSyncRefs = useRef({ start: () => {}, stop: () => {}, isInitialized: false });
+
   useEffect(() => {
+    // Fallback for TTS (non-server audio)
     lipSyncAnim.current = initWithSpeechSynthesis();
     return () => {
       if (lipSyncAnim.current) lipSyncAnim.current.stop();
+      if (realLipSyncRefs.current) realLipSyncRefs.current.stop();
     };
   }, [initWithSpeechSynthesis]);
 
@@ -331,6 +495,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const isSpeakingVoiceRef = useRef(false);
   // Track last spoken message ID to prevent repeating TTS
   const lastSpokenMsgId = useRef('');
+  // Guard to prevent "double voice" - tracks if server audio was received for current response
+  const receivedServerAudioThisTurn = useRef(false);
 
   // Avatar animation based on loading state from chat socket
   useEffect(() => {
@@ -343,9 +509,10 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     prevIsLoading.current = isLoading;
   }, [isLoading]);
 
-  // Handle TTS for text-chat messages ONLY (when user types in classic mode and switches)
   useEffect(() => {
-    if (isSpeakingVoiceRef.current) return;
+    // In voice mode, we prefer the server's realtime audio stream.
+    // This effect should only trigger as a fallback or for initial context.
+    if (isSpeakingVoiceRef.current || receivedServerAudioThisTurn.current) return;
     const lastMsg = messages[messages.length - 1];
     if (!lastMsg || lastMsg.role !== 'assistant' || isLoading) return;
     if (lastSpokenMsgId.current === lastMsg.id) return; // Already spoken
@@ -416,10 +583,14 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
         addMessage({ id: `user-voice-${Date.now()}`, role: 'user', content: text, timestamp: new Date() });
         // Show thinking animation while waiting for response
         avatarRef.current?.playThinking();
+
+        setUserSubtitle(text.length > 120 ? '...' + text.slice(-120) : text);
+        if (userSubtitleTimeoutRef.current) clearTimeout(userSubtitleTimeoutRef.current);
+        userSubtitleTimeoutRef.current = setTimeout(() => setUserSubtitle(''), 4000);
       }
     });
 
-    // Voice response: text complete — use this to trigger TTS + talking animation if audio isn't already playing
+    // Voice response: text complete
     voiceInstance.on('voice_text_end', (payload) => {
       const text = payload?.text || '';
       console.log('[VoiceChatBox] Voice text end:', text.substring(0, 50) + '...');
@@ -427,10 +598,15 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
         // Add assistant response to shared message history
         const msgId = `assistant-voice-${Date.now()}`;
         addMessage({ id: msgId, role: 'assistant', content: text, timestamp: new Date() });
-        lastSpokenMsgId.current = msgId; // Prevent the messages effect from also speaking it
+        lastSpokenMsgId.current = msgId;
+
+        setAgentSubtitle(text);
+        if (agentSubtitleTimeoutRef.current) clearTimeout(agentSubtitleTimeoutRef.current);
+        agentSubtitleTimeoutRef.current = setTimeout(() => setAgentSubtitle(''), 5000);
 
         // Trigger TTS with talking animation + lip sync ONLY if not already speaking backend audio
-        if (!isSpeakingVoiceRef.current && 'speechSynthesis' in window) {
+        // AND ONLY if we haven't received any server audio for this turn.
+        if (!isSpeakingVoiceRef.current && !receivedServerAudioThisTurn.current && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.onstart = () => {
@@ -466,15 +642,57 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       }
     });
 
-    // Streaming text chunks (for future subtitle display)
+    // Streaming text chunks (for real-time word-by-word display)
     voiceInstance.on('voice_text_chunk', (payload) => {
-      // Could show real-time subtitle here
+      const chunk = payload?.delta || payload?.content || payload?.text || '';
+      if (chunk) {
+        // Delay the text display to match audio playback scheduling
+        const context = playbackAudioContextRef.current;
+        const scheduledTime = playbackTimeRef.current;
+        let delay = 0;
+        if (context && scheduledTime > context.currentTime) {
+          // Calculate delay in ms, adding a tiny offset for smoother transition
+          delay = (scheduledTime - context.currentTime) * 1000;
+        }
+
+        setTimeout(() => {
+          setAgentSubtitle((prev) => {
+            const current = typeof prev === 'string' ? prev : '';
+            const next = current + String(chunk);
+            return next.length > 120 ? '...' + next.slice(-120) : next;
+          });
+          if (agentSubtitleTimeoutRef.current) clearTimeout(agentSubtitleTimeoutRef.current);
+          agentSubtitleTimeoutRef.current = setTimeout(() => setAgentSubtitle(''), 5000);
+        }, delay);
+      }
+    });
+
+    // Real-time user transcription chunks
+    voiceInstance.on('voice_user_chunk', (payload) => {
+      const delta = payload?.delta || '';
+      if (delta) {
+        setUserSubtitle((prev) => {
+          const current = typeof prev === 'string' ? prev : '';
+          const next = current + String(delta);
+          return next.length > 120 ? '...' + next.slice(-120) : next;
+        });
+        if (userSubtitleTimeoutRef.current) clearTimeout(userSubtitleTimeoutRef.current);
+        userSubtitleTimeoutRef.current = setTimeout(() => setUserSubtitle(''), 5000);
+      }
     });
 
     // Voice response: audio playback chunks (backup animation trigger)
     voiceInstance.on('voice_audio_chunk', (payload) => {
       if (payload?.delta) {
-        playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef);
+        receivedServerAudioThisTurn.current = true; // Mark that we are using server audio
+        playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
+
+        // Start real-time lip sync if not already started
+        if (agentAnalyserRef.current && !realLipSyncRefs.current.isInitialized) {
+          console.log('[VoiceChatBox] Initializing real-time lip sync with agent analyser');
+          const { start, stop } = initWithAnalyser(agentAnalyserRef.current);
+          realLipSyncRefs.current = { start, stop, isInitialized: true };
+        }
 
         // Start animation if TTS hasn't started it OR if TTS is running (cancel it)
         if (!isSpeakingVoiceRef.current || window.speechSynthesis.speaking) {
@@ -482,7 +700,13 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           window.speechSynthesis.cancel(); // Stop TTS immediately
           isSpeakingVoiceRef.current = true;
           avatarRef.current?.playTalking();
-          lipSyncAnim.current?.start();
+
+          // Prefer real lip sync over simulation
+          if (realLipSyncRefs.current.isInitialized) {
+            realLipSyncRefs.current.start();
+          } else {
+            lipSyncAnim.current?.start();
+          }
         }
       }
     });
@@ -511,6 +735,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           isSpeakingVoiceRef.current = false;
           avatarRef.current?.playIdle();
           lipSyncAnim.current?.stop();
+          realLipSyncRefs.current.stop();
         }
       }, delay);
     });
@@ -544,6 +769,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContextImpl({ sampleRate: 24000 });
       const source = audioContext.createMediaStreamSource(stream);
+
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64; // Small fft for few bars
+      userAnalyserRef.current = analyser;
+
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
@@ -551,7 +781,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
         const base64 = arrayBufferToBase64(pcm.buffer);
         if (voiceSocketRef.current?.connected) voiceSocketRef.current.emit('voice_client_chunk', { audio: base64 });
       };
-      source.connect(processor);
+      source.connect(analyser);
+      analyser.connect(processor);
       processor.connect(audioContext.destination);
       audioContextRef.current = audioContext;
       mediaStreamRef.current = stream;
@@ -580,7 +811,10 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     }
     if (voiceSocketRef.current?.connected) {
       voiceSocketRef.current.emit('voice_stop');
+      // Trigger thinking animation as soon as recording stops
+      avatarRef.current?.playThinking();
     }
+    receivedServerAudioThisTurn.current = false; // Reset turn guard for next response
     setIsRecording(false);
   };
 
@@ -597,7 +831,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     if (!autoStartVoice || !voiceReady || isRecording) return;
     onVoiceAutoStarted?.();
     startRecording();
-  }, [autoStartVoice, voiceReady]);
+  }, [autoStartVoice, voiceReady, isRecording, onVoiceAutoStarted]);
 
   // Derive initial from guestName
   const guestInitial = guestName ? guestName.charAt(0).toUpperCase() : 'G';
@@ -622,6 +856,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             flex: 1,
             bgcolor: 'transparent',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
@@ -633,8 +868,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           {/* Circular Container for Agent */}
           <Box
             sx={{
-              width: 150,
-              height: 150,
+              width: isMobile ? 110 : 150,
+              height: isMobile ? 110 : 150,
               borderRadius: '50%',
               overflow: 'hidden',
               border: `4px solid ${theme.palette.background.paper}`,
@@ -652,10 +887,43 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
                 waving: hiAnimationPath,
                 thinking: thinkingAnimationPath,
               }}
+              onLoad={() => setLoading?.(false)}
               backgroundColor={theme.palette.background.paper}
               isMobile={isMobile}
-              setLoading={setLoading}
             />
+          </Box>
+
+          {/* Centered Agent Subtitle */}
+          {agentSubtitle && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: isMobile ? 40 : 'auto', // Top for agent on mobile
+                bottom: isMobile ? 'auto' : 40, // Bottom for agent on desktop
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 150,
+                pointerEvents: 'none',
+                width: isMobile ? '90%' : '150%', // Allow text to be slightly wider than avatar on desktop
+                maxWidth: isMobile ? '90vw' : '400px',
+                textAlign: 'center',
+              }}
+            >
+              <WordByWordText
+                text={agentSubtitle}
+                variant="body2"
+                sx={{
+                  color: '#000',
+                  fontSize: isMobile ? '0.8rem' : '0.85rem',
+                  fontWeight: 600,
+                  lineHeight: 1.3,
+                }}
+              />
+            </Box>
+          )}
+          {/* Agent Waveform - Flex */}
+          <Box sx={{ mt: 3, width: '100%', display: 'flex', justifyContent: 'center', height: 24 }}>
+            <Waveform isActive={isSpeakingVoiceRef.current} color={theme.palette.text.secondary} analyser={agentAnalyserRef.current} />
           </Box>
         </Box>
 
@@ -666,6 +934,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             bgcolor: 'transparent',
             color: theme.palette.text.primary,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
@@ -674,8 +943,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           {/* Circular Container for User */}
           <Box
             sx={{
-              width: 120,
-              height: 120,
+              width: isMobile ? 90 : 120,
+              height: isMobile ? 90 : 120,
               borderRadius: '50%',
               border: `4px solid ${theme.palette.primary.main}`,
               display: 'flex',
@@ -689,24 +958,38 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             <Typography variant="h2" sx={{ color: theme.palette.primary.main, fontWeight: 'bold' }}>
               {guestInitial}
             </Typography>
+          </Box>
 
-            {/* Pulse Effect when User is Speaking/Recording */}
-            {isRecording && (
-              <Box
+          {/* Centered User Subtitle */}
+          {userSubtitle && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 40, // Nudged up from 15
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 150,
+                pointerEvents: 'none',
+                width: isMobile ? '90%' : '150%',
+                maxWidth: isMobile ? '90vw' : '400px',
+                textAlign: 'center',
+              }}
+            >
+              <Typography
+                variant="caption"
                 sx={{
-                  position: 'absolute',
-                  top: -6,
-                  left: -6,
-                  right: -6,
-                  bottom: -6,
-                  borderRadius: '50%',
-                  border: `2px solid ${theme.palette.primary.main}`,
-                  opacity: 0.6,
-                  animation: `${pulseWave} 1.5s infinite`,
-                  pointerEvents: 'none',
+                  color: '#000',
+                  fontSize: isMobile ? '0.75rem' : '0.8rem',
+                  fontWeight: 500,
                 }}
-              />
-            )}
+              >
+                {userSubtitle}
+              </Typography>
+            </Box>
+          )}
+          {/* User Waveform - Flex */}
+          <Box sx={{ mt: 3, width: '100%', display: 'flex', justifyContent: 'center', height: 24 }}>
+            <Waveform isActive={isRecording} color={theme.palette.primary.main} analyser={userAnalyserRef.current} />
           </Box>
         </Box>
 
@@ -776,6 +1059,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             )}
           </IconButton>
         </Box>
+        {/* Unified Bottom Subtitles - Removed in favor of split subtitles above */}
       </Box>
     </Fade>
   );
@@ -791,7 +1075,7 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, width: '100%', p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Typography variant="h6">{APP_NAME} will help you with this booking</Typography>
+          <WordByWordText variant="h6" text={`${APP_NAME} will help you with this booking`} />
         </Box>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
           <Typography variant="body2" color="text.secondary">
@@ -802,8 +1086,8 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
     );
   }
 
-  // Mobile: voice 50vh, chat 75vh; desktop: 75vh both. Single wrapper so height animates when switching.
-  const wrapperHeight = isDashboard ? '500px' : isMobile ? (mode === 'voice' ? '50vh' : '75vh') : '75vh';
+  // Mobile: voice increased to 80vh, chat 75vh; desktop: 75vh both.
+  const wrapperHeight = isDashboard ? '500px' : isMobile ? (mode === 'voice' ? '80vh' : '75vh') : '75vh';
 
   return (
     <Box
@@ -874,13 +1158,20 @@ const base64ToUint8Array = (base64) => {
   return bytes;
 };
 
-const playPcmChunk = (base64, audioContextRef, playbackTimeRef) => {
+const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => {
   const bytes = base64ToUint8Array(base64);
   const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
   if (!audioContextRef.current) {
     audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
   }
   const audioContext = audioContextRef.current;
+
+  if (analyserRef && !analyserRef.current) {
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 64;
+    analyserRef.current = analyser;
+  }
+
   const bufferLength = bytes.byteLength / 2;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
   const channelData = audioBuffer.getChannelData(0);
@@ -891,7 +1182,13 @@ const playPcmChunk = (base64, audioContextRef, playbackTimeRef) => {
   }
   const source = audioContext.createBufferSource();
   source.buffer = audioBuffer;
-  source.connect(audioContext.destination);
+  if (analyserRef && analyserRef.current) {
+    source.connect(analyserRef.current);
+    analyserRef.current.connect(audioContext.destination);
+  } else {
+    source.connect(audioContext.destination);
+  }
+
   const now = audioContext.currentTime;
   const startAt = Math.max(playbackTimeRef.current || now, now);
   source.start(startAt);
