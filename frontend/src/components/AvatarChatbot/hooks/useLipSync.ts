@@ -179,6 +179,14 @@ export function useLipSync({ onLipSyncUpdate, smoothing = 0.3 }: UseLipSyncProps
     };
   }, [startAnalyzing, stopAnalyzing]);
 
+  const initWithAnalyser = useCallback((analyser: AnalyserNode) => {
+    analyserRef.current = analyser;
+    return {
+      start: startAnalyzing,
+      stop: stopAnalyzing,
+    };
+  }, [startAnalyzing, stopAnalyzing]);
+
   const cleanup = useCallback(() => {
     stopAnalyzing();
 
@@ -203,6 +211,7 @@ export function useLipSync({ onLipSyncUpdate, smoothing = 0.3 }: UseLipSyncProps
   return {
     initWithAudioElement,
     initWithSpeechSynthesis,
+    initWithAnalyser,
     startAnalyzing,
     stopAnalyzing,
     cleanup,

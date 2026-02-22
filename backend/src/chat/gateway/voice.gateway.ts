@@ -196,7 +196,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         break;
       }
+      case 'conversation.item.input_audio_transcription.delta':
+        client.emit('voice_user_chunk', { delta: event.delta || '' });
+        break;
       case 'response.output_text.delta':
+
       case 'response.output_audio_transcript.delta':
         client.emit('voice_text_chunk', { delta: event.delta || '' });
         break;
