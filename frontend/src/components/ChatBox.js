@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Box, Button, CircularProgress, IconButton, TextField, Typography, Paper, Tooltip, Fade } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Typography, Paper, Tooltip, Fade, InputAdornment } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import SendIcon from '@mui/icons-material/Send';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
@@ -231,11 +231,21 @@ function ClassicChatBox({ bookingId, alertError, isWithinStay, onSwitchToVoice, 
           disabled={!ready || sending}
           multiline
           maxRows={4}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  color="primary"
+                  onClick={handleSend}
+                  edge="end"
+                  disabled={!ready || sending || !input.trim()}
+                >
+                  <SendIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
         />
-
-        <Button variant="contained" onClick={handleSend} disabled={!ready || sending || !input.trim()} endIcon={<SendIcon />}>
-          Send
-        </Button>
       </Box>
     </>
   );
@@ -862,7 +872,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             position: 'relative',
             borderRight: isMobile ? 'none' : '3px solid',
             borderBottom: isMobile ? '3px solid' : 'none',
-            borderColor: theme.palette.mode === 'light' ? theme.palette.grey[400] : theme.palette.grey[700],
+            borderColor: theme.palette.mode === 'light' ? theme.palette.grey[300] : theme.palette.grey[600],
           }}
         >
           {/* Circular Container for Agent */}
@@ -943,8 +953,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           {/* Circular Container for User */}
           <Box
             sx={{
-              width: isMobile ? 90 : 120,
-              height: isMobile ? 90 : 120,
+              width: isMobile ? 110 : 150,
+              height: isMobile ? 110 : 150,
               borderRadius: '50%',
               border: `4px solid ${theme.palette.primary.main}`,
               display: 'flex',
@@ -997,6 +1007,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
         {/* Chat Icon - Top Right (Absolute) */}
         <IconButton
+          size="small"
           onClick={() => onSwitchToChat()}
           aria-label="Switch to Chat"
           sx={{
@@ -1004,19 +1015,16 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             top: 16,
             right: 16,
             zIndex: 100,
-            zIndex: 100,
             color: theme.palette.primary.main,
-            width: 30,
-            height: 30,
             transition: 'transform 0.2s ease-in-out',
-            bgcolor: 'rgba(0, 0, 0, 0.2)',
+            bgcolor: 'transparent',
             '&:hover': {
               transform: 'scale(1.2)',
-              bgcolor: 'rgba(0, 0, 0, 0.4)',
+              bgcolor: 'transparent',
             },
           }}
         >
-          <ChatIcon sx={{ fontSize: 20 }} />
+          <ChatIcon />
         </IconButton>
 
         {/* Mic / Waveform Button - Absolute Center */}
@@ -1035,15 +1043,19 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             aria-label={isRecording ? 'Stop recording' : voiceReady ? 'Start voice' : 'Connecting…'}
             disabled={!voiceReady}
             sx={{
-              color: isRecording ? theme.palette.error.main : theme.palette.background.paper,
-              bgcolor: theme.palette.text.primary, // Strong contrast button
+              color: isRecording ? theme.palette.error.main : theme.palette.primary.main,
+              bgcolor: theme.palette.background.paper,
               width: 56,
               height: 56,
               boxShadow: theme.shadows[6],
               transition: 'transform 0.2s ease-in-out',
+              '&.Mui-disabled': {
+                bgcolor: theme.palette.background.paper,
+                color: theme.palette.primary.main,
+              },
               '&:hover': {
                 transform: 'scale(1.1)',
-                bgcolor: theme.palette.text.secondary,
+                bgcolor: theme.palette.background.paper,
               },
             }}
           >
@@ -1055,7 +1067,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
                 }}
               />
             ) : (
-              <CircularProgress size={28} sx={{ color: theme.palette.background.paper }} />
+              <CircularProgress size={28} color="primary" />
             )}
           </IconButton>
         </Box>
