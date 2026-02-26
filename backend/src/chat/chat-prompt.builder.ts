@@ -37,7 +37,7 @@ export async function buildSystemInstructions(
   llmInstructions?: string | null,
   speakerRole?: string,
   languageCode?: string | null,
-): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string; instructionsWithoutRole: string }> {
+): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: ChatMessageInput[]; instructionsWithoutRole: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
   let systemContent = `You are ${appName}, a hotel companion that helps with anything related to the hotel operations.
@@ -73,8 +73,11 @@ Always respond in Markdown.`;
 
   parts.push(`This is the context of the coversation so far : ${contextData.context}`);
 
-  const instructions: any = parts.map((ele) => {
-    return { role: 'system', ele };
+  const instructions: ChatMessageInput[] = parts.map((ele) => {
+    return {
+      role: 'system',
+      content: ele,
+    };
   });
 
   return {
@@ -102,7 +105,7 @@ export async function buildChatPrompt(
 ): Promise<ChatPromptResult> {
   const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode);
 
-  const messages: any = instructions;
+  const messages: ChatMessageInput[] = instructions;
 
   messages.push({
     role: 'user',

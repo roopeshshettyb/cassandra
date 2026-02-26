@@ -18,7 +18,7 @@ import { useLipSync } from './AvatarChatbot/hooks/useLipSync';
 
 import { DEFAULT_AVATAR_CONFIG } from '../config/default-avatar-config';
 
-const { APP_NAME } = constants;
+const { APP_NAME, TTS_PLAYBACK_RATE } = constants;
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
@@ -456,8 +456,6 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const theme = useTheme();
 
   const { avatarUrl, idleAnimationPath, talkingAnimationPath, hiAnimationPath, thinkingAnimationPath } = avatarConfig || DEFAULT_AVATAR_CONFIG;
-
-  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [agentSubtitle, setAgentSubtitle] = useState('');
@@ -507,6 +505,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const lastSpokenMsgId = useRef('');
   // Guard to prevent "double voice" - tracks if server audio was received for current response
   const receivedServerAudioThisTurn = useRef(false);
+  // Guard to soft-mute mic output while the assistant is speaking (audio playback in progress)
+  const isBotSpeakingRef = useRef(false);
 
   // Avatar animation based on loading state from chat socket
   useEffect(() => {
@@ -602,10 +602,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       setVoiceReady(true);
     });
 
-    // Automatic turn end: backend detected silence; stop mic locally without sending voice_stop
+    // Automatic turn end: backend detected silence.
+    // Do NOT stop the mic here; we keep the session alive so the user can
+    // immediately speak again on the next turn without pressing the button.
     voiceInstance.on('voice_turn_end', () => {
       console.log('[VoiceChatBox] Turn ended by backend (user stopped speaking)');
-      // Do not stop the mic: socket stays open, keep streaming so user can speak again without pressing the button.
     });
 
     // When user's voice is transcribed by the backend
@@ -636,42 +637,6 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
         setAgentSubtitle(text);
         if (agentSubtitleTimeoutRef.current) clearTimeout(agentSubtitleTimeoutRef.current);
         agentSubtitleTimeoutRef.current = setTimeout(() => setAgentSubtitle(''), 5000);
-
-        // Trigger TTS with talking animation + lip sync ONLY if not already speaking backend audio
-        // AND ONLY if we haven't received any server audio for this turn.
-        if (!isSpeakingVoiceRef.current && !receivedServerAudioThisTurn.current && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.onstart = () => {
-            console.log('[VoiceChatBox] TTS started — playing talking animation');
-            // Check again in case audio started while initializing
-            if (isSpeakingVoiceRef.current) {
-              window.speechSynthesis.cancel();
-              return;
-            }
-            isSpeakingVoiceRef.current = true;
-            avatarRef.current?.playTalking();
-            lipSyncAnim.current?.start();
-          };
-          utterance.onend = () => {
-            // Only stop if we were the ones speaking (not overridden by audio)
-            if (isSpeakingVoiceRef.current && !voiceReady /* check if audio didn't take over */) {
-              console.log('[VoiceChatBox] TTS ended');
-              isSpeakingVoiceRef.current = false;
-              avatarRef.current?.playIdle();
-              lipSyncAnim.current?.stop();
-            }
-          };
-          utterance.onerror = () => {
-            console.log('[VoiceChatBox] TTS error/cancelled');
-            // Don't stop animation if cancelled (might be due to audio override)
-            if (!isSpeakingVoiceRef.current) {
-              avatarRef.current?.playIdle();
-              lipSyncAnim.current?.stop();
-            }
-          };
-          window.speechSynthesis.speak(utterance);
-        }
       }
     });
 
@@ -715,6 +680,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     // Voice response: audio playback chunks (backup animation trigger)
     voiceInstance.on('voice_audio_chunk', (payload) => {
       if (payload?.delta) {
+        // Assistant has started speaking for this turn.
+        isBotSpeakingRef.current = true;
         receivedServerAudioThisTurn.current = true; // Mark that we are using server audio
         playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
 
@@ -755,7 +722,9 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
         const remainingTime = (scheduledEndTime - context.currentTime) * 1000;
         if (remainingTime > 0) {
           delay = remainingTime + 300; // Add 300ms buffer for smooth transition
-          console.log(`[VoiceChatBox] Audio still playing for ${Math.round(remainingTime)}ms. Scheduling idle animation in ${Math.round(delay)}ms`);
+          console.log(
+            `[VoiceChatBox] Audio still playing for ${Math.round(remainingTime)}ms. Scheduling idle animation in ${Math.round(delay)}ms`,
+          );
         }
       }
 
@@ -768,6 +737,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           lipSyncAnim.current?.stop();
           realLipSyncRefs.current.stop();
         }
+         // Assistant has finished speaking; allow mic audio to flow again.
+        isBotSpeakingRef.current = false;
       }, delay);
     });
 
@@ -807,6 +778,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processor.onaudioprocess = (e) => {
+        // While the assistant is speaking (audio playback in progress),
+        // soft-mute outbound audio so we do not trigger a new STT/LLM turn.
+        if (isBotSpeakingRef.current) {
+          return;
+        }
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm = floatTo16BitPCM(inputData);
         const base64 = arrayBufferToBase64(pcm.buffer);
@@ -851,12 +827,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
   const handleVoiceToggle = async () => {
     if (isRecording) {
-      // User explicitly stops: stop mic and close voice socket so the session is fully done.
       stopRecording();
-      if (voiceSocketRef.current?.connected) {
-        voiceSocketRef.current.disconnect();
-        voiceSocketRef.current = null;
-      }
       return;
     }
     await startRecording();
@@ -1220,6 +1191,8 @@ const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => 
   }
   const source = audioContext.createBufferSource();
   source.buffer = audioBuffer;
+  // Speed up playback slightly for a snappier voice without drastically changing pitch.
+  source.playbackRate.value = TTS_PLAYBACK_RATE;
   if (analyserRef && analyserRef.current) {
     source.connect(analyserRef.current);
     analyserRef.current.connect(audioContext.destination);

@@ -206,7 +206,7 @@ export class ConstantsService {
 
       ACCOUNT_ROLES,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
-
+      TTS_PLAYBACK_RATE: 1.15,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
         ...PLATFORM_DATA,
@@ -268,7 +268,7 @@ export class ConstantsService {
       GODADDY_EMAIL: this.configService.get<string>('GODADDY_EMAIL'),
       GODADDY_PASSWORD: this.configService.get<string>('GODADDY_PASSWORD'),
 
-      // LLM Configuration (models, pricing, STT)
+      // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
         TEXT_MODEL: 'gpt-4o-mini',
         PROVIDER: 'openai',
@@ -292,6 +292,15 @@ export class ConstantsService {
             REALTIME_MODEL: this.configService.get<string>('OPENAI_REALTIME_MODEL', 'gpt-4o-realtime-preview-2024-12-17'),
             TRANSCRIBE_MODEL: this.configService.get<string>('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
+          },
+        },
+        TTS_CONFIG: {
+          PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
+          OPENAI: {
+            MODEL: this.configService.get<string>('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
+            VOICE: this.configService.get<string>('OPENAI_TTS_VOICE', 'alloy'),
+            CHUNK_MS: parseInt(this.configService.get('OPENAI_TTS_CHUNK_MS') || '100', 10),
+            RESPONSE_FORMAT: this.configService.get<string>('OPENAI_TTS_RESPONSE_FORMAT', 'pcm') as 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm',
           },
         },
       },

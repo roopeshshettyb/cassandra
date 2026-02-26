@@ -14,6 +14,7 @@ import { ConstantsService } from '../../common/constants/constants.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
 import { parseConnectionHandshake, authenticateBookingAndInit } from './gateway-auth.helper';
+import { ChatLlmService } from '../chat-llm.service';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
 @Injectable()
@@ -32,20 +33,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly bookingsService: BookingsService,
     private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
+    private readonly chatLlmService: ChatLlmService,
   ) {}
 
   async handleConnection(client: any) {
     const { token, bookingId } = parseConnectionHandshake(client);
     if (token && bookingId !== undefined) {
-      await authenticateBookingAndInit(client, token, bookingId, {
-        authService: this.authService,
-        chatService: this.chatService,
-        bookingsService: this.bookingsService,
-        constantsService: this.constantsService,
-      }, async (session) => {
-        const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
-        client.emit('ready', { chatId: session.chatId, messages });
-      });
+      await authenticateBookingAndInit(
+        client,
+        token,
+        bookingId,
+        {
+          authService: this.authService,
+          chatService: this.chatService,
+          bookingsService: this.bookingsService,
+          constantsService: this.constantsService,
+        },
+        async (session) => {
+          const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
+          client.emit('ready', { chatId: session.chatId, messages });
+        },
+      );
     } else {
       client.sessionPending = { token: null, bookingId: null };
       client.emit('auth_required', { message: 'Send auth with token and bookingId' });
@@ -64,15 +72,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', { message: 'auth requires token and bookingId' });
       return;
     }
-    await authenticateBookingAndInit(client, token, bookingId, {
-      authService: this.authService,
-      chatService: this.chatService,
-      bookingsService: this.bookingsService,
-      constantsService: this.constantsService,
-    }, async (session) => {
-      const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
-      client.emit('ready', { chatId: session.chatId, messages });
-    });
+    await authenticateBookingAndInit(
+      client,
+      token,
+      bookingId,
+      {
+        authService: this.authService,
+        chatService: this.chatService,
+        bookingsService: this.bookingsService,
+        constantsService: this.constantsService,
+      },
+      async (session) => {
+        const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
+        client.emit('ready', { chatId: session.chatId, messages });
+      },
+    );
   }
 
   async processMessage(chatId: any, userMessage: string, account: any, llmInstructions?: string | null, languageCode?: string | null): Promise<any> {
@@ -95,56 +109,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      await this.messagesService.create(session.chatId, MessageRole.USER, content);
-      const hotel = session.hotel;
-      const llmInstructions = hotel?.llmInstructions;
-      const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions, session.languageCode ?? null);
-
-      const toolContext = {
-        account: session.account,
-        bookingId: session.bookingId,
-        chatId: session.chatId,
-        hotel: session.hotel,
-        booking: session.booking,
-        languageCode: session.languageCode ?? null,
-      };
-
-      let fullContent = '';
-      let toolCalls: ToolCallRecord[] = [];
-      let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
-
-      for await (const chunk of this.langGraphService.stream({ messages }, toolContext)) {
-        if (typeof chunk === 'string') {
-          fullContent += chunk;
+      await this.chatLlmService.streamUserMessage(session, content, {
+        onChunk: async (chunk: string) => {
           client.emit('stream_chunk', { content: chunk });
-        } else if (chunk && typeof chunk === 'object') {
-          if ('toolCalls' in chunk) {
-            toolCalls = (chunk as { toolCalls: ToolCallRecord[] }).toolCalls;
-          }
-          if ('usage' in chunk && (chunk as { usage?: unknown }).usage) {
-            const u = (chunk as { usage: { promptTokens: number; completionTokens: number; totalTokens: number } }).usage;
-            usage = u;
-          }
-        }
-      }
-
-      const assistantMessage: Message = await this.messagesService.create(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? toolCalls : undefined);
-      this.chatContextService.rebuildCache(session.chatId);
-      client.emit('stream_end', { content: fullContent, toolCalls });
-
-      this.costsService.recordLlmCost({
-        type: CostType.LLM_CHAT,
-        usage: {
-          promptTokens: usage?.promptTokens ?? 0,
-          completionTokens: usage?.completionTokens ?? 0,
-          totalTokens: usage?.totalTokens ?? 0,
         },
-        bookingId: session.bookingId,
-        hotelId: session?.booking?.hotelId ?? null,
-        accountId: session.account.id,
-        role: session.account.role,
-        chatId: session.chatId,
-        messageId: assistantMessage.id,
+        onEnd: async (result: { fullContent: string; toolCalls: ToolCallRecord[] }) => {
+          client.emit('stream_end', { content: result.fullContent, toolCalls: result.toolCalls });
+        },
       });
     } catch (err: any) {
       this.logger.error(err);
