@@ -18,7 +18,7 @@ import { useLipSync } from './AvatarChatbot/hooks/useLipSync';
 
 import { DEFAULT_AVATAR_CONFIG } from '../config/default-avatar-config';
 
-const { APP_NAME, TTS_PLAYBACK_RATE } = constants;
+const { APP_NAME, TTS_PLAYBACK_RATE, TTS_PREBUFFER_BYTES } = constants;
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
@@ -470,6 +470,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const processorRef = useRef(null);
   const playbackAudioContextRef = useRef(null);
   const playbackTimeRef = useRef(0);
+  const pcmPrebufferRef = useRef({ chunks: [], started: false });
   const agentAnalyserRef = useRef(null);
   const userAnalyserRef = useRef(null);
 
@@ -679,13 +680,30 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
     // Voice response: audio playback chunks (backup animation trigger)
     voiceInstance.on('voice_audio_chunk', (payload) => {
-      if (payload?.delta) {
-        // Assistant has started speaking for this turn.
-        isBotSpeakingRef.current = true;
-        receivedServerAudioThisTurn.current = true; // Mark that we are using server audio
+      if (!payload?.delta) return;
+      isBotSpeakingRef.current = true;
+      receivedServerAudioThisTurn.current = true;
+      const bytes = base64ToUint8Array(payload.delta);
+      const prebuffer = pcmPrebufferRef.current;
+      if (!prebuffer.started) {
+        prebuffer.chunks.push(bytes);
+        let totalLen = 0;
+        for (let i = 0; i < prebuffer.chunks.length; i += 1) totalLen += prebuffer.chunks[i].byteLength;
+        if (totalLen >= TTS_PREBUFFER_BYTES) {
+          const all = new Uint8Array(totalLen);
+          let off = 0;
+          for (let i = 0; i < prebuffer.chunks.length; i += 1) {
+            all.set(prebuffer.chunks[i], off);
+            off += prebuffer.chunks[i].byteLength;
+          }
+          playPcmBytes(all, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
+          prebuffer.started = true;
+          prebuffer.chunks = [];
+        }
+      } else {
         playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
-
-        // Start real-time lip sync if not already started
+      }
+      // Start real-time lip sync if not already started
         if (agentAnalyserRef.current && !realLipSyncRefs.current.isInitialized) {
           console.log('[VoiceChatBox] Initializing real-time lip sync with agent analyser');
           const { start, stop } = initWithAnalyser(agentAnalyserRef.current);
@@ -706,11 +724,24 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
             lipSyncAnim.current?.start();
           }
         }
-      }
     });
 
     voiceInstance.on('voice_audio_end', () => {
       console.log('[VoiceChatBox] Server audio stream ended');
+      const prebuffer = pcmPrebufferRef.current;
+      if (!prebuffer.started && prebuffer.chunks.length > 0) {
+        let totalLen = 0;
+        for (let i = 0; i < prebuffer.chunks.length; i += 1) totalLen += prebuffer.chunks[i].byteLength;
+        const all = new Uint8Array(totalLen);
+        let off = 0;
+        for (let i = 0; i < prebuffer.chunks.length; i += 1) {
+          all.set(prebuffer.chunks[i], off);
+          off += prebuffer.chunks[i].byteLength;
+        }
+        playPcmBytes(all, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
+      }
+      prebuffer.started = false;
+      prebuffer.chunks = [];
 
       // Calculate when the audio will ACTUALLY finish playing
       let delay = 1000; // Default fallback
@@ -1167,8 +1198,7 @@ const base64ToUint8Array = (base64) => {
   return bytes;
 };
 
-const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => {
-  const bytes = base64ToUint8Array(base64);
+const playPcmBytes = (bytes, audioContextRef, playbackTimeRef, analyserRef) => {
   const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
   if (!audioContextRef.current) {
     audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
@@ -1181,17 +1211,17 @@ const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => 
     analyserRef.current = analyser;
   }
 
-  const bufferLength = bytes.byteLength / 2;
+  const bufferLength = Math.floor(bytes.byteLength / 2);
+  if (bufferLength === 0) return;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
   const channelData = audioBuffer.getChannelData(0);
-  const dataView = new DataView(bytes.buffer);
+  const dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   for (let i = 0; i < bufferLength; i += 1) {
     const sample = dataView.getInt16(i * 2, true);
     channelData[i] = sample / 0x8000;
   }
   const source = audioContext.createBufferSource();
   source.buffer = audioBuffer;
-  // Speed up playback slightly for a snappier voice without drastically changing pitch.
   source.playbackRate.value = TTS_PLAYBACK_RATE;
   if (analyserRef && analyserRef.current) {
     source.connect(analyserRef.current);
@@ -1204,6 +1234,11 @@ const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => 
   const startAt = Math.max(playbackTimeRef.current || now, now);
   source.start(startAt);
   playbackTimeRef.current = startAt + audioBuffer.duration;
+};
+
+const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => {
+  const bytes = base64ToUint8Array(base64);
+  playPcmBytes(bytes, audioContextRef, playbackTimeRef, analyserRef);
 };
 
 export default ChatBox;

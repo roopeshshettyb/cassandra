@@ -32,13 +32,45 @@ export class OpenaiTtsService {
         voice: openaiTts.VOICE,
         input: text,
         response_format: openaiTts.RESPONSE_FORMAT,
+        stream_format: 'audio',
       });
 
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = Buffer.from(arrayBuffer);
+      const reader = response.body!.getReader();
+      const trimBytes = openaiTts.TRIM_INITIAL_BYTES ?? 0;
+      let trimRemaining = trimBytes;
+      const chunks: Uint8Array[] = [];
+      let totalLength = 0;
 
-      const base64 = audioBuffer.toString('base64');
-      client.emit('voice_audio_chunk', { delta: base64 });
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value || value.length === 0) continue;
+
+        let offset = 0;
+        if (trimRemaining > 0) {
+          if (value.length <= trimRemaining) {
+            trimRemaining -= value.length;
+            continue;
+          }
+          offset = trimRemaining;
+          trimRemaining = 0;
+        }
+
+        const slice = value.subarray(offset);
+        chunks.push(slice);
+        totalLength += slice.length;
+      }
+
+      if (totalLength > 0) {
+        const out = new Uint8Array(totalLength);
+        let pos = 0;
+        for (let i = 0; i < chunks.length; i += 1) {
+          out.set(chunks[i], pos);
+          pos += chunks[i].length;
+        }
+        client.emit('voice_audio_chunk', { delta: Buffer.from(out).toString('base64') });
+      }
+
       client.emit('voice_audio_end');
       this.logger.log('TTS Completed');
       client.emit('voice_ready');

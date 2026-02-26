@@ -35,10 +35,11 @@ export const playPcmChunk = (base64: string, audioContextRef: { current: AudioCo
     audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
   }
   const audioContext = audioContextRef.current;
-  const bufferLength = bytes.byteLength / 2;
+  const bufferLength = Math.floor(bytes.byteLength / 2);
+  if (bufferLength === 0) return;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
   const channelData = audioBuffer.getChannelData(0);
-  const dataView = new DataView(bytes.buffer);
+  const dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   for (let i = 0; i < bufferLength; i += 1) {
     const sample = dataView.getInt16(i * 2, true);
     channelData[i] = sample / 0x8000;

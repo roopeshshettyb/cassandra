@@ -43,16 +43,18 @@ export class LangGraphService {
 
   private createModel(): ChatOpenAI {
     const llmConfig = this.constantsService.private.LLM;
-    const sttConfig = llmConfig.STT_CONFIG;
-    const openaiConfig = sttConfig.OPENAI;
-    const apiKey = openaiConfig.API_KEY;
+    const openrouterConfig = llmConfig.OPENROUTER;
+    const apiKey = openrouterConfig.API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required');
+      throw new Error('OPENROUTER_API_KEY is required');
     }
     return new ChatOpenAI({
       modelName: llmConfig.TEXT_MODEL,
       apiKey,
       temperature: 0.7,
+      configuration: {
+        baseURL: openrouterConfig.BASE_URL,
+      },
     });
   }
 

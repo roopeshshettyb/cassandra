@@ -270,7 +270,7 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'gpt-4o-mini',
+        TEXT_MODEL: 'openai/gpt-oss-safeguard-20b:nitro',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
@@ -294,6 +294,10 @@ export class ConstantsService {
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
           },
         },
+        OPENROUTER: {
+          API_KEY: this.configService.get<string>('OPENROUTER_API_KEY'),
+          BASE_URL: this.configService.get<string>('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        },
         TTS_CONFIG: {
           PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
           OPENAI: {
@@ -301,6 +305,13 @@ export class ConstantsService {
             VOICE: this.configService.get<string>('OPENAI_TTS_VOICE', 'alloy'),
             CHUNK_MS: parseInt(this.configService.get('OPENAI_TTS_CHUNK_MS') || '100', 10),
             RESPONSE_FORMAT: this.configService.get<string>('OPENAI_TTS_RESPONSE_FORMAT', 'pcm') as 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm',
+            TRIM_INITIAL_BYTES: parseInt(this.configService.get('OPENAI_TTS_TRIM_INITIAL_BYTES') || '4096', 10),
+          },
+          HUGGINGFACE: {
+            API_KEY: this.configService.get<string>('HUGGINGFACE_API_KEY') ?? this.configService.get<string>('HF_TOKEN'),
+            MODEL: this.configService.get<string>('HUGGINGFACE_TTS_MODEL', 'maya-research/maya1'),
+            INFERENCE_BASE_URL: this.configService.get<string>('HUGGINGFACE_TTS_INFERENCE_BASE_URL', 'https://router.huggingface.co/hf-inference/models'),
+            BASE_URL: this.configService.get<string>('HUGGINGFACE_TTS_BASE_URL'),
           },
         },
       },
