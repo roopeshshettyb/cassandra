@@ -566,6 +566,23 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
     voiceSocketRef.current = voiceInstance;
 
+    const stopRecordingLocalOnly = () => {
+      if (processorRef.current) {
+        processorRef.current.disconnect();
+        processorRef.current.onaudioprocess = null;
+        processorRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+      setIsRecording(false);
+    };
+
     voiceInstance.on('connect', () => {
       console.log('[VoiceChatBox] Voice socket connected');
       setVoiceReady(false); // Wait for ready/voice_ready
@@ -583,6 +600,12 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     voiceInstance.on('voice_ready', () => {
       console.log('[VoiceChatBox] Voice ready (voice_ready)');
       setVoiceReady(true);
+    });
+
+    // Automatic turn end: backend detected silence; stop mic locally without sending voice_stop
+    voiceInstance.on('voice_turn_end', () => {
+      console.log('[VoiceChatBox] Turn ended by backend (user stopped speaking)');
+      // Do not stop the mic: socket stays open, keep streaming so user can speak again without pressing the button.
     });
 
     // When user's voice is transcribed by the backend
@@ -677,15 +700,13 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       }
     });
 
-    // Real-time user transcription chunks
+    // Real-time user transcription chunks (full current transcript each time)
     voiceInstance.on('voice_user_chunk', (payload) => {
       const delta = payload?.delta || '';
       if (delta) {
-        setUserSubtitle((prev) => {
-          const current = typeof prev === 'string' ? prev : '';
-          const next = current + String(delta);
-          return next.length > 120 ? '...' + next.slice(-120) : next;
-        });
+        const text = String(delta);
+        const next = text.length > 120 ? '...' + text.slice(-120) : text;
+        setUserSubtitle(next);
         if (userSubtitleTimeoutRef.current) clearTimeout(userSubtitleTimeoutRef.current);
         userSubtitleTimeoutRef.current = setTimeout(() => setUserSubtitle(''), 5000);
       }
@@ -758,11 +779,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     });
 
     return () => {
+      stopRecordingLocalOnly();
       voiceInstance.removeAllListeners();
       voiceInstance.disconnect();
       voiceSocketRef.current = null;
       setVoiceReady(false);
-      setIsRecording(false);
       isSpeakingVoiceRef.current = false;
     };
   }, [bookingId, alertError, isWithinStay, addMessage]);
@@ -830,10 +851,15 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
   const handleVoiceToggle = async () => {
     if (isRecording) {
+      // User explicitly stops: stop mic and close voice socket so the session is fully done.
       stopRecording();
-    } else {
-      await startRecording();
+      if (voiceSocketRef.current?.connected) {
+        voiceSocketRef.current.disconnect();
+        voiceSocketRef.current = null;
+      }
+      return;
     }
+    await startRecording();
   };
 
   // Auto-start voice when user switches from chat to voice (once connection is ready)
@@ -1040,8 +1066,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           <IconButton
             size="small"
             onClick={handleVoiceToggle}
-            aria-label={isRecording ? 'Stop recording' : voiceReady ? 'Start voice' : 'Connecting…'}
-            disabled={!voiceReady}
+            aria-label={isRecording ? 'Listening (turn ends automatically)' : voiceReady ? 'Start voice' : voiceSocketRef.current ? 'Connecting…' : 'Voice stopped'}
+            disabled={!voiceReady || !voiceSocketRef.current}
             sx={{
               color: isRecording ? theme.palette.error.main : theme.palette.primary.main,
               bgcolor: theme.palette.background.paper,
@@ -1059,15 +1085,15 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
               },
             }}
           >
-            {voiceReady ? (
+            {voiceSocketRef.current && !voiceReady ? (
+              <CircularProgress size={28} color="primary" />
+            ) : (
               <GraphicEqIcon
                 sx={{
                   fontSize: 28,
                   animation: isRecording || isLoading ? `${pulseWave} 0.9s ease-in-out infinite` : 'none',
                 }}
               />
-            ) : (
-              <CircularProgress size={28} color="primary" />
             )}
           </IconButton>
         </Box>

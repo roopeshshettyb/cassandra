@@ -11,9 +11,9 @@ import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
 import { buildChatPrompt } from '../chat-prompt.builder';
 import { ConstantsService } from '../../common/constants/constants.service';
-import { ensureWithinStayWindow } from './stay-window.guard';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
+import { parseConnectionHandshake, authenticateBookingAndInit } from './gateway-auth.helper';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
 @Injectable()
@@ -35,13 +35,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(client: any) {
-    const auth: any = client.handshake?.auth;
-    const token = (client.handshake?.query?.token as string) || auth?.token;
-    const bookingIdRaw = client.handshake?.query?.bookingId as string;
-    const bookingId = bookingIdRaw ? parseInt(bookingIdRaw, 10) : undefined;
-
-    if (token && bookingId && !isNaN(bookingId)) {
-      await this.authenticateAndInit(client, token, bookingId);
+    const { token, bookingId } = parseConnectionHandshake(client);
+    if (token && bookingId !== undefined) {
+      await authenticateBookingAndInit(client, token, bookingId, {
+        authService: this.authService,
+        chatService: this.chatService,
+        bookingsService: this.bookingsService,
+        constantsService: this.constantsService,
+      }, async (session) => {
+        const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
+        client.emit('ready', { chatId: session.chatId, messages });
+      });
     } else {
       client.sessionPending = { token: null, bookingId: null };
       client.emit('auth_required', { message: 'Send auth with token and bookingId' });
@@ -54,82 +58,32 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', { message: 'Already authenticated' });
       return;
     }
-    const { token, bookingId } = payload || {};
+    const token = payload?.token;
+    const bookingId = payload?.bookingId;
     if (!token || !bookingId) {
       client.emit('error', { message: 'auth requires token and bookingId' });
       return;
     }
-    await this.authenticateAndInit(client, token, bookingId);
+    await authenticateBookingAndInit(client, token, bookingId, {
+      authService: this.authService,
+      chatService: this.chatService,
+      bookingsService: this.bookingsService,
+      constantsService: this.constantsService,
+    }, async (session) => {
+      const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
+      client.emit('ready', { chatId: session.chatId, messages });
+    });
   }
 
   async processMessage(chatId: any, userMessage: string, account: any, llmInstructions?: string | null, languageCode?: string | null): Promise<any> {
     const appName = this.constantsService.public.APP_NAME;
     const { contextData, messages } = await buildChatPrompt(this.chatContextService, chatId, userMessage, appName, account?.role, llmInstructions, languageCode);
-
-    return {
-      contextData,
-      messages,
-    };
-  }
-
-  private async authenticateAndInit(client: any, token: string, bookingId: number): Promise<void> {
-    try {
-      const account = await this.authService.verifyToken(token);
-      if (!account) {
-        client.emit('error', { code: 'UNAUTHORIZED', message: 'Invalid token' });
-        client.disconnect(true);
-        return;
-      }
-
-      const chat = await this.chatService.findOrCreateForBooking(bookingId, account);
-      const { data: booking } = await this.bookingsService.findByIdForAccount(bookingId, account);
-      if (!ensureWithinStayWindow(client, booking.isWithinStay, this.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
-        return;
-      }
-      const hotel = booking.hotel || null;
-      const bookingPlain = booking;
-      const messages = await this.messagesService.findRecentByChatId(chat.id, 50);
-      const session: ChatSession = {
-        account,
-        bookingId,
-        chatId: chat.id,
-        hotel,
-        booking: bookingPlain,
-        languageCode: chat.languageCode ?? null,
-      };
-      client.session = session;
-      delete client.sessionPending;
-
-      client.emit('ready', {
-        chatId: chat.id,
-        messages: messages,
-      });
-    } catch (err: any) {
-      this.logger.warn(err);
-      if (err?.statusCode === 403 || err?.message?.includes('Forbidden')) {
-        client.emit('error', { code: 'FORBIDDEN', message: 'No access to this booking' });
-      } else {
-        client.emit('error', { code: 'ERROR', message: err?.message || 'Setup failed' });
-      }
-      client.disconnect(true);
-    }
-  }
-
-  @SubscribeMessage('voice_start')
-  async onVoiceStart(client: any) {
-    const session = client.session as ChatSession | undefined;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-    // Placeholder: OpenAI Realtime API server-side proxy to be implemented.
-    // Same session (account, bookingId, chatId) and tools will be used for voice.
-    client.emit('voice_ready', { message: 'Voice not yet implemented; use text for now' });
+    return { contextData, messages };
   }
 
   @SubscribeMessage('message')
   async onMessage(client: any, payload: { content: string }) {
-    const session = client.session as ChatSession | undefined;
+    const session: ChatSession | undefined = client.session;
     if (!session) {
       client.emit('error', { message: 'Not authenticated' });
       return;
@@ -143,7 +97,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       await this.messagesService.create(session.chatId, MessageRole.USER, content);
       const hotel = session.hotel;
-      const llmInstructions = hotel.llmInstructions;
+      const llmInstructions = hotel?.llmInstructions;
       const { messages } = await this.processMessage(session.chatId, content, session.account, llmInstructions, session.languageCode ?? null);
 
       const toolContext = {
@@ -157,9 +111,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       let fullContent = '';
       let toolCalls: ToolCallRecord[] = [];
-      let usage:
-        | { promptTokens: number; completionTokens: number; totalTokens: number }
-        | null = null;
+      let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
 
       for await (const chunk of this.langGraphService.stream({ messages }, toolContext)) {
         if (typeof chunk === 'string') {
@@ -169,12 +121,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           if ('toolCalls' in chunk) {
             toolCalls = (chunk as { toolCalls: ToolCallRecord[] }).toolCalls;
           }
-          if ('usage' in chunk && (chunk as any).usage) {
-            const u = (chunk as any).usage as {
-              promptTokens: number;
-              completionTokens: number;
-              totalTokens: number;
-            };
+          if ('usage' in chunk && (chunk as { usage?: unknown }).usage) {
+            const u = (chunk as { usage: { promptTokens: number; completionTokens: number; totalTokens: number } }).usage;
             usage = u;
           }
         }
@@ -184,7 +132,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.chatContextService.rebuildCache(session.chatId);
       client.emit('stream_end', { content: fullContent, toolCalls });
 
-      // Record LLM chat cost using LangGraph usage metadata for token counts.
       this.costsService.recordLlmCost({
         type: CostType.LLM_CHAT,
         usage: {

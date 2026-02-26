@@ -268,13 +268,32 @@ export class ConstantsService {
       GODADDY_EMAIL: this.configService.get<string>('GODADDY_EMAIL'),
       GODADDY_PASSWORD: this.configService.get<string>('GODADDY_PASSWORD'),
 
-      // LLM Configuration (models and pricing)
+      // LLM Configuration (models, pricing, STT)
       LLM: {
         TEXT_MODEL: 'gpt-4o-mini',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
         TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
+        STT_CONFIG: {
+          // Common STT settings across providers
+          PROVIDER: this.configService.get<string>('STT_PROVIDER', 'deepgram'),
+          COMMON: {
+            SAMPLE_RATE: parseInt(this.configService.get('STT_SAMPLE_RATE') || '24000', 10),
+            ENCODING: this.configService.get<string>('STT_ENCODING', 'linear16'),
+          },
+          DEEPGRAM: {
+            API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
+            MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-2'),
+            UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
+          },
+          OPENAI: {
+            API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
+            REALTIME_MODEL: this.configService.get<string>('OPENAI_REALTIME_MODEL', 'gpt-4o-realtime-preview-2024-12-17'),
+            TRANSCRIBE_MODEL: this.configService.get<string>('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
+            VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
+          },
+        },
       },
     };
   }

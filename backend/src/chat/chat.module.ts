@@ -9,7 +9,9 @@ import { CommonModule } from '../common/common.module';
 import { ChatRepository } from './chat.repository';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './gateway/chat.gateway';
+import { VoiceGateway } from './gateway/voice.gateway';
 import { CostsModule } from '../costs/costs.module';
+import { SttModule } from '../stt/stt.module';
 
 @Module({
   imports: [
@@ -21,8 +23,9 @@ import { CostsModule } from '../costs/costs.module';
     forwardRef(() => LangGraphModule),
     CommonModule,
     CostsModule,
+    SttModule,
   ],
-  providers: [ChatRepository, ChatService, ChatGateway],
+  providers: [ChatRepository, ChatService, ChatGateway, VoiceGateway],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}
