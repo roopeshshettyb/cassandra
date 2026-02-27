@@ -83,12 +83,28 @@ export function useSocketVoice({
             }
         });
 
+        socket.on('voice_turn_end', () => {
+            // Server detected end-of-speech — stop the mic immediately so we
+            // stop sending audio while the LLM+TTS pipeline runs.
+            if (processorRef.current) {
+                processorRef.current.disconnect();
+                processorRef.current.onaudioprocess = null;
+                processorRef.current = null;
+            }
+            if (audioContextRef.current) {
+                audioContextRef.current.close();
+                audioContextRef.current = null;
+            }
+            if (mediaStreamRef.current) {
+                mediaStreamRef.current.getTracks().forEach(t => t.stop());
+                mediaStreamRef.current = null;
+            }
+            setIsRecording(false);
+            // No voice_stop emit — server already destroyed the STT session
+        });
+
         socket.on('voice_audio_end', () => {
-            // Audio playback is fire-and-forget in current utils, 
-            // effectively assumes speaking ends when chunks stop? 
-            // For UI purposes, we toggle off speaking when text ends usually, 
-            // or we could use a timeout if we wanted more precision.
-            // setIsSpeaking(false); 
+            setIsSpeaking(false);
         });
 
         return () => {

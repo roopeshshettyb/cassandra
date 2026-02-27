@@ -12,6 +12,9 @@ import { TtsFactoryService } from '../../tts/tts-factory.service';
 import { ChatLlmService } from '../chat-llm.service';
 import { parseConnectionHandshake, authenticateBookingAndInit } from './gateway-auth.helper';
 
+// Auto-trigger LLM when accumulated transcript reaches this length (characters)
+const TRANSCRIPT_CHAR_LIMIT = 300;
+
 @WebSocketGateway({ cors: true, namespace: '/voice' })
 @Injectable()
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -81,6 +84,56 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  /**
+   * Runs the LLM + TTS pipeline for a completed voice turn.
+   * Emits voice_turn_end, voice_user_message, then triggers LLM→TTS.
+   */
+  private processVoiceTurn(client: any, text: string) {
+    client.emit('voice_turn_end');
+
+    const session: ChatSession | undefined = client.session;
+    if (!session) {
+      client.emit('error', { message: 'Not authenticated' });
+      client.emit('voice_ready');
+      return;
+    }
+
+    if (!text || typeof text !== 'string') {
+      client.emit('voice_ready');
+      return;
+    }
+
+    client.emit('voice_user_message', { text });
+
+    client.voiceBusy = true;
+    client.lastTranscript = '';
+    const provider = this.ttsFactory.getProvider();
+
+    const llmStart = Date.now();
+    this.logger.log('[Timing] LLM start');
+    this.chatLlmService
+      .streamUserMessage(session, text, {
+        isVoice: true,
+        onChunk: () => {},
+        onEnd: async (result) => {
+          const llmMs = Date.now() - llmStart;
+          this.logger.log(`[Timing] LLM done: ${llmMs}ms`);
+          client.emit('voice_text_end', { text: result.fullContent });
+          const ttsStart = Date.now();
+          this.logger.log('[Timing] TTS start');
+          await provider.streamToClient(client, result.fullContent);
+          this.logger.log(`[Timing] TTS done: ${Date.now() - ttsStart}ms`);
+        },
+      })
+      .catch((err: any) => {
+        this.logger.error(`[VoiceGateway] LLM+TTS error: ${err?.message ?? err}`);
+        if (err?.stack) this.logger.error(err.stack);
+        client.emit('error', { message: 'Voice response failed' });
+        client.emit('voice_ready');
+        client.voiceBusy = false;
+      });
+  }
+
   private createSttSession(client: any): ISttSession | null {
     if (client.sttSession) {
       client.sttSession.destroy();
@@ -91,65 +144,45 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     try {
       const factory = this.sttFactory.getFactory();
-      const sttSession: ISttSession = factory.createSession();
+      const sttSession: ISttSession = factory.createSession({ language: client.session?.languageCode });
       client.sttSession = sttSession;
-      let lastFinalTranscript = '';
+      client.lastTranscript = '';
+      const sttStart = Date.now();
+      this.logger.log('[Timing] STT session created');
 
       sttSession.onTranscript((text: string, isFinal?: boolean) => {
-        // Log only on final utterance to avoid noisy partial logs,
-        // but always stream text to the client for live transcript UX.
         if (isFinal) {
-          this.logger.log(`[voice] transcript: ${text}`);
-          lastFinalTranscript = text;
+          // isFinal = Deepgram is_final: accumulate into lastTranscript
+          client.lastTranscript = (client.lastTranscript || '') + ' ' + text;
+          client.lastTranscript = client.lastTranscript.trim();
+          this.logger.log(`[voice] transcript chunk (final): ${text} | total: ${client.lastTranscript.length} chars`);
         }
         client.emit('voice_user_chunk', { delta: text, isFinal: !!isFinal });
+
+        // Auto-trigger when accumulated transcript exceeds character limit
+        if (isFinal && client.lastTranscript && client.lastTranscript.length >= TRANSCRIPT_CHAR_LIMIT) {
+          this.logger.log(`[voice] char limit reached (${client.lastTranscript.length} chars), auto-triggering response`);
+          const textToProcess = client.lastTranscript;
+          sttSession.endInput();
+          if (client.sttSession === sttSession) {
+            client.sttSession = null;
+          }
+          sttSession.destroy();
+          this.processVoiceTurn(client, textToProcess);
+        }
       });
 
       sttSession.onEndOfSpeech(() => {
-        this.logger.log('STT Ended');
+        this.logger.log(`[Timing] STT done (includes speaking time + silence wait): ${Date.now() - sttStart}ms`);
+        // Guard: session may have already been destroyed by char limit trigger
+        if (client.sttSession !== sttSession) return;
+
         sttSession.endInput();
-        if (client.sttSession === sttSession) {
-          client.sttSession = null;
-        }
+        client.sttSession = null;
         sttSession.destroy();
-        client.emit('voice_turn_end');
 
-        const textToSpeak = lastFinalTranscript;
-        const session: ChatSession | undefined = client.session;
-
-        if (!session) {
-          client.emit('error', { message: 'Not authenticated' });
-          client.emit('voice_ready');
-          return;
-        }
-
-        if (!textToSpeak || typeof textToSpeak !== 'string') {
-          client.emit('voice_ready');
-          return;
-        }
-
-        client.emit('voice_user_message', { text: textToSpeak });
-
-        client.voiceBusy = true;
-        const provider = this.ttsFactory.getProvider();
-
-        this.logger.log('LLM Inference Started');
-        this.chatLlmService
-          .streamUserMessage(session, textToSpeak, {
-            onChunk: () => {},
-            onEnd: async (result) => {
-              this.logger.log('LLM Inference Ended');
-              client.emit('voice_text_end', { text: result.fullContent });
-              this.logger.log('TTS Started');
-              await provider.streamToClient(client, result.fullContent);
-            },
-          })
-          .catch((err: any) => {
-            this.logger.warn('[VoiceGateway] LLM+TTS error', err && err.message ? err.message : err);
-            client.emit('error', { message: 'Voice response failed' });
-            client.emit('voice_ready');
-            client.voiceBusy = false;
-          });
+        const textToProcess = client.lastTranscript;
+        this.processVoiceTurn(client, textToProcess);
       });
 
       return sttSession;
@@ -202,6 +235,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       sttSession.destroy();
       client.sttSession = null;
     }
+
+    // Trigger LLM with whatever was transcribed so far (if not already busy)
+    if (!client.voiceBusy) {
+      const text: string = client.lastTranscript ?? '';
+      this.processVoiceTurn(client, text);
+    }
   }
 
   handleDisconnect(client: any) {
@@ -215,5 +254,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     delete client.session;
     delete client.sessionPending;
+    delete client.lastTranscript;
   }
 }

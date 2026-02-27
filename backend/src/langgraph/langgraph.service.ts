@@ -1,8 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
-import { createAgent } from 'langchain';
-import { BaseMessage, HumanMessage, SystemMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
-import { StringOutputParser } from '@langchain/core/output_parsers';
+import { BaseMessage, HumanMessage, SystemMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 import { createAgentTools } from './langgraph.tools';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
@@ -31,7 +29,20 @@ export interface StreamInput {
 
 @Injectable()
 export class LangGraphService {
-  private readonly outputParser = new StringOutputParser();
+  private readonly logger = new Logger(LangGraphService.name);
+
+  private extractText(content: any): string {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      let text = '';
+      for (const block of content) {
+        if (typeof block === 'string') text += block;
+        else if (block?.type === 'text' && typeof block.text === 'string') text += block.text;
+      }
+      return text;
+    }
+    return '';
+  }
 
   constructor(
     private readonly bookingsService: BookingsService,
@@ -59,91 +70,92 @@ export class LangGraphService {
   }
 
   private parseMessages(messages: ChatMessageInput[]): BaseMessage[] {
-    return messages.map((msg) => {
+    const result: BaseMessage[] = [];
+    for (const msg of messages) {
       if (msg.role === 'user') {
-        return new HumanMessage(msg.content);
-      }
-      if (msg.role === 'assistant') {
-        return new AIMessage(msg.content);
-      }
-      return new SystemMessage(msg.content);
-    });
-  }
-
-  private extractToolCalls(messages: BaseMessage[]): ToolCallRecord[] {
-    const toolResults = new Map<string, { output?: unknown; error?: string }>();
-    for (const msg of messages) {
-      if (msg instanceof ToolMessage) {
-        toolResults.set(msg.tool_call_id ?? '', {
-          output: typeof msg.content === 'string' ? msg.content : msg.content,
-          error: undefined,
-        });
+        result.push(new HumanMessage(msg.content));
+      } else if (msg.role === 'assistant') {
+        result.push(new AIMessage(msg.content));
+      } else {
+        result.push(new SystemMessage(msg.content));
       }
     }
-    const toolCalls: ToolCallRecord[] = [];
-    for (const msg of messages) {
-      if ((msg instanceof AIMessage || msg instanceof AIMessageChunk) && msg.tool_calls?.length) {
-        for (const tc of msg.tool_calls) {
-          const id = tc.id ?? '';
-          const result = toolResults.get(id);
-          toolCalls.push({
-            toolName: tc.name ?? '',
-            toolCallId: id,
-            input: (tc.args as Record<string, unknown>) ?? {},
-            output: result?.output,
-            error: result?.error,
-          });
-        }
-      }
-    }
-    return toolCalls;
+    return result;
   }
 
   async *stream(
     input: StreamInput,
     ctx: AgentToolContext,
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
-    const messages = this.parseMessages(input.messages);
+    const allMessages: BaseMessage[] = this.parseMessages(input.messages);
     const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
     const model = this.createModel();
-    const agent = createAgent({ model, tools });
+    const modelWithTools: any = model.bindTools(tools);
 
-    const threadId = `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    let lastResult: { messages?: BaseMessage[] } | null = null;
+    const toolCallRecords: ToolCallRecord[] = [];
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
 
-    const state: any = { messages };
-    const eventStream = agent.streamEvents(state, { version: 'v2', configurable: { thread_id: threadId } });
+    // Tool-calling loop: invoke → execute tools → repeat until no more tool calls
+    for (let iter = 0; iter < 5; iter++) {
+      this.logger.log(`[LLM] invoke iter=${iter} model=${this.constantsService.private.LLM.TEXT_MODEL}`);
+      let response: any;
+      try {
+        response = await modelWithTools.invoke(allMessages);
+      } catch (err: any) {
+        this.logger.error(`[LLM] invoke failed: ${err?.message ?? err}`);
+        throw err;
+      }
 
-    for await (const event of eventStream) {
-      if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
-        const parsed = await this.outputParser.invoke(event.data.chunk);
-        if (parsed) yield parsed;
+      this.logger.log(`[LLM] response content type=${typeof response?.content} tool_calls=${response?.tool_calls?.length ?? 0}`);
+
+      const usageMeta = response?.usage_metadata;
+      if (usageMeta) {
+        totalPromptTokens += usageMeta.input_tokens ?? 0;
+        totalCompletionTokens += usageMeta.output_tokens ?? 0;
       }
-      if (event.event === 'on_chat_model_end' && event.data?.output) {
-        const output = event.data.output;
-        const maybeUsage = output.usage_metadata as
-          | { input_tokens?: number; output_tokens?: number; total_tokens?: number }
-          | undefined;
-        if (maybeUsage) {
-          totalPromptTokens += maybeUsage.input_tokens ?? 0;
-          totalCompletionTokens += maybeUsage.output_tokens ?? 0;
+
+      allMessages.push(response);
+
+      const pendingToolCalls: any[] = response?.tool_calls ?? [];
+
+      if (!pendingToolCalls.length) {
+        // No tool calls — this is the final answer, yield the text
+        const text = this.extractText(response?.content);
+        this.logger.log(`[LLM] final text length=${text.length}`);
+        if (text) yield text;
+        break;
+      }
+
+      // Execute each tool call
+      for (const tc of pendingToolCalls) {
+        const tool = tools.find((t) => t.name === tc.name);
+        let output = '';
+        let error: string | undefined;
+        try {
+          output = tool ? String(await tool.invoke(tc.args)) : JSON.stringify({ error: `Unknown tool: ${tc.name}` });
+        } catch (e: any) {
+          error = e?.message ?? 'Tool error';
+          output = JSON.stringify({ error });
         }
-      }
-      if (event.event === 'on_chain_end' && event.data?.output) {
-        lastResult = event.data.output as { messages?: BaseMessage[] };
+        allMessages.push(new ToolMessage({ content: output, tool_call_id: tc.id ?? '' }));
+        toolCallRecords.push({
+          toolName: tc.name ?? '',
+          toolCallId: tc.id ?? '',
+          input: (tc.args as Record<string, unknown>) ?? {},
+          output,
+          error,
+        });
       }
     }
 
-    if (lastResult?.messages?.length) {
-      const toolCalls = this.extractToolCalls(lastResult.messages);
-      const usage: { promptTokens: number; completionTokens: number; totalTokens: number } = {
+    yield {
+      toolCalls: toolCallRecords,
+      usage: {
         promptTokens: totalPromptTokens,
         completionTokens: totalCompletionTokens,
         totalTokens: totalPromptTokens + totalCompletionTokens,
-      };
-      yield { toolCalls, usage };
-    }
+      },
+    };
   }
 }

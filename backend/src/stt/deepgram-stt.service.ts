@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
-import type { ISttSession, SttSessionFactory } from './stt-session.interface';
+import type { ISttSession, SttSessionFactory, SttSessionOptions } from './stt-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
 
 @Injectable()
@@ -9,7 +9,7 @@ export class DeepgramSttService implements SttSessionFactory {
 
   constructor(private readonly constantsService: ConstantsService) {}
 
-  createSession(): ISttSession {
+  createSession(options?: SttSessionOptions): ISttSession {
     const log = this.logger;
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const commonConfig = sttConfig.COMMON;
@@ -19,23 +19,38 @@ export class DeepgramSttService implements SttSessionFactory {
       throw new Error('DEEPGRAM_API_KEY is required for STT provider deepgram');
     }
     const utteranceEndMs = deepgramConfig.UTTERANCE_END_MS;
+    const endpointingMs = deepgramConfig.ENDPOINTING_MS;
+    const language = options?.language;
+
     const client = createClient(apiKey);
     const live = client.listen.live({
       model: deepgramConfig.MODEL,
       encoding: commonConfig.ENCODING,
       sample_rate: commonConfig.SAMPLE_RATE,
       utterance_end_ms: utteranceEndMs,
+      endpointing: endpointingMs,
       interim_results: true,
+      ...(language ? { language } : {}),
     });
 
     let transcriptCb: ((text: string, isFinal?: boolean) => void) | null = null;
     let endOfSpeechCb: (() => void) | null = null;
     let destroyed = false;
+    let connected = false;
+    // Buffer audio sent before the WebSocket connection is ready
+    const pendingAudio: (ArrayBuffer | SharedArrayBuffer)[] = [];
 
     live.setupConnection();
 
     live.on(LiveTranscriptionEvents.Open, () => {
-      if (!destroyed) log.debug('[Deepgram] Live connection open');
+      if (destroyed) return;
+      connected = true;
+      log.debug('[Deepgram] Live connection open');
+      // Flush any audio that arrived before the connection was ready
+      for (const ab of pendingAudio) {
+        try { live.send(ab); } catch (_) {}
+      }
+      pendingAudio.length = 0;
     });
 
     live.on(LiveTranscriptionEvents.Transcript, (data: any) => {
@@ -45,17 +60,16 @@ export class DeepgramSttService implements SttSessionFactory {
       if (!text) return;
 
       const isFinal = data?.is_final === true;
-      const speechFinal = data?.speech_final === true;
-
-      // Stream every updated transcript to the callback so the UI can show it live.
-      // Mark as final only when Deepgram signals both is_final and speech_final,
-      // which corresponds to end-of-utterance in their docs.
-      const isUtteranceFinal = isFinal && speechFinal;
-      transcriptCb(text, isUtteranceFinal);
+      // Forward every transcript; isFinal=true when Deepgram finalizes the segment.
+      // speech_final is handled by endpointing — it guarantees is_final transcripts
+      // arrive ~500ms before UtteranceEnd, so client.lastTranscript is always set
+      // by the time UtteranceEnd fires.
+      transcriptCb(text, isFinal);
     });
 
     live.on(LiveTranscriptionEvents.UtteranceEnd, () => {
       if (destroyed) return;
+      log.debug('[Deepgram] UtteranceEnd — triggering end of speech');
       if (endOfSpeechCb) endOfSpeechCb();
     });
 
@@ -69,9 +83,14 @@ export class DeepgramSttService implements SttSessionFactory {
 
     return {
       writeAudio(buffer: Buffer) {
-        if (destroyed || !live.isConnected()) return;
+        if (destroyed) return;
+        const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+        if (!connected) {
+          // Queue audio until the WebSocket is ready
+          pendingAudio.push(ab);
+          return;
+        }
         try {
-          const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
           live.send(ab);
         } catch (e) {
           if (!destroyed) log.warn('[Deepgram] send error', e);
@@ -94,6 +113,7 @@ export class DeepgramSttService implements SttSessionFactory {
         destroyed = true;
         transcriptCb = null;
         endOfSpeechCb = null;
+        pendingAudio.length = 0;
         try {
           if (live.requestClose) live.requestClose();
           if (live.disconnect) live.disconnect();

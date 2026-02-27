@@ -10,6 +10,10 @@ export interface ISttSession {
   destroy(): void;
 }
 
+export interface SttSessionOptions {
+  language?: string | null;
+}
+
 export interface SttSessionFactory {
-  createSession(): ISttSession;
+  createSession(options?: SttSessionOptions): ISttSession;
 }

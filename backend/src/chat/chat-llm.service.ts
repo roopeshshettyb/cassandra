@@ -12,6 +12,7 @@ import { buildChatPrompt } from './chat-prompt.builder';
 export interface StreamUserMessageOptions {
   onChunk: (chunk: string) => Promise<void> | void;
   onEnd?: (result: { fullContent: string; toolCalls: LangGraphToolCallRecord[] }) => Promise<void> | void;
+  isVoice?: boolean;
 }
 
 @Injectable()
@@ -43,6 +44,7 @@ export class ChatLlmService {
       session.account?.role,
       llmInstructions,
       session.languageCode ?? null,
+      options.isVoice ?? false,
     );
 
     const toolContext = {

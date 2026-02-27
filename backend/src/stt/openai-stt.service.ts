@@ -17,7 +17,7 @@ export class OpenaiSttService implements SttSessionFactory {
 
   constructor(private readonly constantsService: ConstantsService) {}
 
-  createSession(): ISttSession {
+  createSession(_options?: import('./stt-session.interface').SttSessionOptions): ISttSession {
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const openaiConfig = sttConfig.OPENAI;
     const apiKey = openaiConfig.API_KEY;

@@ -62,8 +62,10 @@ export class HuggingfaceTtsService {
       client.emit('voice_ready');
       client.voiceBusy = false;
     } catch (err: any) {
-      this.logger.warn('[Hugging Face TTS] Error during speech synthesis', err?.message ?? err);
-      throw err;
+      this.logger.error(`[Hugging Face TTS] Error: ${err?.message ?? err}`);
+      client.emit('voice_audio_end');
+      client.emit('voice_ready');
+      client.voiceBusy = false;
     }
   }
 }

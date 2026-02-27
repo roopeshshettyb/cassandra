@@ -270,7 +270,7 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'openai/gpt-oss-safeguard-20b:nitro',
+        TEXT_MODEL: this.configService.get<string>('LLM_TEXT_MODEL', 'google/gemini-2.0-flash-001'),
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
@@ -285,7 +285,8 @@ export class ConstantsService {
           DEEPGRAM: {
             API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
             MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-2'),
-            UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
+            UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '800', 10),
+            ENDPOINTING_MS: parseInt(this.configService.get('DEEPGRAM_ENDPOINTING_MS') || '300', 10),
           },
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
@@ -301,7 +302,7 @@ export class ConstantsService {
         TTS_CONFIG: {
           PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
           OPENAI: {
-            MODEL: this.configService.get<string>('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
+            MODEL: this.configService.get<string>('OPENAI_TTS_MODEL', 'tts-1'),
             VOICE: this.configService.get<string>('OPENAI_TTS_VOICE', 'alloy'),
             CHUNK_MS: parseInt(this.configService.get('OPENAI_TTS_CHUNK_MS') || '100', 10),
             RESPONSE_FORMAT: this.configService.get<string>('OPENAI_TTS_RESPONSE_FORMAT', 'pcm') as 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm',
