@@ -1,16 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ChatOpenAI } from '@langchain/openai';
-import { createAgent } from 'langchain';
 import { BaseMessage, HumanMessage, SystemMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import { createAgent } from 'langchain';
 import { createAgentTools } from './langgraph.tools';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
-
-const TEXT_MODEL = 'gpt-4o-mini';
+import { LlmService } from '../chat/llm.service';
 
 export interface ToolCallRecord {
   toolName: string;
@@ -39,44 +37,37 @@ export class LangGraphService {
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
+    private readonly llmService: LlmService,
   ) {}
 
-  private createModel(): ChatOpenAI {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required');
-    }
-    return new ChatOpenAI({
-      modelName: TEXT_MODEL,
-      apiKey,
-      temperature: 0.7,
-    });
+  private createModel() {
+    return this.llmService.getModel();
   }
 
   private parseMessages(messages: ChatMessageInput[]): BaseMessage[] {
-    return messages.map((msg) => {
-      if (msg.role === 'user') {
-        return new HumanMessage(msg.content);
-      }
-      if (msg.role === 'assistant') {
-        return new AIMessage(msg.content);
-      }
-      return new SystemMessage(msg.content);
-    });
+    return messages
+      .filter((msg) => !!msg && !!msg.content)
+      .map((msg) => {
+        if (msg.role === 'user') return new HumanMessage(msg.content);
+        if (msg.role === 'assistant') return new AIMessage(msg.content);
+        return new SystemMessage(msg.content);
+      });
   }
 
   private extractToolCalls(messages: BaseMessage[]): ToolCallRecord[] {
     const toolResults = new Map<string, { output?: unknown; error?: string }>();
     for (const msg of messages) {
+      if (!msg) continue;
       if (msg instanceof ToolMessage) {
         toolResults.set(msg.tool_call_id ?? '', {
-          output: typeof msg.content === 'string' ? msg.content : msg.content,
+          output: msg.content,
           error: undefined,
         });
       }
     }
     const toolCalls: ToolCallRecord[] = [];
     for (const msg of messages) {
+      if (!msg) continue;
       if ((msg instanceof AIMessage || msg instanceof AIMessageChunk) && msg.tool_calls?.length) {
         for (const tc of msg.tool_calls) {
           const id = tc.id ?? '';
@@ -142,3 +133,5 @@ export class LangGraphService {
     }
   }
 }
+
+

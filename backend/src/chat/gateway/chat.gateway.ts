@@ -200,7 +200,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         messageId: assistantMessage.id,
       });
     } catch (err: any) {
-      this.logger.error(err);
+      this.logger.error(`Error in ChatGateway.onMessage: ${err.message}`, err.stack);
+      this.logger.error('Full error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
       client.emit('error', { message: err?.message || 'Message failed' });
     }
   }

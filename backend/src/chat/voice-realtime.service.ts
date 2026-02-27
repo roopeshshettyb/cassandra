@@ -93,7 +93,7 @@ export class VoiceRealtimeService {
             tools,
             tool_choice: 'auto',
             // Use audio-only; we derive text from output_audio_transcript events.
-            output_modalities: ['audio'],
+            output_modalities: ['text'],
             audio: {
               input: {
                 format: { type: 'audio/pcm', rate: 24000 },
@@ -112,11 +112,6 @@ export class VoiceRealtimeService {
                   create_response: true,
                   interrupt_response: true,
                 },
-              },
-              output: {
-                format: { type: 'audio/pcm', rate: 24000 },
-                voice: 'marin',
-                speed: 1,
               },
             },
           },

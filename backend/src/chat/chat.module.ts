@@ -12,6 +12,14 @@ import { ChatGateway } from './gateway/chat.gateway';
 import { VoiceRealtimeService } from './voice-realtime.service';
 import { VoiceGateway } from './gateway/voice.gateway';
 import { CostsModule } from '../costs/costs.module';
+import { TtsService } from './tts.service';
+import { SttService } from './stt.service';
+import { LlmService } from './llm.service';
+import { VoiceModularService } from './voice-modular.service';
+// Generic providers — swap model via env vars, swap technology by editing the provider file
+import { SttProvider } from './stt.provider';
+import { TtsProvider } from './tts.provider';
+import { LlmProvider } from './llm.provider';
 
 @Module({
   imports: [
@@ -24,7 +32,24 @@ import { CostsModule } from '../costs/costs.module';
     CommonModule,
     CostsModule,
   ],
-  providers: [ChatRepository, ChatService, ChatGateway, VoiceRealtimeService, VoiceGateway],
-  exports: [ChatRepository, ChatService],
+  providers: [
+    ChatRepository,
+    ChatService,
+    ChatGateway,
+    VoiceRealtimeService,
+    VoiceGateway,
+    // STT
+    SttProvider,
+    SttService,
+    // TTS
+    TtsProvider,
+    TtsService,
+    // LLM
+    LlmProvider,
+    LlmService,
+    // Voice pipeline orchestrator
+    VoiceModularService,
+  ],
+  exports: [ChatRepository, ChatService, TtsService, SttService, LlmService, VoiceModularService],
 })
 export class ChatModule {}

@@ -73,8 +73,8 @@ Always respond in Markdown.`;
 
   parts.push(`This is the context of the coversation so far : ${contextData.context}`);
 
-  const instructions: any = parts.map((ele) => {
-    return { role: 'system', ele };
+  const instructions: any = parts.map((content) => {
+    return { role: 'system', content };
   });
 
   return {

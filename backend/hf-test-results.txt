@@ -1,0 +1,9 @@
+--- Testing TTS (Maya - MPEG) ---
+TTS (Maya - MPEG) FAILED: Status 404
+TTS (Maya - MPEG) Data: Not Found
+--- Testing Text Classification (DistilBERT) ---
+Text Classification (DistilBERT) FAILED: Status 404
+Text Classification (DistilBERT) Data: Not Found
+--- Testing STT (Whisper - MPEG Accept) ---
+STT (Whisper - MPEG Accept) FAILED: Status 400
+STT (Whisper - MPEG Accept) Data: {"error":"Soundfile is either not in the correct format or is malformed. Ensure that the soundfile has a valid audio file extension (e.g. wav, flac or mp3) and is not corrupted. If reading from a remote URL, ensure that the URL is the full address to **download** the audio file."}

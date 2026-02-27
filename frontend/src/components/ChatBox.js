@@ -18,6 +18,13 @@ import { useLipSync } from './AvatarChatbot/hooks/useLipSync';
 
 import { DEFAULT_AVATAR_CONFIG } from '../config/default-avatar-config';
 
+// --- VAD Configuration ---
+// Adjust these to fine-tune the auto-stop behavior
+const SILENCE_THRESHOLD = 0.05; // RMS below this = silence (increased from 0.015 for bg noise)
+const SILENCE_DURATION_MS = 2000; // ms of silence before auto-stop triggers (increased to 2s)
+const MIN_SPOKE_DURATION_MS = 400; // user must have spoken for at least this long
+const SPEECH_CONFIRM_FRAMES = 3; // consecutive frames above threshold needed to confirm speech
+
 const { APP_NAME } = constants;
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -465,31 +472,10 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const agentAnalyserRef = useRef(null);
   const userAnalyserRef = useRef(null);
 
-  // Lip Sync Logic
-  const { initWithSpeechSynthesis, initWithAnalyser } = useLipSync({
-    onLipSyncUpdate: useCallback((value) => {
-      if (avatarRef.current) {
-        avatarRef.current.setLipSync(value);
-      }
-    }, []),
-    smoothing: 0.5,
-  });
-
-  const lipSyncAnim = useRef(null);
-  const realLipSyncRefs = useRef({ start: () => {}, stop: () => {}, isInitialized: false });
-
-  useEffect(() => {
-    // Fallback for TTS (non-server audio)
-    lipSyncAnim.current = initWithSpeechSynthesis();
-    return () => {
-      if (lipSyncAnim.current) lipSyncAnim.current.stop();
-      if (realLipSyncRefs.current) realLipSyncRefs.current.stop();
-    };
-  }, [initWithSpeechSynthesis]);
+  const prevIsLoading = useRef(false);
 
   // Chat socket for shared message history (text mode uses this)
   const { messages, isLoading, error, sendMessage, addMessage } = useSocketChat(bookingId);
-  const prevIsLoading = useRef(isLoading);
 
   // Track if currently playing voice audio
   const isSpeakingVoiceRef = useRef(false);
@@ -497,6 +483,12 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
   const lastSpokenMsgId = useRef('');
   // Guard to prevent "double voice" - tracks if server audio was received for current response
   const receivedServerAudioThisTurn = useRef(false);
+
+  // VAD refs
+  const vadAnimFrameRef = useRef(null);
+  const silenceStartRef = useRef(null);
+  const hasSpokeRef = useRef(false);
+  const isRecordingRef = useRef(false);
 
   // Avatar animation based on loading state from chat socket
   useEffect(() => {
@@ -508,31 +500,6 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     }
     prevIsLoading.current = isLoading;
   }, [isLoading]);
-
-  useEffect(() => {
-    // In voice mode, we prefer the server's realtime audio stream.
-    // This effect should only trigger as a fallback or for initial context.
-    if (isSpeakingVoiceRef.current || receivedServerAudioThisTurn.current) return;
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg || lastMsg.role !== 'assistant' || isLoading) return;
-    if (lastSpokenMsgId.current === lastMsg.id) return; // Already spoken
-    lastSpokenMsgId.current = lastMsg.id;
-
-    const text = lastMsg.content;
-    if (text && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onstart = () => {
-        avatarRef.current?.playTalking();
-        lipSyncAnim.current?.start();
-      };
-      utterance.onend = () => {
-        avatarRef.current?.playIdle();
-        lipSyncAnim.current?.stop();
-      };
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [messages, isLoading]);
 
   // --- Voice Socket Connection ---
   useEffect(() => {
@@ -590,71 +557,13 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       }
     });
 
-    // Voice response: text complete
-    voiceInstance.on('voice_text_end', (payload) => {
-      const text = payload?.text || '';
-      console.log('[VoiceChatBox] Voice text end:', text.substring(0, 50) + '...');
-      if (text) {
-        // Add assistant response to shared message history
-        const msgId = `assistant-voice-${Date.now()}`;
-        addMessage({ id: msgId, role: 'assistant', content: text, timestamp: new Date() });
-        lastSpokenMsgId.current = msgId;
-
-        setAgentSubtitle(text);
-        if (agentSubtitleTimeoutRef.current) clearTimeout(agentSubtitleTimeoutRef.current);
-        agentSubtitleTimeoutRef.current = setTimeout(() => setAgentSubtitle(''), 5000);
-
-        // Trigger TTS with talking animation + lip sync ONLY if not already speaking backend audio
-        // AND ONLY if we haven't received any server audio for this turn.
-        if (!isSpeakingVoiceRef.current && !receivedServerAudioThisTurn.current && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.onstart = () => {
-            console.log('[VoiceChatBox] TTS started — playing talking animation');
-            // Check again in case audio started while initializing
-            if (isSpeakingVoiceRef.current) {
-              window.speechSynthesis.cancel();
-              return;
-            }
-            isSpeakingVoiceRef.current = true;
-            avatarRef.current?.playTalking();
-            lipSyncAnim.current?.start();
-          };
-          utterance.onend = () => {
-            // Only stop if we were the ones speaking (not overridden by audio)
-            if (isSpeakingVoiceRef.current && !voiceReady /* check if audio didn't take over */) {
-              console.log('[VoiceChatBox] TTS ended');
-              isSpeakingVoiceRef.current = false;
-              avatarRef.current?.playIdle();
-              lipSyncAnim.current?.stop();
-            }
-          };
-          utterance.onerror = () => {
-            console.log('[VoiceChatBox] TTS error/cancelled');
-            // Don't stop animation if cancelled (might be due to audio override)
-            if (!isSpeakingVoiceRef.current) {
-              avatarRef.current?.playIdle();
-              lipSyncAnim.current?.stop();
-            }
-          };
-          window.speechSynthesis.speak(utterance);
-        }
-      }
-    });
+    // Show thinking animation while waiting for response
+    avatarRef.current?.playThinking();
 
     // Streaming text chunks (for real-time word-by-word display)
     voiceInstance.on('voice_text_chunk', (payload) => {
       const chunk = payload?.delta || payload?.content || payload?.text || '';
       if (chunk) {
-        // Delay the text display to match audio playback scheduling
-        const context = playbackAudioContextRef.current;
-        const scheduledTime = playbackTimeRef.current;
-        let delay = 0;
-        if (context && scheduledTime > context.currentTime) {
-          // Calculate delay in ms, adding a tiny offset for smoother transition
-          delay = (scheduledTime - context.currentTime) * 1000;
-        }
-
         setTimeout(() => {
           setAgentSubtitle((prev) => {
             const current = typeof prev === 'string' ? prev : '';
@@ -663,7 +572,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           });
           if (agentSubtitleTimeoutRef.current) clearTimeout(agentSubtitleTimeoutRef.current);
           agentSubtitleTimeoutRef.current = setTimeout(() => setAgentSubtitle(''), 5000);
-        }, delay);
+        }, 0);
       }
     });
 
@@ -681,11 +590,11 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       }
     });
 
-    // Voice response: audio playback chunks (backup animation trigger)
-    voiceInstance.on('voice_audio_chunk', (payload) => {
+    // Voice response: audio playback chunks (WAV from Maya1)
+    voiceInstance.on('voice_audio_chunk', async (payload) => {
       if (payload?.delta) {
-        receivedServerAudioThisTurn.current = true; // Mark that we are using server audio
-        playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
+        receivedServerAudioThisTurn.current = true;
+        await playAudioChunk(payload.delta, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
 
         // Start real-time lip sync if not already started
         if (agentAnalyserRef.current && !realLipSyncRefs.current.isInitialized) {
@@ -694,14 +603,9 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
           realLipSyncRefs.current = { start, stop, isInitialized: true };
         }
 
-        // Start animation if TTS hasn't started it OR if TTS is running (cancel it)
-        if (!isSpeakingVoiceRef.current || window.speechSynthesis.speaking) {
-          console.log('[VoiceChatBox] Audio chunk -> overriding TTS/starting animation');
-          window.speechSynthesis.cancel(); // Stop TTS immediately
+        if (!isSpeakingVoiceRef.current) {
           isSpeakingVoiceRef.current = true;
           avatarRef.current?.playTalking();
-
-          // Prefer real lip sync over simulation
           if (realLipSyncRefs.current.isInitialized) {
             realLipSyncRefs.current.start();
           } else {
@@ -713,25 +617,16 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
 
     voiceInstance.on('voice_audio_end', () => {
       console.log('[VoiceChatBox] Server audio stream ended');
-
-      // Calculate when the audio will ACTUALLY finish playing
-      let delay = 1000; // Default fallback
-
       const context = playbackAudioContextRef.current;
       const scheduledEndTime = playbackTimeRef.current;
+      let delay = 500;
 
-      if (context && scheduledEndTime > 0) {
-        const remainingTime = (scheduledEndTime - context.currentTime) * 1000;
-        if (remainingTime > 0) {
-          delay = remainingTime + 300; // Add 300ms buffer for smooth transition
-          console.log(`[VoiceChatBox] Audio still playing for ${Math.round(remainingTime)}ms. Scheduling idle animation in ${Math.round(delay)}ms`);
-        }
+      if (context && scheduledEndTime > context.currentTime) {
+        delay = (scheduledEndTime - context.currentTime) * 1000 + 200;
       }
 
       setTimeout(() => {
-        // Only stop if we are still marked as speaking (and not TTS)
         if (isSpeakingVoiceRef.current) {
-          console.log('[VoiceChatBox] Audio playback finished — stopping animation');
           isSpeakingVoiceRef.current = false;
           avatarRef.current?.playIdle();
           lipSyncAnim.current?.stop();
@@ -757,6 +652,28 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     };
   }, [bookingId, alertError, isWithinStay, addMessage]);
 
+  // --- Lip Sync Logic ---
+  const { initWithSpeechSynthesis, initWithAnalyser } = useLipSync({
+    onLipSyncUpdate: useCallback((value) => {
+      if (avatarRef.current) {
+        avatarRef.current.setLipSync(value);
+      }
+    }, []),
+    smoothing: 0.5,
+  });
+
+  const lipSyncAnim = useRef(null);
+  const realLipSyncRefs = useRef({ start: () => {}, stop: () => {}, isInitialized: false });
+
+  useEffect(() => {
+    // Fallback for TTS (non-server audio)
+    lipSyncAnim.current = initWithSpeechSynthesis();
+    return () => {
+      if (lipSyncAnim.current) lipSyncAnim.current.stop();
+      if (realLipSyncRefs.current) realLipSyncRefs.current.stop();
+    };
+  }, [initWithSpeechSynthesis]);
+
   // --- Recording Functions (same as ClassicChatBox) ---
   const startRecording = async () => {
     if (isRecording) return;
@@ -765,7 +682,13 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContextImpl({ sampleRate: 24000 });
       const source = audioContext.createMediaStreamSource(stream);
@@ -787,6 +710,60 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       audioContextRef.current = audioContext;
       mediaStreamRef.current = stream;
       processorRef.current = processor;
+
+      // ── VAD: detect silence ──────────────
+      const vadBuffer = new Float32Array(analyser.fftSize);
+      const spokeStartTime = Date.now();
+      silenceStartRef.current = null;
+      hasSpokeRef.current = false;
+      isRecordingRef.current = true;
+      let consecutiveSpeechFrames = 0;
+      let lastLogTime = 0;
+
+      const vadLoop = () => {
+        if (!isRecordingRef.current || !userAnalyserRef.current) return;
+
+        userAnalyserRef.current.getFloatTimeDomainData(vadBuffer);
+
+        let sumSq = 0;
+        for (let i = 0; i < vadBuffer.length; i++) {
+          sumSq += vadBuffer[i] * vadBuffer[i];
+        }
+        const rms = Math.sqrt(sumSq / vadBuffer.length);
+        const now = Date.now();
+
+        if (now - lastLogTime > 1000) {
+          console.log(`[VAD Debug] RMS: ${rms.toFixed(4)} (Threshold: ${SILENCE_THRESHOLD}) | Spoke: ${hasSpokeRef.current}`);
+          lastLogTime = now;
+        }
+
+        if (rms > SILENCE_THRESHOLD) {
+          // ── Audio above threshold ──
+          consecutiveSpeechFrames++;
+          if (consecutiveSpeechFrames >= SPEECH_CONFIRM_FRAMES) {
+            silenceStartRef.current = null;
+            if (!hasSpokeRef.current && now - spokeStartTime > MIN_SPOKE_DURATION_MS) {
+              hasSpokeRef.current = true;
+            }
+          }
+        } else {
+          // ── User is silent ──
+          consecutiveSpeechFrames = 0;
+          if (silenceStartRef.current === null) {
+            silenceStartRef.current = now;
+          } else if (hasSpokeRef.current && now - silenceStartRef.current >= SILENCE_DURATION_MS) {
+            console.log('[VoiceChatBox] VAD: silence detected, auto-stopping to process speech');
+            commitSpeech();
+            // Do NOT return here. Keep the vadLoop running to capture the next utterance!
+          }
+        }
+
+        vadAnimFrameRef.current = requestAnimationFrame(vadLoop);
+      };
+
+      vadAnimFrameRef.current = requestAnimationFrame(vadLoop);
+      // ── End VAD ─────────────────────────────────────────────────
+
       voiceSocketRef.current.emit('voice_start');
       setIsRecording(true);
     } catch (err) {
@@ -795,7 +772,35 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     }
   };
 
-  const stopRecording = () => {
+  // Sends audio to server but DOES NOT stop the mic stream!
+  const commitSpeech = useCallback(() => {
+    // We only commit if the user actually spoke something
+    if (!hasSpokeRef.current) return;
+
+    if (voiceSocketRef.current?.connected) {
+      voiceSocketRef.current.emit('voice_client_commit');
+      // Trigger thinking animation as soon as speech is committed
+      avatarRef.current?.playThinking();
+    }
+
+    // Reset turn guard so the next server response is accepted
+    receivedServerAudioThisTurn.current = false;
+
+    // Reset VAD state so it can listen for the NEXT sentence
+    silenceStartRef.current = null;
+    hasSpokeRef.current = false;
+  }, []);
+
+  // Physically completely powers down the microphone hardware
+  const shutdownMicrophone = useCallback(() => {
+    if (vadAnimFrameRef.current) {
+      cancelAnimationFrame(vadAnimFrameRef.current);
+      vadAnimFrameRef.current = null;
+    }
+    isRecordingRef.current = false;
+    silenceStartRef.current = null;
+    hasSpokeRef.current = false;
+
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current.onaudioprocess = null;
@@ -810,17 +815,18 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       mediaStreamRef.current = null;
     }
     if (voiceSocketRef.current?.connected) {
+      // In case we are dropping the connection midway through a sentence
+      voiceSocketRef.current.emit('voice_client_commit');
       voiceSocketRef.current.emit('voice_stop');
-      // Trigger thinking animation as soon as recording stops
-      avatarRef.current?.playThinking();
     }
-    receivedServerAudioThisTurn.current = false; // Reset turn guard for next response
+
+    receivedServerAudioThisTurn.current = false;
     setIsRecording(false);
-  };
+  }, []);
 
   const handleVoiceToggle = async () => {
     if (isRecording) {
-      stopRecording();
+      shutdownMicrophone();
     } else {
       await startRecording();
     }
@@ -1127,22 +1133,21 @@ const ChatBox = ({ bookingId, alertError, isWithinStay = true, avatarConfig, isM
   );
 };
 
-// Helpers
 const floatTo16BitPCM = (input) => {
   const buffer = new ArrayBuffer(input.length * 2);
   const view = new DataView(buffer);
-  let offset = 0;
-  for (let i = 0; i < input.length; i += 1, offset += 2) {
-    let s = Math.max(-1, Math.min(1, input[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  for (let i = 0; i < input.length; i++) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
-  return new Int16Array(buffer);
+  return new Uint8Array(buffer);
 };
 
 const arrayBufferToBase64 = (buffer) => {
   let binary = '';
   const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i += 1) {
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
   return window.btoa(binary);
@@ -1158,11 +1163,11 @@ const base64ToUint8Array = (base64) => {
   return bytes;
 };
 
-const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => {
+const playAudioChunk = async (base64, audioContextRef, playbackTimeRef, analyserRef) => {
   const bytes = base64ToUint8Array(base64);
   const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
   if (!audioContextRef.current) {
-    audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
+    audioContextRef.current = new AudioContextImpl();
   }
   const audioContext = audioContextRef.current;
 
@@ -1172,27 +1177,25 @@ const playPcmChunk = (base64, audioContextRef, playbackTimeRef, analyserRef) => 
     analyserRef.current = analyser;
   }
 
-  const bufferLength = bytes.byteLength / 2;
-  const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
-  const channelData = audioBuffer.getChannelData(0);
-  const dataView = new DataView(bytes.buffer);
-  for (let i = 0; i < bufferLength; i += 1) {
-    const sample = dataView.getInt16(i * 2, true);
-    channelData[i] = sample / 0x8000;
-  }
-  const source = audioContext.createBufferSource();
-  source.buffer = audioBuffer;
-  if (analyserRef && analyserRef.current) {
-    source.connect(analyserRef.current);
-    analyserRef.current.connect(audioContext.destination);
-  } else {
-    source.connect(audioContext.destination);
-  }
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
 
-  const now = audioContext.currentTime;
-  const startAt = Math.max(playbackTimeRef.current || now, now);
-  source.start(startAt);
-  playbackTimeRef.current = startAt + audioBuffer.duration;
+    if (analyserRef && analyserRef.current) {
+      source.connect(analyserRef.current);
+      analyserRef.current.connect(audioContext.destination);
+    } else {
+      source.connect(audioContext.destination);
+    }
+
+    const now = audioContext.currentTime;
+    const startAt = Math.max(playbackTimeRef.current || now, now);
+    source.start(startAt);
+    playbackTimeRef.current = startAt + audioBuffer.duration;
+  } catch (err) {
+    console.error('Failed to decode/play audio chunk', err);
+  }
 };
 
 export default ChatBox;

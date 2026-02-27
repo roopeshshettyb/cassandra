@@ -8,11 +8,13 @@ import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
 import { ChatSession } from './chat-session.interface';
 import { BookingsService } from '../../bookings/bookings.service';
+import { TtsService } from '../tts.service';
 import { VoiceRealtimeService } from '../voice-realtime.service';
 import { ConstantsService } from '../../common/constants/constants.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
 import { ensureWithinStayWindow } from './stay-window.guard';
+import { VoiceModularService } from '../voice-modular.service';
 
 @WebSocketGateway({ cors: true, namespace: '/voice' })
 @Injectable()
@@ -31,9 +33,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly voiceRealtimeService: VoiceRealtimeService,
     private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
+    private readonly ttsService: TtsService,
+    private readonly voiceModularService: VoiceModularService,
   ) {}
 
   async handleConnection(client: any) {
+    this.logger.log(`[VoiceGateway] New connection: clientId=${client.id}, VOICE_MODE=${process.env.VOICE_MODE}`);
     const auth: any = client.handshake?.auth;
     const token = (client.handshake?.query?.token as string) || auth?.token;
     const bookingIdRaw = client.handshake?.query?.bookingId as string;
@@ -118,20 +123,27 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       chatId: session.chatId,
       hotel: session.hotel,
       booking: session.booking,
-        languageCode: session.languageCode ?? null,
+      languageCode: session.languageCode ?? null,
     };
 
     try {
-      await this.voiceRealtimeService.createSession(client.id, toolContext, {
-        onServerEvent: (event) => this.handleRealtimeEvent(client, event),
-        onError: (error) => {
-          this.logger.error(error);
-          client.emit('error', { message: error.message || 'Voice session error' });
-        },
-        onClose: () => {
-          client.emit('voice_closed');
-        },
-      });
+      const isModular = process.env.VOICE_MODE === 'modular';
+      
+      if (isModular) {
+        this.logger.log(`[onVoiceStart] Initializing modular session for client ${client.id}`);
+        this.voiceModularService.clearAudio(client.id);
+      } else {
+        await this.voiceRealtimeService.createSession(client.id, toolContext, {
+          onServerEvent: (event) => this.handleRealtimeEvent(client, event),
+          onError: (error) => {
+            this.logger.error(error);
+            client.emit('error', { message: error.message || 'Voice session error' });
+          },
+          onClose: () => {
+            client.emit('voice_closed');
+          },
+        });
+      }
 
       client.emit('voice_ready');
     } catch (err: any) {
@@ -154,32 +166,89 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      this.voiceRealtimeService.sendClientEvent(client.id, {
-        type: 'input_audio_buffer.append',
-        audio,
-      });
+      if (process.env.VOICE_MODE === 'modular') {
+        // this.logger.log(`[onVoiceClientChunk] Appending chunk for client ${client.id}`);
+        this.voiceModularService.appendAudio(client.id, audio);
+      } else {
+        this.voiceRealtimeService.sendClientEvent(client.id, {
+          type: 'input_audio_buffer.append',
+          audio,
+        });
+      }
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Failed to send audio chunk' });
     }
   }
 
+  @SubscribeMessage('voice_client_commit')
+  async onVoiceClientCommit(client: any) {
+    const session = client.session as ChatSession | undefined;
+    this.logger.log(`[voice_client_commit] VOICE_MODE=${process.env.VOICE_MODE}, session=${!!session}, clientId=${client.id}`);
+    if (!session) {
+      this.logger.warn('[voice_client_commit] No session — aborting');
+      return;
+    }
+    if (process.env.VOICE_MODE !== 'modular') {
+      this.logger.warn(`[voice_client_commit] VOICE_MODE is "${process.env.VOICE_MODE}", not "modular" — aborting`);
+      return;
+    }
+
+    const toolContext = {
+      account: session.account,
+      bookingId: session.bookingId,
+      chatId: session.chatId,
+      hotel: session.hotel,
+      booking: session.booking,
+      languageCode: session.languageCode ?? null,
+    };
+
+    this.logger.log(`[voice_client_commit] Triggering processVoice for chatId=${session.chatId}`);
+    await this.voiceModularService.processVoice(client.id, toolContext, {
+      onUserTranscript: (text) => client.emit('voice_user_message', { text }),
+      onTextDelta: (delta) => client.emit('voice_text_chunk', { delta }),
+      onTextEnd: (text, toolCalls) => client.emit('voice_text_end', { text, toolCalls }),
+      onAudioChunk: (delta) => client.emit('voice_audio_chunk', { delta }),
+      onAudioEnd: () => client.emit('voice_audio_end'),
+      onError: (err) => client.emit('error', { message: err.message }),
+    });
+    this.logger.log(`[voice_client_commit] processVoice completed for clientId=${client.id}`);
+  }
+
   @SubscribeMessage('voice_stop')
   async onVoiceStop(client: any) {
     const session = client.session as ChatSession | undefined;
+    this.logger.log(`[voice_stop] clientId=${client.id}, VOICE_MODE=${process.env.VOICE_MODE}`);
     if (!session) {
       client.emit('error', { message: 'Not authenticated' });
       return;
     }
 
     try {
-      // Stop the realtime voice session completely. The model is already
-      // managing turns via server VAD and has created responses as needed.
-      this.voiceRealtimeService.closeSession(client.id);
+      if (process.env.VOICE_MODE === 'modular') {
+        this.logger.log(`[voice_stop] Modular mode: triggering processVoice as fallback`);
+        const toolContext = {
+          account: session.account,
+          bookingId: session.bookingId,
+          chatId: session.chatId,
+          hotel: session.hotel,
+          booking: session.booking,
+          languageCode: session.languageCode ?? null,
+        };
+        await this.voiceModularService.processVoice(client.id, toolContext, {
+          onUserTranscript: (text) => client.emit('voice_user_message', { text }),
+          onTextDelta: (delta) => client.emit('voice_text_chunk', { delta }),
+          onTextEnd: (text, toolCalls) => client.emit('voice_text_end', { text, toolCalls }),
+          onAudioChunk: (delta) => client.emit('voice_audio_chunk', { delta }),
+          onAudioEnd: () => client.emit('voice_audio_end'),
+          onError: (err) => client.emit('error', { message: err.message }),
+        });
+      } else {
+        this.voiceRealtimeService.closeSession(client.id);
+      }
       client.emit('voice_closed');
     } catch (err: any) {
-      this.logger.error(err);
-      client.emit('error', { message: err?.message || 'Failed to stop voice session' });
+      this.logger.error(`Error in onVoiceStop: ${err.message}`);
     }
   }
 
@@ -229,8 +298,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.logger.error('Failed to persist voice messages', err as Error);
         }
 
-        // Record LLM voice cost. Realtime API does not expose official token
-        // usage, so we approximate tokens from user/assistant transcripts.
         if (cleanAssistant) {
           this.costsService.recordLlmCost({
             type: CostType.LLM_VOICE,
@@ -250,21 +317,24 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             chatId: session.chatId,
             messageId: assistantMessage ? assistantMessage.id : null,
           });
+
+          try {
+            const audioBase64 = await this.ttsService.speak(cleanAssistant);
+            if (audioBase64) {
+              client.emit('voice_audio_chunk', { delta: audioBase64 });
+              client.emit('voice_audio_end');
+            }
+          } catch (err) {
+            this.logger.error('Failed to generate TTS audio', err as Error);
+          }
         }
         client.emit('voice_text_end', { text: finalAssistantText, toolCalls });
         break;
       }
-      case 'response.output_audio.delta':
-        client.emit('voice_audio_chunk', { delta: event.delta });
-        break;
-      case 'response.output_audio.done':
-        client.emit('voice_audio_end');
-        break;
       case 'error':
         client.emit('error', { message: event?.error?.message || 'Realtime error' });
         break;
       default:
-        // Other events are ignored or could be forwarded for debugging if needed.
         break;
     }
   }
