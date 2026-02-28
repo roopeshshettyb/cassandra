@@ -109,7 +109,7 @@ export function useSocketVoice({
             const AudioContextImpl = window.AudioContext || (window as any).webkitAudioContext;
             const audioContext = new AudioContextImpl({ sampleRate: 24000 });
             const source = audioContext.createMediaStreamSource(stream);
-            const processor = audioContext.createScriptProcessor(4096, 1, 1);
+            const processor = audioContext.createScriptProcessor(2048, 1, 1);
 
             processor.onaudioprocess = (e) => {
                 const inputData = e.inputBuffer.getChannelData(0);
