@@ -114,9 +114,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const provider = process.env.PROVIDER?.toLowerCase();
-    if (provider === 'huggingface' || provider === 'hugginface') {
-      this.logger.log('Starting Voice Session -> Routing to VoiceCustomPipelineService (Huggingface TTS)');
+    if (process.env.PROVIDER === 'huggingface') {
+      this.logger.log('Starting Voice Session -> Routing to VoiceCustomPipelineService (Huggingface)');
       return this.voiceCustomPipelineService.startSession(client);
     }
 
@@ -162,8 +161,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const provider = process.env.PROVIDER?.toLowerCase();
-    if (provider === 'huggingface' || provider === 'hugginface') {
+    if (process.env.PROVIDER === 'huggingface') {
       return this.voiceCustomPipelineService.handleAudioChunk(client, audio);
     }
 
@@ -186,8 +184,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const provider = process.env.PROVIDER?.toLowerCase();
-    if (provider === 'huggingface' || provider === 'hugginface') {
+    if (process.env.PROVIDER === 'huggingface') {
       return this.voiceCustomPipelineService.stopSession(client);
     }
 
@@ -289,8 +286,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: any) {
-    const provider = process.env.PROVIDER?.toLowerCase();
-    if (provider === 'huggingface' || provider === 'hugginface') {
+    if (process.env.PROVIDER === 'huggingface') {
       this.voiceCustomPipelineService.stopSession(client);
     } else {
       this.voiceRealtimeService.closeSession(client.id);
