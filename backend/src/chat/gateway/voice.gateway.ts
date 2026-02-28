@@ -12,6 +12,7 @@ import { VoiceRealtimeService } from '../voice-realtime.service';
 import { ConstantsService } from '../../common/constants/constants.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
+import { VoiceCustomPipelineService } from '../voice-custom-pipeline.service';
 import { ensureWithinStayWindow } from './stay-window.guard';
 
 @WebSocketGateway({ cors: true, namespace: '/voice' })
@@ -29,6 +30,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatContextService: ChatContextService,
     private readonly bookingsService: BookingsService,
     private readonly voiceRealtimeService: VoiceRealtimeService,
+    private readonly voiceCustomPipelineService: VoiceCustomPipelineService,
     private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
   ) {}
@@ -112,6 +114,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    const provider = process.env.PROVIDER?.toLowerCase();
+    if (provider === 'huggingface' || provider === 'hugginface') {
+      this.logger.log('Starting Voice Session -> Routing to VoiceCustomPipelineService (Huggingface TTS)');
+      return this.voiceCustomPipelineService.startSession(client);
+    }
+
+    this.logger.log('Starting Voice Session -> Routing to VoiceRealtimeService (OpenAI default)');
     const toolContext = {
       account: session.account,
       bookingId: session.bookingId,
@@ -153,6 +162,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    const provider = process.env.PROVIDER?.toLowerCase();
+    if (provider === 'huggingface' || provider === 'hugginface') {
+      return this.voiceCustomPipelineService.handleAudioChunk(client, audio);
+    }
+
     try {
       this.voiceRealtimeService.sendClientEvent(client.id, {
         type: 'input_audio_buffer.append',
@@ -170,6 +184,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!session) {
       client.emit('error', { message: 'Not authenticated' });
       return;
+    }
+
+    const provider = process.env.PROVIDER?.toLowerCase();
+    if (provider === 'huggingface' || provider === 'hugginface') {
+      return this.voiceCustomPipelineService.stopSession(client);
     }
 
     try {
@@ -270,7 +289,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: any) {
-    this.voiceRealtimeService.closeSession(client.id);
+    const provider = process.env.PROVIDER?.toLowerCase();
+    if (provider === 'huggingface' || provider === 'hugginface') {
+      this.voiceCustomPipelineService.stopSession(client);
+    } else {
+      this.voiceRealtimeService.closeSession(client.id);
+    }
     delete client.session;
     delete client.sessionPending;
   }

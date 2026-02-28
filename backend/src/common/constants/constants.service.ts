@@ -281,6 +281,61 @@ export class ConstantsService {
         // - Assistant audio: 1 token / 50ms, $64 / 1M audio output tokens -> ~0.0768 $/min
         VOICE_INPUT_PER_MINUTE: 0.0192,
         VOICE_OUTPUT_PER_MINUTE: 0.0768,
+        STT_CONFIG: {
+          PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
+          COMMON: {
+            SAMPLE_RATE: parseInt(this.configService.get('STT_SAMPLE_RATE') || '24000', 10),
+            ENCODING: this.configService.get<string>('STT_ENCODING', 'linear16'),
+          },
+          DEEPGRAM: {
+            API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
+            MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-3'),
+            UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
+          },
+          OPENAI: {
+            API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
+            REALTIME_MODEL: this.configService.get<string>('OPENAI_REALTIME_MODEL', 'gpt-4o-realtime-preview-2024-12-17'),
+            TRANSCRIBE_MODEL: this.configService.get<string>('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
+            VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
+          },
+        },
+        OPENROUTER: {
+          API_KEY: this.configService.get<string>('OPENROUTER_API_KEY'),
+          BASE_URL: this.configService.get<string>('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        },
+        TTS_CONFIG: {
+          PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
+          OPENAI: {
+            MODEL: this.configService.get<string>('OPENAI_TTS_MODEL', 'tts-1'),
+            VOICE: this.configService.get<string>('OPENAI_TTS_VOICE', 'alloy'),
+            CHUNK_MS: parseInt(this.configService.get('OPENAI_TTS_CHUNK_MS') || '100', 10),
+            RESPONSE_FORMAT: this.configService.get<string>('OPENAI_TTS_RESPONSE_FORMAT', 'pcm') as 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm',
+            TRIM_INITIAL_BYTES: parseInt(this.configService.get('OPENAI_TTS_TRIM_INITIAL_BYTES') || '0', 10),
+          },
+          HUGGINGFACE: {
+            API_KEY: this.configService.get<string>('HUGGINGFACE_API_KEY') ?? this.configService.get<string>('HF_TOKEN'),
+            MODEL: this.configService.get<string>('HUGGINGFACE_TTS_MODEL', 'maya-research/maya1'),
+            INFERENCE_BASE_URL: this.configService.get<string>('HUGGINGFACE_TTS_INFERENCE_BASE_URL', 'https://router.huggingface.co/hf-inference/models'),
+            BASE_URL: this.configService.get<string>('HUGGINGFACE_TTS_BASE_URL'),
+          },
+          SARVAM: {
+            API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
+            BASE_URL: this.configService.get<string>('SARVAM_TTS_BASE_URL', 'https://api.sarvam.ai'),
+            MODEL: this.configService.get<string>('SARVAM_TTS_MODEL', 'bulbul:v3'),
+            SPEAKER: this.configService.get<string>('SARVAM_TTS_SPEAKER', 'shruti'),
+            PACE: parseFloat(this.configService.get('SARVAM_TTS_PACE') || '1'),
+            SPEECH_SAMPLE_RATE: parseInt(this.configService.get('SARVAM_TTS_SPEECH_SAMPLE_RATE') || '24000', 10),
+          },
+          LIGHTNING: {
+            API_KEY: this.configService.get<string>('LIGHTNING_TTS_API_KEY'),
+            BASE_URL: this.configService.get<string>('LIGHTNING_TTS_BASE_URL', 'https://waves-api.smallest.ai'),
+            MODEL: this.configService.get<string>('LIGHTNING_TTS_MODEL', 'lightning-v2'),
+            VOICE_ID: this.configService.get<string>('LIGHTNING_TTS_VOICE_ID', 'rishika'),
+            SAMPLE_RATE: parseInt(this.configService.get('LIGHTNING_TTS_SAMPLE_RATE') || '24000', 10),
+            SPEED: parseFloat(this.configService.get('LIGHTNING_TTS_SPEED') || '0.9'),
+            OUTPUT_FORMAT: this.configService.get<string>('LIGHTNING_TTS_OUTPUT_FORMAT', 'pcm'),
+          },
+        },
       },
     };
   }

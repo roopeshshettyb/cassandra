@@ -45,7 +45,6 @@ export class ChatLlmService {
       session.account?.role,
       llmInstructions,
       session.languageCode ?? null,
-      isVoice,
     );
 
     const toolContext = {
