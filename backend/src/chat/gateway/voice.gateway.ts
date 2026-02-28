@@ -96,9 +96,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Mutates state.sentenceBuffer, state.fullText, state.ttsQueue, state.statistics.ttsMs.
    */
   private flushCompletedSentencesToTts(
-    state: { sentenceBuffer: string; fullText: string; ttsQueue: Promise<void>; statistics: VoiceTurnStatistics },
+    state: { sentenceBuffer: string; fullText: string; ttsQueue: Promise<void>; statistics: VoiceTurnStatistics; languageCode: string | null },
     client: any,
-    provider: { streamToClient: (client: any, text: string, options?: { emitEnd?: boolean }) => Promise<void> },
+    provider: { streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null }) => Promise<void> },
   ): void {
     const regex = /([.!?])\s+/g;
     let match: RegExpExecArray | null;
@@ -117,7 +117,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       state.fullText += sentence;
       state.ttsQueue = state.ttsQueue.then(async () => {
         const t0 = Date.now();
-        await provider.streamToClient(client, sentence, { emitEnd: false });
+        await provider.streamToClient(client, sentence, { emitEnd: false, languageCode: state.languageCode });
         state.statistics.ttsMs += Date.now() - t0;
       });
       client.emit('voice_text_chunk', { delta: sentence });
@@ -192,6 +192,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           fullText: '',
           ttsQueue: Promise.resolve() as Promise<void>,
           statistics,
+          languageCode: session.languageCode ?? null,
         };
 
         this.chatLlmService
@@ -208,7 +209,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 state.fullText += state.sentenceBuffer.trim();
                 await state.ttsQueue;
                 const t0 = Date.now();
-                await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true });
+                await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true, languageCode: state.languageCode });
                 state.statistics.ttsMs += Date.now() - t0;
               } else {
                 await state.ttsQueue;

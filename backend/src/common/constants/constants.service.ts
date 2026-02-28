@@ -270,21 +270,21 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'google/gemini-2.5-flash-lite-preview-09-2025:nitro',
+        TEXT_MODEL: 'meta-llama/llama-4-scout',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
         TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
         STT_CONFIG: {
           // Common STT settings across providers
-          PROVIDER: this.configService.get<string>('STT_PROVIDER', 'deepgram'),
+          PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
           COMMON: {
             SAMPLE_RATE: parseInt(this.configService.get('STT_SAMPLE_RATE') || '24000', 10),
             ENCODING: this.configService.get<string>('STT_ENCODING', 'linear16'),
           },
           DEEPGRAM: {
             API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
-            MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-2'),
+            MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-3'),
             UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
           },
           OPENAI: {
@@ -313,6 +313,23 @@ export class ConstantsService {
             MODEL: this.configService.get<string>('HUGGINGFACE_TTS_MODEL', 'maya-research/maya1'),
             INFERENCE_BASE_URL: this.configService.get<string>('HUGGINGFACE_TTS_INFERENCE_BASE_URL', 'https://router.huggingface.co/hf-inference/models'),
             BASE_URL: this.configService.get<string>('HUGGINGFACE_TTS_BASE_URL'),
+          },
+          SARVAM: {
+            API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
+            BASE_URL: this.configService.get<string>('SARVAM_TTS_BASE_URL', 'https://api.sarvam.ai'),
+            MODEL: this.configService.get<string>('SARVAM_TTS_MODEL', 'bulbul:v3'),
+            SPEAKER: this.configService.get<string>('SARVAM_TTS_SPEAKER', 'shruti'),
+            PACE: parseFloat(this.configService.get('SARVAM_TTS_PACE') || '1'),
+            SPEECH_SAMPLE_RATE: parseInt(this.configService.get('SARVAM_TTS_SPEECH_SAMPLE_RATE') || '24000', 10),
+          },
+          LIGHTNING: {
+            API_KEY: this.configService.get<string>('LIGHTNING_TTS_API_KEY'),
+            BASE_URL: this.configService.get<string>('LIGHTNING_TTS_BASE_URL', 'https://waves-api.smallest.ai'),
+            MODEL: this.configService.get<string>('LIGHTNING_TTS_MODEL', 'lightning-v2'),
+            VOICE_ID: this.configService.get<string>('LIGHTNING_TTS_VOICE_ID', 'rishika'),
+            SAMPLE_RATE: parseInt(this.configService.get('LIGHTNING_TTS_SAMPLE_RATE') || '24000', 10),
+            SPEED: parseFloat(this.configService.get('LIGHTNING_TTS_SPEED') || '0.9'),
+            OUTPUT_FORMAT: this.configService.get<string>('LIGHTNING_TTS_OUTPUT_FORMAT', 'pcm'),
           },
         },
       },

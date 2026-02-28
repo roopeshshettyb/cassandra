@@ -5,6 +5,8 @@ import { LoggerService } from '../common/logger.service';
 
 export interface StreamToClientOptions {
   emitEnd?: boolean;
+  /** Chat language code (e.g. en, hi, ta, te, kn); used by Sarvam/Lightning for TTS language. */
+  languageCode?: string | null;
 }
 
 @Injectable()
