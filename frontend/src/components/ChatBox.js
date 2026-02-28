@@ -553,8 +553,6 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     const connectUrl = getBackendUrl();
     if (!connectUrl) return;
 
-    console.log('[VoiceChatBox] Connecting voice socket to:', `${connectUrl}/voice`);
-
     const voiceInstance = io(`${connectUrl}/voice`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
@@ -585,35 +583,20 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     };
 
     voiceInstance.on('connect', () => {
-      console.log('[VoiceChatBox] Voice socket connected');
-      setVoiceReady(false); // Wait for ready/voice_ready
+      setVoiceReady(false);
     });
     voiceInstance.on('disconnect', () => {
-      console.log('[VoiceChatBox] Voice socket disconnected');
       setVoiceReady(false);
       setIsRecording(false);
     });
     voiceInstance.on('auth_required', () => voiceInstance.emit('auth', { token, bookingId }));
-    voiceInstance.on('ready', () => {
-      console.log('[VoiceChatBox] Voice ready');
-      setVoiceReady(true);
-    });
-    voiceInstance.on('voice_ready', () => {
-      console.log('[VoiceChatBox] Voice ready (voice_ready)');
-      setVoiceReady(true);
-    });
+    voiceInstance.on('ready', () => setVoiceReady(true));
+    voiceInstance.on('voice_ready', () => setVoiceReady(true));
 
-    // Automatic turn end: backend detected silence.
-    // Do NOT stop the mic here; we keep the session alive so the user can
-    // immediately speak again on the next turn without pressing the button.
-    voiceInstance.on('voice_turn_end', () => {
-      console.log('[VoiceChatBox] Turn ended by backend (user stopped speaking)');
-    });
+    voiceInstance.on('voice_turn_end', () => {});
 
-    // When user's voice is transcribed by the backend
     voiceInstance.on('voice_user_message', (payload) => {
       const text = payload?.text || '';
-      console.log('[VoiceChatBox] User transcription:', text);
       if (text.trim()) {
         addMessage({ id: `user-voice-${Date.now()}`, role: 'user', content: text, timestamp: new Date() });
         // Show thinking animation while waiting for response
@@ -625,10 +608,8 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       }
     });
 
-    // Voice response: text complete
     voiceInstance.on('voice_text_end', (payload) => {
       const text = payload?.text || '';
-      console.log('[VoiceChatBox] Voice text end:', text.substring(0, 50) + '...');
       if (text) {
         // Add assistant response to shared message history
         const msgId = `assistant-voice-${Date.now()}`;
@@ -703,17 +684,13 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       } else {
         playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef, agentAnalyserRef);
       }
-      // Start real-time lip sync if not already started
-        if (agentAnalyserRef.current && !realLipSyncRefs.current.isInitialized) {
-          console.log('[VoiceChatBox] Initializing real-time lip sync with agent analyser');
+      if (agentAnalyserRef.current && !realLipSyncRefs.current.isInitialized) {
           const { start, stop } = initWithAnalyser(agentAnalyserRef.current);
           realLipSyncRefs.current = { start, stop, isInitialized: true };
         }
 
-        // Start animation if TTS hasn't started it OR if TTS is running (cancel it)
         if (!isSpeakingVoiceRef.current || window.speechSynthesis.speaking) {
-          console.log('[VoiceChatBox] Audio chunk -> overriding TTS/starting animation');
-          window.speechSynthesis.cancel(); // Stop TTS immediately
+          window.speechSynthesis.cancel();
           isSpeakingVoiceRef.current = true;
           avatarRef.current?.playTalking();
 
@@ -727,7 +704,6 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
     });
 
     voiceInstance.on('voice_audio_end', () => {
-      console.log('[VoiceChatBox] Server audio stream ended');
       const prebuffer = pcmPrebufferRef.current;
       if (!prebuffer.started && prebuffer.chunks.length > 0) {
         let totalLen = 0;
@@ -752,17 +728,12 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       if (context && scheduledEndTime > 0) {
         const remainingTime = (scheduledEndTime - context.currentTime) * 1000;
         if (remainingTime > 0) {
-          delay = remainingTime + 300; // Add 300ms buffer for smooth transition
-          console.log(
-            `[VoiceChatBox] Audio still playing for ${Math.round(remainingTime)}ms. Scheduling idle animation in ${Math.round(delay)}ms`,
-          );
+          delay = remainingTime + 300;
         }
       }
 
       setTimeout(() => {
-        // Only stop if we are still marked as speaking (and not TTS)
         if (isSpeakingVoiceRef.current) {
-          console.log('[VoiceChatBox] Audio playback finished — stopping animation');
           isSpeakingVoiceRef.current = false;
           avatarRef.current?.playIdle();
           lipSyncAnim.current?.stop();
@@ -773,8 +744,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       }, delay);
     });
 
-    voiceInstance.on('error', (payload) => {
-      console.error('[VoiceChatBox] Voice error:', payload);
+    voiceInstance.on('error', () => {
       isSpeakingVoiceRef.current = false;
       setIsRecording(false);
       alertError?.(payload?.message || 'Voice error');
@@ -807,7 +777,7 @@ function VoiceChatBox({ bookingId, alertError, isWithinStay, onSwitchToChat, ava
       analyser.fftSize = 64; // Small fft for few bars
       userAnalyserRef.current = analyser;
 
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
       processor.onaudioprocess = (e) => {
         // While the assistant is speaking (audio playback in progress),
         // soft-mute outbound audio so we do not trigger a new STT/LLM turn.

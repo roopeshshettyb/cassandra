@@ -37,6 +37,7 @@ export async function buildSystemInstructions(
   llmInstructions?: string | null,
   speakerRole?: string,
   languageCode?: string | null,
+  isVoice?: boolean,
 ): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: ChatMessageInput[]; instructionsWithoutRole: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
@@ -46,7 +47,7 @@ export async function buildSystemInstructions(
 
 Use your tools when helpful and help the user to your best ability.
 
-Always respond in Markdown.`;
+${isVoice ? `This interaction is happening over voice. Respond in 1-2 short, natural-sounding sentences that are easy to speak and understand aloud. Avoid long paragraphs, any kind of formatting` : 'Always respond in Markdown.'}`;
 
   const parts: string[] = [systemContent];
 
@@ -102,8 +103,9 @@ export async function buildChatPrompt(
   speakerRole?: string,
   llmInstructions?: string | null,
   languageCode?: string | null,
+  isVoice?: boolean,
 ): Promise<ChatPromptResult> {
-  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode);
+  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode, isVoice);
 
   const messages: ChatMessageInput[] = instructions;
 

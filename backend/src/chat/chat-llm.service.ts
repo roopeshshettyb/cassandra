@@ -12,6 +12,7 @@ import { buildChatPrompt } from './chat-prompt.builder';
 export interface StreamUserMessageOptions {
   onChunk: (chunk: string) => Promise<void> | void;
   onEnd?: (result: { fullContent: string; toolCalls: LangGraphToolCallRecord[] }) => Promise<void> | void;
+  mode?: 'text' | 'voice';
 }
 
 @Injectable()
@@ -34,6 +35,7 @@ export class ChatLlmService {
     const appName = this.constantsService.public.APP_NAME;
     const hotel: any = session.hotel;
     const llmInstructions = hotel && hotel.llmInstructions ? hotel.llmInstructions : null;
+    const isVoice = options.mode === 'voice';
 
     const { messages } = await buildChatPrompt(
       this.chatContextService,
@@ -43,6 +45,7 @@ export class ChatLlmService {
       session.account?.role,
       llmInstructions,
       session.languageCode ?? null,
+      isVoice,
     );
 
     const toolContext = {

@@ -110,6 +110,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       await this.chatLlmService.streamUserMessage(session, content, {
+        mode: 'text',
         onChunk: async (chunk: string) => {
           client.emit('stream_chunk', { content: chunk });
         },

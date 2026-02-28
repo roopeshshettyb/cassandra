@@ -270,7 +270,7 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'openai/gpt-oss-safeguard-20b:nitro',
+        TEXT_MODEL: 'google/gemini-2.5-flash-lite-preview-09-2025:nitro',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
@@ -301,11 +301,12 @@ export class ConstantsService {
         TTS_CONFIG: {
           PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
           OPENAI: {
-            MODEL: this.configService.get<string>('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
+            MODEL: this.configService.get<string>('OPENAI_TTS_MODEL', 'tts-1'),
             VOICE: this.configService.get<string>('OPENAI_TTS_VOICE', 'alloy'),
             CHUNK_MS: parseInt(this.configService.get('OPENAI_TTS_CHUNK_MS') || '100', 10),
             RESPONSE_FORMAT: this.configService.get<string>('OPENAI_TTS_RESPONSE_FORMAT', 'pcm') as 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm',
-            TRIM_INITIAL_BYTES: parseInt(this.configService.get('OPENAI_TTS_TRIM_INITIAL_BYTES') || '4096', 10),
+            /** Default 0: OpenAI TTS PCM stream has no documented leading silence; trimming was cutting the first word. Set via OPENAI_TTS_TRIM_INITIAL_BYTES only if you have evidence of encoder warm-up. */
+            TRIM_INITIAL_BYTES: parseInt(this.configService.get('OPENAI_TTS_TRIM_INITIAL_BYTES') || '0', 10),
           },
           HUGGINGFACE: {
             API_KEY: this.configService.get<string>('HUGGINGFACE_API_KEY') ?? this.configService.get<string>('HF_TOKEN'),

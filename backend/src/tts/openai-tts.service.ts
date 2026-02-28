@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 import { ConstantsService } from '../common/constants/constants.service';
+import { LoggerService } from '../common/logger.service';
 
 export interface StreamToClientOptions {
   emitEnd?: boolean;
@@ -8,9 +9,10 @@ export interface StreamToClientOptions {
 
 @Injectable()
 export class OpenaiTtsService {
-  private readonly logger = new Logger(OpenaiTtsService.name);
-
-  constructor(private readonly constantsService: ConstantsService) {}
+  constructor(
+    private readonly constantsService: ConstantsService,
+    private readonly logger: LoggerService,
+  ) {}
 
   async streamToClient(client: any, text: string, options?: StreamToClientOptions): Promise<void> {
     const llmConfig = this.constantsService.private.LLM;
@@ -36,6 +38,7 @@ export class OpenaiTtsService {
       });
 
       const reader = response.body!.getReader();
+      // Trim only if OPENAI_TTS_TRIM_INITIAL_BYTES is set. Default 0: OpenAI docs describe PCM as raw samples with no leading silence; trimming cut the first word. Community examples use 4096 as read chunk size, not bytes to discard.
       const trimBytes = openaiTts.TRIM_INITIAL_BYTES ?? 0;
       let trimRemaining = trimBytes;
       const chunks: Uint8Array[] = [];
@@ -71,12 +74,20 @@ export class OpenaiTtsService {
         client.emit('voice_audio_chunk', { delta: Buffer.from(out).toString('base64') });
       }
 
-      client.emit('voice_audio_end');
-      this.logger.log('TTS Completed');
-      client.emit('voice_ready');
-      client.voiceBusy = false;
+      const emitEnd = options?.emitEnd !== false;
+      if (emitEnd) {
+        client.emit('voice_audio_end');
+        client.emit('voice_ready');
+        client.voiceBusy = false;
+      }
     } catch (err: any) {
-      this.logger.warn('[OpenAI TTS] Error during speech synthesis', err?.message ?? err);
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'OpenaiTtsService',
+        actionName: 'streamToClient',
+        traces: [{ provider: 'openai' }],
+      });
+      throw err;
     }
   }
 }

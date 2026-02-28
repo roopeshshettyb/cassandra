@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 import { OpenAIRealtimeWebSocket } from 'openai/beta/realtime/websocket';
 import WebSocket from 'ws';
 import type { ISttSession, SttSessionFactory } from './stt-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
+import { LoggerService } from '../common/logger.service';
 
-// Ensure a WebSocket implementation exists in the Node environment for the OpenAI Realtime client.
 const globalWithWebSocket = globalThis as unknown as { WebSocket?: unknown };
 if (!globalWithWebSocket.WebSocket) {
   globalWithWebSocket.WebSocket = WebSocket;
@@ -13,9 +13,10 @@ if (!globalWithWebSocket.WebSocket) {
 
 @Injectable()
 export class OpenaiSttService implements SttSessionFactory {
-  private readonly logger = new Logger(OpenaiSttService.name);
-
-  constructor(private readonly constantsService: ConstantsService) {}
+  constructor(
+    private readonly constantsService: ConstantsService,
+    private readonly logger: LoggerService,
+  ) {}
 
   createSession(): ISttSession {
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
@@ -33,7 +34,7 @@ export class OpenaiSttService implements SttSessionFactory {
     let endOfSpeechCb: (() => void) | null = null;
     const pendingAudio: string[] = [];
 
-    const log = this.logger;
+    const logger = this.logger;
 
     (async () => {
       try {
@@ -96,10 +97,24 @@ export class OpenaiSttService implements SttSessionFactory {
         });
 
         socket.on('error', (err: any) => {
-          if (!destroyed) log.warn('[OpenAI STT] Realtime error', err?.message ?? err);
+          if (!destroyed) {
+            logger.warn({
+              message: err?.message ?? String(err),
+              serviceName: 'OpenaiSttService',
+              actionName: 'createSession',
+              traces: [{ stage: 'realtime' }],
+            });
+          }
         });
       } catch (err: any) {
-        if (!destroyed) log.warn('[OpenAI STT] Failed to connect realtime', err?.message ?? err);
+        if (!destroyed) {
+          logger.warn({
+            message: err?.message ?? String(err),
+            serviceName: 'OpenaiSttService',
+            actionName: 'createSession',
+            traces: [{ stage: 'connect' }],
+          });
+        }
       }
     })();
 
@@ -136,7 +151,12 @@ export class OpenaiSttService implements SttSessionFactory {
           try {
             socket.close({ code: 1000, reason: 'stt session destroyed' });
           } catch (e) {
-            log.warn('[OpenAI STT] Error closing realtime socket', e);
+            logger.warn({
+              message: e instanceof Error ? e.message : String(e),
+              serviceName: 'OpenaiSttService',
+              actionName: 'destroy',
+              traces: [{ stage: 'close' }],
+            });
           }
           socket = null;
         }

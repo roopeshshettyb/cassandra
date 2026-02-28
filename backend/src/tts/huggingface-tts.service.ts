@@ -1,12 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConstantsService } from '../common/constants/constants.service';
+import { LoggerService } from '../common/logger.service';
 import { StreamToClientOptions } from './openai-tts.service';
 
 @Injectable()
 export class HuggingfaceTtsService {
-  private readonly logger = new Logger(HuggingfaceTtsService.name);
-
-  constructor(private readonly constantsService: ConstantsService) {}
+  constructor(
+    private readonly constantsService: ConstantsService,
+    private readonly logger: LoggerService,
+  ) {}
 
   async streamToClient(client: any, text: string, options?: StreamToClientOptions): Promise<void> {
     const ttsConfig = this.constantsService.private.LLM.TTS_CONFIG;
@@ -57,12 +59,20 @@ export class HuggingfaceTtsService {
 
       const base64 = audioBuffer.toString('base64');
       client.emit('voice_audio_chunk', { delta: base64 });
-      client.emit('voice_audio_end');
-      this.logger.log('TTS Completed');
-      client.emit('voice_ready');
-      client.voiceBusy = false;
+
+      const emitEnd = options?.emitEnd !== false;
+      if (emitEnd) {
+        client.emit('voice_audio_end');
+        client.emit('voice_ready');
+        client.voiceBusy = false;
+      }
     } catch (err: any) {
-      this.logger.warn('[Hugging Face TTS] Error during speech synthesis', err?.message ?? err);
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'HuggingfaceTtsService',
+        actionName: 'streamToClient',
+        traces: [{ provider: 'huggingface' }],
+      });
       throw err;
     }
   }

@@ -1,16 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
 import type { ISttSession, SttSessionFactory } from './stt-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
+import { LoggerService } from '../common/logger.service';
 
 @Injectable()
 export class DeepgramSttService implements SttSessionFactory {
-  private readonly logger = new Logger(DeepgramSttService.name);
-
-  constructor(private readonly constantsService: ConstantsService) {}
+  constructor(
+    private readonly constantsService: ConstantsService,
+    private readonly logger: LoggerService,
+  ) {}
 
   createSession(): ISttSession {
-    const log = this.logger;
+    const logger = this.logger;
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const commonConfig = sttConfig.COMMON;
     const deepgramConfig = sttConfig.DEEPGRAM;
@@ -34,9 +36,7 @@ export class DeepgramSttService implements SttSessionFactory {
 
     live.setupConnection();
 
-    live.on(LiveTranscriptionEvents.Open, () => {
-      if (!destroyed) log.debug('[Deepgram] Live connection open');
-    });
+    live.on(LiveTranscriptionEvents.Open, () => {});
 
     live.on(LiveTranscriptionEvents.Transcript, (data: any) => {
       if (destroyed || !transcriptCb) return;
@@ -60,12 +60,17 @@ export class DeepgramSttService implements SttSessionFactory {
     });
 
     live.on(LiveTranscriptionEvents.Error, (err: any) => {
-      if (!destroyed) log.warn('[Deepgram] Live error', err?.message ?? err);
+      if (!destroyed) {
+        logger.warn({
+          message: err?.message ?? String(err),
+          serviceName: 'DeepgramSttService',
+          actionName: 'createSession',
+          traces: [{ stage: 'live' }],
+        });
+      }
     });
 
-    live.on(LiveTranscriptionEvents.Close, () => {
-      if (!destroyed) log.debug('[Deepgram] Live connection closed');
-    });
+    live.on(LiveTranscriptionEvents.Close, () => {});
 
     return {
       writeAudio(buffer: Buffer) {
@@ -74,7 +79,14 @@ export class DeepgramSttService implements SttSessionFactory {
           const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
           live.send(ab);
         } catch (e) {
-          if (!destroyed) log.warn('[Deepgram] send error', e);
+          if (!destroyed) {
+            logger.warn({
+              message: e instanceof Error ? e.message : String(e),
+              serviceName: 'DeepgramSttService',
+              actionName: 'writeAudio',
+              traces: [{ stage: 'send' }],
+            });
+          }
         }
       },
       endInput() {
