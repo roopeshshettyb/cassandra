@@ -11,6 +11,7 @@ import { ChatService } from './chat.service';
 import { ChatLlmService } from './chat-llm.service';
 import { ChatGateway } from './gateway/chat.gateway';
 import { VoiceGateway } from './gateway/voice.gateway';
+import { VoiceRealtimeService } from './voice-realtime.service';
 import { CostsModule } from '../costs/costs.module';
 import { SttModule } from '../stt/stt.module';
 import { TtsModule } from '../tts/tts.module';
@@ -28,7 +29,7 @@ import { TtsModule } from '../tts/tts.module';
     SttModule,
     TtsModule,
   ],
-  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway],
+  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}

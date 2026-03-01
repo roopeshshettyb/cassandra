@@ -272,6 +272,7 @@ export class ConstantsService {
       LLM: {
         TEXT_MODEL: 'meta-llama/llama-4-scout',
         PROVIDER: 'openai',
+        VOICE_PROVIDER: this.configService.get<string>('VOICE_PROVIDER', 'default'),
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
         TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
