@@ -9,8 +9,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
-
-const TEXT_MODEL = 'gpt-4o-mini';
+import { ConstantsService } from '../common/constants/constants.service';
 
 export interface ToolCallRecord {
   toolName: string;
@@ -39,17 +38,23 @@ export class LangGraphService {
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   private createModel(): ChatOpenAI {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const llmConfig = this.constantsService.private.LLM;
+    const openrouterConfig = llmConfig.OPENROUTER;
+    const apiKey = openrouterConfig.API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required');
+      throw new Error('OPENROUTER_API_KEY is required');
     }
     return new ChatOpenAI({
-      modelName: TEXT_MODEL,
+      modelName: llmConfig.TEXT_MODEL,
       apiKey,
       temperature: 0.7,
+      configuration: {
+        baseURL: openrouterConfig.BASE_URL,
+      },
     });
   }
 

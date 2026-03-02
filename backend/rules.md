@@ -1,4 +1,4 @@
-1. All strings should be in constants service and read from env wherever it's a secret
+1. All strings should be in constants service. If it is read from env, then put it in private constants and private constants reads from env but everywhere else in code it reads from private constants. No defaults in code anywhere, if any default it should be in private constants itself
 2. Every API needs to be secure. So ownership should be verified.
 
 Example ->

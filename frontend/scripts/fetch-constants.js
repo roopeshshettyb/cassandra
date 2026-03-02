@@ -40,7 +40,7 @@ function fetchConstants() {
     });
 
     req.on('error', (error) => {
-      reject(new Error(`Request failed: ${error.message}`));
+      // reject(new Error(`Request failed: ${error.message}`));
     });
 
     req.setTimeout(10000, () => {

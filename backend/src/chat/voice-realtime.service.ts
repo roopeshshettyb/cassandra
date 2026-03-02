@@ -37,22 +37,19 @@ export class VoiceRealtimeService {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  /**
-   * Create a new Realtime WebSocket session for a given chat + booking
-   * context. The returned session is identified by `sessionId`, which is
-   * usually a per-socket identifier from the `/voice` gateway.
-   */
   async createSession(sessionId: string, ctx: AgentToolContext, handlers: VoiceSessionHandlers): Promise<void> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
+    const openaiConfig = sttConfig.OPENAI;
+    const apiKey = openaiConfig.API_KEY;
     if (!apiKey) {
       throw new Error('OPENAI_API_KEY is required for Realtime voice');
     }
 
-    const model = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime';
-    const baseUrl = process.env.OPENAI_REALTIME_URL || 'wss://api.openai.com/v1/realtime';
+    const model = openaiConfig.REALTIME_MODEL;
+    const baseUrl = openaiConfig.REALTIME_URL;
     const url = `${baseUrl}?model=${encodeURIComponent(model)}`;
 
-    const transcriptionModel = process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe';
+    const transcriptionModel = openaiConfig.TRANSCRIBE_MODEL;
 
     const ws = new WebSocket(url, {
       headers: {
@@ -81,7 +78,14 @@ export class VoiceRealtimeService {
         const llmInstructions = hotel?.llmInstructions;
         const account: any = ctx.account;
         const languageCode = ctx.languageCode ?? null;
-        const { instructionsWithoutRole: instructionsWithSpeaker } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions, account?.role, languageCode);
+        const { instructionsWithoutRole: instructionsWithSpeaker } = await buildSystemInstructions(
+          this.chatContextService,
+          ctx.chatId,
+          appName,
+          llmInstructions,
+          account?.role,
+          languageCode,
+        );
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
         const sessionUpdate = {
@@ -92,12 +96,10 @@ export class VoiceRealtimeService {
             instructions: instructionsWithSpeaker,
             tools,
             tool_choice: 'auto',
-            // Use audio-only; we derive text from output_audio_transcript events.
             output_modalities: ['audio'],
             audio: {
               input: {
                 format: { type: 'audio/pcm', rate: 24000 },
-                // Enable transcription so we get conversation.item.input_audio_transcription.*
                 transcription: {
                   model: transcriptionModel,
                   ...(languageCode ? { language: languageCode } : {}),
@@ -163,27 +165,18 @@ export class VoiceRealtimeService {
     });
   }
 
-  /**
-   * Forward a client-originated event (e.g. input_audio_buffer.append or
-   * input_audio_buffer.commit / response.create) to the Realtime model.
-   */
   sendClientEvent(sessionId: string, event: unknown): void {
     const state = this.sessions.get(sessionId);
     if (!state) {
       throw new Error(`No Realtime session found for id: ${sessionId}`);
     }
     if (!state.isOpen || !state.sessionConfigured) {
-      // Queue events until the underlying WebSocket is fully open and the
-      // Realtime session has been configured (session.updated received).
       state.pendingEvents.push(event);
       return;
     }
     state.ws.send(JSON.stringify(event));
   }
 
-  /**
-   * Close and clean up a Realtime session.
-   */
   closeSession(sessionId: string): void {
     const state = this.sessions.get(sessionId);
     if (!state) return;
@@ -195,11 +188,6 @@ export class VoiceRealtimeService {
     }
   }
 
-  /**
-   * Consume (read and clear) the accumulated user/assistant transcripts and
-   * tool call records for a session. Intended to be called by the gateway
-   * when a model response has completed.
-   */
   consumeTranscriptsAndTools(sessionId: string): {
     userTranscript?: string;
     assistantText?: string;
@@ -247,9 +235,7 @@ export class VoiceRealtimeService {
   private async handleServerEvent(sessionId: string, state: VoiceSessionState, event: any): Promise<void> {
     switch (event.type) {
       case 'session.updated': {
-        // Session config (instructions/tools/audio) is now effective.
         state.sessionConfigured = true;
-        // Flush any events that accumulated while waiting for session config.
         for (const queued of state.pendingEvents) {
           try {
             state.ws.send(JSON.stringify(queued));
@@ -285,7 +271,6 @@ export class VoiceRealtimeService {
         this.logger.warn(`Realtime error for session ${sessionId}`, event?.error ?? event);
         break;
       default:
-        // Other events are forwarded to the gateway without extra handling.
         break;
     }
   }
@@ -319,9 +304,6 @@ export class VoiceRealtimeService {
       };
     }
 
-    // If the model requested a chat language change, persist it on the Chat
-    // and update the Realtime session configuration (transcription language
-    // and instructions) so subsequent turns are consistent.
     if (name === 'set_chat_language') {
       const argsAny: any = args;
       const newLanguageCodeRaw: unknown = argsAny?.languageCode;
@@ -333,7 +315,14 @@ export class VoiceRealtimeService {
           const hotel: any = state.ctx.hotel;
           const llmInstructions = hotel?.llmInstructions;
           const account: any = state.ctx.account;
-          const { instructionsWithoutRole: updatedInstructions } = await buildSystemInstructions(this.chatContextService, state.ctx.chatId, appName, llmInstructions, account?.role, newLanguageCode);
+          const { instructionsWithoutRole: updatedInstructions } = await buildSystemInstructions(
+            this.chatContextService,
+            state.ctx.chatId,
+            appName,
+            llmInstructions,
+            account?.role,
+            newLanguageCode,
+          );
 
           const sessionUpdateEvent = {
             type: 'session.update',
@@ -359,7 +348,6 @@ export class VoiceRealtimeService {
 
     const output = typeof result === 'string' ? result : JSON.stringify(result);
 
-    // Track tool call metadata for later persistence into Messages.
     const resultAny: any = result;
     const errorMsg = typeof result === 'object' && result !== null && 'error' in result ? String(resultAny.error) : undefined;
     state.toolCalls.push({
@@ -370,7 +358,6 @@ export class VoiceRealtimeService {
       error: errorMsg,
     });
 
-    // Inject a function_call_output item back into the conversation.
     const toolOutputEvent = {
       type: 'conversation.item.create',
       item: {
@@ -382,10 +369,10 @@ export class VoiceRealtimeService {
 
     state.ws.send(JSON.stringify(toolOutputEvent));
 
-    // Trigger a new response so the model can incorporate the tool result.
     const responseCreateEvent = {
       type: 'response.create',
     };
     state.ws.send(JSON.stringify(responseCreateEvent));
   }
 }
+

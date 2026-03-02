@@ -37,7 +37,8 @@ export async function buildSystemInstructions(
   llmInstructions?: string | null,
   speakerRole?: string,
   languageCode?: string | null,
-): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: string; instructionsWithoutRole: string }> {
+  isVoice?: boolean,
+): Promise<{ contextData: { context: string; lastMessageCount: number }; instructions: ChatMessageInput[]; instructionsWithoutRole: string }> {
   const contextData = await chatContextService.buildChatContext(chatId);
 
   let systemContent = `You are ${appName}, a hotel companion that helps with anything related to the hotel operations.
@@ -46,7 +47,7 @@ export async function buildSystemInstructions(
 
 Use your tools when helpful and help the user to your best ability.
 
-Always respond in Markdown.`;
+${isVoice ? `This interaction is happening over voice. Respond in 1-2 short, natural-sounding sentences that are easy to speak and understand aloud. Avoid long paragraphs, any kind of formatting` : 'Always respond in Markdown.'}`;
 
   const parts: string[] = [systemContent];
 
@@ -73,8 +74,11 @@ Always respond in Markdown.`;
 
   parts.push(`This is the context of the coversation so far : ${contextData.context}`);
 
-  const instructions: any = parts.map((ele) => {
-    return { role: 'system', ele };
+  const instructions: ChatMessageInput[] = parts.map((ele) => {
+    return {
+      role: 'system',
+      content: ele,
+    };
   });
 
   return {
@@ -99,10 +103,11 @@ export async function buildChatPrompt(
   speakerRole?: string,
   llmInstructions?: string | null,
   languageCode?: string | null,
+  isVoice?: boolean,
 ): Promise<ChatPromptResult> {
-  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode);
+  const { contextData, instructions } = await buildSystemInstructions(chatContextService, chatId, appName, llmInstructions, speakerRole, languageCode, isVoice);
 
-  const messages: any = instructions;
+  const messages: ChatMessageInput[] = instructions;
 
   messages.push({
     role: 'user',

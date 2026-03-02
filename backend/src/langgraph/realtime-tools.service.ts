@@ -42,7 +42,7 @@ export class RealtimeToolsService {
         type: openaiTool.type,
         name: openaiTool.function.name,
         description: openaiTool.function.description ?? '',
-        parameters: openaiTool.function.parameters ?? {},
+        parameters: (openaiTool.function.parameters ?? {}) as Record<string, unknown>,
       };
     });
   }

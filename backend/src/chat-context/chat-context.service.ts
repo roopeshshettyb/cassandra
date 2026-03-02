@@ -29,7 +29,7 @@ export class ChatContextService {
     const key = CACHE_KEY_PREFIX + String(chatId);
     let messages: Message[] = [];
     try {
-      messages = await this.messagesService.findLastByChatId(chatId, CONTEXT_REBUILD_INTERVAL);
+      messages = await this.messagesService.findRecentByChatId(chatId, CONTEXT_REBUILD_INTERVAL);
     } catch (e) {
       this.logger.error(e);
     }

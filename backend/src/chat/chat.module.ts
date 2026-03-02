@@ -8,10 +8,13 @@ import { LangGraphModule } from '../langgraph/langgraph.module';
 import { CommonModule } from '../common/common.module';
 import { ChatRepository } from './chat.repository';
 import { ChatService } from './chat.service';
+import { ChatLlmService } from './chat-llm.service';
 import { ChatGateway } from './gateway/chat.gateway';
-import { VoiceRealtimeService } from './voice-realtime.service';
 import { VoiceGateway } from './gateway/voice.gateway';
+import { VoiceRealtimeService } from './voice-realtime.service';
 import { CostsModule } from '../costs/costs.module';
+import { SttModule } from '../stt/stt.module';
+import { TtsModule } from '../tts/tts.module';
 
 @Module({
   imports: [
@@ -23,8 +26,10 @@ import { CostsModule } from '../costs/costs.module';
     forwardRef(() => LangGraphModule),
     CommonModule,
     CostsModule,
+    SttModule,
+    TtsModule,
   ],
-  providers: [ChatRepository, ChatService, ChatGateway, VoiceRealtimeService, VoiceGateway],
+  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}

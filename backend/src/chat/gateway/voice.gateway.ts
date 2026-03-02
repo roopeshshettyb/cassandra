@@ -3,16 +3,31 @@ import { Server } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { ChatService } from '../chat.service';
+import { ChatSession } from './chat-session.interface';
+import { BookingsService } from '../../bookings/bookings.service';
+import { ConstantsService } from '../../common/constants/constants.service';
+import { LoggerService } from '../../common/logger.service';
+import { SttFactoryService } from '../../stt/stt-factory.service';
+import type { ISttSession } from '../../stt/stt-session.interface';
+import { TtsFactoryService } from '../../tts/tts-factory.service';
+import { ChatLlmService } from '../chat-llm.service';
+import { VoiceRealtimeService } from '../voice-realtime.service';
 import { MessagesService } from '../../messages/messages.service';
 import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
-import { ChatSession } from './chat-session.interface';
-import { BookingsService } from '../../bookings/bookings.service';
-import { VoiceRealtimeService } from '../voice-realtime.service';
-import { ConstantsService } from '../../common/constants/constants.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
-import { ensureWithinStayWindow } from './stay-window.guard';
+import { parseConnectionHandshake, authenticateBookingAndInit } from './gateway-auth.helper';
+
+export interface VoiceTurnStatistics {
+  lastAudioAt: number;
+  responseStart: number;
+  sttMs: number;
+  llmStart: number;
+  llmMs: number;
+  ttsMs: number;
+  totalProcessingMs: number;
+}
 
 @WebSocketGateway({ cors: true, namespace: '/voice' })
 @Injectable()
@@ -25,22 +40,39 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly authService: AuthService,
     private readonly chatService: ChatService,
+    private readonly bookingsService: BookingsService,
+    private readonly constantsService: ConstantsService,
+    private readonly loggerService: LoggerService,
+    private readonly sttFactory: SttFactoryService,
+    private readonly ttsFactory: TtsFactoryService,
+    private readonly chatLlmService: ChatLlmService,
+    private readonly voiceRealtimeService: VoiceRealtimeService,
     private readonly messagesService: MessagesService,
     private readonly chatContextService: ChatContextService,
-    private readonly bookingsService: BookingsService,
-    private readonly voiceRealtimeService: VoiceRealtimeService,
-    private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
   ) {}
 
-  async handleConnection(client: any) {
-    const auth: any = client.handshake?.auth;
-    const token = (client.handshake?.query?.token as string) || auth?.token;
-    const bookingIdRaw = client.handshake?.query?.bookingId as string;
-    const bookingId = bookingIdRaw ? parseInt(bookingIdRaw, 10) : undefined;
+  private isGptVoicePipeline(): boolean {
+    return this.constantsService.private.LLM.VOICE_PIPELINE === 'gpt';
+  }
 
-    if (token && bookingId && !isNaN(bookingId)) {
-      await this.authenticateAndInit(client, token, bookingId);
+  async handleConnection(client: any) {
+    const { token, bookingId } = parseConnectionHandshake(client);
+    if (token && bookingId !== undefined) {
+      await authenticateBookingAndInit(
+        client,
+        token,
+        bookingId,
+        {
+          authService: this.authService,
+          chatService: this.chatService,
+          bookingsService: this.bookingsService,
+          constantsService: this.constantsService,
+        },
+        async () => {
+          client.emit('voice_ready');
+        },
+      );
     } else {
       client.sessionPending = { token: null, bookingId: null };
       client.emit('auth_required', { message: 'Send auth with token and bookingId' });
@@ -53,133 +85,287 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', { message: 'Already authenticated' });
       return;
     }
-    const { token, bookingId } = payload || {};
+    const token = payload?.token;
+    const bookingId = payload?.bookingId;
     if (!token || !bookingId) {
       client.emit('error', { message: 'auth requires token and bookingId' });
       return;
     }
-    await this.authenticateAndInit(client, token, bookingId);
+    await authenticateBookingAndInit(
+      client,
+      token,
+      bookingId,
+      {
+        authService: this.authService,
+        chatService: this.chatService,
+        bookingsService: this.bookingsService,
+        constantsService: this.constantsService,
+      },
+      async () => {
+        client.emit('voice_ready');
+      },
+    );
   }
 
-  private async authenticateAndInit(client: any, token: string, bookingId: number): Promise<void> {
-    try {
-      const account = await this.authService.verifyToken(token);
-      if (!account) {
-        client.emit('error', { code: 'UNAUTHORIZED', message: 'Invalid token' });
-        client.disconnect(true);
-        return;
-      }
+  /**
+   * Splits buffer on sentence-ending punctuation (.!?) and streams each complete sentence to TTS.
+   * Mutates state.sentenceBuffer, state.fullText, state.ttsQueue, state.statistics.ttsMs.
+   */
+  private flushCompletedSentencesToTts(
+    state: { sentenceBuffer: string; fullText: string; ttsQueue: Promise<void>; statistics: VoiceTurnStatistics; languageCode: string | null },
+    client: any,
+    provider: { streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null }) => Promise<void> },
+  ): void {
+    const regex = /([.!?])\s+/g;
+    let match: RegExpExecArray | null;
+    let lastIndex = 0;
+    const parts: string[] = [];
+    while ((match = regex.exec(state.sentenceBuffer)) !== null) {
+      const endIndex = match.index + 1;
+      const sentence = state.sentenceBuffer.slice(lastIndex, endIndex).trim();
+      if (sentence.length > 0) parts.push(sentence);
+      lastIndex = regex.lastIndex;
+    }
+    if (parts.length === 0) return;
 
-      const chat = await this.chatService.findOrCreateForBooking(bookingId, account);
-      const { data: booking } = await this.bookingsService.findByIdForAccount(bookingId, account);
-      if (!ensureWithinStayWindow(client, booking.isWithinStay, this.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
-        return;
-      }
-      const hotel = booking.hotel || null;
-      const bookingPlain = booking;
-      const messages = await this.messagesService.findRecentByChatId(chat.id, 50);
-      const session: ChatSession = {
-        account,
-        bookingId,
-        chatId: chat.id,
-        hotel,
-        booking: bookingPlain,
-        languageCode: chat.languageCode ?? null,
-      };
-      client.session = session;
-      delete client.sessionPending;
-
-      client.emit('ready', {
-        chatId: chat.id,
-        messages: messages,
+    state.sentenceBuffer = state.sentenceBuffer.slice(lastIndex);
+    for (const sentence of parts) {
+      state.fullText += sentence;
+      state.ttsQueue = state.ttsQueue.then(async () => {
+        const t0 = Date.now();
+        await provider.streamToClient(client, sentence, { emitEnd: false, languageCode: state.languageCode });
+        state.statistics.ttsMs += Date.now() - t0;
       });
+      client.emit('voice_text_chunk', { delta: sentence });
+    }
+  }
+
+  private createSttSession(client: any): ISttSession | null {
+    if (client.sttSession) {
+      client.sttSession.destroy();
+      client.sttSession = null;
+    }
+    if (client.voiceBusy) {
+      return null;
+    }
+    try {
+      const factory = this.sttFactory.getFactory();
+      const sttSession: ISttSession = factory.createSession();
+      client.sttSession = sttSession;
+      client._voiceStatistics = {
+        lastAudioAt: Date.now(),
+        responseStart: 0,
+        sttMs: 0,
+        llmStart: 0,
+        llmMs: 0,
+        ttsMs: 0,
+        totalProcessingMs: 0,
+      } as VoiceTurnStatistics;
+      let lastFinalTranscript = '';
+
+      sttSession.onTranscript((text: string, isFinal?: boolean) => {
+        if (isFinal) lastFinalTranscript = text;
+        client.emit('voice_user_chunk', { delta: text, isFinal: !!isFinal });
+      });
+
+      sttSession.onEndOfSpeech(() => {
+        sttSession.endInput();
+        if (client.sttSession === sttSession) {
+          client.sttSession = null;
+        }
+        sttSession.destroy();
+        client.emit('voice_turn_end');
+
+        const statistics = client._voiceStatistics as VoiceTurnStatistics;
+        statistics.responseStart = Date.now();
+        statistics.sttMs = statistics.responseStart - (statistics.lastAudioAt ?? statistics.responseStart);
+        statistics.llmStart = Date.now();
+        statistics.llmMs = 0;
+        statistics.ttsMs = 0;
+        statistics.totalProcessingMs = 0;
+
+        const textToSpeak = lastFinalTranscript;
+        const session: ChatSession | undefined = client.session;
+
+        if (!session) {
+          client.emit('error', { message: 'Not authenticated' });
+          client.emit('voice_ready');
+          return;
+        }
+
+        if (!textToSpeak || typeof textToSpeak !== 'string') {
+          client.emit('voice_ready');
+          return;
+        }
+
+        client.emit('voice_user_message', { text: textToSpeak });
+
+        client.voiceBusy = true;
+        const provider = this.ttsFactory.getProvider();
+
+        const state = {
+          sentenceBuffer: '',
+          fullText: '',
+          ttsQueue: Promise.resolve() as Promise<void>,
+          statistics,
+          languageCode: session.languageCode ?? null,
+        };
+
+        this.chatLlmService
+          .streamUserMessage(session, textToSpeak, {
+            mode: 'voice',
+            onChunk: (chunk: string) => {
+              if (!chunk) return;
+              state.sentenceBuffer += chunk;
+              this.flushCompletedSentencesToTts(state, client, provider);
+            },
+            onEnd: async (result) => {
+              state.statistics.llmMs = Date.now() - state.statistics.llmStart;
+              if (state.sentenceBuffer.trim().length > 0) {
+                state.fullText += state.sentenceBuffer.trim();
+                await state.ttsQueue;
+                const t0 = Date.now();
+                await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true, languageCode: state.languageCode });
+                state.statistics.ttsMs += Date.now() - t0;
+              } else {
+                await state.ttsQueue;
+              }
+              state.statistics.totalProcessingMs = Date.now() - state.statistics.responseStart;
+              this.loggerService.log({
+                message: 'Voice cycle complete',
+                serviceName: 'VoiceGateway',
+                actionName: 'createSttSession',
+                traces: [
+                  { sttMs: state.statistics.sttMs },
+                  { llmMs: state.statistics.llmMs },
+                  { ttsMs: state.statistics.ttsMs },
+                  { totalProcessingMs: state.statistics.totalProcessingMs },
+                ],
+              });
+              client.emit('voice_text_end', { text: result.fullContent || state.fullText });
+            },
+          })
+          .catch((err: any) => {
+            this.loggerService.warn({
+              message: err?.message ?? String(err),
+              traces: [{ error: 'LLM+TTS' }],
+            });
+            client.emit('error', { message: 'Voice response failed' });
+            client.emit('voice_ready');
+            client.voiceBusy = false;
+          });
+      });
+
+      return sttSession;
     } catch (err: any) {
-      this.logger.warn(err);
-      if (err?.statusCode === 403 || err?.message?.includes('Forbidden')) {
-        client.emit('error', { code: 'FORBIDDEN', message: 'No access to this booking' });
-      } else {
-        client.emit('error', { code: 'ERROR', message: err?.message || 'Setup failed' });
-      }
-      client.disconnect(true);
+      this.loggerService.error({
+        error: err,
+        traces: [{ stage: 'STT session' }],
+      });
+      client.emit('error', { message: err?.message || 'STT session failed' });
+      return null;
     }
   }
 
   @SubscribeMessage('voice_start')
   async onVoiceStart(client: any) {
-    const session = client.session as ChatSession | undefined;
+    const session: ChatSession | undefined = client.session;
     if (!session) {
       client.emit('error', { message: 'Not authenticated' });
       return;
     }
-
-    const toolContext = {
-      account: session.account,
-      bookingId: session.bookingId,
-      chatId: session.chatId,
-      hotel: session.hotel,
-      booking: session.booking,
+    if (this.isGptVoicePipeline()) {
+      const toolContext = {
+        account: session.account,
+        bookingId: session.bookingId,
+        chatId: session.chatId,
+        hotel: session.hotel,
+        booking: session.booking,
         languageCode: session.languageCode ?? null,
-    };
+      };
 
-    try {
-      await this.voiceRealtimeService.createSession(client.id, toolContext, {
-        onServerEvent: (event) => this.handleRealtimeEvent(client, event),
-        onError: (error) => {
-          this.logger.error(error);
-          client.emit('error', { message: error.message || 'Voice session error' });
-        },
-        onClose: () => {
-          client.emit('voice_closed');
-        },
-      });
+      try {
+        await this.voiceRealtimeService.createSession(client.id, toolContext, {
+          onServerEvent: (event) => this.handleRealtimeEvent(client, event),
+          onError: (error) => {
+            this.logger.error(error);
+            client.emit('error', { message: error.message || 'Voice session error' });
+          },
+          onClose: () => {
+            client.emit('voice_closed');
+          },
+        });
 
-      client.emit('voice_ready');
-    } catch (err: any) {
-      this.logger.error(err);
-      client.emit('error', { message: err?.message || 'Failed to start voice session' });
+        client.emit('voice_ready');
+      } catch (err: any) {
+        this.logger.error(err);
+        client.emit('error', { message: err?.message || 'Failed to start voice session' });
+      }
+    } else {
+      if (client.voiceBusy) {
+        return;
+      }
+      this.createSttSession(client);
     }
   }
 
   @SubscribeMessage('voice_client_chunk')
-  async onVoiceClientChunk(client: any, payload: { audio: string }) {
-    const session = client.session as ChatSession | undefined;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-    const audio = payload?.audio;
-    if (!audio) {
-      client.emit('error', { message: 'audio is required' });
+  onVoiceClientChunk(client: any, payload: { audio?: string }) {
+    const session: ChatSession | undefined = client.session;
+    if (!session) return;
+
+    if (this.isGptVoicePipeline()) {
+      const audio = payload?.audio;
+      if (!audio) {
+        client.emit('error', { message: 'audio is required' });
+        return;
+      }
+      try {
+        this.voiceRealtimeService.sendClientEvent(client.id, {
+          type: 'input_audio_buffer.append',
+          audio,
+        });
+      } catch (err: any) {
+        this.logger.error(err);
+        client.emit('error', { message: err?.message || 'Failed to send audio chunk' });
+      }
       return;
     }
 
-    try {
-      this.voiceRealtimeService.sendClientEvent(client.id, {
-        type: 'input_audio_buffer.append',
-        audio,
-      });
-    } catch (err: any) {
-      this.logger.error(err);
-      client.emit('error', { message: err?.message || 'Failed to send audio chunk' });
+    if (client.voiceBusy) return;
+    let sttSession: ISttSession | undefined = client.sttSession;
+    if (!sttSession) {
+      sttSession = this.createSttSession(client) ?? undefined;
+      if (!sttSession) return;
     }
+    const base64 = payload?.audio;
+    if (!base64 || typeof base64 !== 'string') return;
+    try {
+      const buffer = Buffer.from(base64, 'base64');
+      sttSession.writeAudio(buffer);
+      if (client._voiceStatistics) (client._voiceStatistics as VoiceTurnStatistics).lastAudioAt = Date.now();
+    } catch (_) {}
   }
 
   @SubscribeMessage('voice_stop')
-  async onVoiceStop(client: any) {
-    const session = client.session as ChatSession | undefined;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-
-    try {
-      // Stop the realtime voice session completely. The model is already
-      // managing turns via server VAD and has created responses as needed.
-      this.voiceRealtimeService.closeSession(client.id);
-      client.emit('voice_closed');
-    } catch (err: any) {
-      this.logger.error(err);
-      client.emit('error', { message: err?.message || 'Failed to stop voice session' });
+  onVoiceStop(client: any) {
+    const session: ChatSession | undefined = client.session;
+    if (!session) return;
+    if (this.isGptVoicePipeline()) {
+      try {
+        this.voiceRealtimeService.closeSession(client.id);
+        client.emit('voice_closed');
+      } catch (err: any) {
+        this.logger.error(err);
+        client.emit('error', { message: err?.message || 'Failed to stop voice session' });
+      }
+    } else {
+      const sttSession: ISttSession | undefined = client.sttSession;
+      if (sttSession) {
+        sttSession.endInput();
+        sttSession.destroy();
+        client.sttSession = null;
+      }
     }
   }
 
@@ -196,11 +382,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         break;
       }
-      case 'conversation.item.input_audio_transcription.delta':
-        client.emit('voice_user_chunk', { delta: event.delta || '' });
-        break;
       case 'response.output_text.delta':
-
       case 'response.output_audio_transcript.delta':
         client.emit('voice_text_chunk', { delta: event.delta || '' });
         break;
@@ -222,15 +404,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
           }
           if (cleanAssistant) {
-            assistantMessage = await this.messagesService.create(session.chatId, MessageRole.ASSISTANT, cleanAssistant, toolCalls.length ? toolCalls : undefined);
+            assistantMessage = await this.messagesService.create(
+              session.chatId,
+              MessageRole.ASSISTANT,
+              cleanAssistant,
+              toolCalls.length ? toolCalls : undefined,
+            );
           }
           await this.chatContextService.rebuildCache(session.chatId);
         } catch (err) {
           this.logger.error('Failed to persist voice messages', err as Error);
         }
 
-        // Record LLM voice cost. Realtime API does not expose official token
-        // usage, so we approximate tokens from user/assistant transcripts.
         if (cleanAssistant) {
           this.costsService.recordLlmCost({
             type: CostType.LLM_VOICE,
@@ -238,10 +423,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               promptTokens: usage?.promptTokens ?? 0,
               completionTokens: usage?.completionTokens ?? 0,
               totalTokens: usage?.totalTokens ?? 0,
-            },
-            audio: {
-              inputMs: 0,
-              outputMs: 0,
             },
             bookingId: session.bookingId,
             hotelId: session.booking ? session.booking.hotelId : null,
@@ -264,13 +445,25 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('error', { message: event?.error?.message || 'Realtime error' });
         break;
       default:
-        // Other events are ignored or could be forwarded for debugging if needed.
         break;
     }
   }
 
   handleDisconnect(client: any) {
-    this.voiceRealtimeService.closeSession(client.id);
+    if (this.isGptVoicePipeline()) {
+      this.voiceRealtimeService.closeSession(client.id);
+      delete client.session;
+      delete client.sessionPending;
+      return;
+    }
+    const sttSession: ISttSession | undefined = client.sttSession;
+    if (sttSession) {
+      sttSession.destroy();
+      client.sttSession = null;
+    }
+    if (client.voiceBusy) {
+      client.voiceBusy = false;
+    }
     delete client.session;
     delete client.sessionPending;
   }
