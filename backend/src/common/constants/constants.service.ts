@@ -275,6 +275,7 @@ export class ConstantsService {
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
         TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
+        VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
         STT_CONFIG: {
           // Common STT settings across providers
           PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
@@ -292,6 +293,7 @@ export class ConstantsService {
             REALTIME_MODEL: this.configService.get<string>('OPENAI_REALTIME_MODEL', 'gpt-4o-realtime-preview-2024-12-17'),
             TRANSCRIBE_MODEL: this.configService.get<string>('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
+            REALTIME_URL: this.configService.get<string>('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime'),
           },
         },
         OPENROUTER: {
