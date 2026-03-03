@@ -146,7 +146,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     try {
       const factory = this.sttFactory.getFactory();
-      const sttSession: ISttSession = factory.createSession();
+      const session: ChatSession | undefined = client.session;
+      const sttSession: ISttSession = factory.createSession(session?.languageCode ?? null);
       client.sttSession = sttSession;
       client._voiceStatistics = {
         lastAudioAt: Date.now(),
@@ -225,7 +226,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 state.statistics.ttsMs += Date.now() - t0;
               } else {
                 await state.ttsQueue;
+                client.emit('voice_audio_end');
+                client.emit('voice_ready');
               }
+              client.voiceBusy = false;
               state.statistics.totalProcessingMs = Date.now() - state.statistics.responseStart;
               this.logger.log({
                 message: 'Voice cycle complete',

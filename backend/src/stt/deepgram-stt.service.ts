@@ -11,7 +11,7 @@ export class DeepgramSttService implements SttSessionFactory {
     private readonly logger: LoggerService,
   ) {}
 
-  createSession(): ISttSession {
+  createSession(languageCode?: string | null): ISttSession {
     const logger = this.logger;
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const commonConfig = sttConfig.COMMON;
@@ -28,6 +28,7 @@ export class DeepgramSttService implements SttSessionFactory {
       sample_rate: commonConfig.SAMPLE_RATE,
       utterance_end_ms: utteranceEndMs,
       interim_results: true,
+      ...(languageCode ? { language: languageCode } : {}),
     });
 
     let transcriptCb: ((text: string, isFinal?: boolean) => void) | null = null;

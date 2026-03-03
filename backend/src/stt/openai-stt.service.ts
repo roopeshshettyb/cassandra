@@ -18,7 +18,7 @@ export class OpenaiSttService implements SttSessionFactory {
     private readonly logger: LoggerService,
   ) {}
 
-  createSession(): ISttSession {
+  createSession(languageCode?: string | null): ISttSession {
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const openaiConfig = sttConfig.OPENAI;
     const apiKey = openaiConfig.API_KEY;
@@ -51,6 +51,7 @@ export class OpenaiSttService implements SttSessionFactory {
               input_audio_format: 'pcm16',
               input_audio_transcription: {
                 model: openaiConfig.TRANSCRIBE_MODEL,
+                ...(languageCode ? { language: languageCode } : {}),
               },
               turn_detection: {
                 type: 'server_vad',

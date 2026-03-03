@@ -7,7 +7,6 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:7676'
 interface UseSocketVoiceProps {
     bookingId: number | string;
     onUserMessage?: (text: string) => void;
-    onAssistantTextChunk?: (text: string) => void;
     onAssistantTextEnd?: (text: string) => void;
     onError?: (error: string) => void;
 }
@@ -15,13 +14,13 @@ interface UseSocketVoiceProps {
 export function useSocketVoice({
     bookingId,
     onUserMessage,
-    onAssistantTextChunk,
     onAssistantTextEnd,
     onError,
 }: UseSocketVoiceProps) {
     const [isRecording, setIsRecording] = useState(false);
     const [isReady, setIsReady] = useState(false);
-    const [isSpeaking, setIsSpeaking] = useState(false); // Rough approximation based on receiving chunks
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [speakingText, setSpeakingText] = useState('');
 
     const socketRef = useRef<Socket | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -29,6 +28,9 @@ export function useSocketVoice({
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const playbackAudioContextRef = useRef<AudioContext | null>(null);
     const playbackTimeRef = useRef<number>(0);
+    // Accumulates LLM text before audio arrives, then shown as subtitle once audio starts
+    const pendingTextRef = useRef('');
+    const isSpeakingRef = useRef(false);
 
     useEffect(() => {
         if (!bookingId) return;
@@ -44,58 +46,78 @@ export function useSocketVoice({
 
         socketRef.current = socket;
 
-        socket.on('connect', () => {
-            setIsReady(true);
-        });
-
+        socket.on('connect', () => setIsReady(true));
         socket.on('disconnect', () => {
             setIsReady(false);
             setIsRecording(false);
         });
-
-        socket.on('voice_ready', () => {
-            setIsReady(true);
-        });
-
-        socket.on('error', (err: any) => {
-            onError?.(err?.message || 'Voice socket error');
-        });
+        socket.on('voice_ready', () => setIsReady(true));
+        socket.on('error', (err: any) => onError?.(err?.message || 'Voice socket error'));
 
         socket.on('voice_user_message', (payload: any) => {
+            // New turn starting — reset any leftover speaking state from previous turn
+            isSpeakingRef.current = false;
+            pendingTextRef.current = '';
+            setIsSpeaking(false);
+            setSpeakingText('');
             onUserMessage?.(payload?.text || '');
         });
 
+        // Accumulate text silently — subtitle only appears when audio starts
         socket.on('voice_text_chunk', (payload: any) => {
-            setIsSpeaking(true);
-            onAssistantTextChunk?.(payload?.delta || '');
+            pendingTextRef.current += (payload?.delta || '');
         });
 
         socket.on('voice_text_end', (payload: any) => {
-            setIsSpeaking(false);
-            onAssistantTextEnd?.(payload?.text || '');
+            const fullText = payload?.text || pendingTextRef.current;
+            pendingTextRef.current = fullText;
+            onAssistantTextEnd?.(fullText);
         });
 
         socket.on('voice_audio_chunk', (payload: any) => {
-            if (payload?.delta) {
-                playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef);
-                // Re-assert speaking state when audio chunks arrive
+            if (!payload?.delta) return;
+            playPcmChunk(payload.delta, playbackAudioContextRef, playbackTimeRef);
+            if (!isSpeakingRef.current) {
+                // First audio chunk — show the text we buffered so far as subtitle
+                isSpeakingRef.current = true;
                 setIsSpeaking(true);
+                setSpeakingText(pendingTextRef.current);
             }
         });
 
         socket.on('voice_audio_end', () => {
-            // Audio playback is fire-and-forget in current utils, 
-            // effectively assumes speaking ends when chunks stop? 
-            // For UI purposes, we toggle off speaking when text ends usually, 
-            // or we could use a timeout if we wanted more precision.
-            // setIsSpeaking(false); 
+            pendingTextRef.current = '';
+            const ctx = playbackAudioContextRef.current;
+            if (ctx && playbackTimeRef.current > ctx.currentTime) {
+                const remainingMs = (playbackTimeRef.current - ctx.currentTime) * 1000;
+                setTimeout(() => {
+                    isSpeakingRef.current = false;
+                    setIsSpeaking(false);
+                    setSpeakingText('');
+                }, remainingMs);
+            } else {
+                isSpeakingRef.current = false;
+                setIsSpeaking(false);
+                setSpeakingText('');
+            }
         });
 
         return () => {
-            stopRecording();
             socket.disconnect();
         };
     }, [bookingId]);
+
+    const stopAudio = useCallback(() => {
+        if (playbackAudioContextRef.current) {
+            playbackAudioContextRef.current.close().catch(() => {});
+            playbackAudioContextRef.current = null;
+            playbackTimeRef.current = 0;
+        }
+        isSpeakingRef.current = false;
+        setIsSpeaking(false);
+        setSpeakingText('');
+        pendingTextRef.current = '';
+    }, []);
 
     const startRecording = async () => {
         if (isRecording) return;
@@ -150,19 +172,21 @@ export function useSocketVoice({
             mediaStreamRef.current = null;
         }
 
-        if (socketRef.current?.connected && isRecording) { // Only emit stop if we were recording
+        // Kill any audio currently playing or scheduled
+        stopAudio();
+
+        if (socketRef.current?.connected && isRecording) {
             socketRef.current.emit('voice_stop');
         }
         setIsRecording(false);
-    }, [isRecording]); // depend on isRecording to know if we should emit stop? Actually refs are stable.
-
-    // fix stopRecording dependency
+    }, [isRecording, stopAudio]);
 
     return {
         isRecording,
         isReady,
         isSpeaking,
+        speakingText,
         startRecording,
-        stopRecording
+        stopRecording,
     };
 }

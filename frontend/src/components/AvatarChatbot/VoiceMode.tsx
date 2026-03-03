@@ -1,11 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Fab } from '@mui/material';
+import { Fab, Box, Typography } from '@mui/material';
 import { useSocketVoice } from './hooks/useSocketVoice';
 import { useLipSync } from './hooks/useLipSync';
 import { VoiceStatus } from './types';
 import { Message } from './types';
 import { AvatarCanvasRef } from './AvatarCanvas';
-import ChatIcon from '@mui/icons-material/Chat';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 
 interface VoiceModeProps {
@@ -38,7 +37,7 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
     return () => lipSyncAnim.current?.stop();
   }, [initWithSpeechSynthesis]);
 
-  const { isRecording, isSpeaking, startRecording, stopRecording } = useSocketVoice({
+  const { isRecording, isSpeaking, speakingText, startRecording, stopRecording } = useSocketVoice({
     bookingId,
     onUserMessage: (text) => {
       setStatus('processing');
@@ -50,7 +49,6 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
         timestamp: new Date()
       });
     },
-    onAssistantTextChunk: () => { },
     onAssistantTextEnd: (fullText) => {
       addMessage({
         id: (Date.now() + 1).toString(),
@@ -86,6 +84,33 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({
 
   return (
     <>
+      {/* Bot subtitle — appears in sync with audio, not text streaming */}
+      {speakingText && (
+        <Box sx={{
+          position: 'absolute',
+          bottom: 104,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '80%',
+          textAlign: 'center',
+          zIndex: 1000,
+        }}>
+          <Typography sx={{
+            color: '#fff',
+            fontSize: '0.95rem',
+            lineHeight: 1.5,
+            textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+            bgcolor: 'rgba(0,0,0,0.45)',
+            borderRadius: 2,
+            px: 2,
+            py: 0.75,
+            display: 'inline-block',
+          }}>
+            {speakingText}
+          </Typography>
+        </Box>
+      )}
+
       {/* Microphone Button - Bottom Center */}
       <Fab
         onClick={() => isRecording ? stopRecording() : startRecording()}

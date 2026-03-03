@@ -11,5 +11,5 @@ export interface ISttSession {
 }
 
 export interface SttSessionFactory {
-  createSession(): ISttSession;
+  createSession(languageCode?: string | null): ISttSession;
 }
