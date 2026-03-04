@@ -104,7 +104,7 @@ const AppContent = () => {
     const primaryMain = themeConfig?.primaryColor || '#D4AF37';
     const secondaryMain = themeConfig?.secondaryColor || '#C5A022';
     const darkTextSecondary = themeConfig?.secondaryColor || '#B8860B';
-    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F5F5F5');
+    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F8F7F4');
     const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? '#121212' : '#FFFFFF');
     const fontFamily =
       themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';

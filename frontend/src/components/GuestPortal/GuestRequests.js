@@ -1,0 +1,189 @@
+import React, { useState } from 'react';
+import { Box, Typography } from '@mui/material';
+import { motion } from 'framer-motion';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
+
+dayjs.extend(relativeTime);
+
+const allCategories = [
+  { value: 'all', label: 'All' },
+  { value: 'room_service', label: 'Room Service' },
+  { value: 'house_keeping', label: 'Housekeeping' },
+  { value: 'laundry', label: 'Laundry' },
+  { value: 'airport_transfer', label: 'Airport Transfer' },
+];
+
+function RequestRow({ req, index }) {
+  const st = REQUEST_STATUS[req.status] || REQUEST_STATUS.pending;
+  const StatusIcon = st.icon;
+  const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
+
+  const firstNote = extractFirstNote(req.userNotes);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
+      <Box
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          bgcolor: '#fff',
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+          <Box sx={{ flex: 1, mr: 1.5 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3 }}>{title}</Typography>
+            {firstNote && <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.4, lineHeight: 1.5 }}>{firstNote}</Typography>}
+          </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 99,
+              bgcolor: st.bg,
+              flexShrink: 0,
+            }}
+          >
+            <motion.div animate={st.spin ? { rotate: 360 } : {}} transition={st.spin ? { duration: 1.5, repeat: Infinity, ease: 'linear' } : {}} style={{ display: 'flex', alignItems: 'center' }}>
+              <StatusIcon sx={{ fontSize: 12, color: st.color }} />
+            </motion.div>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: st.color }}>{st.label}</Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
+          <Typography sx={{ fontSize: 11, color: MUTED }}>{dayjs(req.createdAt).fromNow()}</Typography>
+          {req.urgency && (
+            <>
+              <Box
+                sx={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(0,0,0,0.2)',
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: 11,
+                  color: req.urgency === 'high' ? '#DC2626' : req.urgency === 'medium' ? '#D97706' : '#059669',
+                  fontWeight: 600,
+                  textTransform: 'capitalize',
+                }}
+              >
+                {req.urgency} priority
+              </Typography>
+            </>
+          )}
+        </Box>
+      </Box>
+    </motion.div>
+  );
+}
+
+export default function GuestRequests({ booking }) {
+  const [filter, setFilter] = useState('all');
+
+  const hotelName = booking?.hotel?.name || 'Hotel';
+  const requests = Array.isArray(booking?.requests) ? booking.requests : [];
+
+  const filteredRequests = [...requests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).filter((r) => filter === 'all' || r.requestType === filter);
+
+  // Only show categories that have at least one request
+  const availableCategories = allCategories.filter((cat) => cat.value === 'all' || requests.some((r) => r.requestType === cat.value));
+
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: '#F8F7F4', px: 2.5, pt: 3, pb: 14 }}>
+      <Box sx={{ maxWidth: 640, mx: 'auto' }}>
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+          <Typography
+            sx={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: 'primary.main',
+              mb: 1,
+            }}
+          >
+            {hotelName}
+          </Typography>
+          <Typography sx={{ fontSize: 24, fontWeight: 700, color: NAVY }}>Your Requests</Typography>
+          <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>
+            {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}
+          </Typography>
+        </motion.div>
+
+        {/* Filter chips */}
+        {availableCategories.length > 1 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} style={{ marginTop: 20 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                overflowX: 'auto',
+                pb: 0.5,
+                mx: -0.5,
+                px: 0.5,
+                '&::-webkit-scrollbar': { display: 'none' },
+                scrollbarWidth: 'none',
+              }}
+            >
+              {availableCategories.map((cat) => {
+                const isActive = filter === cat.value;
+                return (
+                  <motion.button
+                    key={cat.value}
+                    onClick={() => setFilter(cat.value)}
+                    whileTap={{ scale: 0.96 }}
+                    style={{
+                      padding: '7px 16px',
+                      borderRadius: 99,
+                      border: isActive ? 'none' : '1.5px solid rgba(0,0,0,0.12)',
+                      background: isActive ? GOLD_GRADIENT : '#fff',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: isActive ? '#fff' : MUTED,
+                      whiteSpace: 'nowrap',
+                      outline: 'none',
+                      boxShadow: isActive ? '0 2px 8px rgba(197,160,34,0.3)' : 'none',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {cat.label}
+                  </motion.button>
+                );
+              })}
+            </Box>
+          </motion.div>
+        )}
+
+        {/* Request list */}
+        <Box sx={{ mt: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {filteredRequests.map((req, i) => (
+            <RequestRow key={req.id} req={req} index={i} />
+          ))}
+        </Box>
+
+        {filteredRequests.length === 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+            <Box sx={{ textAlign: 'center', py: 10 }}>
+              <Typography sx={{ color: MUTED, fontSize: 15, fontWeight: 500 }}>No requests found</Typography>
+              <Typography sx={{ fontSize: 13, color: 'rgba(136,136,136,0.7)', mt: 0.75 }}>{filter !== 'all' ? 'Try a different category' : 'Speak to your concierge to get started'}</Typography>
+            </Box>
+          </motion.div>
+        )}
+      </Box>
+    </Box>
+  );
+}

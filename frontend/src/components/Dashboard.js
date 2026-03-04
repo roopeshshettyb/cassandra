@@ -1,137 +1,141 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container, Grid, Typography, Card, CardContent, Divider, Stack } from '@mui/material';
+import { Box, Grid, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
-import ChatBox from './ChatBox';
 import RequestCard from './cards/RequestCard';
 import BookingCard from './cards/BookingCard';
-import { findMostRelevantBooking } from '../utils/bookingUtils';
+import HotelIcon from '@mui/icons-material/Hotel';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import BedtimeIcon from '@mui/icons-material/Bedtime';
 
-const MotionBox = motion(Box);
+import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
 
-const Dashboard = ({ setLoading, account, navigate, alertError, isMobile }) => {
+const LABEL_SX = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: MUTED,
+  mb: 2,
+};
+
+function StatCard({ icon: Icon, label, value, accent }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+      <Box sx={{ bgcolor: '#fff', borderRadius: 3, p: 2.5, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: accent || GOLD_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon sx={{ fontSize: 20, color: '#fff' }} />
+          </Box>
+        </Box>
+        <Typography sx={{ fontSize: 28, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{value}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>{label}</Typography>
+      </Box>
+    </motion.div>
+  );
+}
+
+const Dashboard = ({ setLoading, account, navigate, alertError }) => {
   const [bookings, setBookings] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [latestBooking, setLatestBooking] = useState(null);
-
-  const fetchBookings = async () => {
-    await request({
-      endpoint: '/bookings',
-      method: 'GET',
-      setLoading,
-      setData: (data) => {
-        setBookings(data);
-        if (data && data.length > 0) {
-          if (data && data.length > 0) {
-            const activeOrUpcoming = findMostRelevantBooking(data);
-            setLatestBooking(activeOrUpcoming);
-          }
-        }
-      },
-      defaultData: [],
-      alertError,
-    });
-  };
-
-  const fetchRequests = async () => {
-    await request({
-      endpoint: '/requests',
-      method: 'GET',
-      setLoading,
-      setData: setRequests,
-      defaultData: [],
-      alertError,
-    });
-  };
 
   useEffect(() => {
-    fetchBookings();
-    fetchRequests();
+    request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError });
+    request({ endpoint: '/requests', method: 'GET', setLoading, setData: setRequests, defaultData: [], alertError });
   }, []);
 
-  const isGuest = account?.role === 'guest';
-  const recentBookings = bookings.slice(0, 3);
-  const recentRequests = requests.slice(0, 3);
+  const activeBookings = bookings.filter((b) => b.isWithinStay).length;
+  const pendingRequests = requests.filter((r) => r.status === 'pending').length;
+  const completedRequests = requests.filter((r) => r.status === 'completed').length;
+
+  const recentBookings = bookings.slice(0, 4);
+  const recentRequests = requests.slice(0, 4);
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        {isGuest && latestBooking && (
-          <Box sx={{ mb: 6 }}>
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: 'medium' }}>
-              {latestBooking.isWithinStay ? 'Current Stay' : 'Upcoming / Recent Stay'}
-            </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={8}>
-                <Card sx={{ height: '100%', borderRadius: 3, boxShadow: 3 }}>
-                  <CardContent sx={{ height: '100%', p: 0, '&:last-child': { pb: 0 } }}>
-                    {/* ChatBox embedded directly */}
-                    <ChatBox
-                      bookingId={latestBooking.id}
-                      alertError={alertError}
-                      isWithinStay={latestBooking.isWithinStay}
-                      avatarConfig={latestBooking.hotel?.avatarConfig}
-                      isMobile={isMobile}
-                      setLoading={setLoading}
-                      dataset={null} // Pass null or minimal data if needed
-                      isDashboard={true}
-                      guestName={account?.name || latestBooking?.guest?.name}
-                    />
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <BookingCard
-                  data={latestBooking}
-                  navigate={navigate}
-                  pendingRequestsCount={requests.filter((r) => r.bookingId === latestBooking.id && r.status !== 'completed' && r.status !== 'cancelled').length}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        )}
+    <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+        <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
+          Overview
+        </Typography>
+        <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, mb: 0.5 }}>
+          {greeting()}{account?.name ? `, ${account.name.split(' ')[0]}` : ''}
+        </Typography>
+        <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </Typography>
+      </motion.div>
 
-        {/* Recent Requests Section */}
-        <Box sx={{ mb: 6 }}>
-          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'medium' }}>
-            Recent Requests
+      {/* Stats row */}
+      <Grid container spacing={2} sx={{ mb: 5 }}>
+        {[
+          { icon: HotelIcon,              label: 'Total Bookings',   value: bookings.length,    accent: GOLD_GRADIENT },
+          { icon: BedtimeIcon,            label: 'Active Now',       value: activeBookings,      accent: 'linear-gradient(135deg,#1B2340,#263462)' },
+          { icon: PendingActionsIcon,     label: 'Pending Requests', value: pendingRequests,     accent: 'linear-gradient(135deg,#C5A022,#B8860B)' },
+          { icon: CheckCircleOutlineIcon, label: 'Completed',        value: completedRequests,   accent: 'linear-gradient(135deg,#059669,#047857)' },
+        ].map((s, i) => (
+          <Grid item xs={6} md={3} key={s.label}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.35 }}>
+              <StatCard {...s} />
+            </motion.div>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Recent Requests */}
+      <Box sx={{ mb: 5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography sx={LABEL_SX}>Recent Requests</Typography>
+          <Typography onClick={() => navigate('/requests')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>
+            View all
           </Typography>
-          {recentRequests.length > 0 ? (
-            <Grid container spacing={3}>
-              {recentRequests.map((req) => (
-                <Grid item xs={12} sm={6} md={4} key={req.id}>
+        </Box>
+        {recentRequests.length > 0 ? (
+          <Grid container spacing={2}>
+            {recentRequests.map((req, i) => (
+              <Grid item xs={12} sm={6} md={3} key={req.id}>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
                   <RequestCard data={req} navigate={navigate} account={account} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Typography variant="body1" color="text.secondary">
-              No recent requests found.
-            </Typography>
-          )}
-        </Box>
+                </motion.div>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Typography sx={{ fontSize: 13, color: MUTED }}>No recent requests.</Typography>
+        )}
+      </Box>
 
-        {/* Recent Bookings Section */}
-        <Box sx={{ mb: 6 }}>
-          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'medium' }}>
-            Recent Bookings
+      {/* Recent Bookings */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography sx={LABEL_SX}>Recent Bookings</Typography>
+          <Typography onClick={() => navigate('/bookings')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>
+            View all
           </Typography>
-          {recentBookings.length > 0 ? (
-            <Grid container spacing={3}>
-              {recentBookings.map((booking) => (
-                <Grid item xs={12} sm={6} md={4} key={booking.id}>
-                  <BookingCard data={booking} navigate={navigate} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Typography variant="body1" color="text.secondary">
-              No recent bookings found.
-            </Typography>
-          )}
         </Box>
-      </MotionBox>
-    </Container>
+        {recentBookings.length > 0 ? (
+          <Grid container spacing={2}>
+            {recentBookings.map((booking, i) => (
+              <Grid item xs={12} sm={6} md={3} key={booking.id}>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.06 }}>
+                  <BookingCard data={booking} navigate={navigate} />
+                </motion.div>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Typography sx={{ fontSize: 13, color: MUTED }}>No recent bookings.</Typography>
+        )}
+      </Box>
+    </Box>
   );
 };
 

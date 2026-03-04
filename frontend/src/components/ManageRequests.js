@@ -1,56 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
 import RequestCard from './cards/RequestCard';
 
-const MotionBox = motion(Box);
-
-// ... (MotionBox definition)
-
-// Removed NoteText and RequestRow
+import { NAVY } from '../theme';
 
 function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, account }) {
   const [requests, setRequests] = useState([]);
 
-  const fetchRequests = async () => {
-    await request({
-      endpoint: '/requests',
-      method: 'GET',
-      setLoading,
-      setData: setRequests,
-      defaultData: [],
-      alertError,
-    });
-  };
-
   useEffect(() => {
-    fetchRequests();
+    request({ endpoint: '/requests', method: 'GET', setLoading, setData: setRequests, defaultData: [], alertError });
   }, []);
 
-  // requestColumns removed
-
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              justifyContent: isMobile ? 'flex-start' : 'flex-end',
-              alignItems: isMobile ? 'flex-end' : 'center',
-              gap: 2,
-            }}
-          />
-
-          <Box>
-            <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
-          </Box>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
+            Management
+          </Typography>
+          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Requests</Typography>
         </Box>
-      </MotionBox>
-    </Container>
+      </motion.div>
+      <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
+    </Box>
   );
 }
 

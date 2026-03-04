@@ -1,98 +1,82 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 
-const MotionBox = motion(Box);
+import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
 
 function ManageCosts({ setLoading, account, alertError }) {
   const [costs, setCosts] = useState([]);
 
   useEffect(() => {
-    const fetchCosts = async () => {
-      await request({
-        endpoint: '/costs/aggregate',
-        method: 'GET',
-        setLoading,
-        setData: setCosts,
-        defaultData: [],
-        alertError,
-      });
-    };
-
     if (account && (account.role === 'admin' || account.role === 'hotel_owner')) {
-      fetchCosts();
+      request({ endpoint: '/costs/aggregate', method: 'GET', setLoading, setData: setCosts, defaultData: [], alertError });
     }
   }, [account, setLoading, alertError]);
 
   if (!account || (account.role !== 'admin' && account.role !== 'hotel_owner')) {
     return (
-      <Container sx={{ py: 4 }}>
-        <Typography variant="h5" color="error">
-          You are not authorized to view this page.
-        </Typography>
-      </Container>
+      <Box sx={{ px: 3, pt: 3 }}>
+        <Typography sx={{ color: '#DC2626', fontWeight: 600 }}>You are not authorized to view this page.</Typography>
+      </Box>
     );
   }
 
-  // Helper to format currency
   const formatCurrency = (amount, currency) => {
-    // Basic conversion assumption: 1 USD = 86 INR if currency is USD
     let val = parseFloat(amount || 0);
-    if (currency?.toLowerCase() === 'usd') {
-      val = val * 86;
-    }
+    if (currency?.toLowerCase() === 'usd') val = val * 86;
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            Manage Costs
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
+            Analytics
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            View aggregated costs for your bookings.
-          </Typography>
+          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Costs</Typography>
+          <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>Aggregated AI usage costs per booking</Typography>
+        </Box>
+      </motion.div>
+
+      {/* Table card */}
+      <Box sx={{ bgcolor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+        {/* Header row */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr auto', gap: 2, px: 3, py: 1.5, borderBottom: '1px solid rgba(0,0,0,0.07)', background: 'linear-gradient(135deg, #1B2340 0%, #263462 100%)' }}>
+          {['Booking', 'Guest', 'Email', 'Total Cost'].map((h) => (
+            <Typography key={h} sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>{h}</Typography>
+          ))}
         </Box>
 
-        <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2, boxShadow: 1 }}>
-          <TableContainer sx={{ maxHeight: 600 }}>
-            <Table stickyHeader aria-label="costs table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Booking ID</TableCell>
-                  <TableCell>Guest Name</TableCell>
-                  <TableCell>Guest Email</TableCell>
-                  <TableCell align="right">Total Cost (INR)</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {costs.length > 0 ? (
-                  costs.map((row) => (
-                    <TableRow key={row.id || row.bookingId} hover>
-                      <TableCell>{row.bookingId || 'N/A'}</TableCell>
-                      <TableCell>{row.guestName}</TableCell>
-                      <TableCell>{row.guestEmail}</TableCell>
-                      <TableCell align="right">{formatCurrency(row.totalCost, row.currency)}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                      <Typography variant="body1" color="text.secondary">
-                        No cost data available
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      </MotionBox>
-    </Container>
+        {costs.length > 0 ? (
+          costs.map((row, i) => (
+            <motion.div key={row.id || row.bookingId || i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '80px 1fr 1fr auto',
+                  gap: 2,
+                  px: 3,
+                  py: 2,
+                  borderBottom: i < costs.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                  '&:hover': { bgcolor: 'rgba(212,175,55,0.04)' },
+                }}
+              >
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: 'monospace' }}>#{row.bookingId || '—'}</Typography>
+                <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 500 }}>{row.guestName || '—'}</Typography>
+                <Typography sx={{ fontSize: 13, color: MUTED }}>{row.guestEmail || '—'}</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>{formatCurrency(row.totalCost, row.currency)}</Typography>
+              </Box>
+            </motion.div>
+          ))
+        ) : (
+          <Box sx={{ py: 8, textAlign: 'center' }}>
+            <Typography sx={{ fontSize: 14, color: MUTED }}>No cost data available</Typography>
+          </Box>
+        )}
+      </Box>
+    </Box>
   );
 }
 
