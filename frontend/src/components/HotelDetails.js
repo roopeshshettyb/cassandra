@@ -325,6 +325,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.primaryColor || ''}
                         onChange={handleInputChange('primaryColor')}
                         placeholder="#D4AF37"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.primaryColor || '#D4AF37'} onChange={(e) => handleInputChange('primaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                     <Grid item xs={12} sm={4}>
@@ -334,6 +336,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.secondaryColor || ''}
                         onChange={handleInputChange('secondaryColor')}
                         placeholder="#C5A022"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.secondaryColor || '#C5A022'} onChange={(e) => handleInputChange('secondaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                     <Grid item xs={12} sm={4}>
@@ -343,6 +347,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.primaryHoverColor || ''}
                         onChange={handleInputChange('primaryHoverColor')}
                         placeholder="#B8860B"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.primaryHoverColor || '#B8860B'} onChange={(e) => handleInputChange('primaryHoverColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                     <Grid item xs={12}>

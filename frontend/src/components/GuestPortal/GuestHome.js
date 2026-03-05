@@ -72,7 +72,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
       {/* ── Sticky Top Nav Bar ─────────────────────────── */}
       <Box
         sx={{
-          position: 'sticky',
+          position: { xs: 'static', sm: 'sticky' },
           top: 0,
           zIndex: 100,
           bgcolor: 'rgba(248,247,244,0.94)',
@@ -99,6 +99,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
                 fontSize: 13,
                 fontWeight: 700,
                 color: '#fff',
+                display: { xs: 'none', sm: 'flex' },
               }}
             >
               {initials}

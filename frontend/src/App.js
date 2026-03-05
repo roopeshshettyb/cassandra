@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Grid, useMediaQuery, Box, Typography } from '@mui/material';
@@ -31,6 +31,12 @@ import Home from './components/Home';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 
 const AppContent = () => {
   const navigate = useNavigate();
@@ -239,6 +245,7 @@ const AppContent = () => {
         >
           <Box sx={{ flex: 1 }}>
             <Grid style={{ paddingTop: '20px' }}>
+              <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />
                 {routes.map((route) => {

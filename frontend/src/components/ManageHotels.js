@@ -12,9 +12,10 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
   const [showAddForm, setShowAddForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [formValues, setFormValues] = useState({ name: '', address: '', checkInTime: '', checkOutTime: '' });
+  const [dataLoading, setDataLoading] = useState(true);
 
   const fetchHotels = async () => {
-    await request({ endpoint: '/hotels', method: 'GET', setLoading, defaultData: [], alertError, setData: setHotels });
+    await request({ endpoint: '/hotels', method: 'GET', setLoading: setDataLoading, defaultData: [], alertError, setData: setHotels });
   };
 
   useEffect(() => {
@@ -40,10 +41,10 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
   const canAddHotel = account?.role === 'admin';
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 8, sm: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
-          <Box>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: { xs: 'flex-end', sm: 'space-between' }, mb: 4, flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
               Management
             </Typography>
@@ -81,7 +82,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
         </Box>
       </Dialog>
 
-      <DataGrid CardComponent={HotelCard} data={hotels} isLoading={loading} navigate={navigate} />
+      <DataGrid CardComponent={HotelCard} data={hotels} isLoading={dataLoading} navigate={navigate} />
     </Box>
   );
 }

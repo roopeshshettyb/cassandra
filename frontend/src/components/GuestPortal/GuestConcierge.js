@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, TextField, IconButton, CircularProgress } from '@mui/material';
+import { Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SendIcon from '@mui/icons-material/Send';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -85,7 +84,7 @@ function ChatBubble({ message }) {
 }
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
-function TextChatPanel({ bookingId, isWithinStay, alertError, onBack }) {
+function TextChatPanel({ bookingId, isWithinStay, alertError }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
@@ -158,26 +157,6 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onBack }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          px: 2,
-          py: 1.5,
-          borderBottom: '1px solid rgba(0,0,0,0.07)',
-          bgcolor: '#fff',
-          flexShrink: 0,
-        }}
-      >
-        <IconButton size="small" onClick={onBack} sx={{ color: NAVY }}>
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
-        <Typography sx={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>Chat with {APP_NAME}</Typography>
-        {(sending || streamingContent) && <CircularProgress size={16} sx={{ color: 'primary.main' }} />}
-      </Box>
-
       {/* Messages */}
       <Box
         ref={scrollRef}
@@ -223,9 +202,6 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onBack }) {
       {/* Input */}
       <Box
         sx={{
-          display: 'flex',
-          gap: 1,
-          alignItems: 'flex-end',
           px: 2,
           py: 1.5,
           borderTop: '1px solid rgba(0,0,0,0.07)',
@@ -249,6 +225,31 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onBack }) {
           disabled={!ready || sending}
           multiline
           maxRows={4}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                {(sending || streamingContent) ? (
+                  <CircularProgress size={16} sx={{ color: 'primary.main', mr: 0.5 }} />
+                ) : (
+                  <IconButton
+                    onClick={handleSend}
+                    disabled={!ready || sending || !input.trim()}
+                    size="small"
+                    sx={{
+                      background: GOLD_GRADIENT,
+                      color: '#fff',
+                      width: 32,
+                      height: 32,
+                      '&:hover': { background: GOLD_GRADIENT, opacity: 0.9 },
+                      '&.Mui-disabled': { background: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.26)' },
+                    }}
+                  >
+                    <SendIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                )}
+              </InputAdornment>
+            ),
+          }}
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 3,
@@ -257,21 +258,6 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onBack }) {
             },
           }}
         />
-        <IconButton
-          onClick={handleSend}
-          disabled={!ready || sending || !input.trim()}
-          sx={{
-            background: GOLD_GRADIENT,
-            color: '#fff',
-            width: 40,
-            height: 40,
-            flexShrink: 0,
-            '&:hover': { background: GOLD_GRADIENT, opacity: 0.9 },
-            '&.Mui-disabled': { background: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.26)' },
-          }}
-        >
-          <SendIcon fontSize="small" />
-        </IconButton>
       </Box>
     </Box>
   );
@@ -288,6 +274,15 @@ export default function GuestConcierge({ booking, account, alertError, isWithinS
     bookingId,
     onError: (err) => alertError?.(err),
   });
+
+  // When text chat opens, push a history entry so the top-right back arrow returns to voice view
+  useEffect(() => {
+    if (!showChat) return;
+    window.history.pushState({ showChat: true }, '');
+    const handlePopState = () => setShowChat(false);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [showChat]);
 
   // Derive voice state directly from hook — no manual sync needed
   const voiceState = !isRecording ? 'idle'
@@ -328,7 +323,7 @@ export default function GuestConcierge({ booking, account, alertError, isWithinS
   if (showChat) {
     return (
       <Box sx={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', bgcolor: '#F8F7F4' }}>
-        <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onBack={() => setShowChat(false)} />
+        <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} />
       </Box>
     );
   }

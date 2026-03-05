@@ -12,6 +12,7 @@ const tabs = [
 ];
 
 export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
+  if (!isMobile) return null;
   return (
     <Paper
       elevation={0}

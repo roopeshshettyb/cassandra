@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
-import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
+import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
 
@@ -16,12 +16,45 @@ const allCategories = [
   { value: 'airport_transfer', label: 'Airport Transfer' },
 ];
 
+function NoteThread({ userNotes, staffNotes }) {
+  const notes = [
+    ...(Array.isArray(userNotes) ? userNotes.map((n) => ({ ...n, from: 'guest' })) : []),
+    ...(Array.isArray(staffNotes) ? staffNotes.map((n) => ({ ...n, from: 'staff' })) : []),
+  ].sort((a, b) => new Date(a.addedAt) - new Date(b.addedAt));
+
+  if (notes.length === 0) return null;
+
+  return (
+    <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {notes.map((note, i) => {
+        const isGuest = note.from === 'guest';
+        return (
+          <Box key={i} sx={{ display: 'flex', flexDirection: 'column', alignItems: isGuest ? 'flex-end' : 'flex-start' }}>
+            <Box
+              sx={{
+                px: 1.5,
+                py: 0.9,
+                borderRadius: isGuest ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                bgcolor: isGuest ? 'rgba(212,175,55,0.13)' : 'rgba(27,35,64,0.07)',
+                maxWidth: '88%',
+              }}
+            >
+              <Typography sx={{ fontSize: 12, color: '#333', lineHeight: 1.5 }}>{note.text}</Typography>
+            </Box>
+            <Typography sx={{ fontSize: 10, color: MUTED, mt: 0.3, px: 0.5 }}>
+              {isGuest ? 'You' : 'Hotel'} · {dayjs(note.addedAt).fromNow()}
+            </Typography>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 function RequestRow({ req, index }) {
   const st = REQUEST_STATUS[req.status] || REQUEST_STATUS.pending;
   const StatusIcon = st.icon;
   const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
-
-  const firstNote = extractFirstNote(req.userNotes);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
@@ -34,11 +67,8 @@ function RequestRow({ req, index }) {
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
-          <Box sx={{ flex: 1, mr: 1.5 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3 }}>{title}</Typography>
-            {firstNote && <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.4, lineHeight: 1.5 }}>{firstNote}</Typography>}
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.5 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3, flex: 1, mr: 1.5 }}>{title}</Typography>
           <Box
             sx={{
               display: 'flex',
@@ -58,18 +88,13 @@ function RequestRow({ req, index }) {
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
+        <NoteThread userNotes={req.userNotes} staffNotes={req.staffNotes} />
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>
           <Typography sx={{ fontSize: 11, color: MUTED }}>{dayjs(req.createdAt).fromNow()}</Typography>
           {req.urgency && (
             <>
-              <Box
-                sx={{
-                  width: 3,
-                  height: 3,
-                  borderRadius: '50%',
-                  bgcolor: 'rgba(0,0,0,0.2)',
-                }}
-              />
+              <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'rgba(0,0,0,0.2)' }} />
               <Typography
                 sx={{
                   fontSize: 11,
