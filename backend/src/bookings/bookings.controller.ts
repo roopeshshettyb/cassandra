@@ -15,6 +15,11 @@ export class BookingsController {
     return this.bookingsService.findAllForAccount(account);
   }
 
+  @Get('active')
+  async findActive(@CurrentAccount() account: Account) {
+    return this.bookingsService.findActiveForGuest(account);
+  }
+
   @Get(':id')
   async findById(@Param('id', ParseIntPipe) id: number, @CurrentAccount() account: Account) {
     return this.bookingsService.findByIdForAccount(id, account);

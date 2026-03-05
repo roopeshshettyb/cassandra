@@ -147,6 +147,22 @@ export class BookingsService {
     return { id: -1 };
   }
 
+  async findActiveForGuest(currentAccount: Account) {
+    if (currentAccount.role !== AccountRole.GUEST) {
+      throw new ForbiddenException();
+    }
+    const now = new Date();
+    const booking = await this.bookingsRepository.findOne({
+      where: {
+        guestId: currentAccount.id,
+        startTime: { [Op.lte]: now },
+        endTime: { [Op.gte]: now },
+      },
+      order: [['id', 'DESC']],
+    });
+    return { success: true, message: null, data: booking };
+  }
+
   async findAllForAccount(currentAccount: Account) {
     const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address'] };
     const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
