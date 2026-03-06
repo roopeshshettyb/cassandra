@@ -9,7 +9,7 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import BedtimeIcon from '@mui/icons-material/Bedtime';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
+import { NAVY, MUTED } from '../theme';
 
 const LABEL_SX = {
   fontSize: 11,
@@ -36,7 +36,7 @@ function StatCard({ icon: Icon, label, value, accent }) {
   );
 }
 
-const Dashboard = ({ setLoading, account, navigate, alertError }) => {
+const Dashboard = ({ setLoading, account, navigate, alertError, GOLD_GRADIENT }) => {
   const [bookings, setBookings] = useState([]);
   const [requests, setRequests] = useState([]);
 

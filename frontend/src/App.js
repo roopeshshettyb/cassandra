@@ -31,6 +31,7 @@ import Home from './components/Home';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
+import { GOLD_GRADIENT } from './theme';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -228,6 +229,7 @@ const AppContent = () => {
     isMobile,
     sidebarOpen,
     account,
+    GOLD_GRADIENT,
     openLoginPopup,
     closeLoginPopup,
     loading,
