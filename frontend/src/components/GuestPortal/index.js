@@ -61,7 +61,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
   };
 
   return (
-    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: '#F8F7F4', pt: isMobile ? '7vh' : 0 }}>
+    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: '#F8F7F4', pt: isMobile ? '5vh' : 0 }}>
       {renderTab()}
       <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} />
     </Box>
