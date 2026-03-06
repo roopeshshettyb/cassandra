@@ -25,7 +25,7 @@ function StatCard({ icon: Icon, label, value, accent }) {
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <Box sx={{ bgcolor: '#fff', borderRadius: 3, p: 2.5, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: accent || GOLD_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon sx={{ fontSize: 20, color: '#fff' }} />
           </Box>
         </Box>

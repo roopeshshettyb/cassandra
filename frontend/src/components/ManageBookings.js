@@ -72,9 +72,13 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         <Box component="form" onSubmit={handleCreateBooking}>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField fullWidth label="Start Date" type="date" value={createValues.startDate} onChange={handleCreateInput('startDate')} InputLabelProps={{ shrink: true }} />
-              <TextField fullWidth label="End Date" type="date" value={createValues.endDate} onChange={handleCreateInput('endDate')} InputLabelProps={{ shrink: true }} />
-              <TextField fullWidth label="Guest Email" type="email" value={createValues.guestEmail} onChange={handleCreateInput('guestEmail')} required />
+              {[
+                { field: 'startDate', label: 'Start Date', type: 'date' },
+                { field: 'endDate',   label: 'End Date',   type: 'date' },
+                { field: 'guestEmail', label: 'Guest Email', type: 'email', required: true },
+              ].map(({ field, label, type, required }) => (
+                <TextField key={field} fullWidth label={label} type={type} value={createValues[field]} onChange={handleCreateInput(field)} InputLabelProps={{ shrink: true }} required={required} />
+              ))}
               <TextField fullWidth select label="Hotel" value={createValues.hotelId} onChange={handleCreateInput('hotelId')} required SelectProps={{ displayEmpty: true, renderValue: (v) => v === '' ? 'Select hotel' : (hotels.find((x) => String(x.id) === String(v))?.name || 'Select hotel'), MenuProps: { sx: { zIndex: 1400 } } }} InputLabelProps={{ shrink: true }}>
                 {hotels.map((h) => <MenuItem key={h.id} value={String(h.id)}>{h.name}</MenuItem>)}
               </TextField>
