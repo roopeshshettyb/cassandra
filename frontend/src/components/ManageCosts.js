@@ -28,10 +28,12 @@ function ManageCosts({ setLoading, account, alertError }) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
   };
 
+  const COLS = { xs: '60px 1fr auto', sm: '80px 1fr 1fr auto' };
+
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '6vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: 2.5, display: { xs: 'none', sm: 'block' } }}>
           <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
             Analytics
           </Typography>
@@ -43,10 +45,11 @@ function ManageCosts({ setLoading, account, alertError }) {
       {/* Table card */}
       <Box sx={{ bgcolor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {/* Header row */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr auto', gap: 2, px: 3, py: 1.5, borderBottom: '1px solid rgba(0,0,0,0.07)', background: 'linear-gradient(135deg, #1B2340 0%, #263462 100%)' }}>
-          {['Booking', 'Guest', 'Email', 'Total Cost'].map((h) => (
+        <Box sx={{ display: 'grid', gridTemplateColumns: COLS, gap: { xs: 1, sm: 2 }, px: { xs: 2, sm: 3 }, py: 1.5, borderBottom: '1px solid rgba(0,0,0,0.07)', background: 'linear-gradient(135deg, #1B2340 0%, #263462 100%)' }}>
+          {['Booking', 'Guest', 'Total Cost'].map((h) => (
             <Typography key={h} sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>{h}</Typography>
           ))}
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', display: { xs: 'none', sm: 'block' } }}>Email</Typography>
         </Box>
 
         {costs.length > 0 ? (
@@ -55,17 +58,20 @@ function ManageCosts({ setLoading, account, alertError }) {
               <Box
                 sx={{
                   display: 'grid',
-                  gridTemplateColumns: '80px 1fr 1fr auto',
-                  gap: 2,
-                  px: 3,
+                  gridTemplateColumns: COLS,
+                  gap: { xs: 1, sm: 2 },
+                  px: { xs: 2, sm: 3 },
                   py: 2,
                   borderBottom: i < costs.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
                   '&:hover': { bgcolor: 'rgba(212,175,55,0.04)' },
                 }}
               >
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: 'monospace' }}>#{row.bookingId || '—'}</Typography>
-                <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 500 }}>{row.guestName || '—'}</Typography>
-                <Typography sx={{ fontSize: 13, color: MUTED }}>{row.guestEmail || '—'}</Typography>
+                <Box>
+                  <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 500 }}>{row.guestName || '—'}</Typography>
+                  <Typography sx={{ fontSize: 11, color: MUTED, display: { xs: 'block', sm: 'none' } }}>{row.guestEmail || ''}</Typography>
+                </Box>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#059669', display: { xs: 'none', sm: 'block' } }}>{row.guestEmail || '—'}</Typography>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>{formatCurrency(row.totalCost, row.currency)}</Typography>
               </Box>
             </motion.div>
