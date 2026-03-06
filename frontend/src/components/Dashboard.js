@@ -36,13 +36,13 @@ function StatCard({ icon: Icon, label, value, accent }) {
   );
 }
 
-const Dashboard = ({ setLoading, account, navigate, alertError, GOLD_GRADIENT }) => {
+const Dashboard = ({ account, navigate, alertError, GOLD_GRADIENT }) => {
   const [bookings, setBookings] = useState([]);
   const [requests, setRequests] = useState([]);
 
   useEffect(() => {
-    request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError });
-    request({ endpoint: '/requests', method: 'GET', setLoading, setData: setRequests, defaultData: [], alertError });
+    request({ endpoint: '/bookings', method: 'GET', setData: setBookings, defaultData: [], alertError });
+    request({ endpoint: '/requests', method: 'GET', setData: setRequests, defaultData: [], alertError });
   }, []);
 
   const activeBookings = bookings.filter((b) => b.isWithinStay).length;

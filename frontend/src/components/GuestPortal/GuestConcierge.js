@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
-import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { NAVY, MUTED } from '../../theme';
 
 const { APP_NAME } = constants;
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -235,16 +235,9 @@ function TextChatPanel({ bookingId, isWithinStay, alertError }) {
                     onClick={handleSend}
                     disabled={!ready || sending || !input.trim()}
                     size="small"
-                    sx={{
-                      background: GOLD_GRADIENT,
-                      color: '#fff',
-                      width: 32,
-                      height: 32,
-                      '&:hover': { background: GOLD_GRADIENT, opacity: 0.9 },
-                      '&.Mui-disabled': { background: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.26)' },
-                    }}
+                    sx={{ color: 'primary.main', '&.Mui-disabled': { color: 'rgba(0,0,0,0.26)' } }}
                   >
-                    <SendIcon sx={{ fontSize: 16 }} />
+                    <SendIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 )}
               </InputAdornment>
