@@ -34,7 +34,12 @@ import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
   return null;
 }
 
@@ -105,6 +110,21 @@ const AppContent = () => {
     };
     fetchAccount();
   }, []);
+
+  // Keep CSS variables in sync with hotel themeConfig so all components using
+  // GOLD_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
+  useEffect(() => {
+    const primary = themeConfig?.primaryColor || '#D4AF37';
+    const secondary = themeConfig?.secondaryColor || '#C5A022';
+    const navy = themeConfig?.navyColor || '#1B2340';
+    const navyLight = themeConfig?.navyLightColor || '#263462';
+    const r = document.documentElement.style;
+    r.setProperty('--app-gold-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
+    r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
+    r.setProperty('--app-navy', navy);
+    r.setProperty('--app-primary', primary);
+    r.setProperty('--app-secondary', secondary);
+  }, [themeConfig]);
 
   const theme = useMemo(() => {
     const primaryMain = themeConfig?.primaryColor || '#D4AF37';
