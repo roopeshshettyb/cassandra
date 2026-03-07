@@ -228,10 +228,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError }) {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                {(sending || streamingContent) ? (
-                  <CircularProgress size={16} sx={{ color: 'primary.main', mr: 0.5 }} />
-                ) : (
-                  <IconButton
+                <IconButton
                     onClick={handleSend}
                     disabled={!ready || sending || !input.trim()}
                     size="small"
@@ -239,7 +236,6 @@ function TextChatPanel({ bookingId, isWithinStay, alertError }) {
                   >
                     <SendIcon sx={{ fontSize: 18 }} />
                   </IconButton>
-                )}
               </InputAdornment>
             ),
           }}
