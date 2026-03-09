@@ -46,6 +46,7 @@ function ScrollToTop() {
 
 const AppContent = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { themeConfig } = useHotelTheme();
   const [mode, setMode] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -90,13 +91,22 @@ const AppContent = () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          await request({
+          const result = await request({
             endpoint: '/accounts/me',
             method: 'GET',
             throw: true,
-            setData: setAccount,
             alertError,
           });
+          const accountData = result?.data;
+          setAccount(accountData);
+
+          // Guests: redirect to their active booking on login
+          if (accountData?.role === 'guest' && !pathname.startsWith('/bookings/')) {
+            const bookingResult = await request({ endpoint: '/bookings/active', method: 'GET' });
+            if (bookingResult?.data?.id) {
+              navigate(`/bookings/${bookingResult.data.id}?tab=concierge`);
+            }
+          }
         } catch (error) {
           logger.error({
             message: 'Failed to fetch account',

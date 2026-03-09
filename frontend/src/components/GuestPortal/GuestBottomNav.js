@@ -49,12 +49,13 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
               whileTap={{ scale: 0.93 }}
               onClick={() => onTabChange(tab.id)}
               sx={{
+                flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 0.4,
                 py: 1,
-                px: { xs: 2.5, sm: 3.5 },
                 cursor: 'pointer',
                 position: 'relative',
                 borderRadius: 2.5,
@@ -65,9 +66,8 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
               }}
             >
               {isActive && (
-                <motion.div
-                  layoutId="nav-top-bar"
-                  style={{
+                <Box
+                  sx={{
                     position: 'absolute',
                     top: -2,
                     left: '50%',
@@ -77,7 +77,6 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
                     borderRadius: 99,
                     background: 'linear-gradient(90deg, #D4AF37 0%, #C5A022 100%)',
                   }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
               )}
               <Icon

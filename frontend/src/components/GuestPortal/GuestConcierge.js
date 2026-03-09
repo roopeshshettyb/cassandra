@@ -7,6 +7,7 @@ import SendIcon from '@mui/icons-material/Send';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSearchParams } from 'react-router-dom';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
 import { NAVY, MUTED } from '../../theme';
@@ -84,7 +85,7 @@ function ChatBubble({ message }) {
 }
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
-function TextChatPanel({ bookingId, isWithinStay, alertError }) {
+function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
@@ -226,16 +227,28 @@ function TextChatPanel({ bookingId, isWithinStay, alertError }) {
           multiline
           maxRows={4}
           InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <IconButton
+                  onClick={onSwitchToVoice}
+                  size="small"
+                  sx={{ color: MUTED, '&:hover': { color: NAVY } }}
+                  title="Switch to voice"
+                >
+                  <MicIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </InputAdornment>
+            ),
             endAdornment: (
               <InputAdornment position="end">
                 <IconButton
-                    onClick={handleSend}
-                    disabled={!ready || sending || !input.trim()}
-                    size="small"
-                    sx={{ color: 'primary.main', '&.Mui-disabled': { color: 'rgba(0,0,0,0.26)' } }}
-                  >
-                    <SendIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
+                  onClick={handleSend}
+                  disabled={!ready || sending || !input.trim()}
+                  size="small"
+                  sx={{ color: 'primary.main', '&.Mui-disabled': { color: 'rgba(0,0,0,0.26)' } }}
+                >
+                  <SendIcon sx={{ fontSize: 18 }} />
+                </IconButton>
               </InputAdornment>
             ),
           }}
@@ -253,25 +266,20 @@ function TextChatPanel({ bookingId, isWithinStay, alertError }) {
 }
 
 // ── Main GuestConcierge ────────────────────────────────────────────────────
-export default function GuestConcierge({ booking, account, alertError, isWithinStay }) {
-  const [showChat, setShowChat] = useState(false);
+export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showChat = searchParams.get('mode') === 'chat';
+
+  const openChat = useCallback(() => setSearchParams({ tab: 'concierge', mode: 'chat' }), [setSearchParams]);
+  const openVoice = useCallback(() => setSearchParams({ tab: 'concierge' }), [setSearchParams]);
 
   const bookingId = booking?.id;
   const hotelName = booking?.hotel?.name || 'Hotel';
 
   const { isReady, isRecording, isSpeaking, isProcessing, startRecording, stopRecording } = useSocketVoice({
-    bookingId,
+    bookingId: showChat ? null : bookingId,
     onError: (err) => alertError?.(err),
   });
-
-  // When text chat opens, push a history entry so the top-right back arrow returns to voice view
-  useEffect(() => {
-    if (!showChat) return;
-    window.history.pushState({ showChat: true }, '');
-    const handlePopState = () => setShowChat(false);
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [showChat]);
 
   // Derive voice state directly from hook — no manual sync needed
   const voiceState = !isRecording ? 'idle'
@@ -311,8 +319,8 @@ export default function GuestConcierge({ booking, account, alertError, isWithinS
 
   if (showChat) {
     return (
-      <Box sx={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', bgcolor: '#F8F7F4' }}>
-        <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} />
+      <Box sx={{ height: isMobile ? 'calc(95vh - 80px)' : 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', bgcolor: '#F8F7F4' }}>
+        <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} />
       </Box>
     );
   }
@@ -472,7 +480,7 @@ export default function GuestConcierge({ booking, account, alertError, isWithinS
         {/* Prefer to type? */}
         <Box sx={{ pb: 3, textAlign: 'center' }}>
           <motion.button
-            onClick={() => setShowChat(true)}
+            onClick={openChat}
             style={{
               background: 'none',
               border: 'none',

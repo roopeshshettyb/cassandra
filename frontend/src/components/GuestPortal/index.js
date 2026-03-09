@@ -1,26 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
 import GuestHome from './GuestHome';
 import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
 import GuestBottomNav from './GuestBottomNav';
 
 export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate }) {
-  const [activeTab, setActiveTab] = useState('home');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'home';
+
+  const setActiveTab = useCallback((tab) => {
+    setSearchParams({ tab });
+  }, [setSearchParams]);
 
   // Scroll to top whenever the tab changes
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [activeTab]);
-
-  // When on concierge tab, push a history entry so the top-right back arrow
-  // returns to the Home tab instead of leaving the booking page entirely.
-  useEffect(() => {
-    if (activeTab !== 'concierge') return;
-    window.history.pushState({ guestPortalTab: 'concierge' }, '');
-    const handlePopState = () => setActiveTab('home');
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
   }, [activeTab]);
 
   if (!booking) return null;
@@ -40,7 +36,6 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
         return (
           <GuestConcierge
             booking={booking}
-            account={account}
             alertError={alertError}
             isWithinStay={account?.role !== 'guest' ? true : booking.isWithinStay}
             isMobile={isMobile}
