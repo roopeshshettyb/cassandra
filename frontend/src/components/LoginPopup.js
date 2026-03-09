@@ -93,7 +93,8 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
       if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
         navigate?.('/hotels');
       } else if (role === ACCOUNT_ROLES.GUEST) {
-        navigate?.('/bookings');
+        const active = await request({ endpoint: '/bookings/active', method: 'GET', defaultData: null });
+        navigate?.(active?.data?.id ? `/bookings/${active.data.id}` : '/bookings');
       } else {
         navigate?.('/');
       }

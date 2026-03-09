@@ -94,7 +94,7 @@ export class BookingsService {
       type: 'guest',
     });
     const frontendUrl = this.constantsService.private.FRONTEND_URL;
-    const redirectPath = `/bookings/${booking.id}`;
+    const redirectPath = `/bookings/${booking.id}?tab=concierge`;
     const inviteUrl = `${frontendUrl}/invite?token=${encodeURIComponent(inviteToken)}&redirectPath=${encodeURIComponent(redirectPath)}`;
 
     await this.sendBookingConfirmationEmail(guest.email, guest.name, hotel, inviteUrl);
@@ -145,6 +145,22 @@ export class BookingsService {
       return { hotelId: { [Op.in]: hotelIds } };
     }
     return { id: -1 };
+  }
+
+  async findActiveForGuest(currentAccount: Account) {
+    if (currentAccount.role !== AccountRole.GUEST) {
+      throw new ForbiddenException();
+    }
+    const now = new Date();
+    const booking = await this.bookingsRepository.findOne({
+      where: {
+        guestId: currentAccount.id,
+        startTime: { [Op.lte]: now },
+        endTime: { [Op.gte]: now },
+      },
+      order: [['id', 'DESC']],
+    });
+    return { success: true, message: null, data: booking };
   }
 
   async findAllForAccount(currentAccount: Account) {

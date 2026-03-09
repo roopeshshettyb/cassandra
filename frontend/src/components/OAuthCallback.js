@@ -105,7 +105,8 @@ const OAuthCallback = ({ setAccount, fetchProfiles, navigate, alertError }) => {
       if (role === ACCOUNT_ROLES.ADMIN || role === ACCOUNT_ROLES.HOTEL_OWNER || role === ACCOUNT_ROLES.HOTEL_STAFF) {
         window.location.href = '/hotels';
       } else if (role === ACCOUNT_ROLES.GUEST) {
-        window.location.href = '/bookings';
+        const active = await request({ endpoint: '/bookings/active', method: 'GET', defaultData: null });
+        window.location.href = active?.data?.id ? `/bookings/${active.data.id}?tab=concierge` : '/bookings';
       } else {
         window.location.href = '/';
       }

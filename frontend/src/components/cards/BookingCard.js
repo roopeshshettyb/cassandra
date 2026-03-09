@@ -1,130 +1,121 @@
 import React from 'react';
-import { Card, CardContent, Typography, Box, Chip, Divider, Stack } from '@mui/material';
-import EventIcon from '@mui/icons-material/Event';
+import { Box, Typography } from '@mui/material';
+import { motion } from 'framer-motion';
 import HotelIcon from '@mui/icons-material/Hotel';
 import PersonIcon from '@mui/icons-material/Person';
-import NumbersIcon from '@mui/icons-material/Numbers';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import NightsStayIcon from '@mui/icons-material/NightsStay';
 
-const BookingCard = ({ data, navigate, pendingRequestsCount }) => {
+import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+
+const statusConfig = {
+  Active:    { color: '#059669', bg: 'rgba(5,150,105,0.1)' },
+  Upcoming:  { color: '#2563EB', bg: 'rgba(37,99,235,0.1)' },
+  Past:      { color: '#888888', bg: 'rgba(136,136,136,0.1)' },
+  Cancelled: { color: '#DC2626', bg: 'rgba(220,38,38,0.1)' },
+};
+
+const BookingCard = ({ data, navigate }) => {
   const booking = data;
   const hotelName = booking.hotel?.name || 'Unknown Hotel';
   const start = booking.startTime ? new Date(booking.startTime) : null;
   const end = booking.endTime ? new Date(booking.endTime) : null;
-
-  const startStr = start ? start.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '-';
-  const endStr = end ? end.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '-';
-  const status = booking.status || (booking.isWithinStay ? 'Active' : 'Upcoming');
-
-  // Calculate Duration
-  let durationStr = '';
-  if (start && end) {
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    durationStr = `${diffDays} Night${diffDays !== 1 ? 's' : ''}`;
-  }
-
-  const handleClick = () => {
-    if (booking && booking.id && navigate) {
-      navigate(`/bookings/${booking.id}`);
-    }
-  };
+  const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const nights = start && end ? Math.round((end - start) / 86400000) : 0;
+  const now = new Date();
+  const isActive = start && end && now >= start && now <= end;
+  const isPast = end && now > end;
+  const status = booking.status && statusConfig[booking.status]
+    ? booking.status
+    : isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
+  const st = statusConfig[status];
+  const guestName = booking.guest?.name || booking.guest?.email || null;
 
   return (
-    <Card
-      onClick={handleClick}
-      sx={{
-        height: '100%',
-        cursor: 'pointer',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 6,
-        },
-        position: 'relative',
-        borderRadius: 3,
-      }}
-    >
-      <CardContent>
-        {/* Header: Hotel Name & Status */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <HotelIcon color="primary" />
-            <Box>
-              <Typography variant="h6" component="div" noWrap sx={{ maxWidth: 180, fontWeight: 'bold' }}>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
+      <Box
+        onClick={() => booking?.id && navigate?.(`/bookings/${booking.id}`)}
+        sx={{
+          bgcolor: '#fff',
+          borderRadius: 3,
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          cursor: 'pointer',
+          position: 'relative',
+          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+        }}
+      >
+        {/* Gold left accent */}
+        <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: GOLD_GRADIENT, borderRadius: '3px 0 0 3px' }} />
+
+        {/* Status badge — absolute top-right, never pushes layout */}
+        <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: st.bg }}>
+          <Typography sx={{ fontSize: 10, fontWeight: 700, color: st.color, whiteSpace: 'nowrap' }}>{status}</Typography>
+        </Box>
+
+        {/* Content — right padding reserves space for the badge */}
+        <Box sx={{ pl: 1.5, pr: 9, pt: 2.5, pb: 2.5 }}>
+
+          {/* Hotel header */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: 1.75 }}>
+            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: GOLD_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <HotelIcon sx={{ fontSize: 18, color: '#fff' }} />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1, pt: 0.2 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {hotelName}
               </Typography>
               {booking.hotel?.address && (
-                <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 180 }}>
+                <Typography sx={{ fontSize: 11, color: MUTED, mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {booking.hotel.address}
                 </Typography>
               )}
             </Box>
           </Box>
-          <Chip label={status} color={status === 'Cancelled' ? 'error' : status === 'Active' ? 'success' : 'default'} size="small" variant={status === 'Active' ? 'filled' : 'outlined'} />
-        </Box>
 
-        <Divider sx={{ mb: 2 }} />
+          {/* Divider */}
+          <Box sx={{ height: 1, bgcolor: 'rgba(0,0,0,0.05)', mx: -0.5, mb: 1.5 }} />
 
-        {/* Details Grid */}
-        <Stack spacing={1.5}>
-          {/* Guest Name (if available) */}
-          {booking.guest && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PersonIcon color="action" fontSize="small" />
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 70 }}>
-                Guest:
+          {/* Dates */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
+            <CalendarTodayIcon sx={{ fontSize: 13, color: MUTED, mt: 0.3, flexShrink: 0 }} />
+            <Box>
+              <Typography sx={{ fontSize: 12, color: NAVY, fontWeight: 600, lineHeight: 1.4 }}>
+                {fmtDate(start)}
               </Typography>
-              <Typography variant="body2" fontWeight="medium">
-                {booking.guest.name || booking.guest.email}
+              <Typography sx={{ fontSize: 12, color: NAVY, fontWeight: 600, lineHeight: 1.4 }}>
+                {fmtDate(end)}
+              </Typography>
+            </Box>
+            {nights > 0 && (
+              <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <NightsStayIcon sx={{ fontSize: 12, color: MUTED }} />
+                <Typography sx={{ fontSize: 11, color: MUTED, whiteSpace: 'nowrap' }}>
+                  {nights}n
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* Guest */}
+          {guestName && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PersonIcon sx={{ fontSize: 13, color: MUTED, flexShrink: 0 }} />
+              <Typography sx={{ fontSize: 12, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {guestName}
               </Typography>
             </Box>
           )}
 
-          {/* Booking ID */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <NumbersIcon color="action" fontSize="small" />
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 70 }}>
-              Ref ID:
-            </Typography>
-            <Typography variant="body2" fontWeight="medium" sx={{ fontFamily: 'monospace' }}>
+          {/* Footer */}
+          <Box sx={{ mt: 1.5, pt: 1.25, borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography sx={{ fontSize: 10, color: 'rgba(136,136,136,0.5)', fontFamily: 'monospace' }}>
               #{booking.id}
             </Typography>
           </Box>
-
-          {/* Check-in */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <EventIcon color="action" fontSize="small" />
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 70 }}>
-              Check-in:
-            </Typography>
-            <Typography variant="body2" fontWeight="medium">
-              {startStr}
-            </Typography>
-          </Box>
-
-          {/* Duration */}
-          {durationStr && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AccessTimeIcon color="action" fontSize="small" />
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 70 }}>
-                Duration:
-              </Typography>
-              <Typography variant="body2" fontWeight="medium">
-                {durationStr}
-              </Typography>
-            </Box>
-          )}
-        </Stack>
-
-        {/* Footer: Pending Requests Count */}
-        {pendingRequestsCount !== undefined && pendingRequestsCount > 0 && (
-          <Box sx={{ mt: 2, pt: 1, borderTop: 1, borderColor: 'divider' }}>
-            <Chip label={`${pendingRequestsCount} Pending Request${pendingRequestsCount !== 1 ? 's' : ''}`} color="warning" size="small" sx={{ width: '100%', fontWeight: 'bold' }} />
-          </Box>
-        )}
-      </CardContent>
-    </Card>
+        </Box>
+      </Box>
+    </motion.div>
   );
 };
 

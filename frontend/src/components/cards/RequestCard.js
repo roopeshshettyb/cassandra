@@ -1,92 +1,72 @@
-import { Card, CardContent, Typography, Box, Avatar, Stack, Chip } from '@mui/material';
-import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
-import PersonIcon from '@mui/icons-material/Person';
-import BusinessIcon from '@mui/icons-material/Business';
-
+import { Box, Typography } from '@mui/material';
+import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
+
+dayjs.extend(relativeTime);
 
 const RequestCard = ({ data, navigate, account }) => {
   const req = data;
-  const hotelName = req.hotel?.name || '-';
-  const guestName = req.guest?.name || req.guest?.email || 'Unknown Guest';
-  const roomNumber = req.bookingId ? `#${req.bookingId}` : '-';
-
-  const isGuest = account && account.role === 'guest';
-  const sourceNotes = isGuest ? req.staffNotes : req.userNotes;
-
-  const topNotes = sourceNotes
-    ? sourceNotes
-        .map((note) => (typeof note === 'string' ? note : note?.text))
-        .filter(Boolean)
-        .slice(0, 3)
-    : [];
-
-  const handleClick = () => {
-    if (req && req.bookingId && navigate) {
-      navigate(`/bookings/${req.bookingId}`);
-    }
-  };
+  const isGuest = account?.role === 'guest';
+  const firstNote = extractFirstNote(isGuest ? req.staffNotes : req.userNotes);
+  const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
+  const hotelName = req.hotel?.name || null;
+  const guestName = req.guest?.name || req.guest?.email || null;
+  const st = REQUEST_STATUS[req.status] || REQUEST_STATUS.pending;
+  const StatusIcon = st.icon;
 
   return (
-    <Card
-      onClick={handleClick}
-      sx={{
-        height: '100%',
-        cursor: 'pointer',
-        transition: 'transform 0.2s',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 4,
-        },
-      }}
-    >
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Avatar sx={{ bgcolor: 'secondary.main' }}>
-            <PersonIcon />
-          </Avatar>
-          <Box sx={{ overflow: 'hidden' }}>
-            <Typography variant="subtitle1" fontWeight="bold" noWrap>
-              {guestName}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <BusinessIcon fontSize="inherit" color="action" />
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {hotelName}
-              </Typography>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
+      <Box
+        onClick={() => req?.bookingId && navigate?.(`/bookings/${req.bookingId}`)}
+        sx={{
+          bgcolor: '#fff',
+          borderRadius: 3,
+          p: 2.5,
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden',
+          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+        }}
+      >
+        {/* Gold left accent */}
+        <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: GOLD_GRADIENT, borderRadius: '3px 0 0 3px' }} />
+
+        <Box sx={{ pl: 0.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Box sx={{ flex: 1, mr: 1 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3 }}>{title}</Typography>
+              {guestName && <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>{guestName}</Typography>}
+              {hotelName && <Typography sx={{ fontSize: 11, color: 'rgba(136,136,136,0.7)', mt: 0.15 }}>{hotelName}</Typography>}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: st.bg, flexShrink: 0 }}>
+              <motion.div
+                animate={st.spin ? { rotate: 360 } : {}}
+                transition={st.spin ? { duration: 1.5, repeat: Infinity, ease: 'linear' } : {}}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <StatusIcon sx={{ fontSize: 11, color: st.color }} />
+              </motion.div>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: st.color }}>{st.label}</Typography>
             </Box>
           </Box>
 
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+          {firstNote && (
+            <Typography sx={{ fontSize: 12, color: MUTED, mb: 1, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {firstNote}
+            </Typography>
+          )}
+
+          <Typography sx={{ fontSize: 11, color: 'rgba(136,136,136,0.6)' }}>
             {req.createdAt ? dayjs(req.createdAt).fromNow() : ''}
           </Typography>
         </Box>
-
-        <Stack direction="row" spacing={1} mb={2}>
-          <Chip icon={<MeetingRoomIcon />} label={`Room ${roomNumber}`} size="small" color="primary" variant="outlined" />
-        </Stack>
-
-        <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 2 }}>
-          <Typography variant="caption" color="text.primary" fontWeight="bold" display="block" mb={0.5}>
-            Recent Notes:
-          </Typography>
-          {topNotes.length > 0 ? (
-            <Stack spacing={0.5}>
-              {topNotes.map((note, idx) => (
-                <Typography key={idx} variant="body2" color="text.secondary" sx={{ display: 'flex', gap: 1 }}>
-                  <span>•</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note}</span>
-                </Typography>
-              ))}
-            </Stack>
-          ) : (
-            <Typography variant="caption" color="text.disabled" fontStyle="italic">
-              No recent notes
-            </Typography>
-          )}
-        </Box>
-      </CardContent>
-    </Card>
+      </Box>
+    </motion.div>
   );
 };
 

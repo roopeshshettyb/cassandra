@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Grid, useMediaQuery, Box, Typography } from '@mui/material';
@@ -31,9 +31,22 @@ import Home from './components/Home';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
+import { GOLD_GRADIENT } from './theme';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+  return null;
+}
 
 const AppContent = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { themeConfig } = useHotelTheme();
   const [mode, setMode] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -78,13 +91,22 @@ const AppContent = () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          await request({
+          const result = await request({
             endpoint: '/accounts/me',
             method: 'GET',
             throw: true,
-            setData: setAccount,
             alertError,
           });
+          const accountData = result?.data;
+          setAccount(accountData);
+
+          // Guests: redirect to their active booking on login
+          if (accountData?.role === 'guest' && !pathname.startsWith('/bookings/')) {
+            const bookingResult = await request({ endpoint: '/bookings/active', method: 'GET' });
+            if (bookingResult?.data?.id) {
+              navigate(`/bookings/${bookingResult.data.id}?tab=concierge`);
+            }
+          }
         } catch (error) {
           logger.error({
             message: 'Failed to fetch account',
@@ -100,11 +122,26 @@ const AppContent = () => {
     fetchAccount();
   }, []);
 
+  // Keep CSS variables in sync with hotel themeConfig so all components using
+  // GOLD_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
+  useEffect(() => {
+    const primary = themeConfig?.primaryColor || '#D4AF37';
+    const secondary = themeConfig?.secondaryColor || '#C5A022';
+    const navy = themeConfig?.navyColor || '#1B2340';
+    const navyLight = themeConfig?.navyLightColor || '#263462';
+    const r = document.documentElement.style;
+    r.setProperty('--app-gold-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
+    r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
+    r.setProperty('--app-navy', navy);
+    r.setProperty('--app-primary', primary);
+    r.setProperty('--app-secondary', secondary);
+  }, [themeConfig]);
+
   const theme = useMemo(() => {
     const primaryMain = themeConfig?.primaryColor || '#D4AF37';
     const secondaryMain = themeConfig?.secondaryColor || '#C5A022';
     const darkTextSecondary = themeConfig?.secondaryColor || '#B8860B';
-    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F5F5F5');
+    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F8F7F4');
     const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? '#121212' : '#FFFFFF');
     const fontFamily =
       themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
@@ -202,6 +239,7 @@ const AppContent = () => {
     isMobile,
     sidebarOpen,
     account,
+    GOLD_GRADIENT,
     openLoginPopup,
     closeLoginPopup,
     loading,
@@ -239,6 +277,7 @@ const AppContent = () => {
         >
           <Box sx={{ flex: 1 }}>
             <Grid style={{ paddingTop: '20px' }}>
+              <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />
                 {routes.map((route) => {

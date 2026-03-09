@@ -97,6 +97,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     primaryColor: '',
     secondaryColor: '',
     primaryHoverColor: '',
+    navyColor: '',
+    navyLightColor: '',
     fontFamily: '',
     backgroundDefault: '',
     backgroundPaper: '',
@@ -133,6 +135,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         primaryColor: data.themeConfig?.primaryColor || '',
         secondaryColor: data.themeConfig?.secondaryColor || '',
         primaryHoverColor: data.themeConfig?.primaryHoverColor || '',
+        navyColor: data.themeConfig?.navyColor || '',
+        navyLightColor: data.themeConfig?.navyLightColor || '',
         fontFamily: data.themeConfig?.fontFamily || '',
         backgroundDefault: data.themeConfig?.backgroundDefault || '',
         backgroundPaper: data.themeConfig?.backgroundPaper || '',
@@ -214,6 +218,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     if (editValues.primaryColor?.trim()) themeObj.primaryColor = editValues.primaryColor.trim();
     if (editValues.secondaryColor?.trim()) themeObj.secondaryColor = editValues.secondaryColor.trim();
     if (editValues.primaryHoverColor?.trim()) themeObj.primaryHoverColor = editValues.primaryHoverColor.trim();
+    if (editValues.navyColor?.trim()) themeObj.navyColor = editValues.navyColor.trim();
+    if (editValues.navyLightColor?.trim()) themeObj.navyLightColor = editValues.navyLightColor.trim();
     if (editValues.fontFamily?.trim()) themeObj.fontFamily = editValues.fontFamily.trim();
     if (editValues.backgroundDefault?.trim()) themeObj.backgroundDefault = editValues.backgroundDefault.trim();
     if (editValues.backgroundPaper?.trim()) themeObj.backgroundPaper = editValues.backgroundPaper.trim();
@@ -221,6 +227,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     delete payload.primaryColor;
     delete payload.secondaryColor;
     delete payload.primaryHoverColor;
+    delete payload.navyColor;
+    delete payload.navyLightColor;
     delete payload.fontFamily;
     delete payload.backgroundDefault;
     delete payload.backgroundPaper;
@@ -325,6 +333,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.primaryColor || ''}
                         onChange={handleInputChange('primaryColor')}
                         placeholder="#D4AF37"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.primaryColor || '#D4AF37'} onChange={(e) => handleInputChange('primaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                     <Grid item xs={12} sm={4}>
@@ -334,6 +344,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.secondaryColor || ''}
                         onChange={handleInputChange('secondaryColor')}
                         placeholder="#C5A022"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.secondaryColor || '#C5A022'} onChange={(e) => handleInputChange('secondaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                     <Grid item xs={12} sm={4}>
@@ -343,6 +355,30 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.primaryHoverColor || ''}
                         onChange={handleInputChange('primaryHoverColor')}
                         placeholder="#B8860B"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.primaryHoverColor || '#B8860B'} onChange={(e) => handleInputChange('primaryHoverColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Navy color (headings, dark bg)"
+                        value={editValues.navyColor || ''}
+                        onChange={handleInputChange('navyColor')}
+                        placeholder="#1B2340"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.navyColor || '#1B2340'} onChange={(e) => handleInputChange('navyColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Navy light color (gradient end)"
+                        value={editValues.navyLightColor || ''}
+                        onChange={handleInputChange('navyLightColor')}
+                        placeholder="#263462"
+                        InputProps={{ endAdornment: <input type="color" value={editValues.navyLightColor || '#263462'} onChange={(e) => handleInputChange('navyLightColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                     <Grid item xs={12}>
