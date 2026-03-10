@@ -12,6 +12,7 @@ import { ChatLlmService } from './chat-llm.service';
 import { ChatGateway } from './gateway/chat.gateway';
 import { VoiceGateway } from './gateway/voice.gateway';
 import { VoiceRealtimeService } from './voice-realtime.service';
+import { DeepgramVoiceAgentService } from './deepgram-voice-agent.service';
 import { CostsModule } from '../costs/costs.module';
 import { SttModule } from '../stt/stt.module';
 import { TtsModule } from '../tts/tts.module';
@@ -29,7 +30,7 @@ import { TtsModule } from '../tts/tts.module';
     SttModule,
     TtsModule,
   ],
-  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService],
+  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService, DeepgramVoiceAgentService],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}

@@ -12,6 +12,7 @@ import type { ISttSession } from '../../stt/stt-session.interface';
 import { TtsFactoryService } from '../../tts/tts-factory.service';
 import { ChatLlmService } from '../chat-llm.service';
 import { VoiceRealtimeService } from '../voice-realtime.service';
+import { DeepgramVoiceAgentService } from '../deepgram-voice-agent.service';
 import { MessagesService } from '../../messages/messages.service';
 import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
@@ -47,6 +48,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly ttsFactory: TtsFactoryService,
     private readonly chatLlmService: ChatLlmService,
     private readonly voiceRealtimeService: VoiceRealtimeService,
+    private readonly deepgramVoiceAgentService: DeepgramVoiceAgentService,
     private readonly messagesService: MessagesService,
     private readonly chatContextService: ChatContextService,
     private readonly costsService: CostsService,
@@ -54,6 +56,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private isGptVoicePipeline(): boolean {
     return this.constantsService.private.LLM.VOICE_PIPELINE === 'gpt';
+  }
+
+  private isDeepgramVoicePipeline(): boolean {
+    return this.constantsService.private.LLM.VOICE_PIPELINE === 'deepgram';
   }
 
   async handleConnection(client: any) {
@@ -274,16 +280,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', { message: 'Not authenticated' });
       return;
     }
+    const toolContext = {
+      account: session.account,
+      bookingId: session.bookingId,
+      chatId: session.chatId,
+      hotel: session.hotel,
+      booking: session.booking,
+      languageCode: session.languageCode ?? null,
+    };
     if (this.isGptVoicePipeline()) {
-      const toolContext = {
-        account: session.account,
-        bookingId: session.bookingId,
-        chatId: session.chatId,
-        hotel: session.hotel,
-        booking: session.booking,
-        languageCode: session.languageCode ?? null,
-      };
-
       try {
         await this.voiceRealtimeService.createSession(client.id, toolContext, {
           onServerEvent: (event) => this.handleRealtimeEvent(client, event),
@@ -295,7 +300,23 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('voice_closed');
           },
         });
-
+        client.emit('voice_ready');
+      } catch (err: any) {
+        this.logger.error(err);
+        client.emit('error', { message: err?.message || 'Failed to start voice session' });
+      }
+    } else if (this.isDeepgramVoicePipeline()) {
+      try {
+        await this.deepgramVoiceAgentService.createSession(client.id, toolContext, {
+          onServerEvent: (event) => this.handleDeepgramEvent(client, event),
+          onError: (error) => {
+            this.logger.error(error);
+            client.emit('error', { message: error.message || 'Voice session error' });
+          },
+          onClose: () => {
+            client.emit('voice_closed');
+          },
+        });
         client.emit('voice_ready');
       } catch (err: any) {
         this.logger.error(err);
@@ -332,6 +353,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    if (this.isDeepgramVoicePipeline()) {
+      const audio = payload?.audio;
+      if (!audio || typeof audio !== 'string') return;
+      try {
+        this.deepgramVoiceAgentService.sendAudio(client.id, Buffer.from(audio, 'base64'));
+      } catch (err: any) {
+        this.logger.error(err);
+      }
+      return;
+    }
+
     if (client.voiceBusy) return;
     let sttSession: ISttSession | undefined = client.sttSession;
     if (!sttSession) {
@@ -354,6 +386,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (this.isGptVoicePipeline()) {
       try {
         this.voiceRealtimeService.closeSession(client.id);
+        client.emit('voice_closed');
+      } catch (err: any) {
+        this.logger.error(err);
+        client.emit('error', { message: err?.message || 'Failed to stop voice session' });
+      }
+    } else if (this.isDeepgramVoicePipeline()) {
+      try {
+        this.deepgramVoiceAgentService.closeSession(client.id);
         client.emit('voice_closed');
       } catch (err: any) {
         this.logger.error(err);
@@ -449,9 +489,79 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  private async handleDeepgramEvent(client: any, event: any) {
+    const session = client.session as ChatSession | undefined;
+    if (!session) return;
+
+    switch (event.type) {
+      case 'audio_chunk':
+        client.emit('voice_audio_chunk', { delta: (event.audio as Buffer).toString('base64') });
+        break;
+      case 'ConversationText':
+        if (event.role === 'user') {
+          client.emit('voice_user_message', { text: event.content });
+        } else if (event.role === 'assistant') {
+          client.emit('voice_text_chunk', { delta: event.content });
+        }
+        break;
+      case 'AgentAudioDone': {
+        const { userTranscript, assistantText, toolCalls } = this.deepgramVoiceAgentService.consumeTranscriptsAndTools(client.id);
+        const cleanUser = userTranscript?.trim();
+        const cleanAssistant = assistantText?.trim();
+
+        let assistantMessage: Message | null = null;
+        try {
+          if (cleanUser) {
+            await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
+          }
+          if (cleanAssistant) {
+            assistantMessage = await this.messagesService.create(
+              session.chatId,
+              MessageRole.ASSISTANT,
+              cleanAssistant,
+              toolCalls.length ? toolCalls : undefined,
+            );
+          }
+          await this.chatContextService.rebuildCache(session.chatId);
+        } catch (err) {
+          this.logger.error('Failed to persist Deepgram voice messages', err as Error);
+        }
+
+        if (cleanAssistant) {
+          this.costsService.recordLlmCost({
+            type: CostType.LLM_VOICE,
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+            bookingId: session.bookingId,
+            hotelId: session.booking ? session.booking.hotelId : null,
+            accountId: session.account.id,
+            role: session.account.role,
+            chatId: session.chatId,
+            messageId: assistantMessage ? assistantMessage.id : null,
+          });
+        }
+
+        client.emit('voice_audio_end');
+        client.emit('voice_text_end', { text: cleanAssistant ?? '', toolCalls });
+        break;
+      }
+      case 'Error':
+      case 'error':
+        client.emit('error', { message: event?.description || event?.message || 'Deepgram Voice Agent error' });
+        break;
+      default:
+        break;
+    }
+  }
+
   handleDisconnect(client: any) {
     if (this.isGptVoicePipeline()) {
       this.voiceRealtimeService.closeSession(client.id);
+      delete client.session;
+      delete client.sessionPending;
+      return;
+    }
+    if (this.isDeepgramVoicePipeline()) {
+      this.deepgramVoiceAgentService.closeSession(client.id);
       delete client.session;
       delete client.sessionPending;
       return;

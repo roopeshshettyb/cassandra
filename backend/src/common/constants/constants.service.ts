@@ -296,6 +296,15 @@ export class ConstantsService {
             REALTIME_URL: this.configService.get<string>('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime'),
           },
         },
+        DEEPGRAM_VOICE_AGENT: {
+          API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
+          URL: 'wss://agent.deepgram.com/v1/agent/converse',
+          LISTEN_MODEL: this.configService.get<string>('DEEPGRAM_AGENT_LISTEN_MODEL', 'nova-3'),
+          THINK_PROVIDER: this.configService.get<string>('DEEPGRAM_AGENT_THINK_PROVIDER', 'open_ai'),
+          THINK_MODEL: this.configService.get<string>('DEEPGRAM_AGENT_THINK_MODEL', 'gpt-4o-mini'),
+          THINK_OPENAI_API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
+          SPEAK_MODEL: this.configService.get<string>('DEEPGRAM_AGENT_SPEAK_MODEL', 'aura-2-thalia-en'),
+        },
         OPENROUTER: {
           API_KEY: this.configService.get<string>('OPENROUTER_API_KEY'),
           BASE_URL: this.configService.get<string>('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
