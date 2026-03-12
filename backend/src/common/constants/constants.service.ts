@@ -270,7 +270,7 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'meta-llama/llama-4-scout',
+        TEXT_MODEL: 'google/gemini-2.5-flash',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00015,
