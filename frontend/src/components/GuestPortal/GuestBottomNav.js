@@ -11,7 +11,7 @@ const tabs = [
   { id: 'requests', icon: AccessTimeIcon, label: 'Requests' },
 ];
 
-export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
+export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen }) {
   if (!isMobile) return null;
   return (
     <Paper
@@ -21,11 +21,12 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
         bottom: 0,
         left: isMobile ? 0 : '20vw',
         right: 0,
-        zIndex: 1200,
+        zIndex: 1100,
         bgcolor: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(14px)',
         borderTop: '1px solid rgba(0,0,0,0.07)',
         borderRadius: 0,
+        display: (isMobile && sidebarOpen) ? 'none' : 'block',
       }}
     >
       <Box

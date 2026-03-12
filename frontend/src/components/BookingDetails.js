@@ -4,7 +4,7 @@ import request from '../helper/api';
 import GuestPortal from './GuestPortal';
 import { useHotelTheme } from '../context/HotelThemeContext';
 
-function BookingDetails({ setLoading, account, navigate, alertError, alertSuccess, isMobile }) {
+function BookingDetails({ setLoading, account, navigate, alertError, alertSuccess, isMobile, sidebarOpen }) {
   const { id } = useParams();
   const { setThemeConfig } = useHotelTheme();
   const [booking, setBooking] = useState(null);
@@ -40,6 +40,7 @@ function BookingDetails({ setLoading, account, navigate, alertError, alertSucces
       alertSuccess={alertSuccess}
       setLoading={setLoading}
       navigate={navigate}
+      sidebarOpen={sidebarOpen}
     />
   );
 }

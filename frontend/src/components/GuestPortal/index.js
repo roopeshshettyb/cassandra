@@ -6,7 +6,7 @@ import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
 import GuestBottomNav from './GuestBottomNav';
 
-export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate }) {
+export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'home';
 
@@ -58,7 +58,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: '#F8F7F4', pt: isMobile ? '5vh' : 0 }}>
       {renderTab()}
-      <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} />
+      <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} />
     </Box>
   );
 }
