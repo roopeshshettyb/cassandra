@@ -3,6 +3,7 @@ import { Box, Button, Badge, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { GoogleLogin } from '@react-oauth/google';
 import request from '../helper/api';
+import { BACKDROP_BG } from '../theme/index';
 import MapComponent from './MapComponent';
 import logger from '../services/logger.service';
 import constants from '../constants.json';
@@ -291,7 +292,7 @@ const LoginPopup = ({ showLoginPopup, closeLoginPopup, account, alertError, navi
         right: 0,
         bottom: 0,
         backdropFilter: 'blur(10px)',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: BACKDROP_BG,
         zIndex: 1300,
         display: 'flex',
         alignItems: 'center',

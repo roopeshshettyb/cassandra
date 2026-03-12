@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import { BACKDROP_BG } from '../theme/index';
 
 const Loader = ({ message = 'Loading...', isMobile }) => {
   return (
@@ -15,7 +16,7 @@ const Loader = ({ message = 'Loading...', isMobile }) => {
         alignItems: 'center',
         justifyContent: 'center',
         backdropFilter: 'blur(10px)',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: BACKDROP_BG,
         zIndex: 9999,
         gap: 2,
       }}
