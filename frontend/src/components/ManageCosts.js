@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../theme';
 
 function ManageCosts({ setLoading, account, alertError }) {
   const [costs, setCosts] = useState([]);
@@ -41,7 +41,7 @@ function ManageCosts({ setLoading, account, alertError }) {
       </motion.div>
 
       {/* Table card */}
-      <Box sx={{ bgcolor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, border: `1px solid ${BORDER}`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {/* Header row — Email col hidden on mobile, Cost stays last */}
         <Box
           sx={{
@@ -50,8 +50,8 @@ function ManageCosts({ setLoading, account, alertError }) {
             gap: { xs: 1, sm: 2 },
             px: { xs: 2, sm: 3 },
             py: 1.5,
-            borderBottom: '1px solid rgba(0,0,0,0.07)',
-            background: 'linear-gradient(135deg, #1B2340 0%, #263462 100%)',
+            borderBottom: `1px solid ${BORDER}`,
+            background: 'var(--app-navy-gradient)',
           }}
         >
           {['Booking', 'Guest'].map((h) => (
@@ -75,7 +75,7 @@ function ManageCosts({ setLoading, account, alertError }) {
                   gap: { xs: 1, sm: 2 },
                   px: { xs: 2, sm: 3 },
                   py: 2,
-                  borderBottom: i < costs.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                  borderBottom: i < costs.length - 1 ? `1px solid ${BORDER}` : 'none',
                   '&:hover': { bgcolor: 'rgba(212,175,55,0.04)' },
                 }}
               >

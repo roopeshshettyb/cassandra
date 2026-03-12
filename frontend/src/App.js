@@ -31,7 +31,7 @@ import Home from './components/Home';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
-import { GOLD_GRADIENT } from './theme';
+import { BRAND_GRADIENT } from './theme/index';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -148,7 +148,9 @@ const AppContent = () => {
     r.setProperty('--app-primary', primary);
     r.setProperty('--app-secondary', secondary);
     r.setProperty('--app-primary-contrast', contrastText);
-  }, [themeConfig]);
+    r.setProperty('--app-border', mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)');
+    r.setProperty('--app-nav-bg', mode === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.8)');
+  }, [themeConfig, mode]);
 
   const theme = useMemo(() => {
     const primaryMain = themeConfig?.primaryColor || '#D4AF37';
@@ -260,7 +262,7 @@ const AppContent = () => {
     isMobile,
     sidebarOpen,
     account,
-    GOLD_GRADIENT,
+    BRAND_GRADIENT,
     openLoginPopup,
     closeLoginPopup,
     loading,
@@ -297,7 +299,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isMobile ? '10vh' : '2.5vh' }}>
+            <Grid sx={{ paddingTop: isMobile ? '4vh' : '2.5vh' }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />

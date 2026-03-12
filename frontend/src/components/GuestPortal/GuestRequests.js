@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, BG } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
@@ -62,8 +62,8 @@ function RequestRow({ req, index }) {
         sx={{
           p: 2,
           borderRadius: 3,
-          bgcolor: '#fff',
-          border: '1px solid rgba(0,0,0,0.06)',
+          bgcolor: 'background.paper',
+          border: `1px solid ${BORDER}`,
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
         }}
       >
@@ -125,7 +125,7 @@ export default function GuestRequests({ booking }) {
   const availableCategories = allCategories.filter((cat) => cat.value === 'all' || requests.some((r) => r.requestType === cat.value));
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#F8F7F4', px: 2.5, pt: 3, pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', px: 2.5, pt: 3, pb: 14 }}>
       <Box sx={{ maxWidth: 640, mx: 'auto' }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
@@ -173,7 +173,7 @@ export default function GuestRequests({ booking }) {
                       padding: '7px 16px',
                       borderRadius: 99,
                       border: isActive ? 'none' : '1.5px solid rgba(0,0,0,0.12)',
-                      background: isActive ? GOLD_GRADIENT : '#fff',
+                      background: isActive ? BRAND_GRADIENT : 'background.paper',
                       cursor: 'pointer',
                       fontSize: 12,
                       fontWeight: 600,

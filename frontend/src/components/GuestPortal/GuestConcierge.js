@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { useSearchParams } from 'react-router-dom';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER } from '../../theme';
 
 const { APP_NAME } = constants;
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -26,7 +26,7 @@ function WaveformBars() {
             width: 4,
             height: 20,
             borderRadius: 99,
-            background: '#fff',
+            background: PRIMARY_CONTRAST,
             originY: 0.5,
           }}
           animate={{ scaleY: [0.4, 1.5, 0.4] }}
@@ -53,9 +53,9 @@ function ChatBubble({ message }) {
         px: 2,
         py: 1.25,
         borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        bgcolor: isUser ? 'primary.main' : '#fff',
-        color: isUser ? PRIMARY_CONTRAST : '#1B2340',
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        bgcolor: isUser ? 'primary.main' : 'background.paper',
+        color: isUser ? PRIMARY_CONTRAST : 'text.primary',
         '& p': { m: 0 },
         '& ul, & ol': { m: 0, pl: 2 },
         '& li': { mt: 0.4 },
@@ -153,7 +153,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           display: 'flex',
           flexDirection: 'column',
           gap: 1.5,
-          bgcolor: '#F8F7F4',
+          bgcolor: 'background.default',
         }}
       >
         {!ready && (
@@ -172,7 +172,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
               px: 2,
               py: 1.25,
               borderRadius: '18px 18px 18px 4px',
-              bgcolor: '#fff',
+              bgcolor: 'background.paper',
               display: 'flex',
               alignItems: 'center',
               gap: 1,
@@ -189,7 +189,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
         sx={{
           px: 2,
           py: 1.5,
-          borderTop: '1px solid rgba(0,0,0,0.07)',
+          borderTop: `1px solid ${BORDER}`,
           bgcolor: '#fff',
           flexShrink: 0,
         }}
@@ -239,7 +239,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 3,
-              bgcolor: '#F8F7F4',
+              bgcolor: 'background.default',
               fontSize: 14,
             },
           }}
@@ -287,7 +287,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
 
   if (showChat) {
     return (
-      <Box sx={{ height: isMobile ? 'calc(95vh - 80px)' : 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', bgcolor: '#F8F7F4' }}>
+      <Box sx={{ height: isMobile ? 'calc(95vh - 80px)' : 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
         <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} />
       </Box>
     );
@@ -297,7 +297,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
     <Box
       sx={{
         minHeight: 'calc(100vh - 80px)',
-        bgcolor: '#F8F7F4',
+        bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
         px: 2.5,

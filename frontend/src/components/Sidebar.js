@@ -6,6 +6,8 @@ import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 
+import { BORDER, NAV_BG } from '../theme/index';
+
 const MotionBox = motion(Box);
 
 // --- Navigation Configuration ---
@@ -172,10 +174,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     );
   };
 
-  // Theme-based translucent background
-  const translucentBg = mode === 'dark' 
-    ? `rgba(0, 0, 0, 0.7)` 
-    : `rgba(255, 255, 255, 0.8)`;
+  const translucentBg = NAV_BG;
 
   return (
     <>
@@ -194,8 +193,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
             px: 2,
             background: translucentBg,
             backdropFilter: 'blur(10px)',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
+            borderBottom: `1px solid ${BORDER}`,
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -271,8 +269,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                 bottom: 0,
                 width: sidebarWidth,
                 bgcolor: 'background.paper',
-                borderRight: '1px solid',
-                borderColor: 'divider',
+                borderRight: `1px solid ${BORDER}`,
                 display: 'flex',
                 flexDirection: 'column',
                 py: 2,

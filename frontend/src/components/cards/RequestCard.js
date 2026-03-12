@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
@@ -22,10 +22,10 @@ const RequestCard = ({ data, navigate, account }) => {
       <Box
         onClick={() => req?.bookingId && navigate?.(`/bookings/${req.bookingId}`)}
         sx={{
-          bgcolor: '#fff',
+          bgcolor: 'background.paper',
           borderRadius: 3,
           p: 2.5,
-          border: '1px solid rgba(0,0,0,0.06)',
+          border: `1px solid ${BORDER}`,
           boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
           cursor: 'pointer',
           position: 'relative',
@@ -34,7 +34,7 @@ const RequestCard = ({ data, navigate, account }) => {
         }}
       >
         {/* Gold left accent */}
-        <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: GOLD_GRADIENT, borderRadius: '3px 0 0 3px' }} />
+        <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: BRAND_GRADIENT, borderRadius: '3px 0 0 3px' }} />
 
         <Box sx={{ pl: 0.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>

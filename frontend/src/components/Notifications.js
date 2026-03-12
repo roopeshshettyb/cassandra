@@ -5,7 +5,7 @@ import { CheckCircle, Circle } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../theme';
 
 const typeColors = {
   DEAL_UPDATE: { color: '#2563EB', bg: 'rgba(37,99,235,0.1)' },
@@ -22,11 +22,11 @@ function NotificationItem({ data: notification, onNotificationClick }) {
       <Box
         onClick={() => onNotificationClick(notification)}
         sx={{
-          bgcolor: '#fff',
+          bgcolor: 'background.paper',
           borderRadius: 3,
           p: 2.5,
           mb: 1.5,
-          border: '1px solid rgba(0,0,0,0.06)',
+          border: `1px solid ${BORDER}`,
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           cursor: 'pointer',
           position: 'relative',
@@ -36,7 +36,7 @@ function NotificationItem({ data: notification, onNotificationClick }) {
         }}
       >
         {/* Unread gold accent */}
-        {!notification.read && <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: GOLD_GRADIENT, borderRadius: '3px 0 0 3px' }} />}
+        {!notification.read && <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: BRAND_GRADIENT, borderRadius: '3px 0 0 3px' }} />}
 
         <Box sx={{ pl: notification.read ? 0 : 0.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.75 }}>

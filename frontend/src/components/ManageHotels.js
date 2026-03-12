@@ -5,7 +5,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import HotelCard from './cards/HotelCard';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST } from '../theme';
 
 function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
@@ -56,15 +56,15 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
               onClick={() => setShowAddForm(true)}
               whileTap={{ scale: 0.97 }}
               style={{
-                background: GOLD_GRADIENT,
+                background: BRAND_GRADIENT,
                 border: 'none',
                 borderRadius: 10,
                 padding: '10px 22px',
-                color: '#fff',
+                color: PRIMARY_CONTRAST,
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(197,160,34,0.3)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
               }}
             >
               + Add Hotel
