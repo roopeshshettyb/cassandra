@@ -379,6 +379,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (_) {}
   }
 
+  @SubscribeMessage('voice_playback_done')
+  onPlaybackDone(client: any) {
+    if (this.isGptVoicePipeline()) {
+      this.voiceRealtimeService.onPlaybackDone(client.id);
+    }
+  }
+
   @SubscribeMessage('voice_stop')
   onVoiceStop(client: any) {
     const session: ChatSession | undefined = client.session;
@@ -427,6 +434,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('voice_text_chunk', { delta: event.delta || '' });
         break;
       case 'response.done': {
+        if (event._skipVoiceTextEnd) {
+          break;
+        }
         const { userTranscript, assistantText, toolCalls, usage } = this.voiceRealtimeService.consumeTranscriptsAndTools(client.id);
 
         const ev: any = event;
