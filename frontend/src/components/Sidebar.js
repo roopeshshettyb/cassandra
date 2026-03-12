@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
+import { Box, IconButton, Button, Badge, Typography, useTheme } from '@mui/material';
 import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
@@ -74,6 +74,7 @@ const ROLE_SPECIFIC_ITEMS = {
 };
 
 const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading }) => {
+  const theme = useTheme();
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
@@ -171,64 +172,74 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     );
   };
 
+  // Theme-based translucent background
+  const translucentBg = mode === 'dark' 
+    ? `rgba(0, 0, 0, 0.7)` 
+    : `rgba(255, 255, 255, 0.8)`;
+
   return (
     <>
-      {(!sidebarOpen || !isMobile) && (
+      {isMobile && !sidebarOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 64,
+            zIndex: 1400,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            px: 2,
+            background: translucentBg,
+            backdropFilter: 'blur(10px)',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton
+              onClick={() => setSidebarOpen(true)}
+              sx={{ color: 'text.primary', p: 0 }}
+            >
+              <Menu />
+            </IconButton>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: 'text.primary',
+              }}
+            >
+              {currentNav || 'Menu'}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => navigate(-1)}
+            sx={{ color: 'text.primary', p: 0 }}
+          >
+            <ArrowBack />
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Desktop Navigation Helper for back action if needed, or if mobile sidebar is open */}
+      {!isMobile && (
         <IconButton
           onClick={() => navigate(-1)}
           sx={{
             position: 'fixed',
             top: 16,
             right: 16,
-            zIndex: sidebarOpen ? 998 : 1001,
+            zIndex: 1001,
             color: 'text.primary',
-            padding: 0,
-            minWidth: 'auto',
-            '&:hover': {
-              bgcolor: 'transparent',
-            },
+            '&:hover': { bgcolor: 'transparent' },
           }}
         >
           <ArrowBack />
         </IconButton>
-      )}
-      {isMobile && !sidebarOpen && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 16,
-            left: 16,
-            zIndex: 1001,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-          }}
-        >
-          <IconButton
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            sx={{
-              color: 'text.primary',
-              padding: 0,
-              minWidth: 'auto',
-              '&:hover': {
-                bgcolor: 'transparent',
-              },
-            }}
-          >
-            <Menu />
-          </IconButton>
-          {currentNav && (
-            <Typography
-              sx={{
-                color: 'text.primary',
-                fontWeight: 600,
-                fontSize: '1rem',
-              }}
-            >
-              {currentNav}
-            </Typography>
-          )}
-        </Box>
       )}
 
       <AnimatePresence>

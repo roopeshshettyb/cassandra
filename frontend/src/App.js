@@ -44,6 +44,17 @@ function ScrollToTop() {
   return null;
 }
 
+const getContrastText = (hexcolor) => {
+  if (!hexcolor || typeof hexcolor !== 'string') return '#000000';
+  const hex = hexcolor.replace('#', '');
+  if (hex.length !== 6) return '#000000';
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? '#000000' : '#FFFFFF';
+};
+
 const AppContent = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -129,12 +140,15 @@ const AppContent = () => {
     const secondary = themeConfig?.secondaryColor || '#C5A022';
     const navy = themeConfig?.navyColor || '#1B2340';
     const navyLight = themeConfig?.navyLightColor || '#263462';
+    const contrastText = getContrastText(primary);
+    
     const r = document.documentElement.style;
     r.setProperty('--app-gold-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
     r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
     r.setProperty('--app-navy', navy);
     r.setProperty('--app-primary', primary);
     r.setProperty('--app-secondary', secondary);
+    r.setProperty('--app-primary-contrast', contrastText);
   }, [themeConfig]);
 
   const theme = useMemo(() => {
@@ -145,10 +159,18 @@ const AppContent = () => {
     const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? '#121212' : '#FFFFFF');
     const fontFamily =
       themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
+
+    // Use a temporary theme to access MUI's contrast calculation logic
+    const baseTheme = createTheme();
+    const contrastText = baseTheme.palette.getContrastText(primaryMain);
+
     return createTheme({
       palette: {
         mode,
-        primary: { main: primaryMain },
+        primary: { 
+          main: primaryMain,
+          contrastText: contrastText
+        },
         secondary: { main: secondaryMain },
         background: {
           default: bgDefault,
@@ -187,7 +209,7 @@ const AppContent = () => {
               fontWeight: 600,
             },
             containedPrimary: {
-              color: '#000000',
+              color: contrastText,
               '&:hover': {
                 backgroundColor: themeConfig?.primaryHoverColor || '#B8860B',
               },
@@ -276,7 +298,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid style={{ paddingTop: '20px' }}>
+            <Grid sx={{ paddingTop: isMobile ? '80px' : '20px' }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />

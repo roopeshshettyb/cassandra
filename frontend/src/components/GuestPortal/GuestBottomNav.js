@@ -76,7 +76,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sideb
                     width: 24,
                     height: 3,
                     borderRadius: 99,
-                    background: 'linear-gradient(90deg, #D4AF37 0%, #C5A022 100%)',
+                    background: 'var(--app-gold-gradient)',
                   }}
                 />
               )}
