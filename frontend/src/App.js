@@ -133,17 +133,16 @@ const AppContent = () => {
     fetchAccount();
   }, []);
 
-  // Keep CSS variables in sync with hotel themeConfig so all components using
-  // GOLD_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
+  // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
   useEffect(() => {
     const primary = themeConfig?.primaryColor || '#D4AF37';
     const secondary = themeConfig?.secondaryColor || '#C5A022';
     const navy = themeConfig?.navyColor || '#1B2340';
     const navyLight = themeConfig?.navyLightColor || '#263462';
     const contrastText = getContrastText(primary);
-    
+
     const r = document.documentElement.style;
-    r.setProperty('--app-gold-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
+    r.setProperty('--app-brand-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
     r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
     r.setProperty('--app-navy', navy);
     r.setProperty('--app-primary', primary);
@@ -167,9 +166,9 @@ const AppContent = () => {
     return createTheme({
       palette: {
         mode,
-        primary: { 
+        primary: {
           main: primaryMain,
-          contrastText: contrastText
+          contrastText: contrastText,
         },
         secondary: { main: secondaryMain },
         background: {
@@ -291,14 +290,14 @@ const AppContent = () => {
         <Sidebar {...commonProps} />
         <Box
           sx={{
-            display: (isMobile && sidebarOpen) ? 'none' : 'flex',
+            display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '130vh',
             ml: isMobile ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isMobile ? '80px' : '20px' }}>
+            <Grid sx={{ paddingTop: isMobile ? '10vh' : '2.5vh' }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />

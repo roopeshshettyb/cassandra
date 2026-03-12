@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import HomeIcon from '@mui/icons-material/Home';
 import MicIcon from '@mui/icons-material/Mic';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import { BRAND_GRADIENT } from '../../theme';
 
 const tabs = [
   { id: 'home', icon: HomeIcon, label: 'Home' },
@@ -76,7 +77,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sideb
                     width: 24,
                     height: 3,
                     borderRadius: 99,
-                    background: 'var(--app-gold-gradient)',
+                    background: BRAND_GRADIENT,
                   }}
                 />
               )}

@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { useSearchParams } from 'react-router-dom';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
-import { NAVY, MUTED, GOLD_GRADIENT, PRIMARY_CONTRAST } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST } from '../../theme';
 
 const { APP_NAME } = constants;
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -346,7 +346,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
               borderRadius: '50%',
               border: 'none',
               cursor: isWithinStay ? 'pointer' : 'not-allowed',
-              background: isRecording ? GOLD_GRADIENT : '#111',
+              background: isRecording ? BRAND_GRADIENT : '#111',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
