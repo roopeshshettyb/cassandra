@@ -78,6 +78,7 @@ describe('System Integration Stress Tests', () => {
   };
 
   async function askSystem(userMessage: string): Promise<string> {
+    console.log(`\n[USER INPUT]: ${userMessage}`);
     let fullResponse = '';
     await chatLlmService.streamUserMessage(session, userMessage, {
       onChunk: (chunk) => {
@@ -85,6 +86,7 @@ describe('System Integration Stress Tests', () => {
       },
       mode: 'text',
     });
+    console.log(`[LLM RESPONSE]: ${fullResponse}\n`);
     return fullResponse;
   }
 
