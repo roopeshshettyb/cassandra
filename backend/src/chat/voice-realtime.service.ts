@@ -24,6 +24,8 @@ interface VoiceSessionState {
   pendingEvents: unknown[];
   sessionConfigured: boolean;
   transcriptionModel: string;
+  isResponding: boolean;
+  pendingToolResponse: boolean;
 }
 
 @Injectable()
@@ -66,6 +68,8 @@ export class VoiceRealtimeService {
       pendingEvents: [],
       sessionConfigured: false,
       transcriptionModel,
+      isResponding: false,
+      pendingToolResponse: false,
     };
 
     this.sessions.set(sessionId, state);
@@ -104,7 +108,7 @@ export class VoiceRealtimeService {
                   prefix_padding_ms: 300,
                   silence_duration_ms: 400,
                   idle_timeout_ms: 20000,
-                  create_response: true,
+                  create_response: false,
                   interrupt_response: false,
                 },
               },
@@ -163,11 +167,25 @@ export class VoiceRealtimeService {
     if (!state) {
       throw new Error(`No Realtime session found for id: ${sessionId}`);
     }
+    if (state.isResponding && (event as any)?.type === 'input_audio_buffer.append') {
+      return;
+    }
     if (!state.isOpen || !state.sessionConfigured) {
       state.pendingEvents.push(event);
       return;
     }
     state.ws.send(JSON.stringify(event));
+  }
+
+  onPlaybackDone(sessionId: string): void {
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
+    state.isResponding = false;
+    try {
+      state.ws.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+    } catch {
+      // ignore — session may have closed
+    }
   }
 
   closeSession(sessionId: string): void {
@@ -239,6 +257,47 @@ export class VoiceRealtimeService {
         state.pendingEvents = [];
         break;
       }
+      case 'response.created': {
+        state.isResponding = true;
+        try {
+          state.ws.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+        } catch {
+          // ignore
+        }
+        break;
+      }
+      case 'response.done': {
+        if (state.pendingToolResponse) {
+          state.pendingToolResponse = false;
+          event._skipVoiceTextEnd = true;
+        } else {
+          try {
+            state.ws.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+          } catch {
+            // ignore
+          }
+        }
+        break;
+      }
+      case 'input_audio_buffer.committed': {
+        if (state.isResponding) {
+          const itemId = event.item_id ?? null;
+          if (itemId) {
+            try {
+              state.ws.send(JSON.stringify({ type: 'conversation.item.delete', item_id: itemId }));
+            } catch {
+              // ignore
+            }
+          }
+        } else {
+          try {
+            state.ws.send(JSON.stringify({ type: 'response.create' }));
+          } catch {
+            // ignore
+          }
+        }
+        break;
+      }
       case 'response.output_text.delta':
         state.assistantText = (state.assistantText || '') + (event.delta || '');
         break;
@@ -277,6 +336,8 @@ export class VoiceRealtimeService {
       this.logger.warn('Function call event missing name or call_id', event);
       return;
     }
+
+    state.pendingToolResponse = true;
 
     let args: Record<string, unknown> = {};
     if (argsJson) {
@@ -354,10 +415,6 @@ export class VoiceRealtimeService {
     };
 
     state.ws.send(JSON.stringify(toolOutputEvent));
-
-    const responseCreateEvent = {
-      type: 'response.create',
-    };
-    state.ws.send(JSON.stringify(responseCreateEvent));
+    state.ws.send(JSON.stringify({ type: 'response.create' }));
   }
 }

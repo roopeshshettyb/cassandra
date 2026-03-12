@@ -31,6 +31,7 @@ export function useSocketVoice({
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const playbackAudioContextRef = useRef<AudioContext | null>(null);
     const playbackTimeRef = useRef<number>(0);
+    const playbackDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const cleanupAudio = useCallback(() => {
         if (processorRef.current) {
@@ -69,6 +70,7 @@ export function useSocketVoice({
             setIsRecording(false);
             setIsSpeaking(false);
             setIsProcessing(false);
+            if (playbackDoneTimerRef.current) { clearTimeout(playbackDoneTimerRef.current); playbackDoneTimerRef.current = null; }
             cleanupAudio();
         });
 
@@ -113,6 +115,15 @@ export function useSocketVoice({
         socket.on('voice_text_end', (payload: any) => {
             setIsSpeaking(false);
             onAssistantTextEnd?.(payload?.text || '');
+
+            if (playbackDoneTimerRef.current) clearTimeout(playbackDoneTimerRef.current);
+            const ctx = playbackAudioContextRef.current;
+            const remainingMs = ctx && playbackTimeRef.current > ctx.currentTime
+                ? (playbackTimeRef.current - ctx.currentTime) * 1000 + 300
+                : 0;
+            playbackDoneTimerRef.current = setTimeout(() => {
+                socket.emit('voice_playback_done');
+            }, remainingMs);
         });
 
         socket.on('voice_audio_chunk', (payload: any) => {
@@ -127,6 +138,7 @@ export function useSocketVoice({
         });
 
         return () => {
+            if (playbackDoneTimerRef.current) { clearTimeout(playbackDoneTimerRef.current); playbackDoneTimerRef.current = null; }
             cleanupAudio();
             socket.removeAllListeners();
             socket.disconnect();
@@ -140,7 +152,9 @@ export function useSocketVoice({
             return;
         }
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            });
             const AudioContextImpl = window.AudioContext || (window as any).webkitAudioContext;
             const audioContext = new AudioContextImpl({ sampleRate: 24000 });
             const source = audioContext.createMediaStreamSource(stream);
