@@ -42,22 +42,6 @@ function WaveformBars() {
   );
 }
 
-// ── Thinking dots ──────────────────────────────────────────────────────────
-function ThinkingDots() {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }}
-          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.15, 0.8] }}
-          transition={{ duration: 1, repeat: Infinity, delay: i * 0.22 }}
-        />
-      ))}
-    </Box>
-  );
-}
-
 // ── Chat bubble renderer ───────────────────────────────────────────────────
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
@@ -276,16 +260,10 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
   const bookingId = booking?.id;
   const hotelName = booking?.hotel?.name || 'Hotel';
 
-  const { isReady, isRecording, isSpeaking, isProcessing, startRecording, stopRecording } = useSocketVoice({
+  const { isReady, isRecording, startRecording, stopRecording } = useSocketVoice({
     bookingId: showChat ? null : bookingId,
     onError: (err) => alertError?.(err),
   });
-
-  // Derive voice state directly from hook — no manual sync needed
-  const voiceState = !isRecording ? 'idle'
-    : isSpeaking    ? 'responding'
-    : isProcessing  ? 'thinking'
-    : 'listening';
 
   const handleMicTap = async () => {
     if (!isWithinStay) {
@@ -296,26 +274,16 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
       alertError?.('Voice connection not ready yet.');
       return;
     }
-    if (voiceState === 'idle') {
+    if (isRecording) {
+      stopRecording();
+    } else {
       try {
         await startRecording();
       } catch (e) {
         alertError?.(e?.message || 'Could not start recording');
       }
-    } else if (voiceState === 'listening') {
-      stopRecording();
     }
-    // thinking / responding: let it finish
   };
-
-  const stateLabel = {
-    idle: 'Tap to speak',
-    listening: 'Listening…',
-    thinking: 'Processing…',
-    responding: 'Speaking…',
-  }[voiceState];
-
-  const isActive = voiceState !== 'idle';
 
   if (showChat) {
     return (
@@ -370,111 +338,47 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
             mt: -2,
           }}
         >
-          <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {/* Outer pulse rings (active) */}
-            <AnimatePresence>
-              {isActive && (
-                <>
-                  <motion.div
-                    key="ring1"
-                    style={{
-                      position: 'absolute',
-                      width: 160,
-                      height: 160,
-                      borderRadius: '50%',
-                      background: isActive ? 'linear-gradient(135deg, rgba(212,175,55,0.25), rgba(197,160,34,0.1))' : 'transparent',
-                    }}
-                    initial={{ scale: 1, opacity: 0.3 }}
-                    animate={{ scale: 1.7, opacity: 0 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
-                  />
-                  <motion.div
-                    key="ring2"
-                    style={{
-                      position: 'absolute',
-                      width: 160,
-                      height: 160,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(197,160,34,0.05))',
-                    }}
-                    initial={{ scale: 1, opacity: 0.2 }}
-                    animate={{ scale: 1.45, opacity: 0 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
-                  />
-                </>
+          <motion.button
+            onClick={handleMicTap}
+            style={{
+              width: 148,
+              height: 148,
+              borderRadius: '50%',
+              border: 'none',
+              cursor: isWithinStay ? 'pointer' : 'not-allowed',
+              background: isRecording ? 'linear-gradient(135deg, #D4AF37 0%, #C5A022 100%)' : '#111',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: isRecording ? '0 8px 30px rgba(197,160,34,0.4)' : '0 8px 30px rgba(0,0,0,0.25)',
+              outline: 'none',
+            }}
+            whileTap={{ scale: 0.94 }}
+          >
+            <AnimatePresence mode="wait">
+              {isRecording ? (
+                <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
+                  <WaveformBars />
+                </motion.div>
+              ) : (
+                <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
+                  <MicIcon sx={{ fontSize: 48, color: '#fff' }} />
+                </motion.div>
               )}
             </AnimatePresence>
+          </motion.button>
 
-            {/* Glow / halo ring */}
-            <motion.div
-              style={{
-                position: 'absolute',
-                width: 184,
-                height: 184,
-                borderRadius: '50%',
-                border: '2px solid',
-                borderColor: isActive ? '#D4AF37' : 'rgba(212,175,55,0.25)',
-              }}
-              animate={!isActive ? { scale: [1, 1.04, 1], opacity: [0.35, 0.65, 0.35] } : { scale: 1, opacity: 0.85 }}
-              transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-            />
-
-            {/* Main mic button */}
-            <motion.button
-              onClick={handleMicTap}
-              style={{
-                position: 'relative',
-                zIndex: 1,
-                width: 148,
-                height: 148,
-                borderRadius: '50%',
-                border: 'none',
-                cursor: isWithinStay ? 'pointer' : 'not-allowed',
-                background: isActive ? 'linear-gradient(135deg, #D4AF37 0%, #C5A022 100%)' : NAVY,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: isActive ? '0 8px 30px rgba(197,160,34,0.4)' : '0 8px 30px rgba(27,35,64,0.3)',
-                outline: 'none',
-              }}
-              whileTap={{ scale: 0.94 }}
-              animate={!isActive ? { scale: [1, 1.025, 1] } : {}}
-              transition={!isActive ? { duration: 4, repeat: Infinity, ease: 'easeInOut' } : {}}
-            >
-              <AnimatePresence mode="wait">
-                {voiceState === 'listening' ? (
-                  <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                    <WaveformBars />
-                  </motion.div>
-                ) : voiceState === 'thinking' ? (
-                  <motion.div key="thinking" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                    <ThinkingDots />
-                  </motion.div>
-                ) : (
-                  <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                    <MicIcon sx={{ fontSize: 48, color: '#fff' }} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </Box>
-
-          {/* State label */}
-          <AnimatePresence mode="wait">
-            <motion.div key={stateLabel} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  color: MUTED,
-                  letterSpacing: '0.04em',
-                  textAlign: 'center',
-                  fontWeight: 500,
-                }}
-              >
-                {isWithinStay ? stateLabel : 'Available during your stay'}
-              </Typography>
-            </motion.div>
-          </AnimatePresence>
+          <Typography
+            sx={{
+              fontSize: 14,
+              color: MUTED,
+              letterSpacing: '0.04em',
+              textAlign: 'center',
+              fontWeight: 500,
+            }}
+          >
+            {!isWithinStay ? 'Available during your stay' : isRecording ? 'Tap to stop' : 'Tap to speak'}
+          </Typography>
         </Box>
 
         {/* Prefer to type? */}
