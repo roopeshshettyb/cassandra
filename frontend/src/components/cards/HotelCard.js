@@ -6,7 +6,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;
@@ -20,9 +20,9 @@ const HotelCard = ({ data, navigate }) => {
           borderRadius: 3,
           overflow: 'hidden',
           border: `1px solid ${BORDER}`,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          boxShadow: SHADOW,
           cursor: 'pointer',
-          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+          '&:hover': { boxShadow: SHADOW_HOVER },
         }}
       >
         {/* Navy banner with centered icon */}
@@ -46,8 +46,8 @@ const HotelCard = ({ data, navigate }) => {
             </Box>
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LocationOnIcon sx={{ fontSize: 14, color: 'rgba(136,136,136,0.3)', flexShrink: 0 }} />
-              <Typography sx={{ fontSize: 12, color: 'rgba(136,136,136,0.4)', fontStyle: 'italic' }}>No address</Typography>
+              <LocationOnIcon sx={{ fontSize: 14, color: TEXT_MUTED_DARK, flexShrink: 0, opacity: 0.5 }} />
+              <Typography sx={{ fontSize: 12, color: TEXT_MUTED_DARK, fontStyle: 'italic', opacity: 0.6 }}>No address</Typography>
             </Box>
           )}
 
@@ -67,7 +67,7 @@ const HotelCard = ({ data, navigate }) => {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: `1px solid ${BORDER}` }}>
-            <Typography sx={{ fontSize: 10, color: 'rgba(136,136,136,0.4)', fontFamily: 'monospace' }}>#{hotel.id}</Typography>
+            <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.6 }}>#{hotel.id}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#C5A022' }}>Manage</Typography>
               <ArrowForwardIosIcon sx={{ fontSize: 10, color: '#C5A022' }} />

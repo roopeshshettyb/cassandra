@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { useSearchParams } from 'react-router-dom';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND } from '../../theme';
 
 const { APP_NAME } = constants;
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -53,7 +53,7 @@ function ChatBubble({ message }) {
         px: 2,
         py: 1.25,
         borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        boxShadow: SHADOW,
         bgcolor: isUser ? 'primary.main' : 'background.paper',
         color: isUser ? PRIMARY_CONTRAST : 'text.primary',
         '& p': { m: 0 },
@@ -229,7 +229,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
                   onClick={handleSend}
                   disabled={!ready || sending || !input.trim()}
                   size="small"
-                  sx={{ color: 'primary.main', '&.Mui-disabled': { color: 'rgba(0,0,0,0.26)' } }}
+                  sx={{ color: 'primary.main', '&.Mui-disabled': { opacity: 0.5 } }}
                 >
                   <SendIcon sx={{ fontSize: 18 }} />
                 </IconButton>
@@ -350,7 +350,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: isRecording ? '0 8px 30px rgba(197,160,34,0.4)' : '0 8px 30px rgba(0,0,0,0.25)',
+              boxShadow: isRecording ? SHADOW_BRAND : SHADOW,
               outline: 'none',
             }}
             whileTap={{ scale: 0.94 }}

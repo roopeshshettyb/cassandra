@@ -9,7 +9,7 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import BedtimeIcon from '@mui/icons-material/Bedtime';
 
-import { NAVY, MUTED, BORDER } from '../theme';
+import { NAVY, MUTED, BORDER, SHADOW } from '../theme';
 
 const LABEL_SX = {
   fontSize: 11,
@@ -23,7 +23,7 @@ const LABEL_SX = {
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, p: 2.5, border: `1px solid ${BORDER}`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, p: 2.5, border: `1px solid ${BORDER}`, boxShadow: SHADOW }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
           <Box sx={{ width: 40, height: 40, borderRadius: 2, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon sx={{ fontSize: 20, color: '#fff' }} />

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import HomeIcon from '@mui/icons-material/Home';
 import MicIcon from '@mui/icons-material/Mic';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { BRAND_GRADIENT, BORDER } from '../../theme';
+import { BRAND_GRADIENT, BORDER, NAV_BG } from '../../theme';
 
 const tabs = [
   { id: 'home', icon: HomeIcon, label: 'Home' },
@@ -23,7 +23,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sideb
         left: isMobile ? 0 : '20vw',
         right: 0,
         zIndex: 1100,
-        bgcolor: 'rgba(255,255,255,0.88)',
+        bgcolor: NAV_BG,
         backdropFilter: 'blur(14px)',
         borderTop: `1px solid ${BORDER}`,
         borderRadius: 0,
@@ -106,7 +106,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sideb
         })}
       </Box>
       {/* Safe area for mobile */}
-      <Box sx={{ height: 'env(safe-area-inset-bottom, 0px)', bgcolor: 'rgba(255,255,255,0.88)' }} />
+      <Box sx={{ height: 'env(safe-area-inset-bottom, 0px)', bgcolor: NAV_BG }} />
     </Paper>
   );
 }

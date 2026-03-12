@@ -6,7 +6,7 @@ import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 
-import { BORDER, NAV_BG } from '../theme/index';
+import { BORDER, NAV_BG, BACKDROP_BG } from '../theme/index';
 
 const MotionBox = motion(Box);
 
@@ -252,7 +252,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  bgcolor: 'rgba(0, 0, 0, 0.5)',
+                  bgcolor: BACKDROP_BG,
                   zIndex: 1499,
                 }}
               />

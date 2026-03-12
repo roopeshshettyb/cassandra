@@ -5,12 +5,12 @@ import { CheckCircle, Circle } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, TEXT_MUTED_DARK } from '../theme';
 
 const typeColors = {
-  DEAL_UPDATE: { color: '#2563EB', bg: 'rgba(37,99,235,0.1)' },
-  PAYMENT: { color: '#059669', bg: 'rgba(5,150,105,0.1)' },
-  SYSTEM: { color: '#888888', bg: 'rgba(136,136,136,0.1)' },
+  DEAL_UPDATE: { color: STATUS_INFO, bg: STATUS_INFO_BG },
+  PAYMENT: { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  SYSTEM: { color: MUTED, bg: TEXT_MUTED_DARK }, // Or HOVER_BG / TEXT_MUTED_DARK etc
 };
 
 function NotificationItem({ data: notification, onNotificationClick }) {
@@ -27,12 +27,12 @@ function NotificationItem({ data: notification, onNotificationClick }) {
           p: 2.5,
           mb: 1.5,
           border: `1px solid ${BORDER}`,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          boxShadow: SHADOW,
           cursor: 'pointer',
           position: 'relative',
           overflow: 'hidden',
           opacity: notification.read ? 0.6 : 1,
-          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+          '&:hover': { boxShadow: SHADOW_HOVER },
         }}
       >
         {/* Unread gold accent */}

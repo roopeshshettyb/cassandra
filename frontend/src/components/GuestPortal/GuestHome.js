@@ -12,7 +12,7 @@ import SpaIcon from '@mui/icons-material/Spa';
 import CloseIcon from '@mui/icons-material/Close';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
 dayjs.extend(relativeTime);
 
@@ -169,10 +169,10 @@ export default function GuestHome({ booking, account, onTabChange }) {
                       p: 1.5,
                       borderRadius: 3,
                       bgcolor: 'background.paper',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                      boxShadow: SHADOW,
                       cursor: 'pointer',
                       transition: 'box-shadow 0.2s, transform 0.15s',
-                      '&:hover': { boxShadow: '0 4px 14px rgba(0,0,0,0.1)' },
+                      '&:hover': { boxShadow: SHADOW_HOVER },
                     }}
                   >
                     <Box
@@ -220,7 +220,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
               alignItems: 'center',
               gap: 2,
               cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(27,35,64,0.18)',
+              boxShadow: SHADOW_HOVER,
             }}
           >
             <Box
@@ -239,7 +239,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
-              <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', mt: 0.4 }}>Ask anything — available 24/7</Typography>
+              <Typography sx={{ fontSize: 13, color: TEXT_MUTED_LIGHT, mt: 0.4 }}>Ask anything — available 24/7</Typography>
             </Box>
           </Box>
         </motion.div>
@@ -272,7 +272,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
                           borderRadius: 3,
                           bgcolor: 'background.paper',
                           border: `1px solid ${BORDER}`,
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                          boxShadow: SHADOW,
                           overflow: 'hidden',
                         }}
                       >
@@ -303,7 +303,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
                             justifyContent: 'center',
                             cursor: 'pointer',
                             color: MUTED,
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.06)' },
+                            '&:hover': { bgcolor: HOVER_BG },
                           }}
                         >
                           <CloseIcon sx={{ fontSize: 14 }} />
@@ -342,7 +342,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
                                 fontWeight: 700,
                                 color: PRIMARY_CONTRAST,
                                 display: 'inline-block',
-                                boxShadow: '0 2px 8px rgba(197,160,34,0.3)',
+                                boxShadow: SHADOW_BRAND,
                               }}
                             >
                               {nudge.action}
@@ -391,7 +391,7 @@ export default function GuestHome({ booking, account, onTabChange }) {
                         borderRadius: 3,
                         bgcolor: 'background.paper',
                         border: `1px solid ${BORDER}`,
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                        boxShadow: SHADOW,
                       }}
                     >
                       <Box

@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
@@ -26,11 +26,11 @@ const RequestCard = ({ data, navigate, account }) => {
           borderRadius: 3,
           p: 2.5,
           border: `1px solid ${BORDER}`,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          boxShadow: SHADOW,
           cursor: 'pointer',
           position: 'relative',
           overflow: 'hidden',
-          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+          '&:hover': { boxShadow: SHADOW_HOVER },
         }}
       >
         {/* Gold left accent */}
@@ -41,7 +41,7 @@ const RequestCard = ({ data, navigate, account }) => {
             <Box sx={{ flex: 1, mr: 1 }}>
               <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3 }}>{title}</Typography>
               {guestName && <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>{guestName}</Typography>}
-              {hotelName && <Typography sx={{ fontSize: 11, color: 'rgba(136,136,136,0.7)', mt: 0.15 }}>{hotelName}</Typography>}
+              {hotelName && <Typography sx={{ fontSize: 11, color: TEXT_MUTED_DARK, mt: 0.15 }}>{hotelName}</Typography>}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: st.bg, flexShrink: 0 }}>
               <motion.div
@@ -61,7 +61,7 @@ const RequestCard = ({ data, navigate, account }) => {
             </Typography>
           )}
 
-          <Typography sx={{ fontSize: 11, color: 'rgba(136,136,136,0.6)' }}>
+          <Typography sx={{ fontSize: 11, color: TEXT_MUTED_DARK }}>
             {req.createdAt ? dayjs(req.createdAt).fromNow() : ''}
           </Typography>
         </Box>

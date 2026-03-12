@@ -5,13 +5,13 @@ import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
 
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_INFO, STATUS_INFO_BG, STATUS_ERROR, STATUS_ERROR_BG, TEXT_MUTED_DARK } from '../../theme';
 
 const statusConfig = {
-  Active:    { color: '#059669', bg: 'rgba(5,150,105,0.1)' },
-  Upcoming:  { color: '#2563EB', bg: 'rgba(37,99,235,0.1)' },
-  Past:      { color: '#888888', bg: 'rgba(136,136,136,0.1)' },
-  Cancelled: { color: '#DC2626', bg: 'rgba(220,38,38,0.1)' },
+  Active:    { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  Upcoming:  { color: STATUS_INFO,    bg: STATUS_INFO_BG },
+  Past:      { color: MUTED,          bg: TEXT_MUTED_DARK }, 
+  Cancelled: { color: STATUS_ERROR,   bg: STATUS_ERROR_BG },
 };
 
 const BookingCard = ({ data, navigate }) => {
@@ -38,10 +38,10 @@ const BookingCard = ({ data, navigate }) => {
           bgcolor: 'background.paper',
           borderRadius: 3,
           border: `1px solid ${BORDER}`,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          boxShadow: SHADOW,
           cursor: 'pointer',
           position: 'relative',
-          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+          '&:hover': { boxShadow: SHADOW_HOVER },
         }}
       >
         {/* Gold left accent */}
@@ -108,7 +108,7 @@ const BookingCard = ({ data, navigate }) => {
 
           {/* Footer */}
           <Box sx={{ mt: 1.5, pt: 1.25, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontSize: 10, color: 'rgba(136,136,136,0.5)', fontFamily: 'monospace' }}>
+            <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace' }}>
               #{booking.id}
             </Typography>
           </Box>

@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, HOVER_BG } from '../theme';
 
 function ManageCosts({ setLoading, account, alertError }) {
   const [costs, setCosts] = useState([]);
@@ -41,7 +41,7 @@ function ManageCosts({ setLoading, account, alertError }) {
       </motion.div>
 
       {/* Table card */}
-      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, border: `1px solid ${BORDER}`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, border: `1px solid ${BORDER}`, boxShadow: SHADOW, overflow: 'hidden' }}>
         {/* Header row — Email col hidden on mobile, Cost stays last */}
         <Box
           sx={{
@@ -55,14 +55,14 @@ function ManageCosts({ setLoading, account, alertError }) {
           }}
         >
           {['Booking', 'Guest'].map((h) => (
-            <Typography key={h} sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>
+            <Typography key={h} sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: TEXT_MUTED_LIGHT }}>
               {h}
             </Typography>
           ))}
-          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', display: { xs: 'none', sm: 'block' } }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: TEXT_MUTED_LIGHT, display: { xs: 'none', sm: 'block' } }}>
             Email
           </Typography>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Cost</Typography>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: TEXT_MUTED_LIGHT }}>Cost</Typography>
         </Box>
 
         {costs.length > 0 ? (
@@ -76,7 +76,7 @@ function ManageCosts({ setLoading, account, alertError }) {
                   px: { xs: 2, sm: 3 },
                   py: 2,
                   borderBottom: i < costs.length - 1 ? `1px solid ${BORDER}` : 'none',
-                  '&:hover': { bgcolor: 'rgba(212,175,55,0.04)' },
+                  '&:hover': { bgcolor: HOVER_BG },
                 }}
               >
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: 'monospace' }}>#{row.bookingId || '—'}</Typography>

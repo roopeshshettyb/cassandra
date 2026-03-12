@@ -5,7 +5,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import BookingCard from './cards/BookingCard';
 
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
 
 function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [bookings, setBookings] = useState([]);
@@ -72,7 +72,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                boxShadow: SHADOW,
               }}
             >
               + New Booking
