@@ -244,7 +244,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   right: 0,
                   bottom: 0,
                   bgcolor: 'rgba(0, 0, 0, 0.5)',
-                  zIndex: 999,
+                  zIndex: 1499,
                 }}
               />
             )}
@@ -266,7 +266,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                 flexDirection: 'column',
                 py: 2,
                 gap: 2,
-                zIndex: 1002,
+                zIndex: 1500,
                 overflowY: 'auto',
                 maxHeight: '100vh',
               }}

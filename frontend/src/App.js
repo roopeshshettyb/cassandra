@@ -269,7 +269,7 @@ const AppContent = () => {
         <Sidebar {...commonProps} />
         <Box
           sx={{
-            display: 'flex',
+            display: (isMobile && sidebarOpen) ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '130vh',
             ml: isMobile ? 0 : '20vw',
