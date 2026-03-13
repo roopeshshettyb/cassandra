@@ -1,13 +1,14 @@
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CheckIcon from '@mui/icons-material/Check';
+import { STATUS_WARNING, STATUS_WARNING_BG, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_ERROR, STATUS_ERROR_BG } from '../theme';
 import CancelIcon from '@mui/icons-material/Cancel';
 import LoopIcon from '@mui/icons-material/Loop';
 
 export const REQUEST_STATUS = {
-  pending:     { label: 'Pending',     icon: AccessTimeIcon, color: '#C5A022', bg: 'rgba(212,175,55,0.12)' },
-  in_progress: { label: 'In Progress', icon: LoopIcon,       color: '#2563EB', bg: 'rgba(37,99,235,0.1)', spin: true },
-  completed:   { label: 'Completed',   icon: CheckIcon,      color: '#059669', bg: 'rgba(5,150,105,0.1)' },
-  cancelled:   { label: 'Cancelled',   icon: CancelIcon,     color: '#DC2626', bg: 'rgba(220,38,38,0.1)' },
+  pending:     { label: 'Pending',     icon: AccessTimeIcon, color: STATUS_WARNING, bg: STATUS_WARNING_BG },
+  in_progress: { label: 'In Progress', icon: LoopIcon,       color: STATUS_INFO, bg: STATUS_INFO_BG, spin: true },
+  completed:   { label: 'Completed',   icon: CheckIcon,      color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  cancelled:   { label: 'Cancelled',   icon: CancelIcon,     color: STATUS_ERROR, bg: STATUS_ERROR_BG },
 };
 
 export const REQUEST_TYPE_LABEL = {

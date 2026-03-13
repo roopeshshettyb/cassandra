@@ -6,6 +6,7 @@ import HeadsetMicIcon from '@mui/icons-material/HeadsetMic';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import MapComponent from './MapComponent';
 import constants from '../constants.json';
+import { PRIMARY_CONTRAST } from '../theme';
 
 const HomePointer = ({ data }) => {
   return (
@@ -46,6 +47,7 @@ const HomeLogoCard = ({ data }) => {
               alignItems: 'center',
               justifyContent: 'center',
               bgcolor: 'primary.main',
+              color: PRIMARY_CONTRAST,
             }}
           >
             {data.icon}
@@ -95,18 +97,18 @@ const Home = ({ openLoginPopup, navigate, isMobile }) => {
   const cardData = [
     {
       title: 'Support guests in-stay',
-      subtitle: 'Handle requests about Wi‑Fi, amenities, room service, and more while guests are already checked in.',
-      icon: <HotelIcon sx={{ color: 'text.primary' }} />,
+      subtitle: 'Handle requests about Wi-Fi, amenities, room service, and more while guests are already checked in.',
+      icon: <HotelIcon />,
     },
     {
       title: 'Lighten front desk workload',
       subtitle: `Let ${constants.APP_NAME} handle repetitive questions so your team can focus on high-touch service.`,
-      icon: <HeadsetMicIcon sx={{ color: 'text.primary' }} />,
+      icon: <HeadsetMicIcon />,
     },
     {
       title: 'Delight guests at every step',
       subtitle: `From pre-stay questions to late checkout, ${constants.APP_NAME} keeps guests informed and cared for.`,
-      icon: <ScheduleIcon sx={{ color: 'text.primary' }} />,
+      icon: <ScheduleIcon />,
     },
   ];
 

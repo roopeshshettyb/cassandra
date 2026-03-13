@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import HotelIcon from '@mui/icons-material/Hotel';
@@ -6,13 +5,13 @@ import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_INFO, STATUS_INFO_BG, STATUS_ERROR, STATUS_ERROR_BG, TEXT_MUTED_DARK } from '../../theme';
 
 const statusConfig = {
-  Active:    { color: '#059669', bg: 'rgba(5,150,105,0.1)' },
-  Upcoming:  { color: '#2563EB', bg: 'rgba(37,99,235,0.1)' },
-  Past:      { color: '#888888', bg: 'rgba(136,136,136,0.1)' },
-  Cancelled: { color: '#DC2626', bg: 'rgba(220,38,38,0.1)' },
+  Active:    { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  Upcoming:  { color: STATUS_INFO,    bg: STATUS_INFO_BG },
+  Past:      { color: MUTED,          bg: TEXT_MUTED_DARK }, 
+  Cancelled: { color: STATUS_ERROR,   bg: STATUS_ERROR_BG },
 };
 
 const BookingCard = ({ data, navigate }) => {
@@ -36,17 +35,17 @@ const BookingCard = ({ data, navigate }) => {
       <Box
         onClick={() => booking?.id && navigate?.(`/bookings/${booking.id}`)}
         sx={{
-          bgcolor: '#fff',
+          bgcolor: 'background.paper',
           borderRadius: 3,
-          border: '1px solid rgba(0,0,0,0.06)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          border: `1px solid ${BORDER}`,
+          boxShadow: SHADOW,
           cursor: 'pointer',
           position: 'relative',
-          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.1)' },
+          '&:hover': { boxShadow: SHADOW_HOVER },
         }}
       >
         {/* Gold left accent */}
-        <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: GOLD_GRADIENT, borderRadius: '3px 0 0 3px' }} />
+        <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: BRAND_GRADIENT, borderRadius: '3px 0 0 3px' }} />
 
         {/* Status badge — absolute top-right, never pushes layout */}
         <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: st.bg }}>
@@ -58,7 +57,7 @@ const BookingCard = ({ data, navigate }) => {
 
           {/* Hotel header */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: 1.75 }}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: GOLD_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <HotelIcon sx={{ fontSize: 18, color: '#fff' }} />
             </Box>
             <Box sx={{ minWidth: 0, flex: 1, pt: 0.2 }}>
@@ -74,7 +73,7 @@ const BookingCard = ({ data, navigate }) => {
           </Box>
 
           {/* Divider */}
-          <Box sx={{ height: 1, bgcolor: 'rgba(0,0,0,0.05)', mx: -0.5, mb: 1.5 }} />
+          <Box sx={{ height: 1, bgcolor: BORDER, mx: -0.5, mb: 1.5 }} />
 
           {/* Dates */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
@@ -108,8 +107,8 @@ const BookingCard = ({ data, navigate }) => {
           )}
 
           {/* Footer */}
-          <Box sx={{ mt: 1.5, pt: 1.25, borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontSize: 10, color: 'rgba(136,136,136,0.5)', fontFamily: 'monospace' }}>
+          <Box sx={{ mt: 1.5, pt: 1.25, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace' }}>
               #{booking.id}
             </Typography>
           </Box>

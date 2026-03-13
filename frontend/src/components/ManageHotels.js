@@ -5,7 +5,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import HotelCard from './cards/HotelCard';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
 
 function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
@@ -26,7 +26,10 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
 
   const handleCreateHotel = async (e) => {
     e.preventDefault();
-    if (!formValues.name || !formValues.address) { alertError?.('Name and address are required'); return; }
+    if (!formValues.name || !formValues.address) {
+      alertError?.('Name and address are required');
+      return;
+    }
     setCreating(true);
     try {
       await request({ endpoint: '/hotels', method: 'POST', data: formValues, setLoading, alertSuccess, alertError });
@@ -45,16 +48,24 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: { xs: 'flex-end', sm: 'space-between' }, mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
-              Management
-            </Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Hotels</Typography>
           </Box>
           {canAddHotel && (
             <motion.button
               onClick={() => setShowAddForm(true)}
               whileTap={{ scale: 0.97 }}
-              style={{ background: GOLD_GRADIENT, border: 'none', borderRadius: 10, padding: '10px 22px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(197,160,34,0.3)' }}
+              style={{
+                background: BRAND_GRADIENT,
+                border: 'none',
+                borderRadius: 10,
+                padding: '10px 22px',
+                color: PRIMARY_CONTRAST,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: SHADOW,
+              }}
             >
               + Add Hotel
             </motion.button>
@@ -70,14 +81,34 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
               <TextField fullWidth label="Hotel Name" value={formValues.name} onChange={handleInputChange('name')} required />
               <TextField fullWidth label="Address" value={formValues.address} onChange={handleInputChange('address')} required />
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth label="Check-in Time" type="time" value={formValues.checkInTime} onChange={handleInputChange('checkInTime')} inputProps={{ step: 60 }} InputLabelProps={{ shrink: true }} />
-                <TextField fullWidth label="Check-out Time" type="time" value={formValues.checkOutTime} onChange={handleInputChange('checkOutTime')} inputProps={{ step: 60 }} InputLabelProps={{ shrink: true }} />
+                <TextField
+                  fullWidth
+                  label="Check-in Time"
+                  type="time"
+                  value={formValues.checkInTime}
+                  onChange={handleInputChange('checkInTime')}
+                  inputProps={{ step: 60 }}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  fullWidth
+                  label="Check-out Time"
+                  type="time"
+                  value={formValues.checkOutTime}
+                  onChange={handleInputChange('checkOutTime')}
+                  inputProps={{ step: 60 }}
+                  InputLabelProps={{ shrink: true }}
+                />
               </Box>
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setShowAddForm(false)} sx={{ color: MUTED }}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary" disabled={creating}>{creating ? 'Saving…' : 'Save Hotel'}</Button>
+            <Button onClick={() => setShowAddForm(false)} sx={{ color: MUTED }}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" color="primary" disabled={creating}>
+              {creating ? 'Saving…' : 'Save Hotel'}
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>

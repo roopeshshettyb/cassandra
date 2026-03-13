@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { GOLD_GRADIENT, NAVY, MUTED } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, BG, SHADOW, SHADOW_BRAND, TEXT_MUTED_DARK, HOVER_BG, STATUS_WARNING_BG, BACKDROP_BG } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
@@ -35,7 +35,7 @@ function NoteThread({ userNotes, staffNotes }) {
                 px: 1.5,
                 py: 0.9,
                 borderRadius: isGuest ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-                bgcolor: isGuest ? 'rgba(212,175,55,0.13)' : 'rgba(27,35,64,0.07)',
+                bgcolor: isGuest ? STATUS_WARNING_BG : HOVER_BG,
                 maxWidth: '88%',
               }}
             >
@@ -62,9 +62,9 @@ function RequestRow({ req, index }) {
         sx={{
           p: 2,
           borderRadius: 3,
-          bgcolor: '#fff',
-          border: '1px solid rgba(0,0,0,0.06)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          bgcolor: 'background.paper',
+          border: `1px solid ${BORDER}`,
+          boxShadow: SHADOW,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.5 }}>
@@ -94,7 +94,7 @@ function RequestRow({ req, index }) {
           <Typography sx={{ fontSize: 11, color: MUTED }}>{dayjs(req.createdAt).fromNow()}</Typography>
           {req.urgency && (
             <>
-              <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'rgba(0,0,0,0.2)' }} />
+              <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: BACKDROP_BG }} />
               <Typography
                 sx={{
                   fontSize: 11,
@@ -125,7 +125,7 @@ export default function GuestRequests({ booking }) {
   const availableCategories = allCategories.filter((cat) => cat.value === 'all' || requests.some((r) => r.requestType === cat.value));
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#F8F7F4', px: 2.5, pt: 3, pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', px: 2.5, pt: 3, pb: 14 }}>
       <Box sx={{ maxWidth: 640, mx: 'auto' }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
@@ -172,15 +172,15 @@ export default function GuestRequests({ booking }) {
                     style={{
                       padding: '7px 16px',
                       borderRadius: 99,
-                      border: isActive ? 'none' : '1.5px solid rgba(0,0,0,0.12)',
-                      background: isActive ? GOLD_GRADIENT : '#fff',
+                      border: isActive ? 'none' : `1.5px solid ${BORDER}`,
+                      background: isActive ? BRAND_GRADIENT : 'background.paper',
                       cursor: 'pointer',
                       fontSize: 12,
                       fontWeight: 600,
                       color: isActive ? '#fff' : MUTED,
                       whiteSpace: 'nowrap',
                       outline: 'none',
-                      boxShadow: isActive ? '0 2px 8px rgba(197,160,34,0.3)' : 'none',
+                      boxShadow: isActive ? SHADOW_BRAND : 'none',
                       transition: 'all 0.2s ease',
                       flexShrink: 0,
                     }}
@@ -204,7 +204,7 @@ export default function GuestRequests({ booking }) {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
             <Box sx={{ textAlign: 'center', py: 10 }}>
               <Typography sx={{ color: MUTED, fontSize: 15, fontWeight: 500 }}>No requests found</Typography>
-              <Typography sx={{ fontSize: 13, color: 'rgba(136,136,136,0.7)', mt: 0.75 }}>{filter !== 'all' ? 'Try a different category' : 'Speak to your concierge to get started'}</Typography>
+              <Typography sx={{ fontSize: 13, color: TEXT_MUTED_DARK, mt: 0.75 }}>{filter !== 'all' ? 'Try a different category' : 'Speak to your concierge to get started'}</Typography>
             </Box>
           </motion.div>
         )}

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import HomeIcon from '@mui/icons-material/Home';
 import MicIcon from '@mui/icons-material/Mic';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import { BRAND_GRADIENT, BORDER, NAV_BG } from '../../theme';
 
 const tabs = [
   { id: 'home', icon: HomeIcon, label: 'Home' },
@@ -11,7 +12,7 @@ const tabs = [
   { id: 'requests', icon: AccessTimeIcon, label: 'Requests' },
 ];
 
-export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
+export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen }) {
   if (!isMobile) return null;
   return (
     <Paper
@@ -21,11 +22,12 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
         bottom: 0,
         left: isMobile ? 0 : '20vw',
         right: 0,
-        zIndex: 1200,
-        bgcolor: 'rgba(255,255,255,0.88)',
+        zIndex: 1100,
+        bgcolor: NAV_BG,
         backdropFilter: 'blur(14px)',
-        borderTop: '1px solid rgba(0,0,0,0.07)',
+        borderTop: `1px solid ${BORDER}`,
         borderRadius: 0,
+        display: (isMobile && sidebarOpen) ? 'none' : 'block',
       }}
     >
       <Box
@@ -75,7 +77,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
                     width: 24,
                     height: 3,
                     borderRadius: 99,
-                    background: 'linear-gradient(90deg, #D4AF37 0%, #C5A022 100%)',
+                    background: BRAND_GRADIENT,
                   }}
                 />
               )}
@@ -104,7 +106,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile }) {
         })}
       </Box>
       {/* Safe area for mobile */}
-      <Box sx={{ height: 'env(safe-area-inset-bottom, 0px)', bgcolor: 'rgba(255,255,255,0.88)' }} />
+      <Box sx={{ height: 'env(safe-area-inset-bottom, 0px)', bgcolor: NAV_BG }} />
     </Paper>
   );
 }
