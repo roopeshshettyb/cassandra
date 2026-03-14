@@ -20,7 +20,7 @@ import { TtsModule } from '../tts/tts.module';
 @Module({
   imports: [
     DatabaseModule,
-    BookingsModule,
+    forwardRef(() => BookingsModule),
     AuthModule,
     MessagesModule,
     ChatContextModule,

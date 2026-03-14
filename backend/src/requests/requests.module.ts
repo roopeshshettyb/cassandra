@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { RequestsRepository } from './requests.repository';
 import { RequestsService } from './requests.service';
@@ -7,7 +7,7 @@ import { HotelsModule } from '../hotels/hotels.module';
 import { RequestsController } from './requests.controller';
 
 @Module({
-  imports: [DatabaseModule, BookingsModule, HotelsModule],
+  imports: [DatabaseModule, forwardRef(() => BookingsModule), HotelsModule],
   controllers: [RequestsController],
   providers: [RequestsRepository, RequestsService],
   exports: [RequestsRepository, RequestsService],

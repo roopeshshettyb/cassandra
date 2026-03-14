@@ -42,6 +42,27 @@ export class Booking extends Model<Booking> {
   })
   hotelId: number;
 
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'room_number',
+  })
+  roomNumber: string;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    field: 'invite_email_sent_at',
+  })
+  inviteEmailSentAt: Date;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'reservation_document_s3_key',
+  })
+  reservationDocumentS3Key: string;
+
   @BelongsTo(() => Hotel, { foreignKey: 'hotelId', as: 'hotel' })
   hotel: Hotel;
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Avatar } from '@mui/material';
+import { Box, Typography, Avatar, Button } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import LocalLaundryServiceIcon from '@mui/icons-material/LocalLaundryService';
@@ -10,7 +10,9 @@ import BedtimeIcon from '@mui/icons-material/Bedtime';
 import LocalCafeIcon from '@mui/icons-material/LocalCafe';
 import SpaIcon from '@mui/icons-material/Spa';
 import CloseIcon from '@mui/icons-material/Close';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import dayjs from 'dayjs';
+import request from '../../helper/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
@@ -47,8 +49,19 @@ const defaultNudges = [
   },
 ];
 
-export default function GuestHome({ booking, account, onTabChange }) {
+export default function GuestHome({ booking, account, onTabChange, setLoading, alertError }) {
   const [dismissedNudges, setDismissedNudges] = useState([]);
+
+  const handleViewDocument = async () => {
+    if (!booking?.id) return;
+    const result = await request({
+      endpoint: `/bookings/${booking.id}/reservation-document-url`,
+      method: 'GET',
+      setLoading,
+      alertError,
+    });
+    if (result?.data?.url) window.open(result.data.url, '_blank', 'noopener,noreferrer');
+  };
 
   const guestName = account?.name || booking?.guest?.name || 'Guest';
   const hotelName = booking?.hotel?.name || 'Hotel';
@@ -133,6 +146,29 @@ export default function GuestHome({ booking, account, onTabChange }) {
             </Typography>
           </Box>
         </motion.div>
+
+        {/* View reservation document */}
+        {booking?.reservationDocumentS3Key && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} style={{ marginTop: 20 }}>
+            <Button
+              onClick={handleViewDocument}
+              startIcon={<PictureAsPdfIcon />}
+              fullWidth
+              variant="outlined"
+              sx={{
+                py: 1.25,
+                borderRadius: 2,
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                fontWeight: 700,
+                fontSize: 13,
+                textTransform: 'none',
+              }}
+            >
+              View reservation document
+            </Button>
+          </motion.div>
+        )}
 
         {/* Quick Actions */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} style={{ marginTop: 28 }}>

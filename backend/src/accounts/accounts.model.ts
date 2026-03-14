@@ -13,7 +13,7 @@ export class Account extends Model<Account> {
   @Column({
     type: DataType.INTEGER,
     autoIncrement: true,
-    primaryKey: false,
+    primaryKey: true,
     unique: true,
   })
   id: number;
@@ -21,6 +21,7 @@ export class Account extends Model<Account> {
   @Column({
     type: DataType.STRING,
     primaryKey: true,
+    unique: true,
     field: 'uuid',
   })
   uuid: string;
@@ -53,6 +54,13 @@ export class Account extends Model<Account> {
     field: 'name',
   })
   name: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'phone',
+  })
+  phone: string;
 
   @Column({
     type: DataType.STRING,

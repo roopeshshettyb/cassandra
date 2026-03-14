@@ -1,4 +1,4 @@
-import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
 import { REQUESTS_REPOSITORY } from './requests.repository';
 import { Request, RequestStatus } from './requests.model';
 import { CreateRequestDto, UpdateRequestDto } from './requests.dto';
@@ -11,7 +11,11 @@ import { Op } from 'sequelize';
 
 @Injectable()
 export class RequestsService {
-  constructor(@Inject(REQUESTS_REPOSITORY) private readonly requestsRepository: typeof Request, private readonly bookingsService: BookingsService, private readonly hotelsService: HotelsService) {}
+  constructor(
+    @Inject(REQUESTS_REPOSITORY) private readonly requestsRepository: typeof Request,
+    @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
+    private readonly hotelsService: HotelsService,
+  ) {}
 
   private async getWhereForAccount(currentAccount: Account): Promise<{ [key: string]: any } | null> {
     if (currentAccount.role === AccountRole.ADMIN) {

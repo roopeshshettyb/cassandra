@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -30,4 +30,44 @@ export class CreateBookingDto {
   @IsString()
   @ApiProperty({ required: false })
   readonly guestName?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly guestPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly roomNumber?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiProperty({ required: false })
+  readonly sendInviteImmediately?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ required: false, description: 'S3 key of uploaded reservation document (temp/) to attach to this booking' })
+  readonly reservationDocumentKey?: string;
+}
+
+export class ReservationDocumentUploadUrlDto {
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly contentType?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly filename?: string;
+}
+
+export class ReservationDocumentKeyDto {
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty()
+  readonly key: string;
 }

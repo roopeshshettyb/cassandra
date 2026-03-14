@@ -38,6 +38,6 @@ export class AccountsService {
   }
 
   async upsert(data: Partial<Account>): Promise<[Account, boolean]> {
-    return this.accountsRepository.upsert(data);
+    return this.accountsRepository.upsert(data, { conflictFields: ['uuid'] });
   }
 }
