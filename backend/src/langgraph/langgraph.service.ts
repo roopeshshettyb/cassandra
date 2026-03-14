@@ -118,7 +118,7 @@ export class LangGraphService {
     });
     const result = await structuredModel.invoke([message]);
     const raw: any = result;
-    return this.normalizeExtracted(raw);
+    return raw;
   }
 
   /**
@@ -157,19 +157,7 @@ export class LangGraphService {
       },
     });
     const raw = JSON.parse(response.output_text || '{}') as Record<string, string | null | undefined>;
-    return this.normalizeExtracted(raw);
-  }
-
-  private normalizeExtracted(raw: Record<string, string | null | undefined>): ExtractedBookingFields {
-    return {
-      startDate: raw.startDate ?? undefined,
-      endDate: raw.endDate ?? undefined,
-      guestEmail: raw.guestEmail ?? undefined,
-      guestName: raw.guestName ?? undefined,
-      guestPhone: raw.guestPhone ?? undefined,
-      roomNumber: raw.roomNumber ?? undefined,
-      hotelName: raw.hotelName ?? undefined,
-    };
+    return raw;
   }
 
   private parseMessages(messages: ChatMessageInput[]): BaseMessage[] {
@@ -237,9 +225,7 @@ export class LangGraphService {
       }
       if (event.event === 'on_chat_model_end' && event.data?.output) {
         const output = event.data.output;
-        const maybeUsage = output.usage_metadata as
-          | { input_tokens?: number; output_tokens?: number; total_tokens?: number }
-          | undefined;
+        const maybeUsage = output.usage_metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
         if (maybeUsage) {
           totalPromptTokens += maybeUsage.input_tokens ?? 0;
           totalCompletionTokens += maybeUsage.output_tokens ?? 0;
