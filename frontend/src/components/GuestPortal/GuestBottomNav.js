@@ -12,8 +12,10 @@ const tabs = [
   { id: 'requests', icon: AccessTimeIcon, label: 'Requests' },
 ];
 
-export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen }) {
+export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen, account }) {
   if (!isMobile) return null;
+  const isNonGuest = account?.role === 'hotel_staff' || account?.role === 'hotel_owner';
+  const visibleTabs = isNonGuest ? tabs.filter((t) => t.id !== 'home') : tabs;
   return (
     <Paper
       elevation={0}
@@ -41,7 +43,7 @@ export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sideb
           mx: 'auto',
         }}
       >
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           return (

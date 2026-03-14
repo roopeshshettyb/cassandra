@@ -8,7 +8,8 @@ import GuestBottomNav from './GuestBottomNav';
 
 export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'home';
+  const isNonGuest = account?.role === 'hotel_staff' || account?.role === 'hotel_owner';
+  const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
 
   const setActiveTab = useCallback((tab) => {
     setSearchParams({ tab });
@@ -24,6 +25,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
   const renderTab = () => {
     switch (activeTab) {
       case 'home':
+        if (isNonGuest) { setActiveTab('requests'); return null; }
         return (
           <GuestHome
             booking={booking}
@@ -58,7 +60,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: 'background.default', pt: isMobile ? '5vh' : 0 }}>
       {renderTab()}
-      <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} />
+      <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />
     </Box>
   );
 }

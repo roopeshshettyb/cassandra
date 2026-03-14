@@ -17,7 +17,9 @@ export function createAgentTools(
 ): DynamicStructuredTool[] {
   const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
 
-  return [
+  const STAFF_ALLOWED_TOOLS = ['create_request', 'update_request', 'get_pending_requests', 'append_message'];
+
+  const allTools: DynamicStructuredTool[] = [
     new DynamicStructuredTool({
       name: 'create_request',
       description:
@@ -161,4 +163,9 @@ export function createAgentTools(
       },
     }),
   ];
+
+  if (account.role === 'hotel_staff') {
+    return allTools.filter((t) => STAFF_ALLOWED_TOOLS.includes(t.name));
+  }
+  return allTools;
 }

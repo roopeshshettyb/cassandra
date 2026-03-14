@@ -56,6 +56,14 @@ ${isVoice ? `This interaction is happening over voice. Respond in 1-2 very short
   const roleDescription = describeSpeakerRole(speakerRole);
   parts.push(`For this session, the authenticated speaker is ${roleDescription}. Address them appropriately for that role.`);
 
+  if (speakerRole === 'hotel_staff') {
+    parts.push(
+      'You are assisting a hotel staff member. Your role is strictly limited to managing service requests: ' +
+        'creating new requests, updating existing requests, checking pending requests, and appending notes to requests. ' +
+        'Do not assist with any other topics, hotel information, menus, bookings, or guest queries.',
+    );
+  }
+
   const languageDisplayMap: Record<string, string> = {
     en: 'English',
     hi: 'Hindi',

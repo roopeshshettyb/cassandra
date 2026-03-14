@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"^jsonwebtoken$\")",
+      "Bash(node scripts/set-role.js --email shrijitmore556@gmail.com --role hotel_staff)",
+      "Bash(node -e \":*)",
+      "Bash(node scripts/simulate-guest.js --token \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjksInV1aWQiOiJlbWFpbDpzaHJpaml0bW9yZTU1NkBnbWFpbC5jb20iLCJlbWFpbCI6InNocmlqaXRtb3JlNTU2QGdtYWlsLmNvbSIsIm5hbWUiOiJTaHJpaml0Iiwicm9sZSI6ImhvdGVsX3N0YWZmIiwicHJvZmlsZVBpY1VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0xJVWRTMG1hbm4zUFFrNHM0TlZLSGJTUTJaaVFsVFdWQ2ZyMjhId3ZRbURBY2lhdFk0ZlE9czk2LWMiLCJpYXQiOjE3NzM0NjcyMTAsImV4cCI6MTc3NDA3MjAxMH0.5wHpxYanRU18fholPPKxb1ly05Y1VEIQsvl7ZAuybGs\" --bookingId 43 --host \"http://localhost:7676\" --messages \"What are the hotel amenities?||What is on the restaurant menu?\" --delay 3000)",
+      "Bash(node scripts/simulate-guest.js --token \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjksInV1aWQiOiJlbWFpbDpzaHJpaml0bW9yZTU1NkBnbWFpbC5jb20iLCJlbWFpbCI6InNocmlqaXRtb3JlNTU2QGdtYWlsLmNvbSIsIm5hbWUiOiJTaHJpaml0Iiwicm9sZSI6ImhvdGVsX3N0YWZmIiwicHJvZmlsZVBpY1VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0xJVWRTMG1hbm4zUFFrNHM0TlZLSGJTUTJaaVFsVFdWQ2ZyMjhId3ZRbURBY2lhdFk0ZlE9czk2LWMiLCJpYXQiOjE3NzM0NjcyMTAsImV4cCI6MTc3NDA3MjAxMH0.5wHpxYanRU18fholPPKxb1ly05Y1VEIQsvl7ZAuybGs\" --bookingId 43 --host \"http://localhost:7676\" --messages \"Create an urgent housekeeping request for the room||What are the pending requests?\" --delay 4000)",
+      "Bash(node scripts/set-role.js --email shrijit.m00@gmail.com --role hotel_owner)"
+    ]
+  }
+}
