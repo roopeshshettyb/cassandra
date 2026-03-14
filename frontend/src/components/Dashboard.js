@@ -10,7 +10,7 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import BedtimeIcon from '@mui/icons-material/Bedtime';
 
-import { NAVY, MUTED } from '../theme';
+import { NAVY, MUTED, BORDER, SHADOW } from '../theme';
 
 const LABEL_SX = {
   fontSize: 11,
@@ -24,7 +24,7 @@ const LABEL_SX = {
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <Box sx={{ bgcolor: '#fff', borderRadius: 3, p: 2.5, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, p: 2.5, border: `1px solid ${BORDER}`, boxShadow: SHADOW }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
           <Box sx={{ width: 40, height: 40, borderRadius: 2, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon sx={{ fontSize: 20, color: '#fff' }} />
@@ -37,7 +37,7 @@ function StatCard({ icon: Icon, label, value, accent }) {
   );
 }
 
-const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, GOLD_GRADIENT }) => {
+const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, BRAND_GRADIENT }) => {
   const [bookings, setBookings] = useState([]);
   const [requests, setRequests] = useState([]);
   const [sendingInvites, setSendingInvites] = useState(false);
@@ -82,19 +82,12 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, GO
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, mb: 0.5 }}>
-          {greeting()}{account?.name ? `, ${account.name.split(' ')[0]}` : ''}
+          {greeting()}
+          {account?.name ? `, ${account.name.split(' ')[0]}` : ''}
         </Typography>
-        <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </Typography>
+        <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Typography>
         {account?.role === 'admin' && (
-          <Button
-            variant="outlined"
-            startIcon={<EmailIcon />}
-            onClick={handleSendPendingInvites}
-            disabled={sendingInvites}
-            sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}
-          >
+          <Button variant="outlined" startIcon={<EmailIcon />} onClick={handleSendPendingInvites} disabled={sendingInvites} sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}>
             {sendingInvites ? 'Sending…' : 'Fire invite emails'}
           </Button>
         )}
@@ -103,10 +96,10 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, GO
       {/* Stats row */}
       <Grid container spacing={2} sx={{ mb: 5 }}>
         {[
-          { icon: HotelIcon,              label: 'Total Bookings',   value: bookings.length,    accent: GOLD_GRADIENT },
-          { icon: BedtimeIcon,            label: 'Active Now',       value: activeBookings,      accent: 'linear-gradient(135deg,#1B2340,#263462)' },
-          { icon: PendingActionsIcon,     label: 'Pending Requests', value: pendingRequests,     accent: 'linear-gradient(135deg,#C5A022,#B8860B)' },
-          { icon: CheckCircleOutlineIcon, label: 'Completed',        value: completedRequests,   accent: 'linear-gradient(135deg,#059669,#047857)' },
+          { icon: HotelIcon, label: 'Total Bookings', value: bookings.length, accent: BRAND_GRADIENT },
+          { icon: BedtimeIcon, label: 'Active Now', value: activeBookings, accent: 'linear-gradient(135deg,#1B2340,#263462)' },
+          { icon: PendingActionsIcon, label: 'Pending Requests', value: pendingRequests, accent: 'linear-gradient(135deg,#C5A022,#B8860B)' },
+          { icon: CheckCircleOutlineIcon, label: 'Completed', value: completedRequests, accent: 'linear-gradient(135deg,#059669,#047857)' },
         ].map((s, i) => (
           <Grid item xs={6} md={3} key={s.label}>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.35 }}>

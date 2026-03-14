@@ -47,6 +47,8 @@ export async function buildSystemInstructions(
 
 Use your tools when helpful and help the user to your best ability.
 
+IMPORTANT: In a multi-turn interaction, if you have already provided the requested information in a previous turn, do not repeat it or add redundant follow-up signatures like "Is there anything else I can help with?". Be concise and direct. Avoid generic pleasantries if they have already been said.
+
 ${isVoice ? `This interaction is happening over voice. Respond in 1-2 very short, natural-sounding sentences that are easy to speak and understand aloud. Avoid long paragraphs, any kind of formatting` : 'Always respond in Markdown.'}`;
 
   const parts: string[] = [systemContent];

@@ -6,7 +6,7 @@ import DataGrid from './DataGrid';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
 
-import { GOLD_GRADIENT, NAVY, MUTED } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
 
 const createBookingFieldConfigs = [
   { field: 'startDate', label: 'Start Date', type: 'date' },
@@ -123,8 +123,14 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const handleCreateBooking = async (e) => {
     e.preventDefault();
     const { startDate, endDate, guestEmail, guestName, guestPhone, roomNumber, hotelId, sendInviteImmediately } = createValues;
-    if (!startDate || !endDate || !guestEmail || !hotelId) { alertError?.('All fields are required'); return; }
-    if (new Date(endDate) < new Date(startDate)) { alertError?.('End date must be after start date'); return; }
+    if (!startDate || !endDate || !guestEmail || !hotelId) {
+      alertError?.('All fields are required');
+      return;
+    }
+    if (new Date(endDate) < new Date(startDate)) {
+      alertError?.('End date must be after start date');
+      return;
+    }
     const payload = {
       startDate,
       endDate,
@@ -151,16 +157,24 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: { xs: 'flex-end', sm: 'space-between' }, mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
-              Management
-            </Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Bookings</Typography>
           </Box>
           {canCreateBooking && (
             <motion.button
               onClick={() => setShowCreateDialog(true)}
               whileTap={{ scale: 0.97 }}
-              style={{ background: GOLD_GRADIENT, border: 'none', borderRadius: 10, padding: '10px 22px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(197,160,34,0.3)' }}
+              style={{
+                background: BRAND_GRADIENT,
+                border: 'none',
+                borderRadius: 10,
+                padding: '10px 22px',
+                color: PRIMARY_CONTRAST,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: SHADOW,
+              }}
             >
               + New Booking
             </motion.button>
@@ -168,7 +182,17 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </Box>
       </motion.div>
 
-      <Dialog open={showCreateDialog && canCreateBooking} onClose={() => { setShowCreateDialog(false); setUploadedFileName(null); setUploadedReservationDocumentKey(null); }} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
+      <Dialog
+        open={showCreateDialog && canCreateBooking}
+        onClose={() => {
+          setShowCreateDialog(false);
+          setUploadedFileName(null);
+          setUploadedReservationDocumentKey(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
         <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>New Booking</DialogTitle>
         <Box component="form" onSubmit={handleCreateBooking}>
           <DialogContent>
@@ -179,29 +203,51 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                   {loading ? 'Extracting…' : 'Choose file'}
                   <input type="file" hidden accept=".pdf,image/*" onChange={handleReservationDocumentUpload} />
                 </Button>
-                {uploadedFileName && (
-                  <Typography sx={{ fontSize: 12, color: 'primary.main', mt: 0.5 }}>Uploaded: {uploadedFileName}</Typography>
-                )}
+                {uploadedFileName && <Typography sx={{ fontSize: 12, color: 'primary.main', mt: 0.5 }}>Uploaded: {uploadedFileName}</Typography>}
               </Box>
-              <MapComponent Component={CreateFieldRow} data={createBookingFieldConfigs} createValues={createValues} handleCreateInput={handleCreateInput} showNoDataAvailable={false} isLoading={false} />
-              <TextField fullWidth select label="Hotel" value={createValues.hotelId ?? ''} onChange={handleCreateInput('hotelId')} required SelectProps={{ displayEmpty: true, renderValue: (v) => v === '' ? 'Select hotel' : (hotels.find((x) => String(x.id) === String(v))?.name || 'Select hotel'), MenuProps: { sx: { zIndex: 1400 } } }} InputLabelProps={{ shrink: true }}>
-                {hotels.map((h) => <MenuItem key={h.id} value={String(h.id)}>{h.name}</MenuItem>)}
+              <MapComponent
+                Component={CreateFieldRow}
+                data={createBookingFieldConfigs}
+                createValues={createValues}
+                handleCreateInput={handleCreateInput}
+                showNoDataAvailable={false}
+                isLoading={false}
+              />
+              <TextField
+                fullWidth
+                select
+                label="Hotel"
+                value={createValues.hotelId ?? ''}
+                onChange={handleCreateInput('hotelId')}
+                required
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (v) => (v === '' ? 'Select hotel' : hotels.find((x) => String(x.id) === String(v))?.name || 'Select hotel'),
+                  MenuProps: { sx: { zIndex: 1400 } },
+                }}
+                InputLabelProps={{ shrink: true }}
+              >
+                {hotels.map((h) => (
+                  <MenuItem key={h.id} value={String(h.id)}>
+                    {h.name}
+                  </MenuItem>
+                ))}
               </TextField>
               <FormControlLabel
                 control={
-                  <Checkbox
-                    checked={!!createValues.sendInviteImmediately}
-                    onChange={(e) => setCreateValues((prev) => ({ ...prev, sendInviteImmediately: e.target.checked }))}
-                    color="primary"
-                  />
+                  <Checkbox checked={!!createValues.sendInviteImmediately} onChange={(e) => setCreateValues((prev) => ({ ...prev, sendInviteImmediately: e.target.checked }))} color="primary" />
                 }
                 label="Send invite email immediately"
               />
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setShowCreateDialog(false)} sx={{ color: MUTED }}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary">Create Booking</Button>
+            <Button onClick={() => setShowCreateDialog(false)} sx={{ color: MUTED }}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" color="primary">
+              Create Booking
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>

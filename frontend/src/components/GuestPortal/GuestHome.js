@@ -14,7 +14,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import dayjs from 'dayjs';
 import request from '../../helper/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { GOLD_GRADIENT, NAVY_GRADIENT, NAVY, MUTED } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
 dayjs.extend(relativeTime);
 
@@ -80,7 +80,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
   const initials = guestName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#F8F7F4', pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 14 }}>
 
       {/* ── Sticky Top Nav Bar ─────────────────────────── */}
       <Box
@@ -88,9 +88,9 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
           position: { xs: 'static', sm: 'sticky' },
           top: 0,
           zIndex: 100,
-          bgcolor: 'rgba(248,247,244,0.94)',
+          bgcolor: 'background.default',
           backdropFilter: 'blur(14px)',
-          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          borderBottom: `1px solid ${BORDER}`,
           px: 2.5,
           py: 1.5,
         }}
@@ -108,7 +108,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
               sx={{
                 width: 34,
                 height: 34,
-                background: 'linear-gradient(135deg, #D4AF37 0%, #C5A022 100%)',
+                background: BRAND_GRADIENT,
                 fontSize: 13,
                 fontWeight: 700,
                 color: '#fff',
@@ -135,7 +135,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 width: 7,
                 height: 7,
                 borderRadius: '50%',
-                background: GOLD_GRADIENT,
+                background: BRAND_GRADIENT,
                 flexShrink: 0,
               }}
             />
@@ -204,11 +204,11 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                       gap: 1,
                       p: 1.5,
                       borderRadius: 3,
-                      bgcolor: '#fff',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                      bgcolor: 'background.paper',
+                      boxShadow: SHADOW,
                       cursor: 'pointer',
                       transition: 'box-shadow 0.2s, transform 0.15s',
-                      '&:hover': { boxShadow: '0 4px 14px rgba(0,0,0,0.1)' },
+                      '&:hover': { boxShadow: SHADOW_HOVER },
                     }}
                   >
                     <Box
@@ -216,7 +216,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                         width: 42,
                         height: 42,
                         borderRadius: 2,
-                        background: GOLD_GRADIENT,
+                        background: BRAND_GRADIENT,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -256,7 +256,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
               alignItems: 'center',
               gap: 2,
               cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(27,35,64,0.18)',
+              boxShadow: SHADOW_HOVER,
             }}
           >
             <Box
@@ -264,7 +264,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 width: 50,
                 height: 50,
                 borderRadius: 2,
-                background: GOLD_GRADIENT,
+                background: BRAND_GRADIENT,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -275,7 +275,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
-              <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', mt: 0.4 }}>Ask anything — available 24/7</Typography>
+              <Typography sx={{ fontSize: 13, color: TEXT_MUTED_LIGHT, mt: 0.4 }}>Ask anything — available 24/7</Typography>
             </Box>
           </Box>
         </motion.div>
@@ -306,9 +306,9 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                           position: 'relative',
                           p: 2,
                           borderRadius: 3,
-                          bgcolor: '#fff',
-                          border: '1px solid rgba(212,175,55,0.18)',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                          bgcolor: 'background.paper',
+                          border: `1px solid ${BORDER}`,
+                          boxShadow: SHADOW,
                           overflow: 'hidden',
                         }}
                       >
@@ -320,7 +320,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                             left: 0,
                             width: 4,
                             height: '100%',
-                            background: GOLD_GRADIENT,
+                            background: BRAND_GRADIENT,
                             borderRadius: '3px 0 0 3px',
                           }}
                         />
@@ -339,7 +339,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                             justifyContent: 'center',
                             cursor: 'pointer',
                             color: MUTED,
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.06)' },
+                            '&:hover': { bgcolor: HOVER_BG },
                           }}
                         >
                           <CloseIcon sx={{ fontSize: 14 }} />
@@ -350,14 +350,14 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                               width: 40,
                               height: 40,
                               borderRadius: 2,
-                              background: GOLD_GRADIENT,
+                              background: BRAND_GRADIENT,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               flexShrink: 0,
                             }}
                           >
-                            <Icon sx={{ fontSize: 20, color: '#fff' }} />
+                            <Icon sx={{ fontSize: 20, color: PRIMARY_CONTRAST }} />
                           </Box>
                           <Box sx={{ flex: 1, minWidth: 0, pr: 3 }}>
                             <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{nudge.title}</Typography>
@@ -371,14 +371,14 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                                 px: 2,
                                 py: 0.75,
                                 borderRadius: 1.5,
-                                background: GOLD_GRADIENT,
+                                background: BRAND_GRADIENT,
                                 border: 'none',
                                 cursor: 'pointer',
                                 fontSize: 12,
                                 fontWeight: 700,
-                                color: '#fff',
+                                color: PRIMARY_CONTRAST,
                                 display: 'inline-block',
-                                boxShadow: '0 2px 8px rgba(197,160,34,0.3)',
+                                boxShadow: SHADOW_BRAND,
                               }}
                             >
                               {nudge.action}
@@ -425,9 +425,9 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                       sx={{
                         p: 2,
                         borderRadius: 3,
-                        bgcolor: '#fff',
-                        border: '1px solid rgba(0,0,0,0.06)',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                        bgcolor: 'background.paper',
+                        border: `1px solid ${BORDER}`,
+                        boxShadow: SHADOW,
                       }}
                     >
                       <Box
