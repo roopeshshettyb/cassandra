@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent } from 'langchain';
 import { BaseMessage, HumanMessage, SystemMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import { z } from 'zod';
+import OpenAI from 'openai';
 import { createAgentTools } from './langgraph.tools';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
@@ -10,6 +12,36 @@ import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
 import { ConstantsService } from '../common/constants/constants.service';
+
+export interface ExtractedBookingFields {
+  startDate?: string | null;
+  endDate?: string | null;
+  guestEmail?: string | null;
+  guestName?: string | null;
+  guestPhone?: string | null;
+  roomNumber?: string | null;
+  hotelName?: string | null;
+}
+
+const EXTRACT_BOOKING_SCHEMA = z.object({
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
+  guestEmail: z.string().nullable().optional(),
+  guestName: z.string().nullable().optional(),
+  guestPhone: z.string().nullable().optional(),
+  roomNumber: z.string().nullable().optional(),
+  hotelName: z.string().nullable().optional(),
+});
+
+/** JSON schema for OpenAI Responses API, inferred from EXTRACT_BOOKING_SCHEMA. */
+const EXTRACT_BOOKING_JSON_SCHEMA = (() => {
+  const base = EXTRACT_BOOKING_SCHEMA.toJSONSchema() as Record<string, unknown>;
+  const { $schema: _, ...rest } = base;
+  return {
+    ...rest,
+    required: Object.keys(EXTRACT_BOOKING_SCHEMA.shape),
+  };
+})();
 
 export interface ToolCallRecord {
   toolName: string;
@@ -34,6 +66,7 @@ export class LangGraphService {
   private readonly outputParser = new StringOutputParser();
 
   constructor(
+    @Inject(forwardRef(() => BookingsService))
     private readonly bookingsService: BookingsService,
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
@@ -56,6 +89,75 @@ export class LangGraphService {
         baseURL: openrouterConfig.BASE_URL,
       },
     });
+  }
+
+  private createVisionModel(): ChatOpenAI {
+    const openaiConfig = this.constantsService.private?.LLM?.STT_CONFIG?.OPENAI;
+    const apiKey = openaiConfig?.API_KEY;
+    const model = openaiConfig?.VISION_MODEL;
+    if (!apiKey || !model) {
+      throw new Error('OpenAI API key and VISION_MODEL are required for document extraction');
+    }
+    return new ChatOpenAI({
+      modelName: model,
+      apiKey,
+      temperature: 0,
+    });
+  }
+
+  /** Extract booking fields from an image URL (Chat Completions vision; images only). */
+  async extractBookingFromDocumentUrl(documentUrl: string): Promise<ExtractedBookingFields> {
+    const prompt = this.constantsService.private.DOC_EXTRACTION_PROMPT;
+    const visionModel = this.createVisionModel();
+    const structuredModel = visionModel.withStructuredOutput(EXTRACT_BOOKING_SCHEMA, { method: 'jsonMode' });
+    const message = new HumanMessage({
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: documentUrl } },
+      ],
+    });
+    const result = await structuredModel.invoke([message]);
+    const raw: any = result;
+    return raw;
+  }
+
+  /**
+   * Extract booking fields from a PDF URL using OpenAI Responses API (input_file with file_url).
+   * Use this for PDFs; use extractBookingFromDocumentUrl for images.
+   */
+  async extractBookingFromPdfUrl(pdfUrl: string): Promise<ExtractedBookingFields> {
+    const openaiConfig = this.constantsService.private?.LLM?.STT_CONFIG?.OPENAI;
+    const apiKey = openaiConfig?.API_KEY;
+    const model = openaiConfig?.VISION_MODEL;
+    if (!apiKey || !model) {
+      throw new Error('OpenAI API key and VISION_MODEL are required for document extraction');
+    }
+    const prompt = this.constantsService.private.DOC_EXTRACTION_PROMPT;
+    const client = new OpenAI({ apiKey });
+    const response = await client.responses.create({
+      model,
+      input: [
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: prompt },
+            { type: 'input_file', file_url: pdfUrl },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'extracted_booking',
+          description: 'Extracted booking/reservation fields from the document.',
+          schema: EXTRACT_BOOKING_JSON_SCHEMA,
+          strict: true,
+        },
+      },
+    });
+    const raw = JSON.parse(response.output_text || '{}') as Record<string, string | null | undefined>;
+    return raw;
   }
 
   private parseMessages(messages: ChatMessageInput[]): BaseMessage[] {
@@ -123,9 +225,7 @@ export class LangGraphService {
       }
       if (event.event === 'on_chat_model_end' && event.data?.output) {
         const output = event.data.output;
-        const maybeUsage = output.usage_metadata as
-          | { input_tokens?: number; output_tokens?: number; total_tokens?: number }
-          | undefined;
+        const maybeUsage = output.usage_metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
         if (maybeUsage) {
           totalPromptTokens += maybeUsage.input_tokens ?? 0;
           totalCompletionTokens += maybeUsage.output_tokens ?? 0;

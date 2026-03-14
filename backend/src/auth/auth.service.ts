@@ -28,10 +28,10 @@ export class AuthService {
   }
 
   /**
-   * Generates a 1-hour invite token for guest/staff invites.
-   * Overrides the default JWT expiry so invite links always expire in 1 hour.
+   * Generates an invite token for guest/staff invites.
+   * When expiresAt is provided (e.g. checkout + 1 day for guest), uses that as exp; otherwise expires in 1 hour (e.g. staff invite).
    */
-  async generateInviteToken(account: Account, extraPayload?: Record<string, any>): Promise<string> {
+  async generateInviteToken(account: Account, extraPayload?: Record<string, any>, expiresAt?: Date): Promise<string> {
     const accountData = account.toJSON ? account.toJSON() : account;
     const payload = {
       id: accountData.id,
@@ -43,6 +43,9 @@ export class AuthService {
       invite: true,
       ...(extraPayload || {}),
     };
-    return this.jwtService.sign(payload, { expiresIn: '1h' });
+    const signOptions = expiresAt
+      ? { expiresIn: Math.floor(expiresAt.getTime() / 1000) - Math.floor(Date.now() / 1000) }
+      : { expiresIn: '1h' as const };
+    return this.jwtService.sign(payload, signOptions);
   }
 }

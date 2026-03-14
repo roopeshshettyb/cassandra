@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Grid, Typography } from '@mui/material';
+import { Box, Button, Grid, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
+import EmailIcon from '@mui/icons-material/Email';
 import request from '../helper/api';
 import RequestCard from './cards/RequestCard';
 import BookingCard from './cards/BookingCard';
@@ -36,9 +37,26 @@ function StatCard({ icon: Icon, label, value, accent }) {
   );
 }
 
-const Dashboard = ({ account, navigate, alertError, BRAND_GRADIENT }) => {
+const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, BRAND_GRADIENT }) => {
   const [bookings, setBookings] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [sendingInvites, setSendingInvites] = useState(false);
+
+  const handleSendPendingInvites = async () => {
+    setSendingInvites(true);
+    try {
+      const result = await request({
+        endpoint: '/bookings/send-pending-invites',
+        method: 'POST',
+        setLoading,
+        alertError,
+        throw: true,
+      });
+      if (result?.message) alertSuccess?.(result.message);
+    } finally {
+      setSendingInvites(false);
+    }
+  };
 
   useEffect(() => {
     request({ endpoint: '/bookings', method: 'GET', setData: setBookings, defaultData: [], alertError });
@@ -64,20 +82,24 @@ const Dashboard = ({ account, navigate, alertError, BRAND_GRADIENT }) => {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, mb: 0.5 }}>
-          {greeting()}{account?.name ? `, ${account.name.split(' ')[0]}` : ''}
+          {greeting()}
+          {account?.name ? `, ${account.name.split(' ')[0]}` : ''}
         </Typography>
-        <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </Typography>
+        <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Typography>
+        {account?.role === 'admin' && (
+          <Button variant="outlined" startIcon={<EmailIcon />} onClick={handleSendPendingInvites} disabled={sendingInvites} sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}>
+            {sendingInvites ? 'Sending…' : 'Fire invite emails'}
+          </Button>
+        )}
       </motion.div>
 
       {/* Stats row */}
       <Grid container spacing={2} sx={{ mb: 5 }}>
         {[
-          { icon: HotelIcon,              label: 'Total Bookings',   value: bookings.length,    accent: BRAND_GRADIENT },
-          { icon: BedtimeIcon,            label: 'Active Now',       value: activeBookings,      accent: 'linear-gradient(135deg,#1B2340,#263462)' },
-          { icon: PendingActionsIcon,     label: 'Pending Requests', value: pendingRequests,     accent: 'linear-gradient(135deg,#C5A022,#B8860B)' },
-          { icon: CheckCircleOutlineIcon, label: 'Completed',        value: completedRequests,   accent: 'linear-gradient(135deg,#059669,#047857)' },
+          { icon: HotelIcon, label: 'Total Bookings', value: bookings.length, accent: BRAND_GRADIENT },
+          { icon: BedtimeIcon, label: 'Active Now', value: activeBookings, accent: 'linear-gradient(135deg,#1B2340,#263462)' },
+          { icon: PendingActionsIcon, label: 'Pending Requests', value: pendingRequests, accent: 'linear-gradient(135deg,#C5A022,#B8860B)' },
+          { icon: CheckCircleOutlineIcon, label: 'Completed', value: completedRequests, accent: 'linear-gradient(135deg,#059669,#047857)' },
         ].map((s, i) => (
           <Grid item xs={6} md={3} key={s.label}>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.35 }}>
