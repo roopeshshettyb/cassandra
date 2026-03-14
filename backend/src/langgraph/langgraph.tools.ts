@@ -17,7 +17,17 @@ export function createAgentTools(
 ): DynamicStructuredTool[] {
   const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
 
-  const STAFF_ALLOWED_TOOLS = ['create_request', 'update_request', 'get_pending_requests', 'append_message'];
+  // Roles that can use each tool. Omitting a role means it cannot access that tool.
+  const TOOL_ALLOWED_ROLES: Record<string, string[]> = {
+    create_request:        ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
+    update_request:        ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
+    get_pending_requests:  ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
+    append_message:        ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
+    get_booking:           ['guest', 'hotel_owner', 'admin'],
+    get_hotel:             ['guest', 'hotel_owner', 'admin'],
+    set_chat_language:     ['guest', 'hotel_owner', 'admin'],
+    search_restaurant_menu:['guest', 'hotel_owner', 'admin'],
+  };
 
   const allTools: DynamicStructuredTool[] = [
     new DynamicStructuredTool({
@@ -164,8 +174,5 @@ export function createAgentTools(
     }),
   ];
 
-  if (account.role === 'hotel_staff') {
-    return allTools.filter((t) => STAFF_ALLOWED_TOOLS.includes(t.name));
-  }
-  return allTools;
+  return allTools.filter((t) => TOOL_ALLOWED_ROLES[t.name]?.includes(account.role));
 }
