@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { CHAT_REPOSITORY } from './chat.repository';
 import { Chat } from './chat.model';
 import { Account } from '../accounts/accounts.model';
@@ -8,7 +8,7 @@ import { BookingsService } from '../bookings/bookings.service';
 export class ChatService {
   constructor(
     @Inject(CHAT_REPOSITORY) private readonly chatRepository: typeof Chat,
-    private readonly bookingsService: BookingsService,
+    @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
   ) {}
 
   async getMostRecentChatForBooking(bookingId: number): Promise<Chat | null> {

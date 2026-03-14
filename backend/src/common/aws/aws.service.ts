@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 import { ConstantsService } from '../constants/constants.service';
@@ -66,5 +66,34 @@ export class AwsService {
     });
 
     return await getSignedUrl(this.s3Client, command, { expiresIn });
+  }
+
+  /** Presigned PUT URL for client-side upload. Client must PUT the file with the same Content-Type if provided. */
+  async getPresignedPutUrl(key: string, contentType?: string, expiresIn: number = 900, isPublic: boolean = false): Promise<string> {
+    const bucket = this.getBucketName(isPublic);
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType,
+    });
+    return await getSignedUrl(this.s3Client, command, { expiresIn });
+  }
+
+  /** Copy object within the same bucket. Used to move temp upload to permanent key. */
+  async copyObject(sourceKey: string, destKey: string, isPublic: boolean = false): Promise<void> {
+    const bucket = this.getBucketName(isPublic);
+    const command = new CopyObjectCommand({
+      Bucket: bucket,
+      CopySource: `${bucket}/${sourceKey}`,
+      Key: destKey,
+    });
+    await this.s3Client.send(command);
+  }
+
+  /** Delete object by key. */
+  async deleteObject(key: string, isPublic: boolean = false): Promise<void> {
+    const bucket = this.getBucketName(isPublic);
+    const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
+    await this.s3Client.send(command);
   }
 }

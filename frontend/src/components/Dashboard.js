@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Grid, Typography } from '@mui/material';
+import { Box, Button, Grid, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
+import EmailIcon from '@mui/icons-material/Email';
 import request from '../helper/api';
 import RequestCard from './cards/RequestCard';
 import BookingCard from './cards/BookingCard';
@@ -36,9 +37,26 @@ function StatCard({ icon: Icon, label, value, accent }) {
   );
 }
 
-const Dashboard = ({ account, navigate, alertError, GOLD_GRADIENT }) => {
+const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, GOLD_GRADIENT }) => {
   const [bookings, setBookings] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [sendingInvites, setSendingInvites] = useState(false);
+
+  const handleSendPendingInvites = async () => {
+    setSendingInvites(true);
+    try {
+      const result = await request({
+        endpoint: '/bookings/send-pending-invites',
+        method: 'POST',
+        setLoading,
+        alertError,
+        throw: true,
+      });
+      if (result?.message) alertSuccess?.(result.message);
+    } finally {
+      setSendingInvites(false);
+    }
+  };
 
   useEffect(() => {
     request({ endpoint: '/bookings', method: 'GET', setData: setBookings, defaultData: [], alertError });
@@ -69,6 +87,17 @@ const Dashboard = ({ account, navigate, alertError, GOLD_GRADIENT }) => {
         <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </Typography>
+        {account?.role === 'admin' && (
+          <Button
+            variant="outlined"
+            startIcon={<EmailIcon />}
+            onClick={handleSendPendingInvites}
+            disabled={sendingInvites}
+            sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}
+          >
+            {sendingInvites ? 'Sending…' : 'Fire invite emails'}
+          </Button>
+        )}
       </motion.div>
 
       {/* Stats row */}

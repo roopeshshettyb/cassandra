@@ -30,6 +30,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             account={account}
             onTabChange={setActiveTab}
             navigate={navigate}
+            setLoading={setLoading}
+            alertError={alertError}
           />
         );
       case 'concierge':

@@ -34,6 +34,11 @@ export class CreateAccountDto {
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })
+  readonly phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
   readonly profilePicUrl?: string;
 
   @IsOptional()
@@ -52,6 +57,11 @@ export class UpdateAccountDto {
   @IsString()
   @ApiProperty({ required: false })
   readonly name?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly phone?: string;
 
   @IsOptional()
   @IsString()

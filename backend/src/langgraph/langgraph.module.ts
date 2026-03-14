@@ -8,7 +8,7 @@ import { ChatModule } from '../chat/chat.module';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [BookingsModule, RequestsModule, RestaurantModule, forwardRef(() => ChatModule), CommonModule],
+  imports: [forwardRef(() => BookingsModule), RequestsModule, RestaurantModule, forwardRef(() => ChatModule), CommonModule],
   providers: [LangGraphService, RealtimeToolsService],
   exports: [LangGraphService, RealtimeToolsService],
 })

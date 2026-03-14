@@ -243,6 +243,16 @@ export class ConstantsService {
       AWS_REGION: this.configService.get<string>('AWS_DEFAULT_REGION') || this.configService.get<string>('AWS_REGION', 'us-east-1'),
       AWS_S3_BUCKET_NAME: this.configService.get<string>('AWS_BUCKET_NAME') || this.configService.get<string>('AWS_S3_BUCKET_NAME'),
       AWS_S3_PUBLIC_BUCKET_NAME: this.configService.get<string>('AWS_S3_PUBLIC_BUCKET_NAME'),
+      /** Prefix for private bucket keys (e.g. samantha/). All uploads use this prefix. */
+      AWS_S3_KEY_PREFIX: this.configService.get<string>('AWS_S3_KEY_PREFIX', 'samantha/'),
+
+      DOC_EXTRACTION_PROMPT: this.configService.get<string>(
+        'DOC_EXTRACTION_PROMPT',
+        'Extract booking/reservation details from the document: startDate (YYYY-MM-DD), endDate (YYYY-MM-DD), guestEmail, guestName, guestPhone, roomNumber, hotelName. Return only the values found; use null for missing.',
+      ),
+      DOC_VIEW_URL_EXPIRY_SECONDS: parseInt(this.configService.get('DOC_VIEW_URL_EXPIRY_SECONDS') || '3600', 10),
+      /** Presigned PUT URL expiry for client-side document upload (seconds). */
+      DOC_UPLOAD_URL_EXPIRY_SECONDS: parseInt(this.configService.get('DOC_UPLOAD_URL_EXPIRY_SECONDS') || '900', 10),
 
       // JWT Configuration
       JWT_SECRET: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
@@ -294,6 +304,7 @@ export class ConstantsService {
             TRANSCRIBE_MODEL: this.configService.get<string>('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
             REALTIME_URL: this.configService.get<string>('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime'),
+            VISION_MODEL: this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4o'),
           },
         },
         DEEPGRAM_VOICE_AGENT: {
