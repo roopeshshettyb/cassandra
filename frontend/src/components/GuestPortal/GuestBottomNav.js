@@ -1,4 +1,5 @@
 import React from 'react';
+import constants from '../../constants.json';
 import { Box, Paper } from '@mui/material';
 import { motion } from 'framer-motion';
 import HomeIcon from '@mui/icons-material/Home';
@@ -14,7 +15,8 @@ const tabs = [
 
 export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen, account }) {
   if (!isMobile) return null;
-  const isNonGuest = account?.role === 'hotel_staff' || account?.role === 'hotel_owner';
+  const { HOTEL_STAFF, HOTEL_OWNER } = constants.ACCOUNT_ROLES;
+  const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const visibleTabs = isNonGuest ? tabs.filter((t) => t.id !== 'home') : tabs;
   return (
     <Paper

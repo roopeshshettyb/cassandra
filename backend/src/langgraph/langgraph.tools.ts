@@ -6,6 +6,7 @@ import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
 import { RequestType, RequestUrgency, RequestStatus } from '../requests/requests.model';
+import { AccountRole } from '../common/constants/constants.service';
 import { CreateRequestDto } from '../requests/requests.dto';
 
 export function createAgentTools(
@@ -18,15 +19,15 @@ export function createAgentTools(
   const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
 
   // Roles that can use each tool. Omitting a role means it cannot access that tool.
-  const TOOL_ALLOWED_ROLES: Record<string, string[]> = {
-    create_request:        ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
-    update_request:        ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
-    get_pending_requests:  ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
-    append_message:        ['guest', 'hotel_staff', 'hotel_owner', 'admin'],
-    get_booking:           ['guest', 'hotel_owner', 'admin'],
-    get_hotel:             ['guest', 'hotel_owner', 'admin'],
-    set_chat_language:     ['guest', 'hotel_owner', 'admin'],
-    search_restaurant_menu:['guest', 'hotel_owner', 'admin'],
+  const TOOL_ALLOWED_ROLES: Record<string, AccountRole[]> = {
+    create_request:        [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    update_request:        [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    get_pending_requests:  [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    append_message:        [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    get_booking:           [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    get_hotel:             [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    set_chat_language:     [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+    search_restaurant_menu:[AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
   };
 
   const allTools: DynamicStructuredTool[] = [

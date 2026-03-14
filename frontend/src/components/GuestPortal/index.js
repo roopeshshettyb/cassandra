@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
+import constants from '../../constants.json';
 import GuestHome from './GuestHome';
 import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
@@ -8,7 +9,8 @@ import GuestBottomNav from './GuestBottomNav';
 
 export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const isNonGuest = account?.role === 'hotel_staff' || account?.role === 'hotel_owner';
+  const { HOTEL_STAFF, HOTEL_OWNER } = constants.ACCOUNT_ROLES;
+  const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
 
   const setActiveTab = useCallback((tab) => {

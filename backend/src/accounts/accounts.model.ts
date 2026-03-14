@@ -1,5 +1,5 @@
 import { Table, Model, Column, DataType } from 'sequelize-typescript';
-import { AccountRole } from '../common/constants/account-roles.constants';
+import { AccountRole } from '../common/constants/constants.service';
 
 export enum AuthType {
   GOOGLE = 'google',

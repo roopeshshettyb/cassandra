@@ -1,6 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ACCOUNT_ROLES } from './account-roles.constants';
+
+export enum AccountRole {
+  ADMIN = 'admin',
+  HOTEL_OWNER = 'hotel_owner',
+  GUEST = 'guest',
+  HOTEL_STAFF = 'hotel_staff',
+}
+
+export const ACCOUNT_ROLES = {
+  ADMIN: AccountRole.ADMIN,
+  HOTEL_OWNER: AccountRole.HOTEL_OWNER,
+  GUEST: AccountRole.GUEST,
+  HOTEL_STAFF: AccountRole.HOTEL_STAFF,
+} as const;
 
 const PLATFORM_DATA: any = {
   google: {

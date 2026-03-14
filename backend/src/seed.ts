@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
 import { Account } from './accounts/accounts.model';
-import { AccountRole } from './common/constants/account-roles.constants';
+import { AccountRole } from './common/constants/constants.service';
 import { Hotel } from './hotels/hotels.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
 import { Booking } from './bookings/bookings.model';
