@@ -33,6 +33,16 @@ const EXTRACT_BOOKING_SCHEMA = z.object({
   hotelName: z.string().nullable().optional(),
 });
 
+/** JSON schema for OpenAI Responses API, inferred from EXTRACT_BOOKING_SCHEMA. */
+const EXTRACT_BOOKING_JSON_SCHEMA = (() => {
+  const base = EXTRACT_BOOKING_SCHEMA.toJSONSchema() as Record<string, unknown>;
+  const { $schema: _, ...rest } = base;
+  return {
+    ...rest,
+    required: Object.keys(EXTRACT_BOOKING_SCHEMA.shape),
+  };
+})();
+
 export interface ToolCallRecord {
   toolName: string;
   toolCallId: string;
@@ -141,20 +151,7 @@ export class LangGraphService {
           type: 'json_schema',
           name: 'extracted_booking',
           description: 'Extracted booking/reservation fields from the document.',
-          schema: {
-            type: 'object',
-            properties: {
-              startDate: { type: ['string', 'null'] },
-              endDate: { type: ['string', 'null'] },
-              guestEmail: { type: ['string', 'null'] },
-              guestName: { type: ['string', 'null'] },
-              guestPhone: { type: ['string', 'null'] },
-              roomNumber: { type: ['string', 'null'] },
-              hotelName: { type: ['string', 'null'] },
-            },
-            required: ['startDate', 'endDate', 'guestEmail', 'guestName', 'guestPhone', 'roomNumber', 'hotelName'],
-            additionalProperties: false,
-          },
+          schema: EXTRACT_BOOKING_JSON_SCHEMA,
           strict: true,
         },
       },

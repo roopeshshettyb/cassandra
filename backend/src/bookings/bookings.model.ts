@@ -57,9 +57,9 @@ export class Booking extends Model<Booking> {
   inviteEmailSentAt: Date;
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.TEXT,
     allowNull: true,
-    field: 'document_s3_key',
+    field: 'reservation_document_s3_key',
   })
   reservationDocumentS3Key: string;
 
