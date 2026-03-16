@@ -9,7 +9,7 @@ import GuestBottomNav from './GuestBottomNav';
 
 export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { HOTEL_STAFF, HOTEL_OWNER } = constants.ACCOUNT_ROLES;
+  const { HOTEL_STAFF, HOTEL_OWNER, GUEST } = constants.ACCOUNT_ROLES;
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
 
@@ -43,7 +43,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
           <GuestConcierge
             booking={booking}
             alertError={alertError}
-            isWithinStay={account?.role !== 'guest' ? true : booking.isWithinStay}
+            isWithinStay={account?.role !== GUEST ? true : booking.isWithinStay}
             isMobile={isMobile}
             setLoading={setLoading}
           />

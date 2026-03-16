@@ -7,6 +7,7 @@ import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
+import constants from '../constants.json';
 
 const createBookingFieldConfigs = [
   { field: 'startDate', label: 'Start Date', type: 'date' },
@@ -52,12 +53,12 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
 
   useEffect(() => {
     fetchBookings();
-    if (account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff')) {
+    if (account && (account.role === constants.ACCOUNT_ROLES.ADMIN || account.role === constants.ACCOUNT_ROLES.HOTEL_OWNER || account.role === constants.ACCOUNT_ROLES.HOTEL_STAFF)) {
       fetchHotels();
     }
   }, []);
 
-  const canCreateBooking = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
+  const canCreateBooking = account && (account.role === constants.ACCOUNT_ROLES.ADMIN || account.role === constants.ACCOUNT_ROLES.HOTEL_OWNER || account.role === constants.ACCOUNT_ROLES.HOTEL_STAFF);
   const handleCreateInput = (field) => (e) => setCreateValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleReservationDocumentUpload = async (e) => {

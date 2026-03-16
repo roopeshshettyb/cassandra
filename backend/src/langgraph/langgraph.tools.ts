@@ -17,6 +17,7 @@ export function createAgentTools(
   chatService: ChatService,
 ): DynamicStructuredTool[] {
   const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
+  const bookingAny: any = booking;
 
   type ToolDef = { allowedRoles: AccountRole[]; tool: DynamicStructuredTool };
 
@@ -34,15 +35,10 @@ export function createAgentTools(
         data: z.record(z.string(), z.unknown()).optional(),
       }),
       func: async (args) => {
-        const bookingAny: any = booking;
         const hotelId = bookingAny?.hotelId;
         const guestId = bookingAny?.guestId;
-        const userNotes: { text: string; addedAt: string }[] = [];
-        const rawUserNotes: string[] = args.userNotes ?? [];
         const nowIso = new Date().toISOString();
-        for (let i = 0; i < rawUserNotes.length; i += 1) {
-          userNotes.push({ text: rawUserNotes[i], addedAt: nowIso });
-        }
+        const userNotes = (args.userNotes ?? []).map((text) => ({ text, addedAt: nowIso }));
 
         const dto: CreateRequestDto = {
           hotelId,
@@ -174,7 +170,6 @@ export function createAgentTools(
           .describe('Comma-separated search terms to filter by name or description (e.g. "vegetarian, pasta, gluten-free")'),
       }),
       func: async (args) => {
-        const bookingAny: any = booking;
         const hotelId = bookingAny?.hotelId;
         if (!hotelId) {
           return JSON.stringify({ error: 'No hotel in booking context' });
