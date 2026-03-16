@@ -19,11 +19,11 @@ export function createAgentTools(
   const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
   const bookingAny: any = booking;
 
-  type ToolDef = { allowedRoles: AccountRole[]; tool: DynamicStructuredTool };
+  type ToolDef = { allowedRoles: Partial<Record<AccountRole, boolean>>; tool: DynamicStructuredTool };
 
   const toolDefs: ToolDef[] = [
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'create_request',
       description:
@@ -56,7 +56,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'update_request',
       description: 'Update an existing request (e.g. status, urgency, or custom data).',
@@ -74,7 +74,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'get_pending_requests',
       description: 'Get all pending requests for the current booking (status is pending). Use this to summarize or act on outstanding requests.',
@@ -86,7 +86,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'append_message',
       description: 'Append a message to an existing request. If the current speaker is a guest, it will be added as a user note; if hotel owner/staff, it will be added as a staff note.',
@@ -108,7 +108,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'get_booking',
       description: 'Get the current booking details (dates, hotel, etc.). Use this to answer guest questions about this booking.',
@@ -119,7 +119,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'get_hotel',
       description:
@@ -131,7 +131,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'set_chat_language',
       description:
@@ -158,7 +158,7 @@ export function createAgentTools(
     }),
     },
     {
-      allowedRoles: [AccountRole.GUEST, AccountRole.HOTEL_OWNER, AccountRole.ADMIN],
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'search_restaurant_menu',
       description:
@@ -184,5 +184,5 @@ export function createAgentTools(
     },
   ];
 
-  return toolDefs.filter(({ allowedRoles }) => allowedRoles.includes(account.role)).map(({ tool }) => tool);
+  return toolDefs.filter(({ allowedRoles }) => !!allowedRoles[account.role]).map(({ tool }) => tool);
 }
