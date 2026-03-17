@@ -53,12 +53,12 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
 
   useEffect(() => {
     fetchBookings();
-    if (account && (account.role === constants.ACCOUNT_ROLES.ADMIN || account.role === constants.ACCOUNT_ROLES.HOTEL_OWNER || account.role === constants.ACCOUNT_ROLES.HOTEL_STAFF)) {
+    if (account && constants.PERMISSIONS.CAN_CREATE_BOOKING[account.role]) {
       fetchHotels();
     }
   }, []);
 
-  const canCreateBooking = account && (account.role === constants.ACCOUNT_ROLES.ADMIN || account.role === constants.ACCOUNT_ROLES.HOTEL_OWNER || account.role === constants.ACCOUNT_ROLES.HOTEL_STAFF);
+  const CAN_CREATE_BOOKING = account && !!constants.PERMISSIONS.CAN_CREATE_BOOKING[account.role];
   const handleCreateInput = (field) => (e) => setCreateValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleReservationDocumentUpload = async (e) => {
@@ -161,7 +161,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Bookings</Typography>
           </Box>
-          {canCreateBooking && (
+          {CAN_CREATE_BOOKING && (
             <motion.button
               onClick={() => setShowCreateDialog(true)}
               whileTap={{ scale: 0.97 }}
@@ -184,7 +184,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       </motion.div>
 
       <Dialog
-        open={showCreateDialog && canCreateBooking}
+        open={showCreateDialog && CAN_CREATE_BOOKING}
         onClose={() => {
           setShowCreateDialog(false);
           setUploadedFileName(null);

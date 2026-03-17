@@ -8,6 +8,7 @@ import DataTable from './DataTable';
 import HotelInfoCard from './HotelInfoCard';
 import ManageRestaurant from './ManageRestaurant';
 import { useHotelTheme } from '../context/HotelThemeContext';
+import constants from '../constants.json';
 
 const MotionBox = motion(Box);
 
@@ -41,7 +42,7 @@ const HoursEditField = ({ data, editValues, handleInputChange }) => {
   );
 };
 
-const StaffRow = ({ data, canManageStaff, onRevoke }) => {
+const StaffRow = ({ data, CAN_MANAGE_STAFF, onRevoke }) => {
   const staff = data;
   const handleRevoke = (e) => {
     e.stopPropagation();
@@ -60,7 +61,7 @@ const StaffRow = ({ data, canManageStaff, onRevoke }) => {
         </Typography>
       </TableCell>
       <TableCell>
-        {canManageStaff && (
+        {CAN_MANAGE_STAFF && (
           <Button size="small" color="secondary" variant="outlined" onClick={handleRevoke}>
             Revoke
           </Button>
@@ -144,10 +145,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     }
   };
 
-  const canManageStaff = account && (account.role === 'admin' || account.role === 'hotel_owner');
+  const CAN_MANAGE_STAFF = account && !!constants.PERMISSIONS.CAN_MANAGE_STAFF[account.role];
 
   const fetchStaff = async () => {
-    if (!id || !canManageStaff) return;
+    if (!id || !CAN_MANAGE_STAFF) return;
     await request({
       endpoint: `/hotels/${id}/staff`,
       method: 'GET',
@@ -160,15 +161,15 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
   useEffect(() => {
     if (id) fetchHotel();
-    if (canManageStaff) fetchStaff();
+    if (CAN_MANAGE_STAFF) fetchStaff();
   }, [id]);
 
   useEffect(() => {
     return () => setThemeConfig(null);
   }, [setThemeConfig]);
 
-  const canEdit = account && (account.role === 'admin' || account.role === 'hotel_owner' || account.role === 'hotel_staff');
-  const canDeleteHotel = account && account.role === 'admin';
+  const canEdit = account && !!constants.PERMISSIONS.CAN_EDIT_HOTEL[account.role];
+  const CAN_DELETE_HOTEL = account && !!constants.PERMISSIONS.CAN_DELETE_HOTEL[account.role];
 
   const handleAddStaff = async (e) => {
     e.preventDefault();
@@ -284,7 +285,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                     {isEditing ? 'Cancel' : 'Edit'}
                   </Button>
                 )}
-                {canDeleteHotel && (
+                {CAN_DELETE_HOTEL && (
                   <Button variant="outlined" color="error" onClick={handleDeleteHotelClick}>
                     Delete Hotel
                   </Button>
@@ -421,7 +422,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
               <HotelInfoCard hotel={hotel} loading={loading} />
             )}
 
-            {canManageStaff && (
+            {CAN_MANAGE_STAFF && (
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Hotel Staff
@@ -444,7 +445,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   RowComponent={StaffRow}
                   data={staff}
                   isLoading={isLoading}
-                  canManageStaff={canManageStaff}
+                  CAN_MANAGE_STAFF={CAN_MANAGE_STAFF}
                   onRevoke={handleRevokeStaff}
                 />
               </Box>

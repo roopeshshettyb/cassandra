@@ -87,7 +87,7 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, BR
           {account?.name ? `, ${account.name.split(' ')[0]}` : ''}
         </Typography>
         <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Typography>
-        {account?.role === constants.ACCOUNT_ROLES.ADMIN && (
+        {!!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role] && (
           <Button variant="outlined" startIcon={<EmailIcon />} onClick={handleSendPendingInvites} disabled={sendingInvites} sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}>
             {sendingInvites ? 'Sending…' : 'Fire invite emails'}
           </Button>
