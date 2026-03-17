@@ -28,6 +28,7 @@ import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './components/Home';
+import constants from './constants.json';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
@@ -112,7 +113,7 @@ const AppContent = () => {
           setAccount(accountData);
 
           // Guests: redirect to their active booking on login
-          if (accountData?.role === 'guest' && !pathname.startsWith('/bookings/')) {
+          if (accountData?.role === constants.ACCOUNT_ROLES.GUEST && !pathname.startsWith('/bookings/')) {
             const bookingResult = await request({ endpoint: '/bookings/active', method: 'GET' });
             if (bookingResult?.data?.id) {
               navigate(`/bookings/${bookingResult.data.id}?tab=concierge`);

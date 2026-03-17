@@ -6,6 +6,7 @@ import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
 import { RequestType, RequestUrgency, RequestStatus } from '../requests/requests.model';
+import { AccountRole } from '../common/constants/constants.service';
 import { CreateRequestDto } from '../requests/requests.dto';
 
 export function createAgentTools(
@@ -16,10 +17,15 @@ export function createAgentTools(
   chatService: ChatService,
 ): DynamicStructuredTool[] {
   const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
+  const bookingAny: any = booking;
 
-  return [
-    new DynamicStructuredTool({
-      name: 'create_request',
+  type ToolDef = { allowedRoles: Partial<Record<AccountRole, boolean>>; tool: DynamicStructuredTool };
+
+  const toolDefs: ToolDef[] = [
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'create_request',
       description:
         'Create a new service request for the current booking (e.g. room service, housekeeping, laundry, airport transfer). Use the current booking context; do not ask for hotel or guest ids.',
       schema: z.object({
@@ -29,15 +35,10 @@ export function createAgentTools(
         data: z.record(z.string(), z.unknown()).optional(),
       }),
       func: async (args) => {
-        const bookingAny: any = booking;
         const hotelId = bookingAny?.hotelId;
         const guestId = bookingAny?.guestId;
-        const userNotes: { text: string; addedAt: string }[] = [];
-        const rawUserNotes: string[] = args.userNotes ?? [];
         const nowIso = new Date().toISOString();
-        for (let i = 0; i < rawUserNotes.length; i += 1) {
-          userNotes.push({ text: rawUserNotes[i], addedAt: nowIso });
-        }
+        const userNotes = (args.userNotes ?? []).map((text) => ({ text, addedAt: nowIso }));
 
         const dto: CreateRequestDto = {
           hotelId,
@@ -53,8 +54,11 @@ export function createAgentTools(
         return JSON.stringify(result);
       },
     }),
-    new DynamicStructuredTool({
-      name: 'update_request',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'update_request',
       description: 'Update an existing request (e.g. status, urgency, or custom data).',
       schema: z.object({
         requestId: z.number().describe('The id of the request to update'),
@@ -68,8 +72,11 @@ export function createAgentTools(
         return JSON.stringify(result);
       },
     }),
-    new DynamicStructuredTool({
-      name: 'get_pending_requests',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'get_pending_requests',
       description: 'Get all pending requests for the current booking (status is pending). Use this to summarize or act on outstanding requests.',
       schema: z.object({}),
       func: async () => {
@@ -77,8 +84,11 @@ export function createAgentTools(
         return JSON.stringify(pending);
       },
     }),
-    new DynamicStructuredTool({
-      name: 'append_message',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'append_message',
       description: 'Append a message to an existing request. If the current speaker is a guest, it will be added as a user note; if hotel owner/staff, it will be added as a staff note.',
       schema: z.object({
         requestId: z.number().describe('The id of the request to update'),
@@ -86,7 +96,7 @@ export function createAgentTools(
       }),
       func: async (args) => {
         // Route to the appropriate append method based on the current account role.
-        if (account.role === 'guest') {
+        if (account.role === AccountRole.GUEST) {
           const result = await requestsService.appendUserMessage(args.requestId, args.message, account);
           return JSON.stringify(result);
         }
@@ -96,16 +106,22 @@ export function createAgentTools(
         return JSON.stringify(result);
       },
     }),
-    new DynamicStructuredTool({
-      name: 'get_booking',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'get_booking',
       description: 'Get the current booking details (dates, hotel, etc.). Use this to answer guest questions about this booking.',
       schema: z.object({}),
       func: async () => {
         return JSON.stringify(booking ?? { error: 'No booking in context' });
       },
     }),
-    new DynamicStructuredTool({
-      name: 'get_hotel',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'get_hotel',
       description:
         'Get the hotel information for the current booking (name, address, check-in/out times, amenities hours, wifi, etc.). Use this to answer guest questions about the hotel associated with this booking.',
       schema: z.object({}),
@@ -113,8 +129,11 @@ export function createAgentTools(
         return JSON.stringify(hotel);
       },
     }),
-    new DynamicStructuredTool({
-      name: 'set_chat_language',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'set_chat_language',
       description:
         'Propose setting the language for this chat to one of the supported languages (English, Hindi, Kannada, Tamil, or Telugu). This tool does not itself change any configuration; the application will apply the chosen language.',
       schema: z.object({
@@ -137,8 +156,11 @@ export function createAgentTools(
         });
       },
     }),
-    new DynamicStructuredTool({
-      name: 'search_restaurant_menu',
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'search_restaurant_menu',
       description:
         'Search the restaurant menu for the current hotel. Use when guests ask about menu items, food options, prices, vegetarian/vegan options, dietary restrictions, or what is available to order. Returns available menu items (name, description, price, category, dietary tags, available times).',
       schema: z.object({
@@ -148,7 +170,6 @@ export function createAgentTools(
           .describe('Comma-separated search terms to filter by name or description (e.g. "vegetarian, pasta, gluten-free")'),
       }),
       func: async (args) => {
-        const bookingAny: any = booking;
         const hotelId = bookingAny?.hotelId;
         if (!hotelId) {
           return JSON.stringify({ error: 'No hotel in booking context' });
@@ -160,5 +181,8 @@ export function createAgentTools(
         return JSON.stringify(result.data);
       },
     }),
+    },
   ];
+
+  return toolDefs.filter(({ allowedRoles }) => !!allowedRoles[account.role]).map(({ tool }) => tool);
 }

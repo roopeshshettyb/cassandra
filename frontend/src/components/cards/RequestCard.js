@@ -4,12 +4,13 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
+import constants from '../../constants.json';
 
 dayjs.extend(relativeTime);
 
 const RequestCard = ({ data, navigate, account }) => {
   const req = data;
-  const isGuest = account?.role === 'guest';
+  const isGuest = account?.role === constants.ACCOUNT_ROLES.GUEST;
   const firstNote = extractFirstNote(isGuest ? req.staffNotes : req.userNotes);
   const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
   const hotelName = req.hotel?.name || null;

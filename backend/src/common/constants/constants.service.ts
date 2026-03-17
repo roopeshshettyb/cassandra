@@ -1,6 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ACCOUNT_ROLES } from './account-roles.constants';
+
+export enum AccountRole {
+  ADMIN = 'admin',
+  HOTEL_OWNER = 'hotel_owner',
+  GUEST = 'guest',
+  HOTEL_STAFF = 'hotel_staff',
+}
+
+export const ACCOUNT_ROLES = {
+  ADMIN: AccountRole.ADMIN,
+  HOTEL_OWNER: AccountRole.HOTEL_OWNER,
+  GUEST: AccountRole.GUEST,
+  HOTEL_STAFF: AccountRole.HOTEL_STAFF,
+} as const;
+
+export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> = {
+  CAN_CREATE_BOOKING:         { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
+  CAN_MANAGE_STAFF:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
+  CAN_EDIT_HOTEL:             { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
+  CAN_DELETE_HOTEL:           { [AccountRole.ADMIN]: true },
+  CAN_ADD_HOTEL:              { [AccountRole.ADMIN]: true },
+  CAN_VIEW_COSTS:             { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
+  CAN_SEND_INVITES:           { [AccountRole.ADMIN]: true },
+  CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
+};
 
 const PLATFORM_DATA: any = {
   google: {
@@ -205,6 +229,7 @@ export class ConstantsService {
       HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
 
       ACCOUNT_ROLES,
+      PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,
       // Platform Configuration

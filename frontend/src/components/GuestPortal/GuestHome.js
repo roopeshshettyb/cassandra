@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Box, Typography, Avatar, Button } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';

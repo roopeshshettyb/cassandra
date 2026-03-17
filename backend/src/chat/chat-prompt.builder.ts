@@ -1,5 +1,6 @@
 import { ChatContextService } from '../chat-context/chat-context.service';
 import { ChatMessageInput } from '../langgraph/langgraph.service';
+import { AccountRole } from '../common/constants/constants.service';
 
 export interface ChatPromptResult {
   contextData: { context: string; lastMessageCount: number };
@@ -7,22 +8,14 @@ export interface ChatPromptResult {
 }
 
 export function describeSpeakerRole(role: string | undefined | null): string {
-  if (!role) {
-    return 'a user';
-  }
-  if (role === 'guest') {
-    return 'a hotel guest staying at the property';
-  }
-  if (role === 'hotel_owner') {
-    return 'the hotel owner';
-  }
-  if (role === 'hotel_staff') {
-    return 'a member of the hotel staff';
-  }
-  if (role === 'admin') {
-    return 'an admin user of the platform';
-  }
-  return 'a user';
+  if (!role) return 'a user';
+  const map: Partial<Record<AccountRole, string>> = {
+    [AccountRole.GUEST]:       'a hotel guest staying at the property',
+    [AccountRole.HOTEL_OWNER]: 'the hotel owner',
+    [AccountRole.HOTEL_STAFF]: 'a member of the hotel staff',
+    [AccountRole.ADMIN]:       'an admin user of the platform',
+  };
+  return map[role as AccountRole] ?? 'a user';
 }
 
 /**
@@ -55,6 +48,17 @@ ${isVoice ? `This interaction is happening over voice. Respond in 1-2 very short
 
   const roleDescription = describeSpeakerRole(speakerRole);
   parts.push(`For this session, the authenticated speaker is ${roleDescription}. Address them appropriately for that role.`);
+
+  const ROLE_INSTRUCTIONS: Partial<Record<AccountRole, string>> = {
+    [AccountRole.HOTEL_STAFF]:
+      'You are assisting a hotel staff member. Your role is strictly limited to managing service requests: ' +
+      'creating new requests, updating existing requests, checking pending requests, and appending notes to requests. ' +
+      'Do not assist with any other topics, hotel information, menus, bookings, or guest queries.',
+  };
+
+  if (speakerRole && ROLE_INSTRUCTIONS[speakerRole]) {
+    parts.push(ROLE_INSTRUCTIONS[speakerRole]);
+  }
 
   const languageDisplayMap: Record<string, string> = {
     en: 'English',

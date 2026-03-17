@@ -4,17 +4,18 @@ import { motion } from 'framer-motion';
 import request from '../helper/api';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, HOVER_BG } from '../theme';
+import constants from '../constants.json';
 
 function ManageCosts({ setLoading, account, alertError }) {
   const [costs, setCosts] = useState([]);
 
   useEffect(() => {
-    if (account && (account.role === 'admin' || account.role === 'hotel_owner')) {
+    if (account && constants.PERMISSIONS.CAN_VIEW_COSTS[account.role]) {
       request({ endpoint: '/costs/aggregate', method: 'GET', setLoading, setData: setCosts, defaultData: [], alertError });
     }
   }, [account, setLoading, alertError]);
 
-  if (!account || (account.role !== 'admin' && account.role !== 'hotel_owner')) {
+  if (!account || !constants.PERMISSIONS.CAN_VIEW_COSTS[account.role]) {
     return (
       <Box sx={{ px: 3, pt: 3 }}>
         <Typography sx={{ color: '#DC2626', fontWeight: 600 }}>You are not authorized to view this page.</Typography>

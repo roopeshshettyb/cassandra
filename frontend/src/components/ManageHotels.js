@@ -6,6 +6,7 @@ import DataGrid from './DataGrid';
 import HotelCard from './cards/HotelCard';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
+import constants from '../constants.json';
 
 function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
@@ -41,7 +42,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
     }
   };
 
-  const canAddHotel = account?.role === 'admin';
+  const CAN_ADD_HOTEL = !!constants.PERMISSIONS.CAN_ADD_HOTEL[account?.role];
 
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '4vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
@@ -51,7 +52,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Hotels</Typography>
           </Box>
-          {canAddHotel && (
+          {CAN_ADD_HOTEL && (
             <motion.button
               onClick={() => setShowAddForm(true)}
               whileTap={{ scale: 0.97 }}
@@ -73,7 +74,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
         </Box>
       </motion.div>
 
-      <Dialog open={showAddForm && canAddHotel} onClose={() => setShowAddForm(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
+      <Dialog open={showAddForm && CAN_ADD_HOTEL} onClose={() => setShowAddForm(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>Add Hotel</DialogTitle>
         <Box component="form" onSubmit={handleCreateHotel}>
           <DialogContent>

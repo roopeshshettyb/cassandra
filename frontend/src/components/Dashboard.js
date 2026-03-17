@@ -11,6 +11,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import BedtimeIcon from '@mui/icons-material/Bedtime';
 
 import { NAVY, MUTED, BORDER, SHADOW } from '../theme';
+import constants from '../constants.json';
 
 const LABEL_SX = {
   fontSize: 11,
@@ -86,7 +87,7 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, BR
           {account?.name ? `, ${account.name.split(' ')[0]}` : ''}
         </Typography>
         <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Typography>
-        {account?.role === 'admin' && (
+        {!!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role] && (
           <Button variant="outlined" startIcon={<EmailIcon />} onClick={handleSendPendingInvites} disabled={sendingInvites} sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}>
             {sendingInvites ? 'Sending…' : 'Fire invite emails'}
           </Button>
