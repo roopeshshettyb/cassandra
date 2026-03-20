@@ -3,20 +3,12 @@ import { AccountsService } from '../../accounts/accounts.service';
 import { MailerService } from '../../mailer/mailer.service';
 import { ConstantsService } from '../../common/constants/constants.service';
 
-const OTP_EXPIRY_MINUTES = 10;
-const OTP_LENGTH = 6;
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function generateOtp(): string {
-  const digits = '0123456789';
-  let otp = '';
-  for (let i = 0; i < OTP_LENGTH; i++) {
-    otp += digits[Math.floor(Math.random() * digits.length)];
-  }
-  return otp;
+function generateOtp(length: number): string {
+  return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('');
 }
 
 @Injectable()
@@ -29,28 +21,22 @@ export class EmailService {
       throw new Error('Email is required');
     }
     const uuid = `email:${normalized}`;
-    let account = await this.accountsService.findById(uuid);
+    let account = await this.accountsService.findByUuid(uuid);
     if (!account) {
-      const [created] = await this.accountsService.upsert({
-        uuid,
-        email: normalized,
-        oauthMeta: {},
-      });
+      const [created] = await this.accountsService.upsert({ uuid, email: normalized, oauthMeta: {} });
       account = created;
     }
-    const otp = generateOtp();
+    const { OTP_EXPIRY_MINUTES, OTP_LENGTH } = this.constantsService.private;
+    const { APP_NAME } = this.constantsService.public;
+    const otp = generateOtp(OTP_LENGTH);
     const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
     await this.accountsService.update({ otp, otpExpiresAt }, { uuid });
 
-    const appName = this.constantsService.public.APP_NAME;
-    const subject = `${appName} - Your sign in code`;
-    const text = `Your verification code is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
-    const html = this.mailerService.buildOtpEmailHtml({ otp, otpExpiryMinutes: OTP_EXPIRY_MINUTES });
     await this.mailerService.sendMail({
       to: normalized,
-      subject,
-      text,
-      html,
+      subject: `${APP_NAME} - Your sign in code`,
+      text: `Your verification code is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+      html: this.mailerService.buildOtpEmailHtml({ otp, otpExpiryMinutes: OTP_EXPIRY_MINUTES }),
     });
   }
 
@@ -69,7 +55,7 @@ export class EmailService {
     }
     const normalized = normalizeEmail(rawEmail);
     const uuid = `email:${normalized}`;
-    const account = await this.accountsService.findById(uuid);
+    const account = await this.accountsService.findByUuid(uuid);
     if (!account) {
       throw new Error('Invalid email or OTP');
     }

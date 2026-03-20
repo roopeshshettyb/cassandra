@@ -16,8 +16,8 @@ export class AccountsService {
     return this.accountsRepository.findAll(filter);
   }
 
-  async findById(id: string): Promise<Account | null> {
-    return this.accountsRepository.findByPk(id);
+  async findByUuid(uuid: string): Promise<Account | null> {
+    return this.accountsRepository.findOne({ where: { uuid } });
   }
 
   async findOne(filter: FindOptions): Promise<Account | null> {
