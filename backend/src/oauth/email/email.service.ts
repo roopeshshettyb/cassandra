@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccountsService } from '../../accounts/accounts.service';
 import { MailerService } from '../../mailer/mailer.service';
-import { ConstantsService } from '../../common/constants/constants.service';
+import { ConstantsService, OTP_EXPIRY_MINUTES, OTP_LENGTH } from '../../common/constants/constants.service';
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -26,7 +26,6 @@ export class EmailService {
       const [created] = await this.accountsService.upsert({ uuid, email: normalized, oauthMeta: {} });
       account = created;
     }
-    const { OTP_EXPIRY_MINUTES, OTP_LENGTH } = this.constantsService.private;
     const { APP_NAME } = this.constantsService.public;
     const otp = generateOtp(OTP_LENGTH);
     const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);

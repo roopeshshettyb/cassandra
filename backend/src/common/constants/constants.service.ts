@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+export const OTP_EXPIRY_MINUTES = 10;
+export const OTP_LENGTH = 6;
+
 export enum AccountRole {
   ADMIN = 'admin',
   HOTEL_OWNER = 'hotel_owner',
@@ -302,10 +305,6 @@ export class ConstantsService {
       // GoDaddy Email (Mailer)
       GODADDY_EMAIL: this.configService.get<string>('GODADDY_EMAIL'),
       GODADDY_PASSWORD: this.configService.get<string>('GODADDY_PASSWORD'),
-
-      // OTP Configuration
-      OTP_EXPIRY_MINUTES: parseInt(this.configService.get('OTP_EXPIRY_MINUTES') || '10', 10),
-      OTP_LENGTH: parseInt(this.configService.get('OTP_LENGTH') || '6', 10),
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
