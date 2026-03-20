@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+export const OTP_EXPIRY_MINUTES = 10;
+export const OTP_LENGTH = 6;
+
 export enum AccountRole {
   ADMIN = 'admin',
   HOTEL_OWNER = 'hotel_owner',

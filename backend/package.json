@@ -10,7 +10,7 @@
     "start:debug": "cross-env NODE_ENV=dev nest start --watch",
     "start:prod": "cross-env NODE_ENV=prod node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test:llm": "jest --config jest.llm.config.js --runInBand --verbose",
+    "test:api": "jest --config jest.api.config.js --runInBand --verbose",
     "seed": "ts-node -r tsconfig-paths/register src/seed.ts",
     "simulate": "node scripts/simulate-guest.js"
   },

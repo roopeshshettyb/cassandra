@@ -37,7 +37,7 @@ export class OAuthService {
     let account: Account;
 
     if (existingAccount) {
-      account = await this.accountsService.findById(existingAccount.uuid);
+      account = await this.accountsService.findByUuid(existingAccount.uuid);
       if (!account) {
         throw new Error('Account not found');
       }
@@ -50,7 +50,7 @@ export class OAuthService {
 
       await this.accountsService.update({ oauthMeta: mergedOauthMeta }, { uuid: existingAccount.uuid });
 
-      account = await this.accountsService.findById(existingAccount.uuid);
+      account = await this.accountsService.findByUuid(existingAccount.uuid);
       if (!account) {
         throw new Error('Account not found after update');
       }
