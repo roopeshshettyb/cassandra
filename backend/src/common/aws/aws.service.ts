@@ -19,6 +19,9 @@ export class AwsService {
         accessKeyId: privateConstants.AWS_ACCESS_KEY_ID,
         secretAccessKey: privateConstants.AWS_SECRET_ACCESS_KEY,
       },
+      // Explicitly set S3 endpoint for regional bucket access
+      endpoint: `https://s3.${this.region}.amazonaws.com`,
+      forcePathStyle: false, // Use virtual-hosted-style URLs
     });
   }
 
