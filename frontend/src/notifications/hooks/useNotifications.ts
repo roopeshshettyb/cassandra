@@ -78,7 +78,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       try {
         const audio = new Audio();
         audio.crossOrigin = 'anonymous';
-        audio.volume = 0.8;
+        audio.volume = 1.0; // Max volume
         audio.src = toneUrl;
 
         // Set timeout to prevent hanging (max 10 seconds)
@@ -86,11 +86,23 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
           audio.pause();
         }, 10000);
 
-        await audio.play();
-        clearTimeout(timeoutId);
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('✅ Notification tone playing:', toneName);
+              clearTimeout(timeoutId);
+            })
+            .catch((err) => {
+              console.warn('⚠️ Failed to play tone:', err.name, err.message);
+              // Common errors:
+              // - NotAllowedError: Autoplay blocked by browser
+              // - NotSupportedError: Format not supported
+              clearTimeout(timeoutId);
+            });
+        }
       } catch (error) {
-        // Silently fail - could be browser autoplay policy or muted site
-        // This is expected and not an error to log
+        console.error('Error creating audio element:', error);
       }
     },
     [getToneUrl]
