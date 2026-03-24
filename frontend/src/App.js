@@ -105,6 +105,23 @@ const AppContent = () => {
     token: token || undefined,
   });
 
+  // Show toast when new notification arrives
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const latestNotification = notifications[0];
+      if (!latestNotification.read) {
+        toast.info(latestNotification.message, {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    }
+  }, [notifications.length]);
+
   useEffect(() => {
     const fetchAccount = async () => {
       const token = localStorage.getItem('token');

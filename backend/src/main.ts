@@ -10,8 +10,13 @@ async function bootstrap() {
   app.useWebSocketAdapter(new IoAdapter(app));
   const constantsService = app.get(ConstantsService);
   const frontendUrl = constantsService.private.FRONTEND_URL;
+
+  // Allow local development IPs for mobile testing
+  const isDev = process.env.NODE_ENV !== 'production';
+  const corsOrigin = isDev ? [frontendUrl, /^http:\/\/172\.21\.\d+\.\d+:\d+$/] : frontendUrl;
+
   app.enableCors({
-    origin: frontendUrl,
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

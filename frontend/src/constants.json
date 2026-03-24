@@ -48,18 +48,6 @@
   },
   "ERROR_CHAT_ONLY_DURING_STAY": "Chat is only available during your stay (check-in to check-out)",
   "TTS_PLAYBACK_RATE": 1,
-  "THEME_DEFAULTS": {
-    "PRIMARY_COLOR": "#D4AF37",
-    "SECONDARY_COLOR": "#C5A022",
-    "NAVY_COLOR": "#1B2340",
-    "NAVY_LIGHT_COLOR": "#263462",
-    "PRIMARY_HOVER_COLOR": "#B8860B",
-    "BACKGROUND_DEFAULT_LIGHT": "#F8F7F4",
-    "BACKGROUND_DEFAULT_DARK": "#000000",
-    "BACKGROUND_PAPER_LIGHT": "#FFFFFF",
-    "BACKGROUND_PAPER_DARK": "#121212",
-    "FONT_FAMILY": "\"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Roboto\", \"Oxygen\", \"Ubuntu\", \"Cantarell\", \"Fira Sans\", \"Droid Sans\", \"Helvetica Neue\", sans-serif"
-  },
   "PLATFORM_DATA_MAPPING": {
     "google": {
       "label": "Google",
