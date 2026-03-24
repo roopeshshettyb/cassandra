@@ -45,32 +45,52 @@ export function setupPushHandler() {
 /**
  * Play notification tone in service worker context (plays once per notification)
  * @param {string} toneUrl - URL to the tone file (S3 signed URL or local path)
+ * @returns {void}
  */
 function playNotificationTone(toneUrl) {
+  if (!toneUrl || toneUrl === 'none') return;
+
   try {
-    // Create an Audio context to play the tone
     const audio = new Audio();
     audio.crossOrigin = 'anonymous';
     audio.volume = 0.8;
     audio.src = toneUrl;
 
-    // Set timeout to prevent hanging (max 10 seconds)
-    const timeoutId = setTimeout(() => {
+    let timeoutId;
+
+    // Cleanup function
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
       audio.pause();
       audio.src = '';
-    }, 10000);
+    };
 
+    // Auto-cleanup after max duration
+    timeoutId = setTimeout(() => {
+      console.warn('[SW] Notification tone timeout - stopping playback');
+      cleanup();
+    }, 10000); // 10 second max
+
+    // Cleanup when audio ends naturally
+    audio.addEventListener('ended', cleanup, { once: true });
+
+    // Handle errors and cleanup
+    audio.addEventListener('error', (err) => {
+      console.warn('[SW] Audio error:', err);
+      cleanup();
+    }, { once: true });
+
+    // Play the tone
     audio.play()
       .then(() => {
         console.log('[SW] Notification tone playing:', toneUrl);
-        clearTimeout(timeoutId);
       })
       .catch((err) => {
-        console.warn('[SW] Could not play notification tone:', err.message);
-        clearTimeout(timeoutId);
+        console.warn('[SW] Could not play notification tone:', err.name, err.message);
+        cleanup();
       });
   } catch (error) {
-    console.warn('[SW] Failed to play notification tone:', error.message);
+    console.error('[SW] Failed to create/play notification tone:', error);
   }
 }
 

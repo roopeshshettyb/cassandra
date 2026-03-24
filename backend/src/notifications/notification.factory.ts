@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
 import { Notification, NotificationType } from './notifications.model';
 import { NotificationsGateway } from './notifications.gateway';
@@ -19,6 +19,8 @@ export interface NotificationPayload {
 
 @Injectable()
 export class NotificationFactory {
+  private readonly logger = new Logger(NotificationFactory.name);
+
   constructor(
     @Inject(NOTIFICATIONS_REPOSITORY) private readonly notificationsRepository: typeof Notification,
     private readonly notificationsGateway: NotificationsGateway,
@@ -142,8 +144,15 @@ export class NotificationFactory {
         toneUrl: notificationData.toneUrl,
         createdAt: new Date().toISOString(),
       });
+
+      this.logger.debug(
+        `Notifications created and emitted for hotel ${hotelId}: ${uniqueAccountIds.length} recipients`,
+      );
     } catch (error) {
-      console.error(`Failed to create/emit notifications: ${error.message}`);
+      this.logger.error(
+        `Failed to create/emit notifications for hotel ${hotelId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 

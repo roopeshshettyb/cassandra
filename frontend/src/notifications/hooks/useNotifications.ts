@@ -152,6 +152,8 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     });
 
     socket.on('notification', (data: any) => {
+      console.log('[Notifications] Received notification:', data.title);
+
       // Play tone (non-blocking, handles autoplay restrictions gracefully)
       playNotificationTone(data.toneUrl);
 
@@ -163,7 +165,26 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     });
 
     socket.on('error', (error: any) => {
-      console.error('Notification socket error:', error);
+      console.error('[Notifications] Socket error:', error);
+    });
+
+    socket.on('disconnect', (reason: string) => {
+      console.warn('[Notifications] Disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        // Server disconnected, try to reconnect
+        setTimeout(() => {
+          console.log('[Notifications] Attempting to reconnect...');
+          socket.connect();
+        }, 1000);
+      }
+    });
+
+    socket.on('connect', () => {
+      console.log('[Notifications] Connected');
+    });
+
+    socket.on('connect_error', (error: any) => {
+      console.warn('[Notifications] Connection error:', error.message);
     });
 
     socketRef.current = socket;
