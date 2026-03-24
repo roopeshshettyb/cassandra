@@ -33,7 +33,7 @@ import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 import { BRAND_GRADIENT } from './theme/index';
-import { useNotifications, NotificationsService } from './notifications';
+import { useNotifications } from './notifications/hooks/useNotifications';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -141,12 +141,6 @@ const AppContent = () => {
     fetchAccount();
   }, []);
 
-  // Initialize notifications service on app load
-  useEffect(() => {
-    NotificationsService.initialize().catch((err) => {
-      console.warn('Failed to initialize notifications service:', err);
-    });
-  }, []);
 
   // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
   useEffect(() => {
