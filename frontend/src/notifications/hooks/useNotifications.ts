@@ -42,30 +42,59 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   }, []);
 
   /**
+   * Convert tone name to actual URL
+   */
+  const getToneUrl = useCallback((toneName?: string): string | null => {
+    if (!toneName || toneName === 'none') return null;
+
+    // Map built-in tone names to file paths
+    const toneMap: Record<string, string> = {
+      gentle_chime: '/assets/tones/gentle_chime.mp3',
+      alert_sound: '/assets/tones/alert_sound.mp3',
+    };
+
+    // If it's a built-in tone name, return the path
+    if (toneMap[toneName]) {
+      return toneMap[toneName];
+    }
+
+    // If it's already a URL (custom tone from S3), return as-is
+    if (toneName.startsWith('http://') || toneName.startsWith('https://')) {
+      return toneName;
+    }
+
+    return null;
+  }, []);
+
+  /**
    * Play notification tone (plays once per notification)
    * Handles 'none', custom URLs, or built-in tones
    */
-  const playNotificationTone = useCallback(async (toneUrl?: string) => {
-    if (!toneUrl || toneUrl === 'none') return;
+  const playNotificationTone = useCallback(
+    async (toneName?: string) => {
+      const toneUrl = getToneUrl(toneName);
+      if (!toneUrl) return;
 
-    try {
-      const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
-      audio.volume = 0.8;
-      audio.src = toneUrl;
+      try {
+        const audio = new Audio();
+        audio.crossOrigin = 'anonymous';
+        audio.volume = 0.8;
+        audio.src = toneUrl;
 
-      // Set timeout to prevent hanging (max 10 seconds)
-      const timeoutId = setTimeout(() => {
-        audio.pause();
-      }, 10000);
+        // Set timeout to prevent hanging (max 10 seconds)
+        const timeoutId = setTimeout(() => {
+          audio.pause();
+        }, 10000);
 
-      await audio.play();
-      clearTimeout(timeoutId);
-    } catch (error) {
-      // Silently fail - could be browser autoplay policy or muted site
-      // This is expected and not an error to log
-    }
-  }, []);
+        await audio.play();
+        clearTimeout(timeoutId);
+      } catch (error) {
+        // Silently fail - could be browser autoplay policy or muted site
+        // This is expected and not an error to log
+      }
+    },
+    [getToneUrl]
+  );
 
   /**
    * Display browser notification with Service Worker fallback
