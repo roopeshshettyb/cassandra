@@ -131,4 +131,18 @@ export class Hotel extends Model<Hotel> {
     hiAnimationPath: string;
     thinkingAnimationPath: string;
   };
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'notification_tone',
+  })
+  notificationTone: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'custom_tone_url',
+  })
+  customToneUrl: string;
 }

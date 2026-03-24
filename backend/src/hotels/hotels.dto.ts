@@ -84,6 +84,16 @@ export class CreateHotelDto {
   @IsObject()
   @ApiProperty({ required: false })
   readonly themeConfig?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly notificationTone?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly customToneUrl?: string;
 }
 
 export class UpdateHotelDto {
@@ -169,6 +179,16 @@ export class UpdateHotelDto {
   @IsObject()
   @ApiProperty({ required: false })
   readonly themeConfig?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly notificationTone?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly customToneUrl?: string;
 }
 
 export class GrantHotelAccessDto {
