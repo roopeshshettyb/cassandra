@@ -24,7 +24,11 @@ export class AwsService {
 
   private getBucketName(isPublic: boolean = false): string {
     const privateConstants = this.constantsService.private;
-    return isPublic ? privateConstants.AWS_S3_PUBLIC_BUCKET_NAME : privateConstants.AWS_S3_BUCKET_NAME;
+    if (isPublic) {
+      // Fallback to regular bucket if public bucket not configured
+      return privateConstants.AWS_S3_PUBLIC_BUCKET_NAME || privateConstants.AWS_S3_BUCKET_NAME;
+    }
+    return privateConstants.AWS_S3_BUCKET_NAME;
   }
 
   async upload(key: string, body: Buffer | string | Readable, contentType?: string, isPublic: boolean = false): Promise<string> {
