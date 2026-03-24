@@ -41,9 +41,8 @@ export class AwsService {
       Key: key,
       Body: body,
       ContentType: contentType || 'application/octet-stream',
-      // Allow CORS access from browsers for public files (e.g., audio playback)
+      // For public files, add cache headers (bucket policy handles public access)
       ...(isPublic && {
-        ACL: 'public-read',
         Metadata: {
           'Cache-Control': 'max-age=31536000', // Cache for 1 year
         },
