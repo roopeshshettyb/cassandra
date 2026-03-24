@@ -42,7 +42,8 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   }, []);
 
   /**
-   * Play notification tone (handles 'none', custom URLs, or built-in tones)
+   * Play notification tone (loops until dismissed)
+   * Handles 'none', custom URLs, or built-in tones
    */
   const playNotificationTone = useCallback(async (toneUrl?: string) => {
     if (!toneUrl || toneUrl === 'none') return;
@@ -50,16 +51,19 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     try {
       const audio = new Audio();
       audio.crossOrigin = 'anonymous';
-      audio.volume = 0.5;
+      audio.volume = 0.9; // Louder for notifications
       audio.src = toneUrl;
+      audio.loop = true; // Loop continuously
 
-      // Set a timeout to catch hanging audio contexts
+      // Set max timeout (5 minutes) to prevent infinite playback
       const timeoutId = setTimeout(() => {
         audio.pause();
-      }, 10000); // Max 10 seconds
+        audio.src = '';
+      }, 300000); // 5 minutes max
 
       await audio.play();
-      clearTimeout(timeoutId);
+      // Store timeout for potential cleanup
+      (window as any).notificationAudioTimeout = timeoutId;
     } catch (error) {
       // Silently fail - could be browser autoplay policy or muted site
       // This is expected and not an error to log
