@@ -51,13 +51,9 @@ export class AwsService {
 
     await this.s3Client.send(command);
 
-    // Return HTTP URL for public bucket, signed URL for private
-    if (isPublic) {
-      return this.getPublicUrl(bucket, key);
-    }
-
-    // For private buckets, generate signed URL (1 hour expiry)
-    return await this.getSignedUrl(key, 3600, isPublic);
+    // Always use signed URLs for security and reliability
+    // Signed URLs work even if bucket is not publicly accessible
+    return await this.getSignedUrl(key, 86400, isPublic); // 24 hour expiry
   }
 
   /**
