@@ -12,8 +12,6 @@ import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
 import { MenuItem } from '../restaurant/restaurant.model';
-import * as fs from 'fs/promises';
-import * as path from 'path';
 
 @Injectable()
 export class HotelsService {
@@ -317,54 +315,35 @@ ${inviteUrl}`;
       throw new NotFoundException();
     }
 
-    let toneUrl: string;
     const fileName = `${hotel.id}-notification-tone-${Date.now()}.mp3`;
 
     try {
-      // Try to upload to S3
+      // Upload to S3 (no local fallback)
       const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
       const s3Key = `${keyPrefix}notification-tones/${fileName}`;
-      toneUrl = await this.awsService.upload(s3Key, file.buffer, file.mimetype, true);
-    } catch (error) {
-      // Fallback: Save locally to backend filesystem
-      console.warn('S3 upload failed, saving locally:', error.message);
+      const toneUrl = await this.awsService.upload(s3Key, file.buffer, file.mimetype, true);
 
-      try {
-        const uploadsDir = path.join(process.cwd(), 'uploads', 'notification-tones');
-        await fs.mkdir(uploadsDir, { recursive: true });
+      // Update hotel with custom tone URL and set tone to CUSTOM
+      const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
+        { customToneUrl: toneUrl, notificationTone: NotificationTone.CUSTOM },
+        {
+          where: { id: hotelId },
+          returning: true,
+        },
+      );
 
-        const filePath = path.join(uploadsDir, fileName);
-        await fs.writeFile(filePath, file.buffer);
-
-        // Return local endpoint URL
-        toneUrl = `/uploads/notification-tones/${fileName}`;
-        console.log('✅ Notification tone saved locally:', toneUrl);
-      } catch (localError) {
-        console.error('Local file save also failed:', localError);
-        throw new BadRequestException('Failed to upload notification tone. Please ensure S3 is configured or backend has write permissions.');
+      if (affectedCount === 0 || !updatedHotels || updatedHotels.length === 0) {
+        throw new NotFoundException();
       }
+
+      return {
+        success: true,
+        message: 'Notification tone uploaded to S3',
+        data: updatedHotels[0],
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to upload notification tone to S3: ${error.message}`);
     }
-
-    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
-      { customToneUrl: toneUrl, notificationTone: NotificationTone.CUSTOM },
-      {
-        where: { id: hotelId },
-        returning: true,
-      },
-    );
-
-    if (affectedCount === 0 || !updatedHotels || updatedHotels.length === 0) {
-      throw new NotFoundException();
-    }
-
-    return {
-      success: true,
-      message: 'Notification tone uploaded',
-      data: {
-        hotelId: updatedHotels[0].id,
-        customToneUrl: updatedHotels[0].customToneUrl,
-      },
-    };
   }
 
   async getNotificationToneUrl(hotelId: number, currentAccount: Account) {
