@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { Box, Typography } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Circle } from '@mui/icons-material';
-import request from '../helper/api';
 import MapComponent from './MapComponent';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, TEXT_MUTED_DARK } from '../theme';
@@ -58,25 +57,13 @@ function NotificationItem({ data: notification, onNotificationClick }) {
   );
 }
 
-function Notifications({ loading, setLoading, account, navigate, alertSuccess, alertError }) {
-  const [notifications, setNotifications] = useState([]);
-
-  const fetchNotifications = async () => {
-    const data = await request({ endpoint: '/notifications', method: 'GET', setLoading, defaultData: [] });
-    if (data) setNotifications(data);
-  };
-
-  useEffect(() => {
-    if (account) fetchNotifications();
-  }, [account]);
-
-  const handleNotificationClick = async (notification) => {
+function Notifications({ notifications = [], notificationsLoading: loading = false, markNotificationAsRead, navigate }) {
+  const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.read) {
-      await request({ endpoint: `/notifications/${notification.id}/read`, method: 'PATCH', setLoading, alertSuccess, alertError });
-      await fetchNotifications();
+      await markNotificationAsRead(notification.id);
     }
     if (notification.link && navigate) navigate(notification.link);
-  };
+  }, [markNotificationAsRead, navigate]);
 
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 800, mx: 'auto' }}>

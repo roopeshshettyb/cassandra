@@ -4,7 +4,10 @@
       "WebSearch",
       "WebFetch(domain:waves-docs.smallest.ai)",
       "WebFetch(domain:developers.deepgram.com)",
-      "WebFetch(domain:docs.sarvam.ai)"
+      "WebFetch(domain:docs.sarvam.ai)",
+      "mcp__stitch__get_screen",
+      "Bash(curl -L \"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ8Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpbCiVodG1sXzlkZWE3M2U0OGYxNjRlMjU4NmM5M2Y4ZjA5NDIxZWM1EgsSBxD1-OrrvRQYAZIBJAoKcHJvamVjdF9pZBIWQhQxMTM2ODUxMDUzNzk2MzI1NjE0Mw&filename=&opi=89354086\" -o \"$TEMP/stitch_landing.html\")",
+      "Read(//d/Chatbot/cassandra/$TEMP/**)"
     ]
   }
 }

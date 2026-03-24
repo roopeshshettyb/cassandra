@@ -4,6 +4,25 @@ import { ConfigService } from '@nestjs/config';
 export const OTP_EXPIRY_MINUTES = 10;
 export const OTP_LENGTH = 6;
 
+export enum NotificationTone {
+  NONE = 'none',
+  GENTLE_CHIME = 'gentle_chime',
+  ALERT_SOUND = 'alert_sound',
+  CUSTOM = 'custom',
+}
+
+export const DEFAULT_NOTIFICATION_TONE = NotificationTone.GENTLE_CHIME;
+
+export const NOTIFICATION_TONE_MAX_FILE_SIZE_MB = 5;
+
+export enum NotificationEventType {
+  NEW_REQUEST = 'new_request',
+  REQUEST_UPDATED = 'request_updated',
+  NEW_BOOKING = 'new_booking',
+  NEW_MESSAGE_IN_REQUEST = 'new_message_in_request',
+  NEW_CHAT_MESSAGE = 'new_chat_message',
+}
+
 export enum AccountRole {
   ADMIN = 'admin',
   HOTEL_OWNER = 'hotel_owner',

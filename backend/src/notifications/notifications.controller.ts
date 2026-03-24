@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
-  @Get()
+  @Get('list')
   @UseGuards(JwtAuthGuard)
   async findAll(@CurrentAccount() account: Account) {
     return this.notificationsService.findByAccountId(account.id);

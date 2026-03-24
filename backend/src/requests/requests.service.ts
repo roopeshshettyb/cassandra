@@ -7,6 +7,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { Booking } from '../bookings/bookings.model';
+import { NotificationFactory } from '../notifications/notification.factory';
 import { Op } from 'sequelize';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class RequestsService {
     @Inject(REQUESTS_REPOSITORY) private readonly requestsRepository: typeof Request,
     @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
     private readonly hotelsService: HotelsService,
+    @Inject(forwardRef(() => NotificationFactory)) private readonly notificationFactory: NotificationFactory,
   ) {}
 
   private async getWhereForAccount(currentAccount: Account): Promise<{ [key: string]: any } | null> {
@@ -103,6 +105,15 @@ export class RequestsService {
       chatId: dto.chatId ?? null,
     });
 
+    // Emit notification for new request
+    try {
+      const hotel = await this.hotelsService.findByIdForAccount(dto.hotelId, { role: 'admin' } as any);
+      const guest = currentAccount;
+      await this.notificationFactory.notifyNewRequest(request, hotel, guest);
+    } catch (error) {
+      console.error('Failed to emit new request notification:', error.message);
+    }
+
     return {
       success: true,
       message: 'Request created',
@@ -182,6 +193,15 @@ export class RequestsService {
     userNotes.push({ text: message, addedAt: new Date().toISOString() });
     await request.update({ userNotes });
 
+    // Emit notification for new message
+    try {
+      const hotel = await this.hotelsService.findByIdForAccount(request.hotelId, { role: 'admin' } as any);
+      const messagePreview = message.substring(0, 50);
+      await this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
+    } catch (error) {
+      console.error('Failed to emit message notification:', error.message);
+    }
+
     return {
       success: true,
       message: 'User message appended',
@@ -207,6 +227,15 @@ export class RequestsService {
       : [];
     staffNotes.push({ text: message, addedAt: new Date().toISOString() });
     await request.update({ staffNotes });
+
+    // Emit notification for new message
+    try {
+      const hotel = await this.hotelsService.findByIdForAccount(request.hotelId, { role: 'admin' } as any);
+      const messagePreview = message.substring(0, 50);
+      await this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
+    } catch (error) {
+      console.error('Failed to emit message notification:', error.message);
+    }
 
     return {
       success: true,

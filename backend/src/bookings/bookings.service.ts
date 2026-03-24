@@ -11,6 +11,7 @@ import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
+import { NotificationFactory } from '../notifications/notification.factory';
 import { Op } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
@@ -32,6 +33,7 @@ export class BookingsService {
     private readonly awsService: AwsService,
     private readonly documentExtractionService: DocumentExtractionService,
     @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
+    @Inject(forwardRef(() => NotificationFactory)) private readonly notificationFactory: NotificationFactory,
   ) {}
 
   private parseDateTime(dateStr: string, timeStr: string): Date {
@@ -107,6 +109,13 @@ export class BookingsService {
       booking.reservationDocumentS3Key = permanentKey;
       await booking.save();
       await this.awsService.deleteObject(dto.reservationDocumentKey.trim(), false);
+    }
+
+    // Emit notification for new booking
+    try {
+      await this.notificationFactory.notifyNewBooking(booking, hotel, guest);
+    } catch (error) {
+      console.error('Failed to emit new booking notification:', error.message);
     }
 
     return {
