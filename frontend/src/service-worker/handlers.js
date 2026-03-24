@@ -43,7 +43,7 @@ export function setupPushHandler() {
 }
 
 /**
- * Play notification tone in service worker context (loops until dismissed)
+ * Play notification tone in service worker context (plays once per notification)
  * @param {string} toneUrl - URL to the tone file (S3 signed URL or local path)
  */
 function playNotificationTone(toneUrl) {
@@ -51,22 +51,19 @@ function playNotificationTone(toneUrl) {
     // Create an Audio context to play the tone
     const audio = new Audio();
     audio.crossOrigin = 'anonymous';
-    audio.volume = 0.9; // Louder for notifications
+    audio.volume = 0.8;
     audio.src = toneUrl;
-    audio.loop = true; // Loop until dismissed
 
-    // Set max timeout (5 minutes) to prevent infinite playback if dismissed fails
+    // Set timeout to prevent hanging (max 10 seconds)
     const timeoutId = setTimeout(() => {
       audio.pause();
       audio.src = '';
-      console.log('[SW] Notification tone stopped (timeout)');
-    }, 300000); // 5 minutes max
+    }, 10000);
 
     audio.play()
       .then(() => {
-        console.log('[SW] Notification tone playing (looped):', toneUrl);
-        // Store timeout ID for potential cleanup
-        self.notificationAudioTimeout = timeoutId;
+        console.log('[SW] Notification tone playing:', toneUrl);
+        clearTimeout(timeoutId);
       })
       .catch((err) => {
         console.warn('[SW] Could not play notification tone:', err.message);
