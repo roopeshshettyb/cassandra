@@ -33,6 +33,7 @@ import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 import { BRAND_GRADIENT } from './theme/index';
+import { useNotifications, NotificationsService } from './notifications';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -98,6 +99,12 @@ const AppContent = () => {
     toast.error(message);
   };
 
+  const token = localStorage.getItem('token');
+  const { unreadCount, notifications, loading: notificationsLoading, markAsRead } = useNotifications({
+    enabled: !!account,
+    token: token || undefined,
+  });
+
   useEffect(() => {
     const fetchAccount = async () => {
       const token = localStorage.getItem('token');
@@ -134,12 +141,19 @@ const AppContent = () => {
     fetchAccount();
   }, []);
 
+  // Initialize notifications service on app load
+  useEffect(() => {
+    NotificationsService.initialize().catch((err) => {
+      console.warn('Failed to initialize notifications service:', err);
+    });
+  }, []);
+
   // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
   useEffect(() => {
-    const primary = themeConfig?.primaryColor || '#D4AF37';
-    const secondary = themeConfig?.secondaryColor || '#C5A022';
-    const navy = themeConfig?.navyColor || '#1B2340';
-    const navyLight = themeConfig?.navyLightColor || '#263462';
+    const primary = themeConfig?.primaryColor || constants.THEME_DEFAULTS.PRIMARY_COLOR;
+    const secondary = themeConfig?.secondaryColor || constants.THEME_DEFAULTS.SECONDARY_COLOR;
+    const navy = themeConfig?.navyColor || constants.THEME_DEFAULTS.NAVY_COLOR;
+    const navyLight = themeConfig?.navyLightColor || constants.THEME_DEFAULTS.NAVY_LIGHT_COLOR;
     const contrastText = getContrastText(primary);
 
     const r = document.documentElement.style;
@@ -154,13 +168,13 @@ const AppContent = () => {
   }, [themeConfig, mode]);
 
   const theme = useMemo(() => {
-    const primaryMain = themeConfig?.primaryColor || '#D4AF37';
-    const secondaryMain = themeConfig?.secondaryColor || '#C5A022';
-    const darkTextSecondary = themeConfig?.secondaryColor || '#B8860B';
-    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? '#000000' : '#F8F7F4');
-    const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? '#121212' : '#FFFFFF');
+    const primaryMain = themeConfig?.primaryColor || constants.THEME_DEFAULTS.PRIMARY_COLOR;
+    const secondaryMain = themeConfig?.secondaryColor || constants.THEME_DEFAULTS.SECONDARY_COLOR;
+    const darkTextSecondary = themeConfig?.secondaryColor || constants.THEME_DEFAULTS.PRIMARY_HOVER_COLOR;
+    const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? constants.THEME_DEFAULTS.BACKGROUND_DEFAULT_DARK : constants.THEME_DEFAULTS.BACKGROUND_DEFAULT_LIGHT);
+    const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? constants.THEME_DEFAULTS.BACKGROUND_PAPER_DARK : constants.THEME_DEFAULTS.BACKGROUND_PAPER_LIGHT);
     const fontFamily =
-      themeConfig?.fontFamily || '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
+      themeConfig?.fontFamily || constants.THEME_DEFAULTS.FONT_FAMILY;
 
     // Use a temporary theme to access MUI's contrast calculation logic
     const baseTheme = createTheme();
@@ -213,7 +227,7 @@ const AppContent = () => {
             containedPrimary: {
               color: contrastText,
               '&:hover': {
-                backgroundColor: themeConfig?.primaryHoverColor || '#B8860B',
+                backgroundColor: themeConfig?.primaryHoverColor || constants.THEME_DEFAULTS.PRIMARY_HOVER_COLOR,
               },
             },
           },
@@ -235,6 +249,7 @@ const AppContent = () => {
   };
 
   const isMobile = useMediaQuery('(max-width:768px)');
+  const isLandingPage = pathname === '/';
 
   const routes = [
     { path: '/invite', component: InviteHandler, isProtected: false },
@@ -281,9 +296,12 @@ const AppContent = () => {
     currentNav,
     setCurrentNav,
     smoothScrollToTop,
+    unreadCount,
+    notifications,
+    notificationsLoading: notificationsLoading,
+    markNotificationAsRead: markAsRead,
   };
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const isAuthenticated = !!(account || token);
 
   return (
@@ -296,14 +314,14 @@ const AppContent = () => {
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '130vh',
-            ml: isMobile ? 0 : '20vw',
+            ml: isMobile || isLandingPage ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isMobile ? '4vh' : '2.5vh' }}>
+            <Grid sx={{ paddingTop: isLandingPage ? 0 : (isMobile ? '4vh' : '2.5vh') }}>
               <ScrollToTop />
               <Routes>
-                <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} />} />
+                <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
@@ -339,7 +357,7 @@ const AppContent = () => {
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />
+          {!isLandingPage && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>

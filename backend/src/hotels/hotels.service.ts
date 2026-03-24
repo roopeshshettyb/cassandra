@@ -7,10 +7,13 @@ import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService } from '../common/constants/constants.service';
+import { ConstantsService, NotificationTone } from '../common/constants/constants.service';
+import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
 import { MenuItem } from '../restaurant/restaurant.model';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 @Injectable()
 export class HotelsService {
@@ -22,6 +25,7 @@ export class HotelsService {
     private readonly authService: AuthService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
+    private readonly awsService: AwsService,
   ) {}
 
   async createHotel(createHotelDto: CreateHotelDto, currentAccount: Account): Promise<Hotel> {
@@ -305,5 +309,86 @@ ${inviteUrl}`;
         accountId,
       },
     });
+  }
+
+  async uploadNotificationTone(hotelId: number, file: Express.Multer.File, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+    if (!hotel) {
+      throw new NotFoundException();
+    }
+
+    let toneUrl: string;
+    const fileName = `${hotel.id}-notification-tone-${Date.now()}.mp3`;
+
+    try {
+      // Try to upload to S3
+      const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+      const s3Key = `${keyPrefix}notification-tones/${fileName}`;
+      toneUrl = await this.awsService.upload(s3Key, file.buffer, file.mimetype, true);
+    } catch (error) {
+      // Fallback: Save locally to backend filesystem
+      console.warn('S3 upload failed, saving locally:', error.message);
+
+      try {
+        const uploadsDir = path.join(process.cwd(), 'uploads', 'notification-tones');
+        await fs.mkdir(uploadsDir, { recursive: true });
+
+        const filePath = path.join(uploadsDir, fileName);
+        await fs.writeFile(filePath, file.buffer);
+
+        // Return local endpoint URL
+        toneUrl = `/uploads/notification-tones/${fileName}`;
+        console.log('✅ Notification tone saved locally:', toneUrl);
+      } catch (localError) {
+        console.error('Local file save also failed:', localError);
+        throw new BadRequestException('Failed to upload notification tone. Please ensure S3 is configured or backend has write permissions.');
+      }
+    }
+
+    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
+      { customToneUrl: toneUrl, notificationTone: NotificationTone.CUSTOM },
+      {
+        where: { id: hotelId },
+        returning: true,
+      },
+    );
+
+    if (affectedCount === 0 || !updatedHotels || updatedHotels.length === 0) {
+      throw new NotFoundException();
+    }
+
+    return {
+      success: true,
+      message: 'Notification tone uploaded',
+      data: {
+        hotelId: updatedHotels[0].id,
+        customToneUrl: updatedHotels[0].customToneUrl,
+      },
+    };
+  }
+
+  async getNotificationToneUrl(hotelId: number, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+    if (!hotel) {
+      throw new NotFoundException();
+    }
+
+    const customToneUrl = hotel.customToneUrl;
+    if (!customToneUrl || customToneUrl === 'none') {
+      return { toneUrl: null };
+    }
+
+    // If it's already an S3 URL, return it as-is
+    if (customToneUrl.startsWith('https://')) {
+      return { toneUrl: customToneUrl };
+    }
+
+    // If it's a built-in tone name (gentle_chime, alert_sound), return frontend relative path
+    if (customToneUrl === 'gentle_chime' || customToneUrl === 'alert_sound') {
+      return { toneUrl: `/assets/tones/${customToneUrl}.mp3` };
+    }
+
+    // Fallback to gentle chime
+    return { toneUrl: `/assets/tones/gentle_chime.mp3` };
   }
 }

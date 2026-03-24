@@ -33,11 +33,32 @@ export class AwsService {
       Bucket: bucket,
       Key: key,
       Body: body,
-      ContentType: contentType,
+      ContentType: contentType || 'application/octet-stream',
+      // Allow CORS access from browsers for public files (e.g., audio playback)
+      ...(isPublic && {
+        ACL: 'public-read',
+        Metadata: {
+          'Cache-Control': 'max-age=31536000', // Cache for 1 year
+        },
+      }),
     });
 
     await this.s3Client.send(command);
-    return `s3://${bucket}/${key}`;
+
+    // Return HTTP URL for public bucket, signed URL for private
+    if (isPublic) {
+      return this.getPublicUrl(bucket, key);
+    }
+
+    // For private buckets, generate signed URL (1 hour expiry)
+    return await this.getSignedUrl(key, 3600, isPublic);
+  }
+
+  /**
+   * Convert S3 bucket/key to public HTTPS URL
+   */
+  private getPublicUrl(bucket: string, key: string): string {
+    return `https://${bucket}.s3.${this.region}.amazonaws.com/${key}`;
   }
 
   async download(key: string, isPublic: boolean = false): Promise<Buffer> {

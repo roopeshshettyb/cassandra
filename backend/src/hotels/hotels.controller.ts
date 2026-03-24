@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, ValidationPipe, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { HotelsService } from './hotels.service';
 import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, UpdateHotelDto } from './hotels.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { Account } from '../accounts/accounts.model';
+import { NOTIFICATION_TONE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
 
 @Controller('hotels')
 @UseGuards(JwtAuthGuard)
@@ -80,5 +82,33 @@ export class HotelsController {
   async revokeAccess(@Param('id') id: string, @Param('accountId') accountId: string, @CurrentAccount() account: Account) {
     await this.hotelsService.revokeAccess(Number(id), Number(accountId));
     return { success: true };
+  }
+
+  @Post(':id/notification-tone')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadNotificationTone(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentAccount() account: Account,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    const maxSizeBytes = NOTIFICATION_TONE_MAX_FILE_SIZE_MB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      throw new BadRequestException(`File size must not exceed ${NOTIFICATION_TONE_MAX_FILE_SIZE_MB}MB`);
+    }
+
+    if (!file.mimetype.includes('audio')) {
+      throw new BadRequestException('Only audio files are allowed');
+    }
+
+    return this.hotelsService.uploadNotificationTone(Number(id), file, account);
+  }
+
+  @Get(':id/notification-tone/stream')
+  async streamNotificationTone(@Param('id') id: string, @CurrentAccount() account: Account) {
+    return this.hotelsService.getNotificationToneUrl(Number(id), account);
   }
 }

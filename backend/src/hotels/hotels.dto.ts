@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf, IsEnum } from 'class-validator';
+import { NotificationTone } from '../common/constants/constants.service';
 
 const HH_MM_REGEX = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -84,16 +85,6 @@ export class CreateHotelDto {
   @IsObject()
   @ApiProperty({ required: false })
   readonly themeConfig?: Record<string, unknown>;
-
-  @IsOptional()
-  @IsString()
-  @ApiProperty({ required: false })
-  readonly notificationTone?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiProperty({ required: false })
-  readonly customToneUrl?: string;
 }
 
 export class UpdateHotelDto {
@@ -181,14 +172,9 @@ export class UpdateHotelDto {
   readonly themeConfig?: Record<string, unknown>;
 
   @IsOptional()
-  @IsString()
-  @ApiProperty({ required: false })
-  readonly notificationTone?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiProperty({ required: false })
-  readonly customToneUrl?: string;
+  @IsEnum(NotificationTone)
+  @ApiProperty({ required: false, enum: NotificationTone })
+  readonly notificationTone?: NotificationTone;
 }
 
 export class GrantHotelAccessDto {

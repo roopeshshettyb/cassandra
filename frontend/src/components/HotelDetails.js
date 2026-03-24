@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, TableCell, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, TableCell, TableRow, TextField, Typography, Select, MenuItem, FormControl, InputLabel, CircularProgress, Alert } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -9,6 +9,7 @@ import HotelInfoCard from './HotelInfoCard';
 import ManageRestaurant from './ManageRestaurant';
 import { useHotelTheme } from '../context/HotelThemeContext';
 import constants from '../constants.json';
+import { generateAndPlayTone } from '../utils/audioToneGenerator';
 
 const MotionBox = motion(Box);
 
@@ -79,6 +80,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
+  const [toneUploadFile, setToneUploadFile] = useState(null);
+  const [toneUploadLoading, setToneUploadLoading] = useState(false);
+  const [toneUploadError, setToneUploadError] = useState(null);
+  const [tonePlaying, setTonePlaying] = useState(false);
   const [editValues, setEditValues] = useState({
     name: '',
     address: '',
@@ -103,6 +108,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     fontFamily: '',
     backgroundDefault: '',
     backgroundPaper: '',
+    notificationTone: 'gentle_chime',
   });
 
   const fetchHotel = async () => {
@@ -133,6 +139,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         houseKeepingHours: data.houseKeepingHours || '',
         roomServiceHours: data.roomServiceHours || '',
         llmInstructions: data.llmInstructions || '',
+        notificationTone: data.notificationTone || 'gentle_chime',
         primaryColor: data.themeConfig?.primaryColor || '',
         secondaryColor: data.themeConfig?.secondaryColor || '',
         primaryHoverColor: data.themeConfig?.primaryHoverColor || '',
@@ -265,6 +272,203 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     });
     if (result && result.success) {
       navigate('/hotels');
+    }
+  };
+
+  const handleToneFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    setToneUploadError(null);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.includes('audio')) {
+      setToneUploadError('Only audio files are allowed');
+      return;
+    }
+
+    // Validate file size (5MB)
+    const maxSizeMB = 5;
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setToneUploadError(`File size must not exceed ${maxSizeMB}MB`);
+      return;
+    }
+
+    setToneUploadFile(file);
+  };
+
+  const handleToneUpload = async () => {
+    if (!toneUploadFile || !id) {
+      setToneUploadError('No file selected');
+      return;
+    }
+
+    setToneUploadLoading(true);
+    setToneUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', toneUploadFile);
+
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/notification-tone`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ Upload error:', error);
+        throw new Error(error.message || 'Upload failed');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        alertSuccess('Notification tone uploaded successfully!');
+        setToneUploadFile(null);
+        setToneUploadError(null);
+
+        // Immediately update local state
+        const newUrl = result.data?.customToneUrl;
+        setEditValues((prev) => ({
+          ...prev,
+          notificationTone: 'custom',
+        }));
+
+        // Also update hotel state with new customToneUrl
+        setHotel((prev) => ({
+          ...prev,
+          customToneUrl: newUrl,
+          notificationTone: 'custom',
+        }));
+
+        // Refresh hotel data from server to sync
+        setTimeout(() => {
+          fetchHotel();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      setToneUploadError(error.message || 'Failed to upload tone');
+      alertError(`Tone upload failed: ${error.message}`);
+    } finally {
+      setToneUploadLoading(false);
+    }
+  };
+
+  const getToneUrlByName = (toneName) => {
+    const toneUrls = {
+      none: null,
+      gentle_chime: '/assets/tones/gentle_chime.mp3',
+      alert_sound: '/assets/tones/alert_sound.mp3',
+    };
+    return toneUrls[toneName] || null;
+  };
+
+  const hasToneSelected = () => {
+    const toneName = editValues.notificationTone;
+    if (toneName === 'none') return false;
+    if (toneName === 'custom') return !!hotel?.customToneUrl;
+    return true;
+  };
+
+  const getToneUrl = () => {
+    const toneName = editValues.notificationTone;
+
+    // For custom tones, use the URL from hotel data
+    if (toneName === 'custom' && hotel?.customToneUrl) {
+      const customUrl = hotel.customToneUrl;
+
+      // If it's an S3 URL, use it as-is
+      if (customUrl.startsWith('https://')) {
+        return customUrl;
+      }
+
+      // If it's a local backend URL, add the backend URL prefix
+      if (customUrl.startsWith('/uploads/')) {
+        return `${process.env.REACT_APP_BACKEND_URL || ''}${customUrl}`;
+      }
+
+      // If it's a built-in tone name fallback, use that
+      if (customUrl === 'gentle_chime' || customUrl === 'alert_sound') {
+        return getToneUrlByName(customUrl);
+      }
+
+      // Default fallback
+      return getToneUrlByName('gentle_chime');
+    }
+
+    // For built-in tones, return frontend relative path
+    return getToneUrlByName(toneName);
+  };
+
+  const handlePlayTone = async () => {
+    const toneUrl = getToneUrl();
+    const toneName = editValues.notificationTone;
+
+    if (!toneUrl && toneName === 'none') {
+      alertError('Silent tone selected');
+      setTonePlaying(false);
+      return;
+    }
+
+    setTonePlaying(true);
+
+    // For built-in tones, try Web Audio API first (always works)
+    if (toneName === 'gentle_chime' || toneName === 'alert_sound') {
+      try {
+        const success = await generateAndPlayTone(toneName, toneName === 'gentle_chime' ? 900 : 500);
+        if (success) {
+          // Duration: gentle_chime=900ms, alert_sound=500ms
+          setTimeout(() => setTonePlaying(false), toneName === 'gentle_chime' ? 1000 : 600);
+          return;
+        }
+      } catch (error) {
+        // Fallback to MP3 if Web Audio API fails
+      }
+    }
+
+    // For custom tones or Web Audio API failure, try MP3 file
+    if (!toneUrl) {
+      alertError('No tone selected');
+      setTonePlaying(false);
+      return;
+    }
+
+    try {
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.src = toneUrl;
+      audio.volume = 0.7;
+
+      const onEnded = () => {
+        setTonePlaying(false);
+        audio.removeEventListener('ended', onEnded);
+      };
+      audio.addEventListener('ended', onEnded);
+
+      audio.onerror = () => {
+        setTonePlaying(false);
+        alertError('Failed to load tone file');
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .catch((error) => {
+            setTonePlaying(false);
+            if (error.name === 'NotAllowedError') {
+              alertError('Click on page first, then try again');
+            } else {
+              alertError(`Failed to play tone: ${error.message}`);
+            }
+          });
+      }
+    } catch (error) {
+      alertError('Failed to play tone');
+      setTonePlaying(false);
     }
   };
 
@@ -408,6 +612,103 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         onChange={handleInputChange('backgroundPaper')}
                         placeholder="#FFFFFF or #121212"
                       />
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                <Box>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Notification Tone</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Choose a notification sound for guests and staff. Select from built-in options or upload a custom MP3 file.
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Notification Tone</InputLabel>
+                        <Select
+                          value={editValues.notificationTone || 'gentle_chime'}
+                          onChange={handleInputChange('notificationTone')}
+                          label="Notification Tone"
+                        >
+                          <MenuItem value="none">Silent (No Sound)</MenuItem>
+                          <MenuItem value="gentle_chime">Gentle Chime</MenuItem>
+                          <MenuItem value="alert_sound">Alert Sound</MenuItem>
+                          {(hotel?.customToneUrl?.startsWith('https://') || hotel?.customToneUrl?.startsWith('/uploads/')) && (
+                            <MenuItem value="custom">Custom Tone</MenuItem>
+                          )}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        onClick={handlePlayTone}
+                        disabled={tonePlaying || !hasToneSelected()}
+                      >
+                        {tonePlaying ? <CircularProgress size={24} sx={{ mr: 1 }} /> : '🔊'}
+                        {tonePlaying ? ' Playing...' : ' Test Tone'}
+                      </Button>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                          Upload Custom Tone (Optional)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                          MP3 file only, max 5MB. Once uploaded, you can select it as your notification tone.
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            onChange={handleToneFileSelect}
+                            disabled={toneUploadLoading}
+                            style={{ padding: '8px' }}
+                          />
+
+                          {toneUploadFile && (
+                            <Typography variant="caption">
+                              Selected: {toneUploadFile.name} ({(toneUploadFile.size / 1024 / 1024).toFixed(2)}MB)
+                            </Typography>
+                          )}
+
+                          {toneUploadError && (
+                            <Alert severity="error" sx={{ mb: 1 }}>
+                              {toneUploadError}
+                            </Alert>
+                          )}
+
+                          {toneUploadFile && (
+                            <Button
+                              variant="contained"
+                              color="success"
+                              onClick={handleToneUpload}
+                              disabled={toneUploadLoading}
+                              sx={{ mt: 1 }}
+                            >
+                              {toneUploadLoading ? (
+                                <>
+                                  <CircularProgress size={20} sx={{ mr: 1 }} />
+                                  Uploading...
+                                </>
+                              ) : (
+                                '⬆️ Upload Custom Tone'
+                              )}
+                            </Button>
+                          )}
+
+                          {hotel?.customToneUrl && (
+                            <Typography variant="caption" sx={{ color: 'success.main', mt: 1 }}>
+                              ✅ Custom tone uploaded
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
                     </Grid>
                   </Grid>
                 </Box>
