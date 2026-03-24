@@ -35,7 +35,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil((async () => {
     try {
       const data = event.data.json();
-      const { title, message, id, link } = data;
+      const { title, message, id, link, toneUrl } = data;
 
       // Show native system notification
       await self.registration.showNotification(title, {
@@ -44,10 +44,15 @@ self.addEventListener('push', (event) => {
         badge: '/favicon.ico',
         tag: `notification-${id}`, // Replace older notifications with same tag
         requireInteraction: false, // Auto-dismiss after a few seconds
-        data: { link },
+        data: { link, toneUrl },
       });
 
-      console.log('[SW] Push notification shown:', { title, message, id });
+      // Play notification tone if available
+      if (toneUrl && toneUrl !== 'none') {
+        playNotificationTone(toneUrl);
+      }
+
+      console.log('[SW] Push notification shown:', { title, message, id, toneUrl });
     } catch (error) {
       console.error('[SW] Failed to show push notification:', error);
     }
@@ -108,6 +113,57 @@ self.addEventListener('notificationclose', (event) => {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Play notification tone in service worker context (plays once per notification)
+ * @param {string} toneUrl - URL to the tone file (S3 signed URL or local path)
+ */
+function playNotificationTone(toneUrl) {
+  if (!toneUrl || toneUrl === 'none') return;
+
+  try {
+    const audio = new Audio();
+    audio.crossOrigin = 'anonymous';
+    audio.volume = 0.8;
+    audio.src = toneUrl;
+
+    let timeoutId;
+
+    // Cleanup function
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      audio.pause();
+      audio.src = '';
+    };
+
+    // Auto-cleanup after max duration
+    timeoutId = setTimeout(() => {
+      console.warn('[SW] Notification tone timeout - stopping playback');
+      cleanup();
+    }, 10000); // 10 second max
+
+    // Cleanup when audio ends naturally
+    audio.addEventListener('ended', cleanup, { once: true });
+
+    // Handle errors and cleanup
+    audio.addEventListener('error', (err) => {
+      console.warn('[SW] Audio error:', err);
+      cleanup();
+    }, { once: true });
+
+    // Play the tone
+    audio.play()
+      .then(() => {
+        console.log('[SW] Notification tone playing:', toneUrl);
+      })
+      .catch((err) => {
+        console.warn('[SW] Could not play notification tone:', err.name, err.message);
+        cleanup();
+      });
+  } catch (error) {
+    console.error('[SW] Failed to create/play notification tone:', error);
+  }
+}
 
 /**
  * Find existing window with matching URL pathname
