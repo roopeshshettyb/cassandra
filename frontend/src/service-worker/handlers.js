@@ -17,7 +17,7 @@ export function setupPushHandler() {
     event.waitUntil((async () => {
       try {
         const data = event.data.json();
-        const { title, message, id, link } = data;
+        const { title, message, id, link, toneUrl } = data;
 
         // Show native system notification
         await self.registration.showNotification(title, {
@@ -26,15 +26,53 @@ export function setupPushHandler() {
           badge: '/favicon.ico',
           tag: `notification-${id}`, // Replace older notifications with same tag
           requireInteraction: false, // Auto-dismiss after a few seconds
-          data: { link },
+          data: { link, toneUrl },
         });
 
-        console.log('[SW] Push notification shown:', { title, message, id });
+        // Play notification tone if available
+        if (toneUrl && toneUrl !== 'none') {
+          playNotificationTone(toneUrl);
+        }
+
+        console.log('[SW] Push notification shown:', { title, message, id, toneUrl });
       } catch (error) {
         console.error('[SW] Failed to show push notification:', error);
       }
     })());
   });
+}
+
+/**
+ * Play notification tone in service worker context
+ * @param {string} toneUrl - URL to the tone file (S3 signed URL or local path)
+ */
+function playNotificationTone(toneUrl) {
+  try {
+    // Create an Audio context to play the tone
+    const audio = new Audio();
+    audio.crossOrigin = 'anonymous';
+    audio.volume = 0.7;
+    audio.src = toneUrl;
+
+    // Set timeout to prevent hanging
+    const timeoutId = setTimeout(() => {
+      audio.pause();
+      audio.src = '';
+    }, 10000); // Max 10 seconds
+
+    audio.play()
+      .then(() => {
+        console.log('[SW] Notification tone playing:', toneUrl);
+        // Clear timeout if audio plays successfully
+        setTimeout(() => clearTimeout(timeoutId), 100);
+      })
+      .catch((err) => {
+        console.warn('[SW] Could not play notification tone:', err.message);
+        clearTimeout(timeoutId);
+      });
+  } catch (error) {
+    console.warn('[SW] Failed to play notification tone:', error.message);
+  }
 }
 
 /**
