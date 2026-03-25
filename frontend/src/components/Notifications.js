@@ -75,22 +75,18 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
 
     setClearing(true);
     try {
-      const response = await fetch('/notifications/clear', {
+      const response = await request({
+        endpoint: '/notifications/clear',
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to clear notifications: ${response.statusText}`);
+      if (response?.success) {
+        alertSuccess?.(`Cleared ${response.deletedCount} notifications`);
+        // Refresh notifications list
+        window.location.reload();
+      } else {
+        throw new Error('Failed to clear notifications');
       }
-
-      const data = await response.json();
-      alertSuccess?.(`Cleared ${data.deletedCount} notifications`);
-      // Refresh notifications list
-      window.location.reload();
     } catch (error) {
       console.error('Error clearing notifications:', error);
       alertError?.('Failed to clear notifications');
