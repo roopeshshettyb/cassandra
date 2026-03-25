@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
@@ -18,5 +18,16 @@ export class NotificationsController {
   @UseGuards(JwtAuthGuard)
   async markAsRead(@Param('id') id: string, @CurrentAccount() account: Account) {
     return this.notificationsService.update({ read: true }, { id: parseInt(id, 10), accountId: account.id });
+  }
+
+  @Delete('clear')
+  @UseGuards(JwtAuthGuard)
+  async clearAll(@CurrentAccount() account: Account) {
+    const deletedCount = await this.notificationsService.delete({ accountId: account.id });
+    return {
+      success: true,
+      message: `Cleared ${deletedCount} notifications`,
+      deletedCount,
+    };
   }
 }
