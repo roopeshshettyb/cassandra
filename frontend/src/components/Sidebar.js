@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Box, IconButton, Button, Badge, Typography, useTheme } from '@mui/material';
+import React from 'react';
+import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
 import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
-import request from '../helper/api';
 
 import { BORDER, NAV_BG, BACKDROP_BG } from '../theme/index';
 
@@ -75,31 +74,11 @@ const ROLE_SPECIFIC_ITEMS = {
   ],
 };
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount }) => {
   const theme = useTheme();
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      if (account) {
-        const notifications = await request({
-          endpoint: '/notifications',
-          method: 'GET',
-          defaultData: [],
-        });
-        if (notifications) {
-          const unread = notifications.filter((n) => !n.read).length;
-          setUnreadCount(unread);
-        }
-      } else {
-        setUnreadCount(0);
-      }
-    };
-    fetchUnreadCount();
-  }, [account, sidebarOpen]);
 
   // Merge items based on role
   const navItems = [...(account && account.role && ROLE_SPECIFIC_ITEMS[account.role] ? ROLE_SPECIFIC_ITEMS[account.role] : []), ...COMMON_NAV_ITEMS];
