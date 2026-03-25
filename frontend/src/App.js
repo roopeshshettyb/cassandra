@@ -35,6 +35,25 @@ import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 import { BRAND_GRADIENT } from './theme/index';
 import { useNotifications } from './notifications/hooks/useNotifications';
 
+// Default theme if not in constants
+const DEFAULT_THEME_DEFAULTS = {
+  PRIMARY_COLOR: '#D4AF37',
+  SECONDARY_COLOR: '#C5A022',
+  NAVY_COLOR: '#1B2340',
+  NAVY_LIGHT_COLOR: '#263462',
+  PRIMARY_HOVER_COLOR: '#B8860B',
+  BACKGROUND_DEFAULT_LIGHT: '#F8F7F4',
+  BACKGROUND_DEFAULT_DARK: '#000000',
+  BACKGROUND_PAPER_LIGHT: '#FFFFFF',
+  BACKGROUND_PAPER_DARK: '#121212',
+  FONT_FAMILY: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
+};
+
+// Ensure constants has THEME_DEFAULTS
+if (!constants.THEME_DEFAULTS) {
+  constants.THEME_DEFAULTS = DEFAULT_THEME_DEFAULTS;
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {

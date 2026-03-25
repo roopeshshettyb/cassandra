@@ -36,7 +36,7 @@ export class NotificationFactory {
     const notificationData: NotificationPayload = {
       title: 'New Request',
       message: `${guest.name} has submitted a new ${request.requestType} request`,
-      link: `/requests/${request.id}`,
+      link: `/bookings/${request.bookingId}?tab=requests`,
       hotelId: request.hotelId,
       toneUrl: this.getToneUrl(hotel),
     };
@@ -52,7 +52,7 @@ export class NotificationFactory {
     const notificationData: NotificationPayload = {
       title: 'Request Updated',
       message: `Your ${request.requestType} request has been updated by ${updatedBy.name}`,
-      link: `/requests/${request.id}`,
+      link: `/bookings/${request.bookingId}?tab=requests`,
       hotelId: request.hotelId,
       toneUrl: this.getToneUrl(hotel),
     };
@@ -97,7 +97,7 @@ export class NotificationFactory {
     const notificationData: NotificationPayload = {
       title: 'New Message',
       message: `New message from ${sender.name}: ${messagePreview}`,
-      link: `/requests/${request.id}`,
+      link: `/bookings/${request.bookingId}?tab=requests`,
       hotelId: request.hotelId,
       toneUrl: this.getToneUrl(hotel),
     };
