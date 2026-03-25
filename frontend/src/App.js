@@ -343,7 +343,7 @@ const AppContent = () => {
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '130vh',
-            ml: isMobile || isLandingPage ? 0 : '20vw',
+            ml: isMobile ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
