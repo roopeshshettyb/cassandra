@@ -326,7 +326,6 @@ const AppContent = () => {
     currentNav,
     setCurrentNav,
     smoothScrollToTop,
-    unreadCount,
     notifications,
     notificationsLoading: notificationsLoading,
     markNotificationAsRead: markAsRead,

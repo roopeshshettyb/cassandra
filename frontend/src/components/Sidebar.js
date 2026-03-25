@@ -75,14 +75,31 @@ const ROLE_SPECIFIC_ITEMS = {
   ],
 };
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading }) => {
   const theme = useTheme();
   const location = useLocation();
-
-  if (location.pathname === '/') return null;
-
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (account) {
+        const notifications = await request({
+          endpoint: '/notifications',
+          method: 'GET',
+          defaultData: [],
+        });
+        if (notifications) {
+          const unread = notifications.filter((n) => !n.read).length;
+          setUnreadCount(unread);
+        }
+      } else {
+        setUnreadCount(0);
+      }
+    };
+    fetchUnreadCount();
+  }, [account, sidebarOpen]);
 
   // Merge items based on role
   const navItems = [...(account && account.role && ROLE_SPECIFIC_ITEMS[account.role] ? ROLE_SPECIFIC_ITEMS[account.role] : []), ...COMMON_NAV_ITEMS];
