@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
 import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';

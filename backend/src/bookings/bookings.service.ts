@@ -44,9 +44,6 @@ export class BookingsService {
 
   private async ensureCanCreateForHotel(hotelId: number, currentAccount: Account): Promise<Hotel> {
     const hotel = await this.hotelsService.findByIdForAccount(hotelId, currentAccount);
-    if (!hotel) {
-      throw new NotFoundException();
-    }
     if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
       throw new ForbiddenException();
     }
@@ -111,12 +108,9 @@ export class BookingsService {
       await this.awsService.deleteObject(dto.reservationDocumentKey.trim(), false);
     }
 
-    // Emit notification for new booking
-    try {
-      await this.notificationFactory.notifyNewBooking(booking, hotel, guest);
-    } catch (error) {
-      console.error('Failed to emit new booking notification:', error.message);
-    }
+    // Emit notification for new booking (non-blocking)
+    this.notificationFactory.notifyNewBooking(booking, hotel, guest).catch(() => {});
+    // Note: errors are already logged in factory
 
     return {
       success: true,

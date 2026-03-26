@@ -105,14 +105,11 @@ export class RequestsService {
       chatId: dto.chatId ?? null,
     });
 
-    // Emit notification for new request
-    try {
-      const hotel = await this.hotelsService.findByIdForAccount(dto.hotelId, { role: 'admin' } as any);
-      const guest = currentAccount;
-      await this.notificationFactory.notifyNewRequest(request, hotel, guest);
-    } catch (error) {
-      console.error('Failed to emit new request notification:', error.message);
-    }
+    // Emit notification for new request (non-blocking)
+    const hotel = await this.hotelsService.findById(dto.hotelId);
+    const guest = currentAccount;
+    this.notificationFactory.notifyNewRequest(request, hotel, guest).catch(() => {});
+    // Note: errors are already logged in factory
 
     return {
       success: true,
@@ -174,6 +171,13 @@ export class RequestsService {
     };
   }
 
+  async appendMessage(id: number, message: string, currentAccount: Account) {
+    if (currentAccount.role === AccountRole.GUEST) {
+      return this.appendUserMessage(id, message, currentAccount);
+    }
+    return this.appendStaffMessage(id, message, currentAccount);
+  }
+
   async appendUserMessage(id: number, message: string, currentAccount: Account) {
     const where = await this.getWhereForAccount(currentAccount);
     const findWhere = where ? { ...where, id } : { id };
@@ -193,14 +197,11 @@ export class RequestsService {
     userNotes.push({ text: message, addedAt: new Date().toISOString() });
     await request.update({ userNotes });
 
-    // Emit notification for new message
-    try {
-      const hotel = await this.hotelsService.findByIdForAccount(request.hotelId, { role: 'admin' } as any);
-      const messagePreview = message.substring(0, 50);
-      await this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
-    } catch (error) {
-      console.error('Failed to emit message notification:', error.message);
-    }
+    // Emit notification for new message (non-blocking)
+    const hotel = await this.hotelsService.findById(request.hotelId);
+    const messagePreview = message.substring(0, 50);
+    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview).catch(() => {});
+    // Note: errors are already logged in factory
 
     return {
       success: true,
@@ -228,14 +229,11 @@ export class RequestsService {
     staffNotes.push({ text: message, addedAt: new Date().toISOString() });
     await request.update({ staffNotes });
 
-    // Emit notification for new message
-    try {
-      const hotel = await this.hotelsService.findByIdForAccount(request.hotelId, { role: 'admin' } as any);
-      const messagePreview = message.substring(0, 50);
-      await this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
-    } catch (error) {
-      console.error('Failed to emit message notification:', error.message);
-    }
+    // Emit notification for new message (non-blocking)
+    const hotel = await this.hotelsService.findById(request.hotelId);
+    const messagePreview = message.substring(0, 50);
+    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview).catch(() => {});
+    // Note: errors are already logged in factory
 
     return {
       success: true,

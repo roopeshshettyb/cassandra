@@ -306,45 +306,71 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     setToneUploadError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', toneUploadFile);
-
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/notification-tone`, {
+      // Step 1: Get presigned URL from backend
+      const presignedResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/notification-tone/presigned-url`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          fileName: toneUploadFile.name,
+          fileSize: toneUploadFile.size,
+          contentType: toneUploadFile.type || 'audio/mpeg',
+        }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ Upload error:', error);
-        throw new Error(error.message || 'Upload failed');
+      if (!presignedResponse.ok) {
+        const error = await presignedResponse.json();
+        throw new Error(error.message || 'Failed to get presigned URL');
       }
 
-      const result = await response.json();
+      const { data } = await presignedResponse.json();
+      const { presignedUrl, s3Url } = data;
+
+      // Step 2: Upload file directly to S3
+      const s3Response = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: toneUploadFile,
+      });
+
+      if (!s3Response.ok) {
+        throw new Error(`S3 upload failed (${s3Response.status})`);
+      }
+
+      // Step 3: Confirm with backend
+      const confirmResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/notification-tone`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ s3Url }),
+      });
+
+      if (!confirmResponse.ok) {
+        const error = await confirmResponse.json();
+        throw new Error(error.message || 'Failed to confirm upload');
+      }
+
+      const result = await confirmResponse.json();
 
       if (result.success) {
         alertSuccess('Notification tone uploaded successfully!');
         setToneUploadFile(null);
         setToneUploadError(null);
 
-        // Immediately update local state
-        const newUrl = result.data?.customToneUrl;
         setEditValues((prev) => ({
           ...prev,
           notificationTone: 'custom',
         }));
 
-        // Also update hotel state with new customToneUrl
         setHotel((prev) => ({
           ...prev,
-          customToneUrl: newUrl,
+          customToneUrl: result.data?.customToneUrl,
           notificationTone: 'custom',
         }));
 
-        // Refresh hotel data from server to sync
         setTimeout(() => {
           fetchHotel();
         }, 500);

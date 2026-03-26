@@ -1,7 +1,6 @@
 import { Controller, Post, Body, Get, Query, Patch, Param, Delete, ValidationPipe, UseGuards } from '@nestjs/common';
 import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
 import { AccountsService } from './accounts.service';
-import { FindOptions, CountOptions } from 'sequelize';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from './accounts.model';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -17,8 +16,7 @@ export class AccountsController {
 
   @Get('count')
   async count(@Query('filter') filter?: string) {
-    const countOptions: CountOptions = filter ? JSON.parse(filter) : {};
-    return this.accountsService.count(countOptions);
+    return this.accountsService.countWithFilter(filter);
   }
 
   @Get('me')
@@ -36,7 +34,6 @@ export class AccountsController {
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   async updateMe(@Body(ValidationPipe) updateAccountDto: UpdateAccountDto, @CurrentAccount() account: Account) {
-    await this.accountsService.update({ defaultCurrency: updateAccountDto.defaultCurrency }, { uuid: account.uuid });
-    return this.accountsService.findOne({ where: { uuid: account.uuid } });
+    return this.accountsService.updateMe(updateAccountDto, account);
   }
 }

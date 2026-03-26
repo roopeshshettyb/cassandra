@@ -32,16 +32,20 @@ export class NotificationFactory {
    * Notifies: hotel staff/owner of the hotel, hotel manager
    */
   async notifyNewRequest(request: Request, hotel: Hotel, guest: Account) {
-    const recipientIds = await this.getHotelStaffAccountIds(request.hotelId);
-    const notificationData: NotificationPayload = {
-      title: 'New Request',
-      message: `${guest.name} has submitted a new ${request.requestType} request`,
-      link: `/bookings/${request.bookingId}?tab=requests`,
-      hotelId: request.hotelId,
-      toneUrl: this.getToneUrl(hotel),
-    };
+    try {
+      const recipientIds = await this.getHotelStaffAccountIds(request.hotelId);
+      const notificationData: NotificationPayload = {
+        title: 'New Request',
+        message: `${guest.name} has submitted a new ${request.requestType} request`,
+        link: `/bookings/${request.bookingId}?tab=requests`,
+        hotelId: request.hotelId,
+        toneUrl: this.getToneUrl(hotel),
+      };
 
-    await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_REQUEST');
+      await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_REQUEST');
+    } catch (error) {
+      console.error('Failed to emit new request notification:', error.message);
+    }
   }
 
   /**
@@ -65,18 +69,22 @@ export class NotificationFactory {
    * Notifies: guest, hotel staff/owner, hotel manager
    */
   async notifyNewBooking(booking: Booking, hotel: Hotel, guest: Account) {
-    const staffIds = await this.getHotelStaffAccountIds(booking.hotelId);
-    const recipientIds = [guest.id, ...staffIds];
+    try {
+      const staffIds = await this.getHotelStaffAccountIds(booking.hotelId);
+      const recipientIds = [guest.id, ...staffIds];
 
-    const notificationData: NotificationPayload = {
-      title: 'New Booking',
-      message: `New booking created at ${hotel.name} for ${guest.name}`,
-      link: `/bookings/${booking.id}?tab=overview`,
-      hotelId: booking.hotelId,
-      toneUrl: this.getToneUrl(hotel),
-    };
+      const notificationData: NotificationPayload = {
+        title: 'New Booking',
+        message: `New booking created at ${hotel.name} for ${guest.name}`,
+        link: `/bookings/${booking.id}?tab=overview`,
+        hotelId: booking.hotelId,
+        toneUrl: this.getToneUrl(hotel),
+      };
 
-    await this.createAndEmitNotifications(recipientIds, booking.hotelId, notificationData, 'NEW_BOOKING');
+      await this.createAndEmitNotifications(recipientIds, booking.hotelId, notificationData, 'NEW_BOOKING');
+    } catch (error) {
+      console.error('Failed to emit new booking notification:', error.message);
+    }
   }
 
   /**
@@ -84,25 +92,29 @@ export class NotificationFactory {
    * Notifies: opposite party (guest gets notified when staff messages, vice versa)
    */
   async notifyMessageInRequest(request: Request, hotel: Hotel, sender: Account, messagePreview: string) {
-    let recipientIds: number[] = [];
+    try {
+      let recipientIds: number[] = [];
 
-    if (sender.role === AccountRole.GUEST) {
-      // Guest sent message → notify hotel staff
-      recipientIds = await this.getHotelStaffAccountIds(request.hotelId);
-    } else {
-      // Hotel staff sent message → notify guest
-      recipientIds = [request.guestId];
+      if (sender.role === AccountRole.GUEST) {
+        // Guest sent message → notify hotel staff
+        recipientIds = await this.getHotelStaffAccountIds(request.hotelId);
+      } else {
+        // Hotel staff sent message → notify guest
+        recipientIds = [request.guestId];
+      }
+
+      const notificationData: NotificationPayload = {
+        title: 'New Message',
+        message: `New message from ${sender.name}: ${messagePreview}`,
+        link: `/bookings/${request.bookingId}?tab=requests`,
+        hotelId: request.hotelId,
+        toneUrl: this.getToneUrl(hotel),
+      };
+
+      await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_MESSAGE');
+    } catch (error) {
+      console.error('Failed to emit message notification:', error.message);
     }
-
-    const notificationData: NotificationPayload = {
-      title: 'New Message',
-      message: `New message from ${sender.name}: ${messagePreview}`,
-      link: `/bookings/${request.bookingId}?tab=requests`,
-      hotelId: request.hotelId,
-      toneUrl: this.getToneUrl(hotel),
-    };
-
-    await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_MESSAGE');
   }
 
   /**
@@ -165,7 +177,7 @@ export class NotificationFactory {
       return hotel.customToneUrl;
     }
     // Return tone enum value (which is a string) for frontend to play default tone
-    return hotel.notificationTone as string | undefined;
+    return hotel.notificationTone;
   }
 
   /**

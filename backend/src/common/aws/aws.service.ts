@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 import { ConstantsService } from '../constants/constants.service';
@@ -11,7 +11,14 @@ export class AwsService {
 
   constructor(private constantsService: ConstantsService) {
     const privateConstants = this.constantsService.private;
-    this.region = privateConstants.AWS_REGION;
+    // Ensure region is set; default to ap-south-1 if not configured
+    this.region = privateConstants.AWS_REGION || 'ap-south-1';
+
+    console.log('🔧 AWS Service Init:', {
+      region: this.region,
+      publicBucket: privateConstants.AWS_S3_PUBLIC_BUCKET_NAME,
+      privateBucket: privateConstants.AWS_S3_BUCKET_NAME,
+    });
 
     this.s3Client = new S3Client({
       region: this.region,
@@ -19,19 +26,49 @@ export class AwsService {
         accessKeyId: privateConstants.AWS_ACCESS_KEY_ID,
         secretAccessKey: privateConstants.AWS_SECRET_ACCESS_KEY,
       },
-      // Explicitly set S3 endpoint for regional bucket access
-      endpoint: `https://s3.${this.region}.amazonaws.com`,
-      forcePathStyle: false, // Use virtual-hosted-style URLs
     });
+
+    // Configure CORS for browser uploads
+    this.setupCorsForBucket(privateConstants.AWS_S3_PUBLIC_BUCKET_NAME).catch((err) =>
+      console.warn('⚠️  Failed to setup CORS:', err.message),
+    );
+  }
+
+  private async setupCorsForBucket(bucketName: string): Promise<void> {
+    if (!bucketName) return;
+
+    const corsConfiguration = {
+      CORSRules: [
+        {
+          AllowedMethods: ['GET', 'PUT', 'POST', 'HEAD', 'DELETE'],
+          AllowedOrigins: ['http://localhost:7678', 'http://localhost:3000', 'https://samantha.flashpact.in'],
+          AllowedHeaders: ['*'],
+          ExposeHeaders: ['ETag', 'x-amz-version-id'],
+          MaxAgeSeconds: 3000,
+        },
+      ],
+    };
+
+    try {
+      await this.s3Client.send(new PutBucketCorsCommand({
+        Bucket: bucketName,
+        CORSConfiguration: corsConfiguration
+      }));
+      console.log('✅ S3 CORS configured - presigned URLs will work');
+    } catch (error: any) {
+      if (error.name === 'NoSuchBucket') {
+        console.warn('⚠️  Bucket does not exist:', bucketName);
+      } else if (error.Code === 'AccessDenied') {
+        console.warn('⚠️  No permission to configure CORS - ensure bucket CORS is manually configured');
+      } else {
+        console.log('ℹ️  CORS setup result:', error.message);
+      }
+    }
   }
 
   private getBucketName(isPublic: boolean = false): string {
     const privateConstants = this.constantsService.private;
-    if (isPublic) {
-      // Fallback to regular bucket if public bucket not configured
-      return privateConstants.AWS_S3_PUBLIC_BUCKET_NAME || privateConstants.AWS_S3_BUCKET_NAME;
-    }
-    return privateConstants.AWS_S3_BUCKET_NAME;
+    return isPublic ? privateConstants.AWS_S3_PUBLIC_BUCKET_NAME : privateConstants.AWS_S3_BUCKET_NAME;
   }
 
   async upload(key: string, body: Buffer | string | Readable, contentType?: string, isPublic: boolean = false): Promise<string> {

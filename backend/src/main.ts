@@ -2,8 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConstantsService } from './common/constants/constants.service';
 import { IoAdapter } from '@nestjs/platform-socket.io';
-import * as express from 'express';
-import * as path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,14 +19,6 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
-
-  // Serve uploaded files (e.g., notification tones) from /uploads endpoint
-  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
-    setHeaders: (res) => {
-      res.set('Access-Control-Allow-Origin', '*');
-      res.set('Access-Control-Allow-Methods', 'GET');
-    },
-  }));
 
   const port = constantsService.private.BACKEND_PORT;
   await app.listen(port);

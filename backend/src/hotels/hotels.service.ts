@@ -7,7 +7,7 @@ import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, NotificationTone } from '../common/constants/constants.service';
+import { ConstantsService, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
@@ -78,6 +78,14 @@ export class HotelsService {
     return hotel;
   }
 
+  async findById(id: number): Promise<Hotel> {
+    const hotel = await this.hotelsRepository.findOne({ where: { id } });
+    if (!hotel) {
+      throw new NotFoundException();
+    }
+    return hotel;
+  }
+
   async deleteHotel(id: number, currentAccount: Account): Promise<void> {
     if (currentAccount.role !== AccountRole.ADMIN) {
       throw new ForbiddenException();
@@ -115,7 +123,7 @@ export class HotelsService {
       returning: true,
     });
 
-    if (affectedCount === 0 || !updatedHotels || updatedHotels.length === 0) {
+    if (affectedCount === 0) {
       throw new NotFoundException();
     }
 
@@ -309,44 +317,74 @@ ${inviteUrl}`;
     });
   }
 
-  async uploadNotificationTone(hotelId: number, file: Express.Multer.File, currentAccount: Account) {
+  async getNotificationTonePresignedUrl(
+    hotelId: number,
+    body: { fileName: string; fileSize: number; contentType: string },
+    currentAccount: Account,
+  ) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
     if (!hotel) {
       throw new NotFoundException();
     }
 
-    const fileName = `${hotel.id}-notification-tone-${Date.now()}.mp3`;
+    const maxSizeBytes = NOTIFICATION_TONE_MAX_FILE_SIZE_MB * 1024 * 1024;
+    if (body.fileSize > maxSizeBytes) {
+      throw new BadRequestException(`File size must not exceed ${NOTIFICATION_TONE_MAX_FILE_SIZE_MB}MB`);
+    }
+
+    if (!body.contentType.includes('audio')) {
+      throw new BadRequestException('Only audio files are allowed');
+    }
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}notification-tones/${hotel.id}-${Date.now()}-${body.fileName}`;
 
     try {
-      // Upload to S3 (no local fallback)
-      const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
-      const s3Key = `${keyPrefix}notification-tones/${fileName}`;
-      const toneUrl = await this.awsService.upload(s3Key, file.buffer, file.mimetype, true);
+      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, true);
+      const baseUrl = presignedUrl.split('?')[0];
 
-      // Update hotel with custom tone URL and set tone to CUSTOM
+      return {
+        success: true,
+        data: {
+          presignedUrl,
+          s3Url: baseUrl,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
+    }
+  }
+
+  async confirmNotificationToneUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+    if (!hotel) {
+      throw new NotFoundException();
+    }
+
+    try {
       const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
-        { customToneUrl: toneUrl, notificationTone: NotificationTone.CUSTOM },
+        { customToneUrl: body.s3Url, notificationTone: NotificationTone.CUSTOM },
         {
           where: { id: hotelId },
           returning: true,
         },
       );
 
-      if (affectedCount === 0 || !updatedHotels || updatedHotels.length === 0) {
+      if (affectedCount === 0) {
         throw new NotFoundException();
       }
 
       return {
         success: true,
-        message: 'Notification tone uploaded to S3',
+        message: 'Notification tone set successfully',
         data: updatedHotels[0],
       };
     } catch (error) {
-      throw new BadRequestException(`Failed to upload notification tone to S3: ${error.message}`);
+      throw new BadRequestException(`Failed to confirm upload: ${error.message}`);
     }
   }
 
-  async getNotificationToneUrl(hotelId: number, currentAccount: Account) {
+  async getNotificationToneSignedUrl(hotelId: number, currentAccount: Account) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
     if (!hotel) {
       throw new NotFoundException();
@@ -354,20 +392,33 @@ ${inviteUrl}`;
 
     const customToneUrl = hotel.customToneUrl;
     if (!customToneUrl || customToneUrl === 'none') {
-      return { toneUrl: null };
+      // Return built-in tone path for default tones
+      return { signedUrl: null, isBuiltIn: true, builtInPath: '/assets/tones/gentle_chime.mp3' };
     }
 
-    // If it's already an S3 URL, return it as-is
-    if (customToneUrl.startsWith('https://')) {
-      return { toneUrl: customToneUrl };
-    }
-
-    // If it's a built-in tone name (gentle_chime, alert_sound), return frontend relative path
+    // If it's a built-in tone name, return path
     if (customToneUrl === 'gentle_chime' || customToneUrl === 'alert_sound') {
-      return { toneUrl: `/assets/tones/${customToneUrl}.mp3` };
+      return { signedUrl: null, isBuiltIn: true, builtInPath: `/assets/tones/${customToneUrl}.mp3` };
     }
 
-    // Fallback to gentle chime
-    return { toneUrl: `/assets/tones/gentle_chime.mp3` };
+    // If it's an S3 URL, extract the key and generate signed URL
+    if (customToneUrl.startsWith('https://')) {
+      try {
+        // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/key
+        const urlParts = customToneUrl.split('/');
+        const s3Key = urlParts.slice(4).join('/');
+
+        const signedUrl = await this.awsService.getSignedUrl(s3Key, 86400, false); // 24 hour expiry
+        return {
+          signedUrl,
+          isBuiltIn: false,
+        };
+      } catch (error) {
+        throw new BadRequestException(`Failed to generate signed URL: ${error.message}`);
+      }
+    }
+
+    // Fallback to built-in tone
+    return { signedUrl: null, isBuiltIn: true, builtInPath: '/assets/tones/gentle_chime.mp3' };
   }
 }

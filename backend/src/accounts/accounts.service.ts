@@ -29,8 +29,18 @@ export class AccountsService {
     return { count: totalCount };
   }
 
+  async countWithFilter(filter?: string): Promise<{ count: number }> {
+    const countOptions: CountOptions = filter ? JSON.parse(filter) : {};
+    return this.count(countOptions);
+  }
+
   async update(data: any, filter: any): Promise<[number]> {
     return this.accountsRepository.update(data, { where: filter });
+  }
+
+  async updateMe(updateAccountDto: UpdateAccountDto, account: Account): Promise<Account> {
+    await this.update({ defaultCurrency: updateAccountDto.defaultCurrency }, { uuid: account.uuid });
+    return this.findOne({ where: { uuid: account.uuid } });
   }
 
   async delete(filter: any): Promise<number> {
