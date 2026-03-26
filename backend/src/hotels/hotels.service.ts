@@ -323,9 +323,6 @@ ${inviteUrl}`;
     currentAccount: Account,
   ) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
-    if (!hotel) {
-      throw new NotFoundException();
-    }
 
     const maxSizeBytes = NOTIFICATION_TONE_MAX_FILE_SIZE_MB * 1024 * 1024;
     if (body.fileSize > maxSizeBytes) {
@@ -358,9 +355,6 @@ ${inviteUrl}`;
 
   async confirmNotificationToneUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
-    if (!hotel) {
-      throw new NotFoundException();
-    }
 
     try {
       const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
@@ -387,9 +381,6 @@ ${inviteUrl}`;
 
   async getNotificationToneSignedUrl(hotelId: number, currentAccount: Account) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
-    if (!hotel) {
-      throw new NotFoundException();
-    }
 
     const customToneUrl = hotel.customToneUrl;
     if (!customToneUrl || customToneUrl === 'none') {
