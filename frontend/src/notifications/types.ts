@@ -9,10 +9,12 @@ export interface NotificationItem {
   read: boolean;
   link?: string;
   toneUrl?: string;
+  hotelId?: number;
   createdAt: string;
 }
 
 export interface UseNotificationsOptions {
   token?: string;
   enabled?: boolean;
+  hotelId?: number;
 }

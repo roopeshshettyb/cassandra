@@ -10,6 +10,7 @@ import ManageRestaurant from './ManageRestaurant';
 import { useHotelTheme } from '../context/HotelThemeContext';
 import constants from '../constants.json';
 import { generateAndPlayTone } from '../utils/audioToneGenerator';
+import { getNotificationTone, createAudioFromBlob } from '../utils/notificationToneCache';
 
 const MotionBox = motion(Box);
 
@@ -331,6 +332,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       // Step 2: Upload file directly to S3
       const s3Response = await fetch(presignedUrl, {
         method: 'PUT',
+        headers: {
+          'Content-Type': toneUploadFile.type || 'audio/mpeg',
+        },
         body: toneUploadFile,
       });
 
@@ -431,10 +435,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   };
 
   const handlePlayTone = async () => {
-    const toneUrl = getToneUrl();
     const toneName = editValues.notificationTone;
 
-    if (!toneUrl && toneName === 'none') {
+    if (toneName === 'none') {
       alertError('Silent tone selected');
       setTonePlaying(false);
       return;
@@ -442,12 +445,11 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
     setTonePlaying(true);
 
-    // For built-in tones, try Web Audio API first (always works)
+    // Built-in tones: use Web Audio API (always works offline)
     if (toneName === 'gentle_chime' || toneName === 'alert_sound') {
       try {
         const success = await generateAndPlayTone(toneName, toneName === 'gentle_chime' ? 900 : 500);
         if (success) {
-          // Duration: gentle_chime=900ms, alert_sound=500ms
           setTimeout(() => setTonePlaying(false), toneName === 'gentle_chime' ? 1000 : 600);
           return;
         }
@@ -456,7 +458,44 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       }
     }
 
-    // For custom tones or Web Audio API failure, try MP3 file
+    // Custom tone: use IndexedDB cache (download once, serve from blob)
+    if (toneName === 'custom' && hotel?.customToneUrl?.startsWith('https://')) {
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+        const token = localStorage.getItem('token') || '';
+        const blob = await getNotificationTone(Number(id), hotel.customToneUrl, backendUrl, token);
+        if (blob) {
+          const audio = createAudioFromBlob(blob);
+          audio.volume = 0.7;
+          
+          const onEnded = () => { 
+            setTonePlaying(false); 
+            audio.removeEventListener('ended', onEnded); 
+            URL.revokeObjectURL(audio.src);
+          };
+          audio.addEventListener('ended', onEnded);
+          
+          audio.onerror = () => { 
+            setTonePlaying(false); 
+            alertError('Failed to load tone file'); 
+            URL.revokeObjectURL(audio.src);
+          };
+          
+          audio.play().catch((err) => {
+            setTonePlaying(false);
+            URL.revokeObjectURL(audio.src);
+            if (err.name === 'NotAllowedError') alertError('Click on page first, then try again');
+            else alertError(`Failed to play tone: ${err.message}`);
+          });
+          return;
+        }
+      } catch (error) {
+        console.warn('Cache lookup failed, falling back to direct URL:', error);
+      }
+    }
+
+    // Fallback: play via direct URL (built-in MP3 or non-cached custom URL)
+    const toneUrl = getToneUrl();
     if (!toneUrl) {
       alertError('No tone selected');
       setTonePlaying(false);
@@ -482,15 +521,11 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise
-          .catch((error) => {
-            setTonePlaying(false);
-            if (error.name === 'NotAllowedError') {
-              alertError('Click on page first, then try again');
-            } else {
-              alertError(`Failed to play tone: ${error.message}`);
-            }
-          });
+        playPromise.catch((error) => {
+          setTonePlaying(false);
+          if (error.name === 'NotAllowedError') alertError('Click on page first, then try again');
+          else alertError(`Failed to play tone: ${error.message}`);
+        });
       }
     } catch (error) {
       alertError('Failed to play tone');

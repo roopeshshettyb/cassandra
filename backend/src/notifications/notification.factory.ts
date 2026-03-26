@@ -154,6 +154,7 @@ export class NotificationFactory {
         message: notificationData.message,
         link: notificationData.link,
         toneUrl: notificationData.toneUrl,
+        hotelId: hotelId,
         createdAt: new Date().toISOString(),
       });
 

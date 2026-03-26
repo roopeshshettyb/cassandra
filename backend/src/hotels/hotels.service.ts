@@ -340,7 +340,8 @@ ${inviteUrl}`;
     const s3Key = `${keyPrefix}notification-tones/${hotel.id}-${Date.now()}-${body.fileName}`;
 
     try {
-      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, true);
+      // Use private bucket (isPublic: false) since we read it via signed URLs anyway
+      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, false);
       const baseUrl = presignedUrl.split('?')[0];
 
       return {
@@ -406,7 +407,7 @@ ${inviteUrl}`;
       try {
         // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/key
         const urlParts = customToneUrl.split('/');
-        const s3Key = urlParts.slice(4).join('/');
+        const s3Key = urlParts.slice(3).join('/');
 
         const signedUrl = await this.awsService.getSignedUrl(s3Key, 86400, false); // 24 hour expiry
         return {

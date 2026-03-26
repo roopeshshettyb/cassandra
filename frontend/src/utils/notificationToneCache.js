@@ -3,6 +3,7 @@ const DB_NAME = 'samantha-cache';
 const STORE_NAME = 'notification-tones';
 
 let db = null;
+const pendingDownloads = new Map(); // toneUrl -> Promise
 
 // Initialize IndexedDB
 async function initDB() {
@@ -45,7 +46,7 @@ export async function getCachedTone(hotelId) {
 }
 
 // Save tone to cache
-export async function cacheTone(hotelId, blob) {
+export async function cacheTone(hotelId, toneUrl, blob) {
   try {
     const database = await initDB();
     return new Promise((resolve, reject) => {
@@ -53,6 +54,7 @@ export async function cacheTone(hotelId, blob) {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.put({
         hotelId,
+        toneUrl,
         blob,
         cachedAt: new Date().getTime(),
       });
@@ -66,54 +68,67 @@ export async function cacheTone(hotelId, blob) {
   }
 }
 
-// Get notification tone (with caching)
-export async function getNotificationTone(hotelId, backendUrl, token) {
-  // Check cache first
+// Get notification tone (with caching and promise deduping)
+export async function getNotificationTone(hotelId, toneUrl, backendUrl, token) {
+  // Check cache first: if the toneUrl doesn't match, it's a stale cache (user uploaded a new tone)
   const cached = await getCachedTone(hotelId);
-  if (cached?.blob) {
+  if (cached?.blob && cached.toneUrl === toneUrl) {
     console.log('✅ Using cached tone for hotel', hotelId);
     return cached.blob;
   }
 
-  try {
-    // Get signed URL from backend
-    const response = await fetch(`${backendUrl}/hotels/${hotelId}/notification-tone/signed-url`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get signed URL: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const { signedUrl, isBuiltIn, builtInPath } = data;
-
-    // Handle built-in tones
-    if (isBuiltIn) {
-      console.log('✅ Using built-in tone:', builtInPath);
-      return null; // Frontend will load from /assets/tones/
-    }
-
-    // Download tone from signed URL
-    const toneResponse = await fetch(signedUrl);
-    if (!toneResponse.ok) {
-      throw new Error(`Failed to download tone: ${toneResponse.status}`);
-    }
-
-    const blob = await toneResponse.blob();
-
-    // Cache for future use
-    await cacheTone(hotelId, blob);
-    console.log('✅ Downloaded and cached tone for hotel', hotelId);
-
-    return blob;
-  } catch (error) {
-    console.error('❌ Failed to get tone:', error);
-    return null;
+  // Dedupe simultaneous requests for the same tone
+  if (pendingDownloads.has(toneUrl)) {
+    return pendingDownloads.get(toneUrl);
   }
+
+  const downloadPromise = (async () => {
+    try {
+      // Get signed URL from backend
+      const response = await fetch(`${backendUrl}/hotels/${hotelId}/notification-tone/signed-url`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get signed URL: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const { signedUrl, isBuiltIn, builtInPath } = data;
+
+      // Handle built-in tones
+      if (isBuiltIn) {
+        console.log('✅ Using built-in tone:', builtInPath);
+        return null; // Frontend will load from /assets/tones/
+      }
+
+      // Download tone from signed URL
+      const toneResponse = await fetch(signedUrl);
+      if (!toneResponse.ok) {
+        throw new Error(`Failed to download tone: ${toneResponse.status}`);
+      }
+
+      const blob = await toneResponse.blob();
+
+      // Cache for future use (overwrites old tone for this hotelId)
+      await cacheTone(hotelId, toneUrl, blob);
+      console.log('✅ Downloaded and cached new tone for hotel', hotelId);
+
+      return blob;
+    } catch (error) {
+      console.error('❌ Failed to get tone:', error);
+      return null;
+    } finally {
+      // Clean up the pending promise once resolved or rejected
+      pendingDownloads.delete(toneUrl);
+    }
+  })();
+
+  pendingDownloads.set(toneUrl, downloadPromise);
+  return downloadPromise;
 }
 
 // Convert blob to audio element

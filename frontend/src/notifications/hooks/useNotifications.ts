@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import request from '../../helper/api';
 import { NotificationItem, UseNotificationsOptions } from '../types';
+import { getNotificationTone, createAudioFromBlob } from '../../utils/notificationToneCache';
 
 /**
  * Single source of truth for all notifications state.
@@ -12,7 +13,7 @@ import { NotificationItem, UseNotificationsOptions } from '../types';
  * - Browser notifications with Service Worker fallback
  */
 export const useNotifications = (options: UseNotificationsOptions = {}) => {
-  const { token, enabled = true } = options;
+  const { token, enabled = true, hotelId } = options;
   const socketRef = useRef<Socket | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,23 +69,55 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
 
   /**
    * Play notification tone (plays once per notification)
-   * Handles 'none', custom URLs, or built-in tones
+   * - Built-in tones: played directly from /assets/tones/
+   * - Custom S3 tones: fetched via signed URL and cached in IndexedDB, then played from blob
    */
   const playNotificationTone = useCallback(
-    async (toneName?: string) => {
+    async (toneName?: string, toneHotelId?: number) => {
+      // Custom tone: use cache utility (download once, serve from blob)
+      const isCustomS3 = toneName && (toneName.startsWith('https://') || toneName.startsWith('http://'));
+      if (isCustomS3 && (toneHotelId || hotelId)) {
+        try {
+          const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+          const blob = await getNotificationTone(
+            toneHotelId || hotelId,
+            toneName,
+            backendUrl,
+            token || localStorage.getItem('token') || ''
+          );
+          if (blob) {
+            const audio = createAudioFromBlob(blob);
+            audio.volume = 1.0;
+
+            const cleanup = () => {
+              URL.revokeObjectURL(audio.src);
+              audio.removeEventListener('ended', cleanup);
+            };
+            audio.addEventListener('ended', cleanup);
+
+            audio.play().catch((err) => {
+              cleanup();
+              console.warn('⚠️ Failed to play cached tone:', err.name, err.message);
+            });
+            return;
+          }
+        } catch (error) {
+          console.warn('⚠️ Cache lookup failed, falling back to direct URL:', error);
+          // Fall through to direct URL playback below
+        }
+      }
+
+      // Built-in tone (or cache miss fallback): play directly
       const toneUrl = getToneUrl(toneName);
       if (!toneUrl) return;
 
       try {
         const audio = new Audio();
         audio.crossOrigin = 'anonymous';
-        audio.volume = 1.0; // Max volume
+        audio.volume = 1.0;
         audio.src = toneUrl;
 
-        // Set timeout to prevent hanging (max 10 seconds)
-        const timeoutId = setTimeout(() => {
-          audio.pause();
-        }, 10000);
+        const timeoutId = setTimeout(() => { audio.pause(); }, 10000);
 
         const playPromise = audio.play();
         if (playPromise !== undefined) {
@@ -95,9 +128,6 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
             })
             .catch((err) => {
               console.warn('⚠️ Failed to play tone:', err.name, err.message);
-              // Common errors:
-              // - NotAllowedError: Autoplay blocked by browser
-              // - NotSupportedError: Format not supported
               clearTimeout(timeoutId);
             });
         }
@@ -105,7 +135,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         console.error('Error creating audio element:', error);
       }
     },
-    [getToneUrl]
+    [getToneUrl, hotelId, token]
   );
 
   /**
@@ -155,7 +185,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       console.log('[Notifications] Received notification:', data.title);
 
       // Play tone (non-blocking, handles autoplay restrictions gracefully)
-      playNotificationTone(data.toneUrl);
+      playNotificationTone(data.toneUrl, data.hotelId);
 
       // Show browser notification
       showBrowserNotification(data);

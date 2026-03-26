@@ -26,11 +26,15 @@ export class AwsService {
         accessKeyId: privateConstants.AWS_ACCESS_KEY_ID,
         secretAccessKey: privateConstants.AWS_SECRET_ACCESS_KEY,
       },
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     });
 
     // Configure CORS for browser uploads
     this.setupCorsForBucket(privateConstants.AWS_S3_PUBLIC_BUCKET_NAME).catch((err) =>
-      console.warn('⚠️  Failed to setup CORS:', err.message),
+      console.warn('⚠️  Failed to setup CORS on public bucket:', err.message),
+    );
+    this.setupCorsForBucket(privateConstants.AWS_S3_BUCKET_NAME).catch((err) =>
+      console.warn('⚠️  Failed to setup CORS on private bucket:', err.message),
     );
   }
 
