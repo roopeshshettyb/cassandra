@@ -123,16 +123,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              console.log('✅ Notification tone playing:', toneName);
               clearTimeout(timeoutId);
             })
             .catch((err) => {
-              console.warn('⚠️ Failed to play tone:', err.name, err.message);
               clearTimeout(timeoutId);
             });
         }
       } catch (error) {
-        console.error('Error creating audio element:', error);
       }
     },
     [getToneUrl, hotelId, token]
@@ -182,7 +179,6 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     });
 
     socket.on('notification', (data: any) => {
-      console.log('[Notifications] Received notification:', data.title);
 
       // Play tone (non-blocking, handles autoplay restrictions gracefully)
       playNotificationTone(data.toneUrl, data.hotelId);
@@ -195,26 +191,21 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     });
 
     socket.on('error', (error: any) => {
-      console.error('[Notifications] Socket error:', error);
     });
 
     socket.on('disconnect', (reason: string) => {
-      console.warn('[Notifications] Disconnected:', reason);
       if (reason === 'io server disconnect') {
         // Server disconnected, try to reconnect
         setTimeout(() => {
-          console.log('[Notifications] Attempting to reconnect...');
           socket.connect();
         }, 1000);
       }
     });
 
     socket.on('connect', () => {
-      console.log('[Notifications] Connected');
     });
 
     socket.on('connect_error', (error: any) => {
-      console.warn('[Notifications] Connection error:', error.message);
     });
 
     socketRef.current = socket;

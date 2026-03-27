@@ -34,7 +34,6 @@ export function setupPushHandler() {
           playNotificationTone(toneUrl);
         }
 
-        console.log('[SW] Push notification shown:', { title, message, id, toneUrl });
       } catch (error) {
         console.error('[SW] Failed to show push notification:', error);
       }
@@ -67,7 +66,6 @@ function playNotificationTone(toneUrl) {
 
     // Auto-cleanup after max duration
     timeoutId = setTimeout(() => {
-      console.warn('[SW] Notification tone timeout - stopping playback');
       cleanup();
     }, 10000); // 10 second max
 
@@ -83,7 +81,6 @@ function playNotificationTone(toneUrl) {
     // Play the tone
     audio.play()
       .then(() => {
-        console.log('[SW] Notification tone playing:', toneUrl);
       })
       .catch((err) => {
         console.warn('[SW] Could not play notification tone:', err.name, err.message);
@@ -104,7 +101,6 @@ export function setupClickHandler() {
 
     const link = event.notification.data?.link;
     if (!link) {
-      console.warn('[SW] Notification clicked but no link provided');
       return;
     }
 
@@ -114,12 +110,10 @@ export function setupClickHandler() {
         const matchingClient = findMatchingClient(clientList, link);
 
         if (matchingClient && 'focus' in matchingClient) {
-          console.log('[SW] Focusing existing window:', link);
           return matchingClient.focus();
         }
 
         // No matching window, open new one
-        console.log('[SW] Opening new window:', link);
         return clients.openWindow(link);
       } catch (error) {
         console.error('[SW] Failed to handle notification click:', error);
@@ -136,7 +130,6 @@ export function setupCloseHandler() {
   self.addEventListener('notificationclose', (event) => {
     const notificationId = event.notification.data?.id;
     if (notificationId) {
-      console.log('[SW] Notification dismissed:', notificationId);
       // TODO: Send analytics event if needed
     }
   });

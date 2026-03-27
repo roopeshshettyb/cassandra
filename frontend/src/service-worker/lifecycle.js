@@ -8,9 +8,8 @@
  * Good place for pre-caching if needed in future
  */
 export function setupInstallHandler() {
-  self.addEventListener('install', () => {
-    console.log('[SW] Service Worker installed');
-    self.skipWaiting(); // Activate immediately
+  self.addEventListener('install', (event) => {
+    event.waitUntil(self.skipWaiting()); // Activate immediately
   });
 }
 
@@ -19,8 +18,7 @@ export function setupInstallHandler() {
  * Good place for cleanup of old caches if needed
  */
 export function setupActivateHandler() {
-  self.addEventListener('activate', () => {
-    console.log('[SW] Service Worker activated');
-    self.clients.claim(); // Claim all clients immediately
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim()); // Claim all clients immediately
   });
 }

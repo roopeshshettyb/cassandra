@@ -73,7 +73,6 @@ export async function getNotificationTone(hotelId, toneUrl, backendUrl, token) {
   // Check cache first: if the toneUrl doesn't match, it's a stale cache (user uploaded a new tone)
   const cached = await getCachedTone(hotelId);
   if (cached?.blob && cached.toneUrl === toneUrl) {
-    console.log('✅ Using cached tone for hotel', hotelId);
     return cached.blob;
   }
 
@@ -101,7 +100,6 @@ export async function getNotificationTone(hotelId, toneUrl, backendUrl, token) {
 
       // Handle built-in tones
       if (isBuiltIn) {
-        console.log('✅ Using built-in tone:', builtInPath);
         return null; // Frontend will load from /assets/tones/
       }
 
@@ -115,11 +113,9 @@ export async function getNotificationTone(hotelId, toneUrl, backendUrl, token) {
 
       // Cache for future use (overwrites old tone for this hotelId)
       await cacheTone(hotelId, toneUrl, blob);
-      console.log('✅ Downloaded and cached new tone for hotel', hotelId);
 
       return blob;
     } catch (error) {
-      console.error('❌ Failed to get tone:', error);
       return null;
     } finally {
       // Clean up the pending promise once resolved or rejected

@@ -14,12 +14,6 @@ export class AwsService {
     // Ensure region is set; default to ap-south-1 if not configured
     this.region = privateConstants.AWS_REGION || 'ap-south-1';
 
-    console.log('🔧 AWS Service Init:', {
-      region: this.region,
-      publicBucket: privateConstants.AWS_S3_PUBLIC_BUCKET_NAME,
-      privateBucket: privateConstants.AWS_S3_BUCKET_NAME,
-    });
-
     this.s3Client = new S3Client({
       region: this.region,
       credentials: {
@@ -58,14 +52,11 @@ export class AwsService {
         Bucket: bucketName,
         CORSConfiguration: corsConfiguration
       }));
-      console.log('✅ S3 CORS configured - presigned URLs will work');
     } catch (error: any) {
       if (error.name === 'NoSuchBucket') {
         console.warn('⚠️  Bucket does not exist:', bucketName);
       } else if (error.Code === 'AccessDenied') {
         console.warn('⚠️  No permission to configure CORS - ensure bucket CORS is manually configured');
-      } else {
-        console.log('ℹ️  CORS setup result:', error.message);
       }
     }
   }
