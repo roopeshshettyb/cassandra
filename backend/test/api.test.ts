@@ -224,7 +224,7 @@ describe('Accounts', () => {
   });
 
   it('PATCH /accounts/me → updates guest account', async () => {
-    const res = await http.patch('/accounts/me', { defaultCurrency: 'USD' }, state.guestToken);
+    const res = await http.patch('/accounts/me', { name: 'Updated Guest' }, state.guestToken);
     expect(res.status).toBe(200);
   });
 });
