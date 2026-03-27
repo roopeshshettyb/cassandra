@@ -37,7 +37,10 @@ export class HotelsService {
       const hotelAccounts = await this.hotelAccountsRepository.findAll({
         where: { accountId: currentAccount.id },
       });
-      const hotelIds = hotelAccounts.map((ha) => ha.hotelId);
+      const hotelIds: number[] = [];
+      for (let i = 0; i < hotelAccounts.length; i++) {
+        hotelIds.push(hotelAccounts[i].hotelId);
+      }
 
       // If no linked hotels, use an impossible condition to return an empty array
       hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
@@ -165,7 +168,13 @@ export class HotelsService {
       where: { hotelId },
     });
 
-    const accountIds = hotelAccounts.map((ha) => ha.accountId).filter((id) => !!id);
+    const accountIds: number[] = [];
+    for (let i = 0; i < hotelAccounts.length; i++) {
+      const ha = hotelAccounts[i];
+      if (ha.accountId) {
+        accountIds.push(ha.accountId);
+      }
+    }
 
     if (accountIds.length === 0) {
       return [];

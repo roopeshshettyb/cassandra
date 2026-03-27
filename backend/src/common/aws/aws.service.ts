@@ -83,11 +83,7 @@ export class AwsService {
       Body: body,
       ContentType: contentType || 'application/octet-stream',
       // For public files, add cache headers (bucket policy handles public access)
-      ...(isPublic && {
-        Metadata: {
-          'Cache-Control': 'max-age=31536000', // Cache for 1 year
-        },
-      }),
+      ...(isPublic && { CacheControl: 'max-age=31536000' }), // Cache for 1 year
     });
 
     await this.s3Client.send(command);

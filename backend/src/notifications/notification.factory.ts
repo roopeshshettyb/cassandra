@@ -132,31 +132,37 @@ export class NotificationFactory {
     const uniqueAccountIds = Array.from(new Set(accountIds));
 
     try {
-      // Create notification records for each recipient
-      await Promise.all(
-        uniqueAccountIds.map((accountId) =>
-          this.notificationsRepository.create({
-            accountId,
-            hotelId,
-            title: notificationData.title,
-            message: notificationData.message,
-            link: notificationData.link,
-            toneUrl: notificationData.toneUrl,
-            type: this.mapEventTypeToNotificationType(eventType),
-            read: false,
-          }),
-        ),
-      );
+      const createdNotifications: Notification[] = [];
+      
+      // Use old school for loop as per rule 6
+      for (let i = 0; i < uniqueAccountIds.length; i++) {
+        const accountId = uniqueAccountIds[i];
+        const notification = await this.notificationsRepository.create({
+          accountId,
+          hotelId,
+          title: notificationData.title,
+          message: notificationData.message,
+          link: notificationData.link,
+          toneUrl: notificationData.toneUrl,
+          type: this.mapEventTypeToNotificationType(eventType),
+          read: false,
+        });
+        createdNotifications.push(notification);
+      }
 
-      // Emit real-time notification via WebSocket
-      this.notificationsGateway.emitToAccounts(uniqueAccountIds, {
-        title: notificationData.title,
-        message: notificationData.message,
-        link: notificationData.link,
-        toneUrl: notificationData.toneUrl,
-        hotelId: hotelId,
-        createdAt: new Date().toISOString(),
-      });
+      // Emit real-time notification via WebSocket individually to include the correct ID
+      for (let i = 0; i < createdNotifications.length; i++) {
+        const notification = createdNotifications[i];
+        this.notificationsGateway.emitToAccount(notification.accountId, {
+          id: notification.id,
+          title: notification.title,
+          message: notification.message,
+          link: notification.link,
+          toneUrl: notification.toneUrl,
+          hotelId: hotelId,
+          createdAt: notification.createdAt,
+        });
+      }
 
       this.logger.debug(
         `Notifications created and emitted for hotel ${hotelId}: ${uniqueAccountIds.length} recipients`,
@@ -177,7 +183,7 @@ export class NotificationFactory {
     if (hotel.notificationTone === NotificationTone.CUSTOM && hotel.customToneUrl) {
       return hotel.customToneUrl;
     }
-    // Return tone enum value (which is a string) for frontend to play default tone
+    // Return tone enum value for frontend to play default tone
     return hotel.notificationTone;
   }
 
@@ -190,7 +196,12 @@ export class NotificationFactory {
         where: { hotelId },
         attributes: ['accountId'],
       });
-      return hotelAccounts.map((ha) => ha.accountId);
+      
+      const accountIds: number[] = [];
+      for (let i = 0; i < hotelAccounts.length; i++) {
+        accountIds.push(hotelAccounts[i].accountId);
+      }
+      return accountIds;
     } catch (error) {
       console.error(`Failed to get hotel staff IDs for hotel ${hotelId}:`, error.message);
       return [];
@@ -201,9 +212,30 @@ export class NotificationFactory {
    * Get IDs of all participants in a request (guest + staff who messaged)
    */
   private async getRequestParticipantIds(request: Request): Promise<number[]> {
-    const participantIds = [request.guestId];
-    // TODO: Query staff members who have added messages to this request
-    return participantIds;
+    const participantIds = new Set<number>();
+    participantIds.add(request.guestId);
+
+    // Get staff IDs from staffNotes
+    if (request.staffNotes && Array.isArray(request.staffNotes)) {
+      for (let i = 0; i < request.staffNotes.length; i++) {
+        const note = request.staffNotes[i];
+        if (note.accountId) {
+          participantIds.add(note.accountId);
+        }
+      }
+    }
+
+    // Get user IDs from userNotes (in case someone other than the guest adds a user note, e.g. admin)
+    if (request.userNotes && Array.isArray(request.userNotes)) {
+      for (let i = 0; i < request.userNotes.length; i++) {
+        const note = request.userNotes[i];
+        if (note.accountId) {
+          participantIds.add(note.accountId);
+        }
+      }
+    }
+
+    return Array.from(participantIds);
   }
 
   /**

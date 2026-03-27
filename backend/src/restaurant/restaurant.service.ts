@@ -72,9 +72,11 @@ export class RestaurantService {
       throw new ForbiddenException();
     }
 
-    await this.restaurantRepository.update(dto, { where: { id } });
-    const updated = await this.restaurantRepository.findByPk(id);
-    return { success: true, message: 'Menu item updated', data: updated };
+    const [affectedCount, updatedItems] = await this.restaurantRepository.update(dto, { where: { id }, returning: true });
+    if (affectedCount === 0) {
+      throw new NotFoundException('Menu item not found');
+    }
+    return { success: true, message: 'Menu item updated', data: updatedItems[0] };
   }
 
   async delete(id: number, currentAccount: Account) {

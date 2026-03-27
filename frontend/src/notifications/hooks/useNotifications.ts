@@ -1,8 +1,10 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import request from '../../helper/api';
-import { NotificationItem, UseNotificationsOptions } from '../types';
+import { NotificationItem, UseNotificationsOptions, RequestOptions, ApiResponse } from '../types';
 import { getNotificationTone, createAudioFromBlob } from '../../utils/notificationToneCache';
+
+const typedRequest = request as (options: RequestOptions) => Promise<ApiResponse | null>;
 
 /**
  * Single source of truth for all notifications state.
@@ -21,17 +23,15 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   // Derived state - always accurate
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  /**
-   * Fetch notifications from backend
-   */
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await (request as any)({
+      const response = await typedRequest({
         endpoint: '/notifications/list',
         method: 'GET',
         defaultData: [],
       });
+      const data = response; // Backend returns the array directly
       if (Array.isArray(data)) {
         setNotifications(data);
       }
@@ -172,8 +172,8 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   useEffect(() => {
     if (!enabled || !token) return;
 
-    const apiUrl = process.env.REACT_APP_BACKEND_URL || window.location.origin;
-    const socket = io(`${apiUrl}/notifications`, {
+    const socketUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:7678';
+    const socket = io(`${socketUrl}/notifications`, {
       query: { token },
       reconnection: true,
       reconnectionDelay: 1000,
@@ -233,7 +233,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
    */
   const markAsRead = useCallback(async (notificationId: number) => {
     try {
-      await (request as any)({
+      await typedRequest({
         endpoint: `/notifications/${notificationId}/read`,
         method: 'PATCH',
       });

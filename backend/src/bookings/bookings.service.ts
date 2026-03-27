@@ -109,7 +109,7 @@ export class BookingsService {
     }
 
     // Emit notification for new booking (non-blocking)
-    this.notificationFactory.notifyNewBooking(booking, hotel, guest).catch(() => {});
+    this.notificationFactory.notifyNewBooking(booking, hotel, guest);
     // Note: errors are already logged in factory
 
     return {

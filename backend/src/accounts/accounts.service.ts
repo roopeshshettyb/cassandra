@@ -34,13 +34,19 @@ export class AccountsService {
     return this.count(countOptions);
   }
 
-  async update(data: any, filter: any): Promise<[number]> {
-    return this.accountsRepository.update(data, { where: filter });
+  async update(data: any, filter: any): Promise<[number, Account[]]> {
+    return this.accountsRepository.update(data, { where: filter, returning: true });
   }
 
   async updateMe(updateAccountDto: UpdateAccountDto, account: Account): Promise<Account> {
-    await this.update({ defaultCurrency: updateAccountDto.defaultCurrency }, { uuid: account.uuid });
-    return this.findOne({ where: { uuid: account.uuid } });
+    const [affectedCount, updatedAccounts] = await this.update(
+      { defaultCurrency: updateAccountDto.defaultCurrency },
+      { uuid: account.uuid },
+    );
+    if (affectedCount === 0) {
+      throw new NotFoundException('Account not found');
+    }
+    return updatedAccounts[0];
   }
 
   async delete(filter: any): Promise<number> {

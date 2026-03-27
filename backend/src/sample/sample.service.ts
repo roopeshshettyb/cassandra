@@ -25,8 +25,8 @@ export class SampleService {
     return { count: totalCount };
   }
 
-  async updateById(id: number, updateSampleDto: UpdateSampleDto): Promise<[number]> {
-    return this.sampleRepository.update(updateSampleDto, { where: { id } });
+  async updateById(id: number, updateSampleDto: UpdateSampleDto): Promise<[number, Sample[]]> {
+    return this.sampleRepository.update(updateSampleDto, { where: { id }, returning: true });
   }
 
   async deleteById(id: number): Promise<number> {

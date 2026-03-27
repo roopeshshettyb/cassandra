@@ -59,7 +59,6 @@ function NotificationItem({ data: notification, onNotificationClick }) {
 }
 
 function Notifications({ notifications = [], notificationsLoading: loading = false, markNotificationAsRead, navigate, alertSuccess, alertError }) {
-  const [clearing, setClearing] = useState(false);
 
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.read) {
@@ -67,33 +66,6 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
     }
     if (notification.link && navigate) navigate(notification.link);
   }, [markNotificationAsRead, navigate]);
-
-  const handleClearNotifications = useCallback(async () => {
-    if (!window.confirm('Are you sure you want to clear all notifications?')) {
-      return;
-    }
-
-    setClearing(true);
-    try {
-      const response = await request({
-        endpoint: '/notifications/clear',
-        method: 'DELETE',
-      });
-
-      if (response?.success) {
-        alertSuccess?.(`Cleared ${response.deletedCount} notifications`);
-        // Refresh notifications list
-        window.location.reload();
-      } else {
-        throw new Error('Failed to clear notifications');
-      }
-    } catch (error) {
-      console.error('Error clearing notifications:', error);
-      alertError?.('Failed to clear notifications');
-    } finally {
-      setClearing(false);
-    }
-  }, [alertSuccess, alertError]);
 
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 800, mx: 'auto' }}>
@@ -104,23 +76,6 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Notifications</Typography>
             {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
           </Box>
-          {notifications.length > 0 && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<Delete sx={{ fontSize: 16 }} />}
-              onClick={handleClearNotifications}
-              disabled={clearing}
-              sx={{
-                textTransform: 'none',
-                borderColor: 'primary.main',
-                color: 'primary.main',
-                '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(212, 175, 55, 0.08)' },
-              }}
-            >
-              {clearing ? 'Clearing...' : 'Clear All'}
-            </Button>
-          )}
         </Box>
       </motion.div>
 

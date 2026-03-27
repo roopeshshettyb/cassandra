@@ -18,3 +18,23 @@ export interface UseNotificationsOptions {
   enabled?: boolean;
   hotelId?: number;
 }
+
+export interface RequestOptions {
+  endpoint: string;
+  method?: string;
+  data?: any;
+  token?: string;
+  headers?: any;
+  setLoading?: (loading: boolean) => void;
+  setData?: (data: any) => void;
+  defaultData?: any;
+  throw?: boolean;
+  alertSuccess?: (message: string) => void;
+  alertError?: (message: string) => void;
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data: T;
+}

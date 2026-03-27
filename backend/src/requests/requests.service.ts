@@ -108,7 +108,7 @@ export class RequestsService {
     // Emit notification for new request (non-blocking)
     const hotel = await this.hotelsService.findById(dto.hotelId);
     const guest = currentAccount;
-    this.notificationFactory.notifyNewRequest(request, hotel, guest).catch(() => {});
+    this.notificationFactory.notifyNewRequest(request, hotel, guest);
     // Note: errors are already logged in factory
 
     return {
@@ -194,13 +194,17 @@ export class RequestsService {
     const userNotes: any[] = Array.isArray(request.userNotes)
       ? JSON.parse(JSON.stringify(request.userNotes))
       : [];
-    userNotes.push({ text: message, addedAt: new Date().toISOString() });
+    userNotes.push({ 
+      text: message, 
+      addedAt: new Date().toISOString(),
+      accountId: currentAccount.id
+    });
     await request.update({ userNotes });
 
     // Emit notification for new message (non-blocking)
     const hotel = await this.hotelsService.findById(request.hotelId);
     const messagePreview = message.substring(0, 50);
-    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview).catch(() => {});
+    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
     // Note: errors are already logged in factory
 
     return {
@@ -226,13 +230,17 @@ export class RequestsService {
     const staffNotes: any[] = Array.isArray(request.staffNotes)
       ? JSON.parse(JSON.stringify(request.staffNotes))
       : [];
-    staffNotes.push({ text: message, addedAt: new Date().toISOString() });
+    staffNotes.push({ 
+      text: message, 
+      addedAt: new Date().toISOString(),
+      accountId: currentAccount.id
+    });
     await request.update({ staffNotes });
 
     // Emit notification for new message (non-blocking)
     const hotel = await this.hotelsService.findById(request.hotelId);
     const messagePreview = message.substring(0, 50);
-    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview).catch(() => {});
+    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
     // Note: errors are already logged in factory
 
     return {

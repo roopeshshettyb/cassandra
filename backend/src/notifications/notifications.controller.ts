@@ -19,15 +19,4 @@ export class NotificationsController {
   async markAsRead(@Param('id') id: string, @CurrentAccount() account: Account) {
     return this.notificationsService.update({ read: true }, { id: parseInt(id, 10), accountId: account.id });
   }
-
-  @Delete('clear')
-  @UseGuards(JwtAuthGuard)
-  async clearAll(@CurrentAccount() account: Account) {
-    const deletedCount = await this.notificationsService.delete({ accountId: account.id });
-    return {
-      success: true,
-      message: `Cleared ${deletedCount} notifications`,
-      deletedCount,
-    };
-  }
 }
