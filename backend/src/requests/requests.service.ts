@@ -105,11 +105,13 @@ export class RequestsService {
       chatId: dto.chatId ?? null,
     });
 
-    // Emit notification for new request (non-blocking)
-    const hotel = await this.hotelsService.findById(dto.hotelId);
-    const guest = currentAccount;
-    this.notificationFactory.notifyNewRequest(request, hotel, guest);
-    // Note: errors are already logged in factory
+    // Emit notification for new request (fail silently)
+    try {
+      const hotel = await this.hotelsService.findById(dto.hotelId);
+      this.notificationFactory.notifyNewRequest(request, hotel, currentAccount);
+    } catch (error) {
+      // Errors are already logged in factory
+    }
 
     return {
       success: true,
@@ -140,6 +142,14 @@ export class RequestsService {
     }
 
     await request.update(dto);
+
+    // Emit notification for request update (fail silently)
+    try {
+      const hotel = await this.hotelsService.findById(request.hotelId);
+      this.notificationFactory.notifyRequestUpdated(request, hotel, currentAccount);
+    } catch (error) {
+      // Errors are already logged in factory
+    }
 
     return {
       success: true,
@@ -201,11 +211,14 @@ export class RequestsService {
     });
     await request.update({ userNotes });
 
-    // Emit notification for new message (non-blocking)
-    const hotel = await this.hotelsService.findById(request.hotelId);
-    const messagePreview = message.substring(0, 50);
-    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
-    // Note: errors are already logged in factory
+    // Emit notification for new message (fail silently)
+    try {
+      const hotel = await this.hotelsService.findById(request.hotelId);
+      const messagePreview = message.substring(0, 50);
+      this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
+    } catch (error) {
+      // Errors are already logged in factory
+    }
 
     return {
       success: true,
@@ -237,11 +250,14 @@ export class RequestsService {
     });
     await request.update({ staffNotes });
 
-    // Emit notification for new message (non-blocking)
-    const hotel = await this.hotelsService.findById(request.hotelId);
-    const messagePreview = message.substring(0, 50);
-    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
-    // Note: errors are already logged in factory
+    // Emit notification for new message (fail silently)
+    try {
+      const hotel = await this.hotelsService.findById(request.hotelId);
+      const messagePreview = message.substring(0, 50);
+      this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
+    } catch (error) {
+      // Errors are already logged in factory
+    }
 
     return {
       success: true,

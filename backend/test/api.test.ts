@@ -513,14 +513,14 @@ describe('Costs', () => {
 });
 
 describe('Notifications', () => {
-  it('GET /notifications (admin) → returns 200 with array', async () => {
-    const res = await http.get('/notifications', state.adminToken);
+  it('GET /notifications/list (admin) → returns 200 with array', async () => {
+    const res = await http.get('/notifications/list', state.adminToken);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.data?.data ?? res.data)).toBe(true);
   });
 
-  it('GET /notifications (guest) → returns 200 with array', async () => {
-    const res = await http.get('/notifications', state.guestToken);
+  it('GET /notifications/list (guest) → returns 200 with array', async () => {
+    const res = await http.get('/notifications/list', state.guestToken);
     expect(res.status).toBe(200);
     const notifications: any[] = res.data?.data ?? res.data;
     expect(Array.isArray(notifications)).toBe(true);
@@ -535,7 +535,7 @@ describe('Notifications', () => {
 
 describe('Permission Guards', () => {
   it('All protected routes → 401 without token', async () => {
-    const routes = ['/hotels', '/bookings', '/requests', '/costs/aggregate', '/accounts/me', '/notifications'];
+    const routes = ['/hotels', '/bookings', '/requests', '/costs/aggregate', '/accounts/me', '/notifications/list'];
     for (const url of routes) {
       await expectStatus(401, () => http.get(url));
     }

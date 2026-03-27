@@ -31,12 +31,22 @@ export class NotificationFactory {
    * Create and emit notification for a new request
    * Notifies: hotel staff/owner of the hotel, hotel manager
    */
-  async notifyNewRequest(request: Request, hotel: Hotel, guest: Account) {
+  async notifyNewRequest(request: Request, hotel: Hotel, actor: Account) {
     try {
-      const recipientIds = await this.getHotelStaffAccountIds(request.hotelId);
+      const staffIds = await this.getHotelStaffAccountIds(request.hotelId);
+      let recipientIds: number[] = [];
+
+      if (actor.id === request.guestId || actor.role === AccountRole.GUEST) {
+        // Guest created request -> notify all staff
+        recipientIds = staffIds;
+      } else {
+        // Staff created request for guest -> notify guest + all other staff
+        recipientIds = [request.guestId, ...staffIds.filter(id => id !== actor.id)];
+      }
+
       const notificationData: NotificationPayload = {
         title: 'New Request',
-        message: `${guest.name} has submitted a new ${request.requestType} request`,
+        message: `${request.guestId === actor.id ? actor.name : 'Guest'} has submitted a new ${request.requestType} request`,
         link: `/bookings/${request.bookingId}?tab=requests`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
@@ -52,36 +62,52 @@ export class NotificationFactory {
    * Create and emit notification when a request is updated
    */
   async notifyRequestUpdated(request: Request, hotel: Hotel, updatedBy: Account) {
-    const recipientIds = await this.getRequestParticipantIds(request);
-    const notificationData: NotificationPayload = {
-      title: 'Request Updated',
-      message: `Your ${request.requestType} request has been updated by ${updatedBy.name}`,
-      link: `/bookings/${request.bookingId}?tab=requests`,
-      hotelId: request.hotelId,
-      toneUrl: this.getToneUrl(hotel),
-    };
+    try {
+      const staffIds = await this.getHotelStaffAccountIds(request.hotelId);
+      let recipientIds: number[] = [];
 
-    await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'REQUEST_UPDATED');
+      if (updatedBy.id === request.guestId || updatedBy.role === AccountRole.GUEST) {
+        // Guest updated request -> notify all staff
+        recipientIds = staffIds;
+      } else {
+        // Staff updated request -> notify guest + all other staff
+        recipientIds = [request.guestId, ...staffIds.filter(id => id !== updatedBy.id)];
+      }
+
+      const notificationData: NotificationPayload = {
+        title: 'Request Updated',
+        message: `Your ${request.requestType} request has been updated by ${updatedBy.name}`,
+        link: `/bookings/${request.bookingId}?tab=requests`,
+        hotelId: request.hotelId,
+        toneUrl: this.getToneUrl(hotel),
+      };
+
+      await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'REQUEST_UPDATED');
+    } catch (error) {
+      console.error('Failed to emit request update notification:', error.message);
+    }
   }
 
   /**
    * Create and emit notification for a new booking
    * Notifies: guest, hotel staff/owner, hotel manager
    */
-  async notifyNewBooking(booking: Booking, hotel: Hotel, guest: Account) {
+  async notifyNewBooking(booking: Booking, hotel: Hotel, guest: Account, creator: Account) {
     try {
       const staffIds = await this.getHotelStaffAccountIds(booking.hotelId);
-      const recipientIds = [guest.id, ...staffIds];
+      // Notify guest and all staff, except the one creating the booking
+      const allPossibleRecipients = [guest.id, ...staffIds];
+      const filteredRecipientIds = allPossibleRecipients.filter(id => id !== creator.id);
 
       const notificationData: NotificationPayload = {
         title: 'New Booking',
         message: `New booking created at ${hotel.name} for ${guest.name}`,
-        link: `/bookings/${booking.id}?tab=overview`,
+        link: `/bookings/${booking.id}?tab=home`,
         hotelId: booking.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
 
-      await this.createAndEmitNotifications(recipientIds, booking.hotelId, notificationData, 'NEW_BOOKING');
+      await this.createAndEmitNotifications(filteredRecipientIds, booking.hotelId, notificationData, 'NEW_BOOKING');
     } catch (error) {
       console.error('Failed to emit new booking notification:', error.message);
     }
@@ -93,14 +119,15 @@ export class NotificationFactory {
    */
   async notifyMessageInRequest(request: Request, hotel: Hotel, sender: Account, messagePreview: string) {
     try {
+      const staffIds = await this.getHotelStaffAccountIds(request.hotelId);
       let recipientIds: number[] = [];
 
       if (sender.role === AccountRole.GUEST) {
-        // Guest sent message → notify hotel staff
-        recipientIds = await this.getHotelStaffAccountIds(request.hotelId);
+        // Guest sent message → notify all hotel staff
+        recipientIds = staffIds;
       } else {
-        // Hotel staff sent message → notify guest
-        recipientIds = [request.guestId];
+        // Hotel staff sent message → notify guest + all other staff
+        recipientIds = [request.guestId, ...staffIds.filter(id => id !== sender.id)];
       }
 
       const notificationData: NotificationPayload = {

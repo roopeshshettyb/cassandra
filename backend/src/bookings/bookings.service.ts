@@ -108,9 +108,12 @@ export class BookingsService {
       await this.awsService.deleteObject(dto.reservationDocumentKey.trim(), false);
     }
 
-    // Emit notification for new booking (non-blocking)
-    this.notificationFactory.notifyNewBooking(booking, hotel, guest);
-    // Note: errors are already logged in factory
+    // Emit notification for new booking (fail silently)
+    try {
+      this.notificationFactory.notifyNewBooking(booking, hotel, guest, currentAccount);
+    } catch (error) {
+      // Errors are already logged in factory
+    }
 
     return {
       success: true,

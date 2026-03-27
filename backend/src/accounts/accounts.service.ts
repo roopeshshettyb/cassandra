@@ -40,7 +40,7 @@ export class AccountsService {
 
   async updateMe(updateAccountDto: UpdateAccountDto, account: Account): Promise<Account> {
     const [affectedCount, updatedAccounts] = await this.update(
-      { defaultCurrency: updateAccountDto.defaultCurrency },
+      { name: updateAccountDto.name },
       { uuid: account.uuid },
     );
     if (affectedCount === 0) {

@@ -57,7 +57,17 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
           />
         );
       default:
-        return null;
+        // Fallback to home if tab is unknown
+        return (
+          <GuestHome
+            booking={booking}
+            account={account}
+            onTabChange={setActiveTab}
+            navigate={navigate}
+            setLoading={setLoading}
+            alertError={alertError}
+          />
+        );
     }
   };
 
