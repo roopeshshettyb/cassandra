@@ -109,11 +109,7 @@ export class BookingsService {
     }
 
     // Emit notification for new booking (fail silently)
-    try {
-      this.notificationFactory.notifyNewBooking(booking, hotel, guest, currentAccount);
-    } catch (error) {
-      // Errors are already logged in factory
-    }
+    this.notificationFactory.notifyNewBooking(booking, hotel, guest, currentAccount);
 
     return {
       success: true,

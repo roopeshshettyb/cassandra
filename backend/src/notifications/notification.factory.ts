@@ -235,35 +235,7 @@ export class NotificationFactory {
     }
   }
 
-  /**
-   * Get IDs of all participants in a request (guest + staff who messaged)
-   */
-  private async getRequestParticipantIds(request: Request): Promise<number[]> {
-    const participantIds = new Set<number>();
-    participantIds.add(request.guestId);
 
-    // Get staff IDs from staffNotes
-    if (request.staffNotes && Array.isArray(request.staffNotes)) {
-      for (let i = 0; i < request.staffNotes.length; i++) {
-        const note = request.staffNotes[i];
-        if (note.accountId) {
-          participantIds.add(note.accountId);
-        }
-      }
-    }
-
-    // Get user IDs from userNotes (in case someone other than the guest adds a user note, e.g. admin)
-    if (request.userNotes && Array.isArray(request.userNotes)) {
-      for (let i = 0; i < request.userNotes.length; i++) {
-        const note = request.userNotes[i];
-        if (note.accountId) {
-          participantIds.add(note.accountId);
-        }
-      }
-    }
-
-    return Array.from(participantIds);
-  }
 
   /**
    * Map event type to NotificationType enum value
