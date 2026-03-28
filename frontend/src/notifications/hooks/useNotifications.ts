@@ -111,25 +111,24 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       const toneUrl = getToneUrl(toneName);
       if (!toneUrl) return;
 
-      try {
-        const audio = new Audio();
-        audio.crossOrigin = 'anonymous';
-        audio.volume = 1.0;
-        audio.src = toneUrl;
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.volume = 1.0;
+      audio.src = toneUrl;
 
-        const timeoutId = setTimeout(() => { audio.pause(); }, 10000);
+      const timeoutId = setTimeout(() => {
+        audio.pause();
+      }, 10000);
 
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              clearTimeout(timeoutId);
-            })
-            .catch((err) => {
-              clearTimeout(timeoutId);
-            });
-        }
-      } catch (error) {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            clearTimeout(timeoutId);
+          })
+          .catch((err) => {
+            clearTimeout(timeoutId);
+          });
       }
     },
     [getToneUrl, hotelId, token]
@@ -190,8 +189,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       fetchNotifications();
     });
 
-    socket.on('error', (error: any) => {
-    });
+
 
     socket.on('disconnect', (reason: string) => {
       if (reason === 'io server disconnect') {
@@ -202,11 +200,9 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       }
     });
 
-    socket.on('connect', () => {
-    });
 
-    socket.on('connect_error', (error: any) => {
-    });
+
+
 
     socketRef.current = socket;
 
