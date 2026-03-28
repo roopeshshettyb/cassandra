@@ -29,8 +29,24 @@ export class AccountsService {
     return { count: totalCount };
   }
 
-  async update(data: any, filter: any): Promise<[number]> {
-    return this.accountsRepository.update(data, { where: filter });
+  async countWithFilter(filter?: string): Promise<{ count: number }> {
+    const countOptions: CountOptions = filter ? JSON.parse(filter) : {};
+    return this.count(countOptions);
+  }
+
+  async update(data: any, filter: any): Promise<[number, Account[]]> {
+    return this.accountsRepository.update(data, { where: filter, returning: true });
+  }
+
+  async updateMe(updateAccountDto: UpdateAccountDto, account: Account): Promise<Account> {
+    const [affectedCount, updatedAccounts] = await this.update(
+      { name: updateAccountDto.name },
+      { uuid: account.uuid },
+    );
+    if (affectedCount === 0) {
+      throw new NotFoundException('Account not found');
+    }
+    return updatedAccounts[0];
   }
 
   async delete(filter: any): Promise<number> {

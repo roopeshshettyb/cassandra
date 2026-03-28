@@ -13,7 +13,7 @@ function ManageCosts({ setLoading, account, alertError }) {
     if (account && constants.PERMISSIONS.CAN_VIEW_COSTS[account.role]) {
       request({ endpoint: '/costs/aggregate', method: 'GET', setLoading, setData: setCosts, defaultData: [], alertError });
     }
-  }, [account, setLoading, alertError]);
+  }, [account]);
 
   if (!account || !constants.PERMISSIONS.CAN_VIEW_COSTS[account.role]) {
     return (

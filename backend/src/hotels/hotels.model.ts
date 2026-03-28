@@ -1,4 +1,5 @@
 import { Table, Model, Column, DataType } from 'sequelize-typescript';
+import { NotificationTone, DEFAULT_NOTIFICATION_TONE } from '../common/constants/constants.service';
 
 @Table({ tableName: 'hotels' })
 export class Hotel extends Model<Hotel> {
@@ -131,4 +132,19 @@ export class Hotel extends Model<Hotel> {
     hiAnimationPath: string;
     thinkingAnimationPath: string;
   };
+
+  @Column({
+    type: DataType.ENUM(...Object.values(NotificationTone)),
+    allowNull: false,
+    defaultValue: DEFAULT_NOTIFICATION_TONE,
+    field: 'notification_tone',
+  })
+  notificationTone: NotificationTone;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'custom_tone_url',
+  })
+  customToneUrl: string;
 }

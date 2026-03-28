@@ -1,0 +1,211 @@
+/* eslint-disable no-undef */
+
+/**
+ * Service Worker for Push Notifications
+ * Handles background push notifications, clicks, and window management
+ *
+ * ⚠️ IMPORTANT: This file MUST remain at /public/service-worker.js
+ * The location determines the Service Worker scope (/).
+ *
+ * Source Code: See src/service-worker/ for organized, modular source code
+ * This file is the production version. To maintain:
+ * 1. Update files in src/service-worker/
+ * 2. Copy changes to this file
+ *
+ * Lifecycle:
+ * 1. Browser installs SW on first visit
+ * 2. SW listens for 'push' events from backend
+ * 3. Shows notification to user (even if app closed)
+ * 4. User clicks notification -> opens/focuses app window
+ */
+
+// ============================================================================
+// PUSH EVENT HANDLER
+// ============================================================================
+/**
+ * Handles incoming push notifications from backend
+ * Shows system notification to user (visible even when app is closed)
+ */
+self.addEventListener('push', (event) => {
+  if (!event.data) {
+    console.warn('[SW] Push event received but no data');
+    return;
+  }
+
+  event.waitUntil((async () => {
+    try {
+      const data = event.data.json();
+      const { title, message, id, link, toneUrl } = data;
+
+      // Show native system notification
+      await self.registration.showNotification(title, {
+        body: message,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: `notification-${id}`, // Replace older notifications with same tag
+        requireInteraction: false, // Auto-dismiss after a few seconds
+        data: { link, toneUrl },
+      });
+
+      // Play notification tone if available
+      if (toneUrl && toneUrl !== 'none') {
+        playNotificationTone(toneUrl);
+      }
+
+      console.log('[SW] Push notification shown:', { title, message, id, toneUrl });
+    } catch (error) {
+      console.error('[SW] Failed to show push notification:', error);
+    }
+  })());
+});
+
+// ============================================================================
+// NOTIFICATION CLICK HANDLER
+// ============================================================================
+/**
+ * Handles user clicking on notification
+ * Either focuses existing app window or opens new one
+ */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const link = event.notification.data?.link;
+  if (!link) {
+    console.warn('[SW] Notification clicked but no link provided');
+    return;
+  }
+
+  event.waitUntil((async () => {
+    try {
+      // Find existing window with matching URL
+      const clientList = await clients.matchAll({ type: 'window' });
+      const matchingClient = findMatchingClient(clientList, link);
+
+      if (matchingClient && 'focus' in matchingClient) {
+        console.log('[SW] Focusing existing window:', link);
+        return matchingClient.focus();
+      }
+
+      // No matching window, open new one
+      console.log('[SW] Opening new window:', link);
+      return clients.openWindow(link);
+    } catch (error) {
+      console.error('[SW] Failed to handle notification click:', error);
+    }
+  })());
+});
+
+// ============================================================================
+// NOTIFICATION CLOSE HANDLER
+// ============================================================================
+/**
+ * Optional: Handles when user dismisses a notification
+ * Can be used for analytics or cleanup
+ */
+self.addEventListener('notificationclose', (event) => {
+  const notificationId = event.notification.data?.id;
+  if (notificationId) {
+    console.log('[SW] Notification dismissed:', notificationId);
+    // TODO: Send analytics event if needed
+  }
+});
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Play notification tone in service worker context (plays once per notification)
+ * @param {string} toneUrl - URL to the tone file (S3 signed URL or local path)
+ */
+function playNotificationTone(toneUrl) {
+  if (!toneUrl || toneUrl === 'none') return;
+
+  try {
+    const audio = new Audio();
+    audio.crossOrigin = 'anonymous';
+    audio.volume = 0.8;
+    audio.src = toneUrl;
+
+    let timeoutId;
+
+    // Cleanup function
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      audio.pause();
+      audio.src = '';
+    };
+
+    // Auto-cleanup after max duration
+    timeoutId = setTimeout(() => {
+      console.warn('[SW] Notification tone timeout - stopping playback');
+      cleanup();
+    }, 10000); // 10 second max
+
+    // Cleanup when audio ends naturally
+    audio.addEventListener('ended', cleanup, { once: true });
+
+    // Handle errors and cleanup
+    audio.addEventListener('error', (err) => {
+      console.warn('[SW] Audio error:', err);
+      cleanup();
+    }, { once: true });
+
+    // Play the tone
+    audio.play()
+      .then(() => {
+        console.log('[SW] Notification tone playing:', toneUrl);
+      })
+      .catch((err) => {
+        console.warn('[SW] Could not play notification tone:', err.name, err.message);
+        cleanup();
+      });
+  } catch (error) {
+    console.error('[SW] Failed to create/play notification tone:', error);
+  }
+}
+
+/**
+ * Find existing window with matching URL pathname
+ * @param {Client[]} clientList - List of open windows/tabs
+ * @param {string} targetLink - Target URL to match
+ * @returns {Client|null} Matching client or null
+ */
+function findMatchingClient(clientList, targetLink) {
+  try {
+    const targetPath = new URL(targetLink).pathname;
+
+    for (const client of clientList) {
+      const clientPath = new URL(client.url).pathname;
+      if (clientPath === targetPath) {
+        return client;
+      }
+    }
+  } catch (error) {
+    console.error('[SW] Error matching client URLs:', error);
+  }
+
+  return null;
+}
+
+// ============================================================================
+// SERVICE WORKER LIFECYCLE
+// ============================================================================
+
+/**
+ * Install event - runs once when SW is first registered
+ * Good place for pre-caching if needed in future
+ */
+self.addEventListener('install', () => {
+  console.log('[SW] Service Worker installed');
+  self.skipWaiting(); // Activate immediately
+});
+
+/**
+ * Activate event - runs when SW becomes active
+ * Good place for cleanup of old caches if needed
+ */
+self.addEventListener('activate', () => {
+  console.log('[SW] Service Worker activated');
+  self.clients.claim(); // Claim all clients immediately
+});

@@ -13,9 +13,9 @@ export interface GatewayAuthDeps {
  */
 export function parseConnectionHandshake(client: any): { token: string | null; bookingId: number | undefined } {
   const auth: any = client.handshake?.auth;
-  const token = (client.handshake?.query?.token as string) || (auth?.token ?? null);
-  const bookingIdRaw = client.handshake?.query?.bookingId as string;
-  const bookingId = bookingIdRaw ? parseInt(bookingIdRaw, 10) : undefined;
+  const token = client.handshake?.query?.token || (auth?.token ?? null);
+  const bookingIdRaw = client.handshake?.query?.bookingId;
+  const bookingId = bookingIdRaw ? parseInt(String(bookingIdRaw), 10) : undefined;
   return { token, bookingId: typeof bookingId === 'number' && !isNaN(bookingId) ? bookingId : undefined };
 }
 

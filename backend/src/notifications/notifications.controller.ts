@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
-  @Get()
+  @Get('list')
   @UseGuards(JwtAuthGuard)
   async findAll(@CurrentAccount() account: Account) {
     return this.notificationsService.findByAccountId(account.id);

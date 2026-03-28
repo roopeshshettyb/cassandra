@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 import { ConstantsService } from '../constants/constants.service';
@@ -11,7 +11,8 @@ export class AwsService {
 
   constructor(private constantsService: ConstantsService) {
     const privateConstants = this.constantsService.private;
-    this.region = privateConstants.AWS_REGION;
+    // Ensure region is set; default to ap-south-1 if not configured
+    this.region = privateConstants.AWS_REGION || 'ap-south-1';
 
     this.s3Client = new S3Client({
       region: this.region,
@@ -19,7 +20,45 @@ export class AwsService {
         accessKeyId: privateConstants.AWS_ACCESS_KEY_ID,
         secretAccessKey: privateConstants.AWS_SECRET_ACCESS_KEY,
       },
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     });
+
+    // Configure CORS for browser uploads
+    this.setupCorsForBucket(privateConstants.AWS_S3_PUBLIC_BUCKET_NAME).catch((err) =>
+      console.warn('⚠️  Failed to setup CORS on public bucket:', err.message),
+    );
+    this.setupCorsForBucket(privateConstants.AWS_S3_BUCKET_NAME).catch((err) =>
+      console.warn('⚠️  Failed to setup CORS on private bucket:', err.message),
+    );
+  }
+
+  private async setupCorsForBucket(bucketName: string): Promise<void> {
+    if (!bucketName) return;
+
+    const corsConfiguration = {
+      CORSRules: [
+        {
+          AllowedMethods: ['GET', 'PUT', 'POST', 'HEAD', 'DELETE'],
+          AllowedOrigins: ['http://localhost:7678', 'http://localhost:3000', 'https://samantha.flashpact.in'],
+          AllowedHeaders: ['*'],
+          ExposeHeaders: ['ETag', 'x-amz-version-id'],
+          MaxAgeSeconds: 3000,
+        },
+      ],
+    };
+
+    try {
+      await this.s3Client.send(new PutBucketCorsCommand({
+        Bucket: bucketName,
+        CORSConfiguration: corsConfiguration
+      }));
+    } catch (error: any) {
+      if (error.name === 'NoSuchBucket') {
+        console.warn('⚠️  Bucket does not exist:', bucketName);
+      } else if (error.Code === 'AccessDenied') {
+        console.warn('⚠️  No permission to configure CORS - ensure bucket CORS is manually configured');
+      }
+    }
   }
 
   private getBucketName(isPublic: boolean = false): string {
@@ -33,11 +72,23 @@ export class AwsService {
       Bucket: bucket,
       Key: key,
       Body: body,
-      ContentType: contentType,
+      ContentType: contentType || 'application/octet-stream',
+      // For public files, add cache headers (bucket policy handles public access)
+      ...(isPublic && { CacheControl: 'max-age=31536000' }), // Cache for 1 year
     });
 
     await this.s3Client.send(command);
-    return `s3://${bucket}/${key}`;
+
+    // Always use signed URLs for security and reliability
+    // Signed URLs work even if bucket is not publicly accessible
+    return await this.getSignedUrl(key, 86400, isPublic); // 24 hour expiry
+  }
+
+  /**
+   * Convert S3 bucket/key to public HTTPS URL
+   */
+  private getPublicUrl(bucket: string, key: string): string {
+    return `https://${bucket}.s3.${this.region}.amazonaws.com/${key}`;
   }
 
   async download(key: string, isPublic: boolean = false): Promise<Buffer> {

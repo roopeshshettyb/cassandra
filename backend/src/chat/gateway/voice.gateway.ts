@@ -372,11 +372,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     const base64 = payload?.audio;
     if (!base64 || typeof base64 !== 'string') return;
-    try {
-      const buffer = Buffer.from(base64, 'base64');
-      sttSession.writeAudio(buffer);
-      if (client._voiceStatistics) (client._voiceStatistics as VoiceTurnStatistics).lastAudioAt = Date.now();
-    } catch (_) {}
+    const buffer = Buffer.from(base64, 'base64');
+    sttSession.writeAudio(buffer);
+    if (client._voiceStatistics) (client._voiceStatistics as VoiceTurnStatistics).lastAudioAt = Date.now();
   }
 
   @SubscribeMessage('voice_playback_done')

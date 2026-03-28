@@ -11,6 +11,7 @@ import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
+import { NotificationFactory } from '../notifications/notification.factory';
 import { Op } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
@@ -32,6 +33,7 @@ export class BookingsService {
     private readonly awsService: AwsService,
     private readonly documentExtractionService: DocumentExtractionService,
     @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
+    @Inject(forwardRef(() => NotificationFactory)) private readonly notificationFactory: NotificationFactory,
   ) {}
 
   private parseDateTime(dateStr: string, timeStr: string): Date {
@@ -42,9 +44,6 @@ export class BookingsService {
 
   private async ensureCanCreateForHotel(hotelId: number, currentAccount: Account): Promise<Hotel> {
     const hotel = await this.hotelsService.findByIdForAccount(hotelId, currentAccount);
-    if (!hotel) {
-      throw new NotFoundException();
-    }
     if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
       throw new ForbiddenException();
     }
@@ -108,6 +107,9 @@ export class BookingsService {
       await booking.save();
       await this.awsService.deleteObject(dto.reservationDocumentKey.trim(), false);
     }
+
+    // Emit notification for new booking (fail silently)
+    this.notificationFactory.notifyNewBooking(booking, hotel, guest, currentAccount);
 
     return {
       success: true,

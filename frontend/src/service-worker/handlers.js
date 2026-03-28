@@ -1,0 +1,159 @@
+/**
+ * Service Worker Event Handlers
+ * Manages push, click, and close events for notifications
+ */
+
+/**
+ * Handles incoming push notifications from backend
+ * Shows system notification to user (visible even when app is closed)
+ */
+export function setupPushHandler() {
+  self.addEventListener('push', (event) => {
+    if (!event.data) {
+      console.warn('[SW] Push event received but no data');
+      return;
+    }
+
+    event.waitUntil((async () => {
+      try {
+        const data = event.data.json();
+        const { title, message, id, link, toneUrl } = data;
+
+        // Show native system notification
+        await self.registration.showNotification(title, {
+          body: message,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: `notification-${id}`, // Replace older notifications with same tag
+          requireInteraction: false, // Auto-dismiss after a few seconds
+          data: { link, toneUrl },
+        });
+
+        // Play notification tone if available
+        if (toneUrl && toneUrl !== 'none') {
+          playNotificationTone(toneUrl);
+        }
+
+      } catch (error) {
+        console.error('[SW] Failed to show push notification:', error);
+      }
+    })());
+  });
+}
+
+/**
+ * Play notification tone in service worker context (plays once per notification)
+ * @param {string} toneUrl - URL to the tone file (S3 signed URL or local path)
+ * @returns {void}
+ */
+function playNotificationTone(toneUrl) {
+  if (!toneUrl || toneUrl === 'none') return;
+
+  try {
+    const audio = new Audio();
+    audio.crossOrigin = 'anonymous';
+    audio.volume = 0.8;
+    audio.src = toneUrl;
+
+    let timeoutId;
+
+    // Cleanup function
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      audio.pause();
+      audio.src = '';
+    };
+
+    // Auto-cleanup after max duration
+    timeoutId = setTimeout(() => {
+      cleanup();
+    }, 10000); // 10 second max
+
+    // Cleanup when audio ends naturally
+    audio.addEventListener('ended', cleanup, { once: true });
+
+    // Handle errors and cleanup
+    audio.addEventListener('error', (err) => {
+      console.warn('[SW] Audio error:', err);
+      cleanup();
+    }, { once: true });
+
+    // Play the tone
+    audio.play()
+      .then(() => {
+      })
+      .catch((err) => {
+        console.warn('[SW] Could not play notification tone:', err.name, err.message);
+        cleanup();
+      });
+  } catch (error) {
+    console.error('[SW] Failed to create/play notification tone:', error);
+  }
+}
+
+/**
+ * Handles user clicking on notification
+ * Either focuses existing app window or opens new one
+ */
+export function setupClickHandler() {
+  self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    const link = event.notification.data?.link;
+    if (!link) {
+      return;
+    }
+
+    event.waitUntil((async () => {
+      try {
+        const clientList = await clients.matchAll({ type: 'window' });
+        const matchingClient = findMatchingClient(clientList, link);
+
+        if (matchingClient && 'focus' in matchingClient) {
+          return matchingClient.focus();
+        }
+
+        // No matching window, open new one
+        return clients.openWindow(link);
+      } catch (error) {
+        console.error('[SW] Failed to handle notification click:', error);
+      }
+    })());
+  });
+}
+
+/**
+ * Handles when user dismisses a notification
+ * Can be used for analytics or cleanup
+ */
+export function setupCloseHandler() {
+  self.addEventListener('notificationclose', (event) => {
+    const notificationId = event.notification.data?.id;
+    if (notificationId) {
+      // TODO: Send analytics event if needed
+    }
+  });
+}
+
+/**
+ * Find existing window with matching URL pathname
+ * @param {Client[]} clientList - List of open windows/tabs
+ * @param {string} targetLink - Target URL to match
+ * @returns {Client|null} Matching client or null
+ */
+function findMatchingClient(clientList, targetLink) {
+  try {
+    const targetPath = new URL(targetLink).pathname;
+
+    for (const client of clientList) {
+      const clientPath = new URL(client.url).pathname;
+      if (clientPath === targetPath) {
+        return client;
+      }
+    }
+  } catch (error) {
+    console.error('[SW] Error matching client URLs:', error);
+  }
+
+  return null;
+}

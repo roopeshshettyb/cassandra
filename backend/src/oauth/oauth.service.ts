@@ -48,12 +48,12 @@ export class OAuthService {
         ...oauthMeta,
       };
 
-      await this.accountsService.update({ oauthMeta: mergedOauthMeta }, { uuid: existingAccount.uuid });
+      const [affectedCount, updatedAccounts] = await this.accountsService.update({ oauthMeta: mergedOauthMeta }, { uuid: existingAccount.uuid });
 
-      account = await this.accountsService.findByUuid(existingAccount.uuid);
-      if (!account) {
+      if (affectedCount === 0) {
         throw new Error('Account not found after update');
       }
+      account = updatedAccounts[0];
     } else {
       if (authType === AuthType.GOOGLE) authType = AuthType.EMAIL;
       const [upsertedAccount] = await this.accountsService.upsert({

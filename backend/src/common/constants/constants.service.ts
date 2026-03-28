@@ -4,6 +4,25 @@ import { ConfigService } from '@nestjs/config';
 export const OTP_EXPIRY_MINUTES = 10;
 export const OTP_LENGTH = 6;
 
+export enum NotificationTone {
+  NONE = 'none',
+  GENTLE_CHIME = 'gentle_chime',
+  ALERT_SOUND = 'alert_sound',
+  CUSTOM = 'custom',
+}
+
+export const DEFAULT_NOTIFICATION_TONE = NotificationTone.GENTLE_CHIME;
+
+export const NOTIFICATION_TONE_MAX_FILE_SIZE_MB = 5;
+
+export enum NotificationEventType {
+  NEW_REQUEST = 'new_request',
+  REQUEST_UPDATED = 'request_updated',
+  NEW_BOOKING = 'new_booking',
+  NEW_MESSAGE_IN_REQUEST = 'new_message_in_request',
+  NEW_CHAT_MESSAGE = 'new_chat_message',
+}
+
 export enum AccountRole {
   ADMIN = 'admin',
   HOTEL_OWNER = 'hotel_owner',
@@ -268,9 +287,9 @@ export class ConstantsService {
       // AWS Configuration
       AWS_ACCESS_KEY_ID: this.configService.get<string>('AWS_ACCESS_KEY_ID'),
       AWS_SECRET_ACCESS_KEY: this.configService.get<string>('AWS_SECRET_ACCESS_KEY'),
-      AWS_REGION: this.configService.get<string>('AWS_DEFAULT_REGION') || this.configService.get<string>('AWS_REGION', 'us-east-1'),
+      AWS_REGION: this.configService.get<string>('AWS_DEFAULT_REGION') || this.configService.get<string>('AWS_REGION', 'ap-south-1'),
       AWS_S3_BUCKET_NAME: this.configService.get<string>('AWS_BUCKET_NAME') || this.configService.get<string>('AWS_S3_BUCKET_NAME'),
-      AWS_S3_PUBLIC_BUCKET_NAME: this.configService.get<string>('AWS_S3_PUBLIC_BUCKET_NAME'),
+      AWS_S3_PUBLIC_BUCKET_NAME: this.configService.get<string>('AWS_S3_PUBLIC_BUCKET_NAME', 'flashpact-public-bucket'),
       /** Prefix for private bucket keys (e.g. samantha/). All uploads use this prefix. */
       AWS_S3_KEY_PREFIX: this.configService.get<string>('AWS_S3_KEY_PREFIX', 'samantha/'),
 

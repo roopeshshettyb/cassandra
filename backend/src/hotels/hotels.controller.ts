@@ -81,4 +81,27 @@ export class HotelsController {
     await this.hotelsService.revokeAccess(Number(id), Number(accountId));
     return { success: true };
   }
+
+  @Post(':id/notification-tone/presigned-url')
+  async getNotificationTonePresignedUrl(
+    @Param('id') id: string,
+    @Body() body: { fileName: string; fileSize: number; contentType: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.getNotificationTonePresignedUrl(Number(id), body, account);
+  }
+
+  @Patch(':id/notification-tone')
+  async confirmNotificationToneUpload(
+    @Param('id') id: string,
+    @Body() body: { s3Url: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.confirmNotificationToneUpload(Number(id), body, account);
+  }
+
+  @Get(':id/notification-tone/signed-url')
+  async getNotificationToneSignedUrl(@Param('id') id: string, @CurrentAccount() account: Account) {
+    return this.hotelsService.getNotificationToneSignedUrl(Number(id), account);
+  }
 }

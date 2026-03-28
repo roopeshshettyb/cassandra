@@ -34,12 +34,8 @@ export class NotificationsService {
     return { count: totalCount };
   }
 
-  async update(data: UpdateNotificationDto, filter: any): Promise<[number]> {
-    return this.notificationsRepository.update(data, { where: filter });
-  }
-
-  async delete(filter: any): Promise<number> {
-    return this.notificationsRepository.destroy({ where: filter });
+  async update(data: UpdateNotificationDto, filter: any): Promise<[number, Notification[]]> {
+    return this.notificationsRepository.update(data, { where: filter, returning: true });
   }
 
   async findByAccountId(accountId: number): Promise<Notification[]> {

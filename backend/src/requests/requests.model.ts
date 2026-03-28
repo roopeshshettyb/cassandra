@@ -25,6 +25,7 @@ export enum RequestStatus {
 export interface RequestNote {
   text: string;
   addedAt?: string;
+  accountId?: number;
 }
 
 @Table({ tableName: 'requests' })

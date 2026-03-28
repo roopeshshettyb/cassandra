@@ -236,4 +236,3 @@ const Home = ({ openLoginPopup, navigate, isMobile }) => {
 };
 
 export default Home;
-

@@ -11,9 +11,10 @@ import { MailerModule } from '../mailer/mailer.module';
 import { HotelsModule } from '../hotels/hotels.module';
 import { CostsModule } from '../costs/costs.module';
 import { LangGraphModule } from '../langgraph/langgraph.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule), forwardRef(() => CostsModule), forwardRef(() => LangGraphModule)],
+  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule), forwardRef(() => CostsModule), forwardRef(() => LangGraphModule), forwardRef(() => NotificationsModule)],
   controllers: [BookingsController],
   providers: [BookingsRepository, BookingsService, DocumentExtractionService],
   exports: [BookingsRepository, BookingsService],

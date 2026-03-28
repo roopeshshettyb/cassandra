@@ -4,7 +4,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
 import { AppendMessageDto, CreateRequestDto, UpdateRequestDto } from './requests.dto';
-import { AccountRole } from '../common/constants/constants.service';
 
 @Controller('requests')
 @UseGuards(JwtAuthGuard)
@@ -36,11 +35,7 @@ export class RequestsController {
     @Body(ValidationPipe) body: AppendMessageDto,
     @CurrentAccount() account: Account,
   ) {
-    // Route to user or staff append based on role; must mirror LangGraph behavior.
-    if (account.role === AccountRole.GUEST) {
-      return this.requestsService.appendUserMessage(id, body.message, account);
-    }
-    return this.requestsService.appendStaffMessage(id, body.message, account);
+    return this.requestsService.appendMessage(id, body.message, account);
   }
 }
 

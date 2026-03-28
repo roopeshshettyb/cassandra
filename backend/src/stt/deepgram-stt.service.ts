@@ -36,7 +36,7 @@ export class DeepgramSttService implements SttSessionFactory {
 
     live.setupConnection();
 
-    live.on(LiveTranscriptionEvents.Open, () => {});
+
 
     live.on(LiveTranscriptionEvents.Transcript, (data: any) => {
       if (destroyed || !transcriptCb) return;
@@ -70,7 +70,7 @@ export class DeepgramSttService implements SttSessionFactory {
       }
     });
 
-    live.on(LiveTranscriptionEvents.Close, () => {});
+
 
     return {
       writeAudio(buffer: Buffer) {
@@ -91,10 +91,8 @@ export class DeepgramSttService implements SttSessionFactory {
       },
       endInput() {
         if (destroyed) return;
-        try {
-          if (live.finalize) live.finalize();
-          if (live.requestClose) live.requestClose();
-        } catch (_) {}
+        if (live.finalize) live.finalize();
+        if (live.requestClose) live.requestClose();
       },
       onTranscript(callback: (text: string, isFinal?: boolean) => void) {
         transcriptCb = callback;
@@ -106,10 +104,8 @@ export class DeepgramSttService implements SttSessionFactory {
         destroyed = true;
         transcriptCb = null;
         endOfSpeechCb = null;
-        try {
-          if (live.requestClose) live.requestClose();
-          if (live.disconnect) live.disconnect();
-        } catch (_) {}
+        if (live.requestClose) live.requestClose();
+        if (live.disconnect) live.disconnect();
       },
     };
   }
