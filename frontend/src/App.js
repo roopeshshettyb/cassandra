@@ -119,7 +119,12 @@ const AppContent = () => {
   };
 
   const token = localStorage.getItem('token');
-  const { unreadCount, notifications, loading: notificationsLoading, markAsRead } = useNotifications({
+  const {
+    unreadCount,
+    notifications,
+    loading: notificationsLoading,
+    markAsRead,
+  } = useNotifications({
     enabled: !!account,
     token: token || undefined,
   });
@@ -177,7 +182,6 @@ const AppContent = () => {
     fetchAccount();
   }, []);
 
-
   // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
   useEffect(() => {
     const primary = themeConfig?.primaryColor || constants.THEME_DEFAULTS.PRIMARY_COLOR;
@@ -203,8 +207,7 @@ const AppContent = () => {
     const darkTextSecondary = themeConfig?.secondaryColor || constants.THEME_DEFAULTS.PRIMARY_HOVER_COLOR;
     const bgDefault = themeConfig?.backgroundDefault || (mode === 'dark' ? constants.THEME_DEFAULTS.BACKGROUND_DEFAULT_DARK : constants.THEME_DEFAULTS.BACKGROUND_DEFAULT_LIGHT);
     const bgPaper = themeConfig?.backgroundPaper || (mode === 'dark' ? constants.THEME_DEFAULTS.BACKGROUND_PAPER_DARK : constants.THEME_DEFAULTS.BACKGROUND_PAPER_LIGHT);
-    const fontFamily =
-      themeConfig?.fontFamily || constants.THEME_DEFAULTS.FONT_FAMILY;
+    const fontFamily = themeConfig?.fontFamily || constants.THEME_DEFAULTS.FONT_FAMILY;
 
     // Use a temporary theme to access MUI's contrast calculation logic
     const baseTheme = createTheme();
@@ -348,7 +351,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isLandingPage ? 0 : (isMobile ? '4vh' : '2.5vh') }}>
+            <Grid sx={{ paddingTop: isLandingPage ? 0 : isMobile ? '4vh' : '2.5vh' }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />

@@ -357,7 +357,7 @@ export class BookingsService {
         {
           model: Request,
           as: 'requests',
-          attributes: ['id', 'requestType', 'urgency', 'status', 'userNotes', 'staffNotes'],
+          attributes: ['id', 'requestType', 'urgency', 'status', 'userNotes', 'staffNotes', 'createdAt'],
         },
       ],
       order: [

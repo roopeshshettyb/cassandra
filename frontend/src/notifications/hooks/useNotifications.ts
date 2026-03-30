@@ -8,7 +8,7 @@ const typedRequest = request as (options: RequestOptions) => Promise<ApiResponse
 
 /**
  * Single source of truth for all notifications state.
- * Manages:
+ * Manages: 
  * - Real-time notifications via Socket.IO
  * - Backend API sync (fetch, mark read)
  * - Dynamic unread count calculation
@@ -90,14 +90,17 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
             audio.volume = 1.0;
 
             const cleanup = () => {
-              URL.revokeObjectURL(audio.src);
+              // Delay revoking to prevent ERR_FILE_NOT_FOUND if the asynchronous media pipeline is still trying to access it
+              setTimeout(() => {
+                URL.revokeObjectURL(audio.src);
+              }, 2000);
               audio.removeEventListener('ended', cleanup);
             };
             audio.addEventListener('ended', cleanup);
 
             audio.play().catch((err) => {
               cleanup();
-              console.warn('⚠️ Failed to play cached tone:', err.name, err.message);
+              console.warn('⚠️ Failed to play cached tone:', err.message || err.name);
             });
             return;
           }
@@ -138,27 +141,38 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
    * Display browser notification with Service Worker fallback
    */
   const showBrowserNotification = useCallback(async (data: NotificationItem) => {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    console.log('[PUSH LOG] Received notification data:', data);
+
+    if (!('Notification' in window)) {
+      console.log('[PUSH LOG] Browser does not support notifications.');
+      return;
+    }
+
+    console.log('[PUSH LOG] Current permission is:', Notification.permission);
+    
+    // Cannot request permission inside a socket event, browser will block it.
+    // Must rely on the permission already being granted via user interaction.
+    if (Notification.permission !== 'granted') {
+      console.log('[PUSH LOG] Permission is NOT granted. Exiting.');
+      return;
+    }
 
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(data.title, {
-          body: data.message,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
-          tag: `notification-${data.id}`,
-          requireInteraction: false,
-          data: { link: data.link, toneUrl: data.toneUrl },
-        });
-      } else {
-        new Notification(data.title, {
-          body: data.message,
-          icon: '/favicon.ico',
-        });
-      }
+      console.log('[PUSH LOG] Executing standard new Notification()...');
+      const notif = new Notification(data.title, {
+        body: data.message,
+        icon: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+      });
+
+      notif.onclick = () => {
+        window.focus();
+        if (data.link) {
+          window.location.href = data.link;
+        }
+      };
+      console.log('[PUSH LOG] new Notification() was executed successfully!');
     } catch (error) {
-      console.warn('Notification display failed', error);
+      console.error('[PUSH ERROR] Notification display failed:', error);
     }
   }, []);
 
@@ -187,6 +201,9 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
 
       // Refresh notifications list
       fetchNotifications();
+
+      // Tell other pages (ManageRequests, BookingDetails) to refresh
+      window.dispatchEvent(new CustomEvent('app:new_request', { detail: data }));
     });
 
 
@@ -209,7 +226,21 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     // Initial fetch
     fetchNotifications();
 
+    // Browser hack: Request push notification permission on the user's first click anywhere.
+    // Browsers block Notification.requestPermission() inside socket.on events, so we use a click.
+    const requestPushPermission = async () => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch (e) {
+          console.warn('Notification permission catch:', e);
+        }
+      }
+    };
+    document.addEventListener('click', requestPushPermission, { once: true });
+
     return () => {
+      document.removeEventListener('click', requestPushPermission);
       socket.disconnect();
       socketRef.current = null;
     };

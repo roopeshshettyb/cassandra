@@ -8,6 +8,7 @@ import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { HotelAccount } from '../hotels/hotel-accounts.model';
+import { Op } from 'sequelize';
 
 export interface NotificationPayload {
   title: string;
@@ -41,7 +42,12 @@ export class NotificationFactory {
         recipientIds = staffIds;
       } else {
         // Staff created request for guest -> notify guest + all other staff
-        recipientIds = [request.guestId, ...staffIds.filter(id => id !== actor.id)];
+        recipientIds.push(request.guestId);
+        for (let i = 0; i < staffIds.length; i++) {
+          if (staffIds[i] !== actor.id) {
+            recipientIds.push(staffIds[i]);
+          }
+        }
       }
 
       const notificationData: NotificationPayload = {
@@ -54,7 +60,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_REQUEST');
     } catch (error) {
-      console.error('Failed to emit new request notification:', error.message);
+      this.logger.error('Failed to emit new request notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -71,7 +77,12 @@ export class NotificationFactory {
         recipientIds = staffIds;
       } else {
         // Staff updated request -> notify guest + all other staff
-        recipientIds = [request.guestId, ...staffIds.filter(id => id !== updatedBy.id)];
+        recipientIds.push(request.guestId);
+        for (let i = 0; i < staffIds.length; i++) {
+          if (staffIds[i] !== updatedBy.id) {
+            recipientIds.push(staffIds[i]);
+          }
+        }
       }
 
       const notificationData: NotificationPayload = {
@@ -84,7 +95,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'REQUEST_UPDATED');
     } catch (error) {
-      console.error('Failed to emit request update notification:', error.message);
+      this.logger.error('Failed to emit request update notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -97,7 +108,12 @@ export class NotificationFactory {
       const staffIds = await this.getHotelStaffAccountIds(booking.hotelId);
       // Notify guest and all staff, except the one creating the booking
       const allPossibleRecipients = [guest.id, ...staffIds];
-      const filteredRecipientIds = allPossibleRecipients.filter(id => id !== creator.id);
+      const filteredRecipientIds: number[] = [];
+      for (let i = 0; i < allPossibleRecipients.length; i++) {
+        if (allPossibleRecipients[i] !== creator.id) {
+          filteredRecipientIds.push(allPossibleRecipients[i]);
+        }
+      }
 
       const notificationData: NotificationPayload = {
         title: 'New Booking',
@@ -109,7 +125,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(filteredRecipientIds, booking.hotelId, notificationData, 'NEW_BOOKING');
     } catch (error) {
-      console.error('Failed to emit new booking notification:', error.message);
+      this.logger.error('Failed to emit new booking notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -127,7 +143,12 @@ export class NotificationFactory {
         recipientIds = staffIds;
       } else {
         // Hotel staff sent message → notify guest + all other staff
-        recipientIds = [request.guestId, ...staffIds.filter(id => id !== sender.id)];
+        recipientIds.push(request.guestId);
+        for (let i = 0; i < staffIds.length; i++) {
+          if (staffIds[i] !== sender.id) {
+            recipientIds.push(staffIds[i]);
+          }
+        }
       }
 
       const notificationData: NotificationPayload = {
@@ -140,7 +161,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_MESSAGE');
     } catch (error) {
-      console.error('Failed to emit message notification:', error.message);
+      this.logger.error('Failed to emit message notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -219,18 +240,32 @@ export class NotificationFactory {
    */
   private async getHotelStaffAccountIds(hotelId: number): Promise<number[]> {
     try {
+      // Join against accounts to restrict to staff/owner roles only.
+      // This prevents guests, wrong-role accounts, or stale hotel_accounts rows
+      // from receiving notifications they should not see.
       const hotelAccounts = await this.hotelAccountRepository.findAll({
         where: { hotelId },
         attributes: ['accountId'],
+        include: [
+          {
+            model: Account,
+            as: 'account',
+            attributes: [],
+            where: {
+              role: { [Op.in]: [AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER] },
+            },
+            required: true,
+          },
+        ],
       });
-      
+
       const accountIds: number[] = [];
       for (let i = 0; i < hotelAccounts.length; i++) {
         accountIds.push(hotelAccounts[i].accountId);
       }
       return accountIds;
     } catch (error) {
-      console.error(`Failed to get hotel staff IDs for hotel ${hotelId}:`, error.message);
+      this.logger.error(`Failed to get hotel staff IDs for hotel ${hotelId}:`, error instanceof Error ? error.stack : String(error));
       return [];
     }
   }
