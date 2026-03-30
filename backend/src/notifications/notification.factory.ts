@@ -55,7 +55,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_REQUEST');
     } catch (error) {
-      console.error('Failed to emit new request notification:', error.message);
+      this.logger.error('Failed to emit new request notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -85,7 +85,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'REQUEST_UPDATED');
     } catch (error) {
-      console.error('Failed to emit request update notification:', error.message);
+      this.logger.error('Failed to emit request update notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -110,7 +110,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(filteredRecipientIds, booking.hotelId, notificationData, 'NEW_BOOKING');
     } catch (error) {
-      console.error('Failed to emit new booking notification:', error.message);
+      this.logger.error('Failed to emit new booking notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -141,7 +141,7 @@ export class NotificationFactory {
 
       await this.createAndEmitNotifications(recipientIds, request.hotelId, notificationData, 'NEW_MESSAGE');
     } catch (error) {
-      console.error('Failed to emit message notification:', error.message);
+      this.logger.error('Failed to emit message notification:', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -245,7 +245,7 @@ export class NotificationFactory {
       }
       return accountIds;
     } catch (error) {
-      console.error(`Failed to get hotel staff IDs for hotel ${hotelId}:`, error.message);
+      this.logger.error(`Failed to get hotel staff IDs for hotel ${hotelId}:`, error instanceof Error ? error.stack : String(error));
       return [];
     }
   }
