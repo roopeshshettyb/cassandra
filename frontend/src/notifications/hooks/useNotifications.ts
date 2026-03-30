@@ -187,6 +187,9 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
 
       // Refresh notifications list
       fetchNotifications();
+
+      // Tell other pages (ManageRequests, BookingDetails) to refresh
+      window.dispatchEvent(new CustomEvent('app:new_request', { detail: data }));
     });
 
 

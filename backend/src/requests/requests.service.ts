@@ -75,6 +75,14 @@ export class RequestsService {
 
     const requests = await this.requestsRepository.findAll(findOptions);
 
+    // DIAGNOSTIC LOG - Remove after fixing
+    console.log('[REQUESTS DEBUG] Account:', currentAccount.id, 'Role:', currentAccount.role);
+    console.log('[REQUESTS DEBUG] Where clause:', JSON.stringify(findOptions.where));
+    console.log('[REQUESTS DEBUG] Returned', requests.length, 'requests');
+    if (requests.length > 0) {
+      console.log('[REQUESTS DEBUG] First request hotelId:', requests[0].hotelId, 'id:', requests[0].id);
+    }
+
     return {
       success: true,
       message: null,
@@ -104,6 +112,9 @@ export class RequestsService {
       urgency: dto.urgency,
       chatId: dto.chatId ?? null,
     });
+
+    // DIAGNOSTIC LOG - Remove after fixing
+    console.log('[REQUEST CREATED] id:', request.id, 'hotelId:', request.hotelId, 'guestId:', request.guestId, 'bookingId:', request.bookingId, 'type:', request.requestType);
 
     // Emit notification for new request (fail silently)
     const hotel = await this.hotelsService.findById(dto.hotelId);

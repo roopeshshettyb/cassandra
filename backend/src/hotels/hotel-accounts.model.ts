@@ -1,4 +1,4 @@
-import { Table, Model, Column, DataType, ForeignKey } from 'sequelize-typescript';
+import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { Hotel } from './hotels.model';
 import { Account } from '../accounts/accounts.model';
 
@@ -28,4 +28,7 @@ export class HotelAccount extends Model<HotelAccount> {
     field: 'account_id',
   })
   accountId: number;
+
+  @BelongsTo(() => Account, { foreignKey: 'accountId', as: 'account' })
+  account: Account;
 }

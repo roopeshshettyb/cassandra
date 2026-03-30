@@ -8,6 +8,7 @@ import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { HotelAccount } from '../hotels/hotel-accounts.model';
+import { Op } from 'sequelize';
 
 export interface NotificationPayload {
   title: string;
@@ -219,11 +220,25 @@ export class NotificationFactory {
    */
   private async getHotelStaffAccountIds(hotelId: number): Promise<number[]> {
     try {
+      // Join against accounts to restrict to staff/owner roles only.
+      // This prevents guests, wrong-role accounts, or stale hotel_accounts rows
+      // from receiving notifications they should not see.
       const hotelAccounts = await this.hotelAccountRepository.findAll({
         where: { hotelId },
         attributes: ['accountId'],
+        include: [
+          {
+            model: Account,
+            as: 'account',
+            attributes: [],
+            where: {
+              role: { [Op.in]: [AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER] },
+            },
+            required: true,
+          },
+        ],
       });
-      
+
       const accountIds: number[] = [];
       for (let i = 0; i < hotelAccounts.length; i++) {
         accountIds.push(hotelAccounts[i].accountId);

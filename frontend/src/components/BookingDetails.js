@@ -32,16 +32,7 @@ function BookingDetails({ setLoading, account, navigate, alertError, alertSucces
   if (!booking) return null;
 
   return (
-    <GuestPortal
-      booking={booking}
-      account={account}
-      isMobile={isMobile}
-      alertError={alertError}
-      alertSuccess={alertSuccess}
-      setLoading={setLoading}
-      navigate={navigate}
-      sidebarOpen={sidebarOpen}
-    />
+    <GuestPortal booking={booking} account={account} isMobile={isMobile} alertError={alertError} alertSuccess={alertSuccess} setLoading={setLoading} navigate={navigate} sidebarOpen={sidebarOpen} />
   );
 }
 

@@ -11,17 +11,36 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
   const [requests, setRequests] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
+  function fetchRequests(isBackground) {
+    request({
+      endpoint: '/requests',
+      method: 'GET',
+      setLoading: isBackground ? null : setDataLoading,
+      setData: setRequests,
+      defaultData: [],
+      alertError,
+    });
+  }
+
+  // Initial load
   useEffect(() => {
-    request({ endpoint: '/requests', method: 'GET', setLoading: setDataLoading, setData: setRequests, defaultData: [], alertError });
+    fetchRequests(false);
+  }, []);
+
+  // Auto-refresh when a new notification arrives (e.g. guest creates a request)
+  useEffect(() => {
+    function onNewRequest() {
+      fetchRequests(true); // background refresh, no spinner
+    }
+    window.addEventListener('app:new_request', onNewRequest);
+    return () => window.removeEventListener('app:new_request', onNewRequest);
   }, []);
 
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '4vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ mb: 2.5, display: { xs: 'none', sm: 'block' } }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>
-            Management
-          </Typography>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
           <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Requests</Typography>
         </Box>
       </motion.div>
