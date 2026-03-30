@@ -42,7 +42,12 @@ export class NotificationFactory {
         recipientIds = staffIds;
       } else {
         // Staff created request for guest -> notify guest + all other staff
-        recipientIds = [request.guestId, ...staffIds.filter(id => id !== actor.id)];
+        recipientIds.push(request.guestId);
+        for (let i = 0; i < staffIds.length; i++) {
+          if (staffIds[i] !== actor.id) {
+            recipientIds.push(staffIds[i]);
+          }
+        }
       }
 
       const notificationData: NotificationPayload = {
@@ -72,7 +77,12 @@ export class NotificationFactory {
         recipientIds = staffIds;
       } else {
         // Staff updated request -> notify guest + all other staff
-        recipientIds = [request.guestId, ...staffIds.filter(id => id !== updatedBy.id)];
+        recipientIds.push(request.guestId);
+        for (let i = 0; i < staffIds.length; i++) {
+          if (staffIds[i] !== updatedBy.id) {
+            recipientIds.push(staffIds[i]);
+          }
+        }
       }
 
       const notificationData: NotificationPayload = {
@@ -98,7 +108,12 @@ export class NotificationFactory {
       const staffIds = await this.getHotelStaffAccountIds(booking.hotelId);
       // Notify guest and all staff, except the one creating the booking
       const allPossibleRecipients = [guest.id, ...staffIds];
-      const filteredRecipientIds = allPossibleRecipients.filter(id => id !== creator.id);
+      const filteredRecipientIds: number[] = [];
+      for (let i = 0; i < allPossibleRecipients.length; i++) {
+        if (allPossibleRecipients[i] !== creator.id) {
+          filteredRecipientIds.push(allPossibleRecipients[i]);
+        }
+      }
 
       const notificationData: NotificationPayload = {
         title: 'New Booking',
@@ -128,7 +143,12 @@ export class NotificationFactory {
         recipientIds = staffIds;
       } else {
         // Hotel staff sent message → notify guest + all other staff
-        recipientIds = [request.guestId, ...staffIds.filter(id => id !== sender.id)];
+        recipientIds.push(request.guestId);
+        for (let i = 0; i < staffIds.length; i++) {
+          if (staffIds[i] !== sender.id) {
+            recipientIds.push(staffIds[i]);
+          }
+        }
       }
 
       const notificationData: NotificationPayload = {
