@@ -171,8 +171,26 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         }
       };
       console.log('[PUSH LOG] new Notification() was executed successfully!');
-    } catch (error) {
-      console.error('[PUSH ERROR] Notification display failed:', error);
+    } catch (error: any) {
+      console.warn('[PUSH WARN] Standard Notification failed, attempting Mobile ServiceWorker fallback:', error.message);
+      
+      // Android Chrome throws TypeError: "Failed to construct 'Notification': Use ServiceWorkerRegistration.showNotification() instead"
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then((registration) => {
+          if (registration) {
+             console.log('[PUSH LOG] Found ServiceWorker, firing mobile notification...');
+             registration.showNotification(data.title, {
+               body: data.message,
+               icon: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+               badge: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+               tag: `notification-${data.id}`,
+               data: { link: data.link, toneUrl: data.toneUrl },
+             }).catch(swErr => console.error('[PUSH ERROR] ServiceWorker notification also failed:', swErr));
+          } else {
+             console.error('[PUSH ERROR] No Service Worker found to handle mobile notification.');
+          }
+        });
+      }
     }
   }, []);
 
@@ -226,9 +244,10 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     // Initial fetch
     fetchNotifications();
 
-    // Browser hack: Request push notification permission on the user's first click anywhere.
-    // Browsers block Notification.requestPermission() inside socket.on events, so we use a click.
+    // Browser hack: Request push notification permission and unlock audio context on the user's first click anywhere.
+    // Browsers block background prompts/audio, so we piggyback off a physical screen tap.
     const requestPushPermission = async () => {
+      // 1. Request Notification UI Permission
       if ('Notification' in window && Notification.permission === 'default') {
         try {
           await Notification.requestPermission();
@@ -236,6 +255,21 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
           console.warn('Notification permission catch:', e);
         }
       }
+      
+      // 2. Unlock Mobile Audio Context (iOS/Android)
+      // By playing a silent, split-second audio clip triggered by a physical tap, 
+      // the mobile browser permanently whitelists this tab to play background audio later.
+      try {
+        const unlockAudio = new Audio('/assets/tones/gentle_chime.mp3');
+        unlockAudio.volume = 0.01;
+        const playPromise = unlockAudio.play();
+        if (playPromise !== undefined) {
+           playPromise.then(() => {
+             unlockAudio.pause();
+             unlockAudio.currentTime = 0;
+           }).catch(() => {});
+        }
+      } catch (e) {}
     };
     document.addEventListener('click', requestPushPermission, { once: true });
 
