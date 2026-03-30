@@ -360,6 +360,10 @@ export class BookingsService {
           attributes: ['id', 'requestType', 'urgency', 'status', 'userNotes', 'staffNotes', 'createdAt'],
         },
       ],
+      order: [
+        [{ model: Request, as: 'requests' }, 'createdAt', 'DESC'],
+        [{ model: Request, as: 'requests' }, 'urgency', 'DESC'],
+      ],
     });
 
     if (!booking) {
