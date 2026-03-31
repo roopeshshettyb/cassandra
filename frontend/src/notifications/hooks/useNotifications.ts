@@ -138,27 +138,12 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   );
 
   /**
-   * Display browser notification with Service Worker fallback
+   * Display browser notification (Desktop only)
    */
-  const showBrowserNotification = useCallback(async (data: NotificationItem) => {
-    console.log('[PUSH LOG] Received notification data:', data);
-
-    if (!('Notification' in window)) {
-      console.log('[PUSH LOG] Browser does not support notifications.');
-      return;
-    }
-
-    console.log('[PUSH LOG] Current permission is:', Notification.permission);
-    
-    // Cannot request permission inside a socket event, browser will block it.
-    // Must rely on the permission already being granted via user interaction.
-    if (Notification.permission !== 'granted') {
-      console.log('[PUSH LOG] Permission is NOT granted. Exiting.');
-      return;
-    }
+  const showBrowserNotification = useCallback((data: NotificationItem) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     try {
-      console.log('[PUSH LOG] Executing standard new Notification()...');
       const notif = new Notification(data.title, {
         body: data.message,
         icon: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
@@ -170,27 +155,8 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
           window.location.href = data.link;
         }
       };
-      console.log('[PUSH LOG] new Notification() was executed successfully!');
-    } catch (error: any) {
-      console.warn('[PUSH WARN] Standard Notification failed, attempting Mobile ServiceWorker fallback:', error.message);
-      
-      // Android Chrome throws TypeError: "Failed to construct 'Notification': Use ServiceWorkerRegistration.showNotification() instead"
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then((registration) => {
-          if (registration) {
-             console.log('[PUSH LOG] Found ServiceWorker, firing mobile notification...');
-             registration.showNotification(data.title, {
-               body: data.message,
-               icon: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
-               badge: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
-               tag: `notification-${data.id}`,
-               data: { link: data.link, toneUrl: data.toneUrl },
-             }).catch(swErr => console.error('[PUSH ERROR] ServiceWorker notification also failed:', swErr));
-          } else {
-             console.error('[PUSH ERROR] No Service Worker found to handle mobile notification.');
-          }
-        });
-      }
+    } catch (error) {
+      console.warn('Browser notification failed:', error);
     }
   }, []);
 
@@ -206,33 +172,38 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
     });
 
     socket.on('notification', (data: any) => {
+      console.log('[NOTIFICATIONS] Received real-time notification:', data);
 
-      // Play tone (non-blocking, handles autoplay restrictions gracefully)
+      // Play tone
       playNotificationTone(data.toneUrl, data.hotelId);
 
       // Show browser notification
       showBrowserNotification(data);
 
-      // Refresh notifications list
-      fetchNotifications();
+      // Optimistic update
+      setNotifications((prev) => [data, ...prev]);
 
       // Tell other pages (ManageRequests, BookingDetails) to refresh
       window.dispatchEvent(new CustomEvent('app:new_request', { detail: data }));
     });
 
-
+    socket.on('connect', () => {
+      console.log('[NOTIFICATIONS] WebSocket connected');
+    });
 
     socket.on('disconnect', (reason: string) => {
+      console.log('[NOTIFICATIONS] WebSocket disconnected:', reason);
       if (reason === 'io server disconnect') {
-        // Server disconnected, try to reconnect
-        setTimeout(() => {
-          socket.connect();
-        }, 1000);
+        socket.connect();
       }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('[NOTIFICATIONS] WebSocket connect error:', err.message);
     });
 
 
@@ -278,7 +249,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [enabled, token, fetchNotifications, showBrowserNotification, playNotificationTone]);
+  }, [enabled, token]);
 
   /**
    * Mark single notification as read
