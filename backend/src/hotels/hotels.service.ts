@@ -423,14 +423,10 @@ ${inviteUrl}`;
   async confirmLogoUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
     await this.findByIdForAccount(hotelId, currentAccount);
 
-    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
+    const [, updatedHotels] = await this.hotelsRepository.update(
       { logoUrl: body.s3Url },
       { where: { id: hotelId }, returning: true },
     );
-
-    if (affectedCount === 0) {
-      throw new NotFoundException();
-    }
 
     return {
       success: true,

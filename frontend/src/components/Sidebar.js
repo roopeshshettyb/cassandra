@@ -126,29 +126,40 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     if (!shouldShow) return null;
 
     return (
-      <Button
-        startIcon={
-          showBadge ? (
-            <Badge badgeContent={unreadCount} color="error">
+      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+        <Button
+          startIcon={
+            showBadge ? (
+              <Badge badgeContent={unreadCount} color="error">
+                <Icon />
+              </Badge>
+            ) : (
               <Icon />
-            </Badge>
-          ) : (
-            <Icon />
-          )
-        }
-        onClick={handleClick}
-        sx={{
-          color: isActive ? 'primary.main' : 'text.primary',
-          textTransform: 'none',
-          justifyContent: 'flex-start',
-          minWidth: 'auto',
-          px: 2,
-          display: 'flex',
-          ...(data.variant && { variant: data.variant }),
-        }}
-      >
-        {data.text}
-      </Button>
+            )
+          }
+          onClick={handleClick}
+          sx={{
+            color: isActive ? 'primary.main' : 'text.primary',
+            textTransform: 'none',
+            justifyContent: 'flex-start',
+            minWidth: 'auto',
+            px: 2,
+            flex: 1,
+            ...(data.variant && { variant: data.variant }),
+          }}
+        >
+          {data.text}
+        </Button>
+        {data.key === 'Notifications' && account && toggleNotifications && (
+          <Switch
+            size="small"
+            checked={!!notificationsEnabled}
+            onChange={(e) => toggleNotifications(e.target.checked)}
+            color="primary"
+            sx={{ mr: 1 }}
+          />
+        )}
+      </Box>
     );
   };
 
@@ -277,7 +288,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                 </IconButton>
               )}
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', mt: 'auto', px: 2, pb: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto', px: 2, pb: 2 }}>
                 <MapComponent
                   Component={NavButton}
                   data={navItems}
@@ -285,17 +296,6 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   // but MapComponent might pass them as props if it maps 'data' to 'Component'.
                   // Standard MapComponent usually iterates data and renders Component with item as 'data' prop.
                 />
-                {account && toggleNotifications && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', px: 0.5 }}>
-                    <Typography sx={{ fontSize: 14, color: 'text.primary', fontWeight: 500 }}>Notifications</Typography>
-                    <Switch
-                      size="small"
-                      checked={!!notificationsEnabled}
-                      onChange={(e) => toggleNotifications(e.target.checked)}
-                      color="primary"
-                    />
-                  </Box>
-                )}
               </Box>
             </MotionBox>
           </>
