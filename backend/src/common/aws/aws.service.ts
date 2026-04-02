@@ -35,11 +35,18 @@ export class AwsService {
   private async setupCorsForBucket(bucketName: string): Promise<void> {
     if (!bucketName) return;
 
+    // Keep in sync with bucket CORS in AWS (browser PUT to presigned URL requires the app origin here).
     const corsConfiguration = {
       CORSRules: [
         {
           AllowedMethods: ['GET', 'PUT', 'POST', 'HEAD', 'DELETE'],
-          AllowedOrigins: ['http://localhost:7678', 'http://localhost:3000', 'https://samantha.flashpact.in'],
+          AllowedOrigins: [
+            'http://localhost:7678',
+            'http://localhost:3000',
+            'https://samantha.flashpact.in',
+            'https://samantha-stage.flashpact.in',
+            'https://stage.d3omcxqqht4w2k.amplifyapp.com',
+          ],
           AllowedHeaders: ['*'],
           ExposeHeaders: ['ETag', 'x-amz-version-id'],
           MaxAgeSeconds: 3000,
@@ -119,14 +126,17 @@ export class AwsService {
     return await getSignedUrl(this.s3Client, command, { expiresIn });
   }
 
-  /** Presigned PUT URL for client-side upload. Client must PUT the file with the same Content-Type if provided. */
+  /**
+   * Presigned PUT URL for client-side upload. Client must send the same Content-Type header as used when signing (if any).
+   * Public objects: do not set ACL here — with Object Ownership "bucket owner enforced" or Block Public ACLs, x-amz-acl fails.
+   * Rely on bucket policy (s3:GetObject for Principal *) for public reads.
+   */
   async getPresignedPutUrl(key: string, contentType?: string, expiresIn: number = 900, isPublic: boolean = false): Promise<string> {
     const bucket = this.getBucketName(isPublic);
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      ...(isPublic && { ACL: 'public-read' as const }),
     });
     return await getSignedUrl(this.s3Client, command, { expiresIn });
   }

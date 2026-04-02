@@ -341,11 +341,14 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
       const s3Response = await fetch(presignedUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': logoUploadFile.type, 'x-amz-acl': 'public-read' },
+        headers: { 'Content-Type': logoUploadFile.type },
         body: logoUploadFile,
       });
 
-      if (!s3Response.ok) throw new Error(`S3 upload failed (${s3Response.status})`);
+      if (!s3Response.ok) {
+        const errBody = await s3Response.text();
+        throw new Error(`S3 upload failed (${s3Response.status}): ${errBody.slice(0, 800)}`);
+      }
 
       const confirmResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/logo`, {
         method: 'PATCH',
