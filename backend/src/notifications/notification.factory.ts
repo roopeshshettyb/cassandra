@@ -2,7 +2,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
 import { Notification, NotificationType } from './notifications.model';
 import { NotificationsGateway } from './notifications.gateway';
-import { NotificationEventType, NotificationTone } from '../common/constants/constants.service';
+import { NotificationTone } from '../common/constants/constants.service';
 import { Request } from '../requests/requests.model';
 import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
@@ -17,6 +17,13 @@ export interface NotificationPayload {
   hotelId?: number;
   toneUrl?: string;
 }
+
+const REQUEST_TYPE_LABEL: Record<string, string> = {
+  room_service: 'Room Service',
+  house_keeping: 'Housekeeping',
+  laundry: 'Laundry',
+  airport_transfer: 'Airport Transfer',
+};
 
 @Injectable()
 export class NotificationFactory {
@@ -41,8 +48,10 @@ export class NotificationFactory {
         // Guest created request -> notify all staff
         recipientIds = staffIds;
       } else {
-        // Staff created request for guest -> notify guest + all other staff
-        recipientIds.push(request.guestId);
+        // Staff created request for guest -> notify guest + all other staff (never notify the actor)
+        if (request.guestId !== actor.id) {
+          recipientIds.push(request.guestId);
+        }
         for (let i = 0; i < staffIds.length; i++) {
           if (staffIds[i] !== actor.id) {
             recipientIds.push(staffIds[i]);
@@ -52,8 +61,8 @@ export class NotificationFactory {
 
       const notificationData: NotificationPayload = {
         title: 'New Request',
-        message: `${request.guestId === actor.id ? actor.name : 'Guest'} has submitted a new ${request.requestType} request`,
-        link: `/bookings/${request.bookingId}?tab=requests`,
+        message: `${request.guestId === actor.id ? actor.name : 'Guest'} has submitted a new ${REQUEST_TYPE_LABEL[request.requestType] ?? request.requestType} request`,
+        link: `/bookings/${request.bookingId}?tab=requests&requestId=${request.id}`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
@@ -76,8 +85,10 @@ export class NotificationFactory {
         // Guest updated request -> notify all staff
         recipientIds = staffIds;
       } else {
-        // Staff updated request -> notify guest + all other staff
-        recipientIds.push(request.guestId);
+        // Staff updated request -> notify guest + all other staff (never notify the updater)
+        if (request.guestId !== updatedBy.id) {
+          recipientIds.push(request.guestId);
+        }
         for (let i = 0; i < staffIds.length; i++) {
           if (staffIds[i] !== updatedBy.id) {
             recipientIds.push(staffIds[i]);
@@ -87,8 +98,8 @@ export class NotificationFactory {
 
       const notificationData: NotificationPayload = {
         title: 'Request Updated',
-        message: `Your ${request.requestType} request has been updated by ${updatedBy.name}`,
-        link: `/bookings/${request.bookingId}?tab=requests`,
+        message: `Your ${REQUEST_TYPE_LABEL[request.requestType] ?? request.requestType} request has been updated by ${updatedBy.name}`,
+        link: `/bookings/${request.bookingId}?tab=requests&requestId=${request.id}`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
@@ -142,8 +153,10 @@ export class NotificationFactory {
         // Guest sent message → notify all hotel staff
         recipientIds = staffIds;
       } else {
-        // Hotel staff sent message → notify guest + all other staff
-        recipientIds.push(request.guestId);
+        // Hotel staff sent message → notify guest + all other staff (never notify the sender)
+        if (request.guestId !== sender.id) {
+          recipientIds.push(request.guestId);
+        }
         for (let i = 0; i < staffIds.length; i++) {
           if (staffIds[i] !== sender.id) {
             recipientIds.push(staffIds[i]);
@@ -154,7 +167,7 @@ export class NotificationFactory {
       const notificationData: NotificationPayload = {
         title: 'New Message',
         message: `New message from ${sender.name}: ${messagePreview}`,
-        link: `/bookings/${request.bookingId}?tab=requests`,
+        link: `/bookings/${request.bookingId}?tab=requests&requestId=${request.id}`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
@@ -177,7 +190,14 @@ export class NotificationFactory {
     if (accountIds.length === 0) return;
 
     // Remove duplicates
-    const uniqueAccountIds = Array.from(new Set(accountIds));
+    const seen = new Set<number>();
+    const uniqueAccountIds: number[] = [];
+    for (let i = 0; i < accountIds.length; i++) {
+      if (!seen.has(accountIds[i])) {
+        seen.add(accountIds[i]);
+        uniqueAccountIds.push(accountIds[i]);
+      }
+    }
 
     try {
       const createdNotifications: Notification[] = [];

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
+import { Box, IconButton, Button, Badge, Typography, Switch } from '@mui/material';
 import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
@@ -74,7 +74,7 @@ const ROLE_SPECIFIC_ITEMS = {
   ],
 };
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount, notificationsEnabled, toggleNotifications }) => {
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
@@ -285,6 +285,17 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   // but MapComponent might pass them as props if it maps 'data' to 'Component'.
                   // Standard MapComponent usually iterates data and renders Component with item as 'data' prop.
                 />
+                {account && toggleNotifications && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', px: 0.5 }}>
+                    <Typography sx={{ fontSize: 14, color: 'text.primary', fontWeight: 500 }}>Notifications</Typography>
+                    <Switch
+                      size="small"
+                      checked={!!notificationsEnabled}
+                      onChange={(e) => toggleNotifications(e.target.checked)}
+                      color="primary"
+                    />
+                  </Box>
+                )}
               </Box>
             </MotionBox>
           </>

@@ -215,37 +215,25 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     // Initial fetch
     fetchNotifications();
 
-    // Browser hack: Request push notification permission and unlock audio context on the user's first click anywhere.
-    // Browsers block background prompts/audio, so we piggyback off a physical screen tap.
-    const requestPushPermission = async () => {
-      // 1. Request Notification UI Permission
-      if ('Notification' in window && Notification.permission === 'default') {
-        try {
-          await Notification.requestPermission();
-        } catch (e) {
-          console.warn('Notification permission catch:', e);
-        }
-      }
-      
-      // 2. Unlock Mobile Audio Context (iOS/Android)
-      // By playing a silent, split-second audio clip triggered by a physical tap, 
-      // the mobile browser permanently whitelists this tab to play background audio later.
+    // Unlock Mobile Audio Context (iOS/Android) on first user interaction.
+    // By playing a silent clip on a physical tap, the browser whitelists this tab for background audio.
+    const unlockAudioContext = () => {
       try {
         const unlockAudio = new Audio('/assets/tones/gentle_chime.mp3');
         unlockAudio.volume = 0.01;
         const playPromise = unlockAudio.play();
         if (playPromise !== undefined) {
-           playPromise.then(() => {
-             unlockAudio.pause();
-             unlockAudio.currentTime = 0;
-           }).catch(() => {});
+          playPromise.then(() => {
+            unlockAudio.pause();
+            unlockAudio.currentTime = 0;
+          }).catch(() => {});
         }
       } catch (e) {}
     };
-    document.addEventListener('click', requestPushPermission, { once: true });
+    document.addEventListener('click', unlockAudioContext, { once: true });
 
     return () => {
-      document.removeEventListener('click', requestPushPermission);
+      document.removeEventListener('click', unlockAudioContext);
       socket.disconnect();
       socketRef.current = null;
     };

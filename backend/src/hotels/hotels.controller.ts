@@ -82,6 +82,29 @@ export class HotelsController {
     return { success: true };
   }
 
+  @Post(':id/logo/presigned-url')
+  async getLogoPresignedUrl(
+    @Param('id') id: string,
+    @Body() body: { fileName: string; fileSize: number; contentType: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.getLogoPresignedUrl(Number(id), body, account);
+  }
+
+  @Patch(':id/logo')
+  async confirmLogoUpload(
+    @Param('id') id: string,
+    @Body() body: { s3Url: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.confirmLogoUpload(Number(id), body, account);
+  }
+
+  @Get(':id/logo/signed-url')
+  async getLogoSignedUrl(@Param('id') id: string, @CurrentAccount() account: Account) {
+    return this.hotelsService.getLogoSignedUrl(Number(id), account);
+  }
+
   @Post(':id/notification-tone/presigned-url')
   async getNotificationTonePresignedUrl(
     @Param('id') id: string,

@@ -81,6 +81,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
+  const [logoSignedUrl, setLogoSignedUrl] = useState(null);
+  const [logoUploadFile, setLogoUploadFile] = useState(null);
+  const [logoUploadLoading, setLogoUploadLoading] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState(null);
   const [toneUploadFile, setToneUploadFile] = useState(null);
   const [toneUploadLoading, setToneUploadLoading] = useState(false);
   const [toneUploadError, setToneUploadError] = useState(null);
@@ -124,6 +128,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     if (data) {
       setHotel(data);
       setThemeConfig(data.themeConfig || null);
+      if (data.logoUrl) {
+        request({ method: 'GET', endpoint: `/hotels/${id}/logo/signed-url` })
+          .then(res => setLogoSignedUrl(res?.data?.signedUrl || null))
+          .catch(() => {});
+      } else {
+        setLogoSignedUrl(null);
+      }
       setEditValues({
         name: data.name || '',
         address: data.address || '',
@@ -273,6 +284,83 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     });
     if (result && result.success) {
       navigate('/hotels');
+    }
+  };
+
+  const handleLogoFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    setLogoUploadError(null);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoUploadError('Only image files are allowed');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadError('File size must not exceed 5MB');
+      return;
+    }
+    setLogoUploadFile(file);
+  };
+
+  const handleLogoUpload = async () => {
+    if (!logoUploadFile || !id) return;
+    setLogoUploadLoading(true);
+    setLogoUploadError(null);
+
+    try {
+      const presignedResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/logo/presigned-url`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileName: logoUploadFile.name, fileSize: logoUploadFile.size, contentType: logoUploadFile.type }),
+      });
+
+      if (!presignedResponse.ok) {
+        const err = await presignedResponse.json();
+        throw new Error(err.message || 'Failed to get presigned URL');
+      }
+
+      const { data } = await presignedResponse.json();
+      const { presignedUrl, s3Url } = data;
+
+      const s3Response = await fetch(presignedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': logoUploadFile.type },
+        body: logoUploadFile,
+      });
+
+      if (!s3Response.ok) throw new Error(`S3 upload failed (${s3Response.status})`);
+
+      const confirmResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/logo`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ s3Url }),
+      });
+
+      if (!confirmResponse.ok) {
+        const err = await confirmResponse.json();
+        throw new Error(err.message || 'Failed to confirm upload');
+      }
+
+      const result = await confirmResponse.json();
+      if (result.success) {
+        alertSuccess('Logo uploaded successfully!');
+        setLogoUploadFile(null);
+        setHotel((prev) => ({ ...prev, logoUrl: result.data?.logoUrl }));
+        request({ method: 'GET', endpoint: `/hotels/${id}/logo/signed-url` })
+          .then(res => setLogoSignedUrl(res?.data?.signedUrl || null))
+          .catch(() => {});
+      }
+    } catch (error) {
+      setLogoUploadError(error.message || 'Failed to upload logo');
+      alertError(`Logo upload failed: ${error.message}`);
+    } finally {
+      setLogoUploadLoading(false);
     }
   };
 
@@ -675,6 +763,30 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                       />
                     </Grid>
                   </Grid>
+                </Box>
+
+                <Box>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Hotel Logo</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Displayed in the guest portal header. Recommended: square or wide image, PNG/JPG, max 5MB.
+                  </Typography>
+                  {logoSignedUrl && (
+                    <Box sx={{ mb: 2 }}>
+                      <img src={logoSignedUrl} alt="Hotel logo" style={{ maxHeight: 80, maxWidth: 240, objectFit: 'contain', borderRadius: 8, border: '1px solid #eee' }} />
+                    </Box>
+                  )}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <input type="file" accept="image/*" onChange={handleLogoFileSelect} disabled={logoUploadLoading} style={{ padding: '8px' }} />
+                    {logoUploadFile && (
+                      <Typography variant="caption">Selected: {logoUploadFile.name} ({(logoUploadFile.size / 1024 / 1024).toFixed(2)}MB)</Typography>
+                    )}
+                    {logoUploadError && <Alert severity="error">{logoUploadError}</Alert>}
+                    {logoUploadFile && (
+                      <Button variant="contained" color="success" onClick={handleLogoUpload} disabled={logoUploadLoading} sx={{ mt: 1, alignSelf: 'flex-start' }}>
+                        {logoUploadLoading ? <><CircularProgress size={20} sx={{ mr: 1 }} />Uploading...</> : 'Upload Logo'}
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
 
                 <Box>

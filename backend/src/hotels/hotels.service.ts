@@ -388,6 +388,72 @@ ${inviteUrl}`;
     }
   }
 
+  async getLogoPresignedUrl(
+    hotelId: number,
+    body: { fileName: string; fileSize: number; contentType: string },
+    currentAccount: Account,
+  ) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const maxSizeBytes = 5 * 1024 * 1024;
+    if (body.fileSize > maxSizeBytes) {
+      throw new BadRequestException('File size must not exceed 5MB');
+    }
+
+    if (!body.contentType.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}hotel-logos/${hotel.id}-${Date.now()}-${body.fileName}`;
+
+    try {
+      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, false);
+      const baseUrl = presignedUrl.split('?')[0];
+
+      return {
+        success: true,
+        data: { presignedUrl, s3Url: baseUrl },
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
+    }
+  }
+
+  async confirmLogoUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    await this.findByIdForAccount(hotelId, currentAccount);
+
+    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(
+      { logoUrl: body.s3Url },
+      { where: { id: hotelId }, returning: true },
+    );
+
+    if (affectedCount === 0) {
+      throw new NotFoundException();
+    }
+
+    return {
+      success: true,
+      message: 'Logo updated successfully',
+      data: updatedHotels[0],
+    };
+  }
+
+  async getLogoSignedUrl(hotelId: number, _currentAccount: Account) {
+    const hotel = await this.findById(hotelId);
+    const logoUrl = hotel.logoUrl;
+    if (!logoUrl) return { success: true, data: { signedUrl: null } };
+
+    try {
+      const urlParts = logoUrl.split('/');
+      const s3Key = urlParts.slice(3).join('/');
+      const signedUrl = await this.awsService.getSignedUrl(s3Key, 86400, false); // 24h
+      return { success: true, data: { signedUrl } };
+    } catch (error) {
+      throw new BadRequestException(`Failed to generate signed URL: ${error.message}`);
+    }
+  }
+
   async getNotificationToneSignedUrl(hotelId: number, currentAccount: Account) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
 

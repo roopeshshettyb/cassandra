@@ -49,7 +49,7 @@ const defaultNudges = [
   },
 ];
 
-export default function GuestHome({ booking, account, onTabChange, setLoading, alertError }) {
+export default function GuestHome({ booking, account, onTabChange, setLoading, alertError, logoUrl }) {
   const [dismissedNudges, setDismissedNudges] = useState([]);
 
   const handleViewDocument = async () => {
@@ -97,11 +97,17 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
       >
         <Box sx={{ maxWidth: 640, mx: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
-            <Typography
-              sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', lineHeight: 1 }}
-            >
-              {hotelName}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar
+                src={logoUrl || undefined}
+                sx={{ width: 34, height: 34, background: BRAND_GRADIENT, fontSize: 14, fontWeight: 700, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+              >
+                {!logoUrl && hotelName[0]?.toUpperCase()}
+              </Avatar>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', lineHeight: 1 }}>
+                {hotelName}
+              </Typography>
+            </Box>
           </motion.div>
           <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}>
             <Avatar

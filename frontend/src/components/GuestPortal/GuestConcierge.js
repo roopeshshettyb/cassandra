@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
+import { Avatar, Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
@@ -8,9 +8,13 @@ import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSearchParams } from 'react-router-dom';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND } from '../../theme';
+
+dayjs.extend(relativeTime);
 
 const { APP_NAME } = constants;
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -46,24 +50,29 @@ function WaveformBars() {
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
   return (
-    <Box
-      sx={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        maxWidth: '82%',
-        px: 2,
-        py: 1.25,
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        boxShadow: SHADOW,
-        bgcolor: isUser ? 'primary.main' : 'background.paper',
-        color: isUser ? PRIMARY_CONTRAST : 'text.primary',
-        '& p': { m: 0 },
-        '& ul, & ol': { m: 0, pl: 2 },
-        '& li': { mt: 0.4 },
-        '& a': { color: 'inherit' },
-        '& code': { fontFamily: 'monospace', fontSize: 12 },
-      }}
-    >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
+    <Box sx={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '82%', display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1.25,
+          borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+          boxShadow: SHADOW,
+          bgcolor: isUser ? 'primary.main' : 'background.paper',
+          color: isUser ? PRIMARY_CONTRAST : 'text.primary',
+          '& p': { m: 0 },
+          '& ul, & ol': { m: 0, pl: 2 },
+          '& li': { mt: 0.4 },
+          '& a': { color: 'inherit' },
+          '& code': { fontFamily: 'monospace', fontSize: 12 },
+        }}
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
+      </Box>
+      {message.createdAt && (
+        <Typography sx={{ fontSize: 10, color: MUTED, alignSelf: isUser ? 'flex-end' : 'flex-start', px: 0.5 }}>
+          {dayjs(message.createdAt).fromNow()}
+        </Typography>
+      )}
     </Box>
   );
 }
@@ -113,7 +122,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
     socket.on('stream_end', (p) => {
       setStreamingContent('');
       if (p.content) {
-        setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content }]);
+        setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
       }
       setSending(false);
       inputRef.current?.focus?.();
@@ -134,7 +143,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
     const text = input.trim();
     if (!text || !socketRef.current?.connected || sending) return;
     setInput('');
-    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
+    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text, createdAt: new Date().toISOString() }]);
     setSending(true);
     setStreamingContent('');
     socketRef.current.emit('message', { content: text });
@@ -250,7 +259,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
 }
 
 // ── Main GuestConcierge ────────────────────────────────────────────────────
-export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile }) {
+export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile, logoUrl }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const showChat = searchParams.get('mode') === 'chat';
 
@@ -309,18 +318,17 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
           <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography
-              sx={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                color: 'primary.main',
-                mb: 1,
-              }}
-            >
-              {hotelName}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+              <Avatar
+                src={logoUrl || undefined}
+                sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+              >
+                {!logoUrl && hotelName[0]?.toUpperCase()}
+              </Avatar>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main' }}>
+                {hotelName}
+              </Typography>
+            </Box>
             <Typography sx={{ fontSize: 22, fontWeight: 700, color: NAVY }}>Your Concierge</Typography>
             <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5 }}>How may I assist you?</Typography>
           </Box>

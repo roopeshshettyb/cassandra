@@ -134,6 +134,13 @@ export class Hotel extends Model<Hotel> {
   };
 
   @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'logo_url',
+  })
+  logoUrl: string;
+
+  @Column({
     type: DataType.ENUM(...Object.values(NotificationTone)),
     allowNull: false,
     defaultValue: DEFAULT_NOTIFICATION_TONE,
