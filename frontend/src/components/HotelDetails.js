@@ -1,6 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Card, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, TableCell, TableRow, TextField, Typography, Select, MenuItem, FormControl, InputLabel, CircularProgress, Alert } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Grid,
+  TableCell,
+  TableRow,
+  TextField,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -81,7 +103,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
-  const [logoSignedUrl, setLogoSignedUrl] = useState(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState(null);
@@ -128,13 +149,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     if (data) {
       setHotel(data);
       setThemeConfig(data.themeConfig || null);
-      if (data.logoUrl) {
-        request({ method: 'GET', endpoint: `/hotels/${id}/logo/signed-url` })
-          .then(res => setLogoSignedUrl(res?.data?.signedUrl || null))
-          .catch(() => {});
-      } else {
-        setLogoSignedUrl(null);
-      }
       setEditValues({
         name: data.name || '',
         address: data.address || '',
@@ -327,7 +341,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
       const s3Response = await fetch(presignedUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': logoUploadFile.type },
+        headers: { 'Content-Type': logoUploadFile.type, 'x-amz-acl': 'public-read' },
         body: logoUploadFile,
       });
 
@@ -352,9 +366,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         alertSuccess('Logo uploaded successfully!');
         setLogoUploadFile(null);
         setHotel((prev) => ({ ...prev, logoUrl: result.data?.logoUrl }));
-        request({ method: 'GET', endpoint: `/hotels/${id}/logo/signed-url` })
-          .then(res => setLogoSignedUrl(res?.data?.signedUrl || null))
-          .catch(() => {});
       }
     } catch (error) {
       setLogoUploadError(error.message || 'Failed to upload logo');
@@ -555,20 +566,20 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         if (blob) {
           const audio = createAudioFromBlob(blob);
           audio.volume = 0.7;
-          
-          const onEnded = () => { 
-            setTonePlaying(false); 
-            audio.removeEventListener('ended', onEnded); 
+
+          const onEnded = () => {
+            setTonePlaying(false);
+            audio.removeEventListener('ended', onEnded);
             URL.revokeObjectURL(audio.src);
           };
           audio.addEventListener('ended', onEnded);
-          
-          audio.onerror = () => { 
-            setTonePlaying(false); 
-            alertError('Failed to load tone file'); 
+
+          audio.onerror = () => {
+            setTonePlaying(false);
+            alertError('Failed to load tone file');
             URL.revokeObjectURL(audio.src);
           };
-          
+
           audio.play().catch((err) => {
             setTonePlaying(false);
             URL.revokeObjectURL(audio.src);
@@ -659,7 +670,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 </Grid>
 
                 <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>LLM instructions</Typography>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    LLM instructions
+                  </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     Free text added to the AI system prompt for this hotel. Use for hotel-specific guidance (e.g. policies, tone, amenities to emphasize).
                   </Typography>
@@ -675,7 +688,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 </Box>
 
                 <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Theme</Typography>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    Theme
+                  </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     Customize UI colors for guests viewing this hotel. Leave empty for defaults.
                   </Typography>
@@ -687,7 +702,16 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.primaryColor || ''}
                         onChange={handleInputChange('primaryColor')}
                         placeholder="#D4AF37"
-                        InputProps={{ endAdornment: <input type="color" value={editValues.primaryColor || '#D4AF37'} onChange={(e) => handleInputChange('primaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputProps={{
+                          endAdornment: (
+                            <input
+                              type="color"
+                              value={editValues.primaryColor || '#D4AF37'}
+                              onChange={(e) => handleInputChange('primaryColor')({ target: { value: e.target.value } })}
+                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                            />
+                          ),
+                        }}
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
@@ -698,7 +722,16 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.secondaryColor || ''}
                         onChange={handleInputChange('secondaryColor')}
                         placeholder="#C5A022"
-                        InputProps={{ endAdornment: <input type="color" value={editValues.secondaryColor || '#C5A022'} onChange={(e) => handleInputChange('secondaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputProps={{
+                          endAdornment: (
+                            <input
+                              type="color"
+                              value={editValues.secondaryColor || '#C5A022'}
+                              onChange={(e) => handleInputChange('secondaryColor')({ target: { value: e.target.value } })}
+                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                            />
+                          ),
+                        }}
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
@@ -709,7 +742,16 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.primaryHoverColor || ''}
                         onChange={handleInputChange('primaryHoverColor')}
                         placeholder="#B8860B"
-                        InputProps={{ endAdornment: <input type="color" value={editValues.primaryHoverColor || '#B8860B'} onChange={(e) => handleInputChange('primaryHoverColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputProps={{
+                          endAdornment: (
+                            <input
+                              type="color"
+                              value={editValues.primaryHoverColor || '#B8860B'}
+                              onChange={(e) => handleInputChange('primaryHoverColor')({ target: { value: e.target.value } })}
+                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                            />
+                          ),
+                        }}
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
@@ -720,7 +762,16 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.navyColor || ''}
                         onChange={handleInputChange('navyColor')}
                         placeholder="#1B2340"
-                        InputProps={{ endAdornment: <input type="color" value={editValues.navyColor || '#1B2340'} onChange={(e) => handleInputChange('navyColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputProps={{
+                          endAdornment: (
+                            <input
+                              type="color"
+                              value={editValues.navyColor || '#1B2340'}
+                              onChange={(e) => handleInputChange('navyColor')({ target: { value: e.target.value } })}
+                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                            />
+                          ),
+                        }}
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
@@ -731,7 +782,16 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         value={editValues.navyLightColor || ''}
                         onChange={handleInputChange('navyLightColor')}
                         placeholder="#263462"
-                        InputProps={{ endAdornment: <input type="color" value={editValues.navyLightColor || '#263462'} onChange={(e) => handleInputChange('navyLightColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputProps={{
+                          endAdornment: (
+                            <input
+                              type="color"
+                              value={editValues.navyLightColor || '#263462'}
+                              onChange={(e) => handleInputChange('navyLightColor')({ target: { value: e.target.value } })}
+                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                            />
+                          ),
+                        }}
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
@@ -745,52 +805,53 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Background default"
-                        value={editValues.backgroundDefault || ''}
-                        onChange={handleInputChange('backgroundDefault')}
-                        placeholder="#F5F5F5 or #000000"
-                      />
+                      <TextField fullWidth label="Background default" value={editValues.backgroundDefault || ''} onChange={handleInputChange('backgroundDefault')} placeholder="#F5F5F5 or #000000" />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Background paper"
-                        value={editValues.backgroundPaper || ''}
-                        onChange={handleInputChange('backgroundPaper')}
-                        placeholder="#FFFFFF or #121212"
-                      />
+                      <TextField fullWidth label="Background paper" value={editValues.backgroundPaper || ''} onChange={handleInputChange('backgroundPaper')} placeholder="#FFFFFF or #121212" />
                     </Grid>
                   </Grid>
                 </Box>
 
                 <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Hotel Logo</Typography>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    Hotel Logo
+                  </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Displayed in the guest portal header. Recommended: square or wide image, PNG/JPG, max 5MB.
                   </Typography>
-                  {logoSignedUrl && (
+                  {hotel?.logoUrl && (
                     <Box sx={{ mb: 2 }}>
-                      <img src={logoSignedUrl} alt="Hotel logo" style={{ maxHeight: 80, maxWidth: 240, objectFit: 'contain', borderRadius: 8, border: '1px solid #eee' }} />
+                      <img src={hotel.logoUrl} alt="Hotel logo" style={{ maxHeight: 80, maxWidth: 240, objectFit: 'contain', borderRadius: 8, border: '1px solid #eee' }} />
                     </Box>
                   )}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <input type="file" accept="image/*" onChange={handleLogoFileSelect} disabled={logoUploadLoading} style={{ padding: '8px' }} />
                     {logoUploadFile && (
-                      <Typography variant="caption">Selected: {logoUploadFile.name} ({(logoUploadFile.size / 1024 / 1024).toFixed(2)}MB)</Typography>
+                      <Typography variant="caption">
+                        Selected: {logoUploadFile.name} ({(logoUploadFile.size / 1024 / 1024).toFixed(2)}MB)
+                      </Typography>
                     )}
                     {logoUploadError && <Alert severity="error">{logoUploadError}</Alert>}
                     {logoUploadFile && (
                       <Button variant="contained" color="success" onClick={handleLogoUpload} disabled={logoUploadLoading} sx={{ mt: 1, alignSelf: 'flex-start' }}>
-                        {logoUploadLoading ? <><CircularProgress size={20} sx={{ mr: 1 }} />Uploading...</> : 'Upload Logo'}
+                        {logoUploadLoading ? (
+                          <>
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            Uploading...
+                          </>
+                        ) : (
+                          'Upload Logo'
+                        )}
                       </Button>
                     )}
                   </Box>
                 </Box>
 
                 <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Notification Tone</Typography>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    Notification Tone
+                  </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Choose a notification sound for guests and staff. Select from built-in options or upload a custom MP3 file.
                   </Typography>
@@ -799,28 +860,17 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                     <Grid item xs={12} sm={6}>
                       <FormControl fullWidth>
                         <InputLabel>Notification Tone</InputLabel>
-                        <Select
-                          value={editValues.notificationTone || 'gentle_chime'}
-                          onChange={handleInputChange('notificationTone')}
-                          label="Notification Tone"
-                        >
+                        <Select value={editValues.notificationTone || 'gentle_chime'} onChange={handleInputChange('notificationTone')} label="Notification Tone">
                           <MenuItem value="none">Silent (No Sound)</MenuItem>
                           <MenuItem value="gentle_chime">Gentle Chime</MenuItem>
                           <MenuItem value="alert_sound">Alert Sound</MenuItem>
-                          {(hotel?.customToneUrl?.startsWith('https://') || hotel?.customToneUrl?.startsWith('/uploads/')) && (
-                            <MenuItem value="custom">Custom Tone</MenuItem>
-                          )}
+                          {(hotel?.customToneUrl?.startsWith('https://') || hotel?.customToneUrl?.startsWith('/uploads/')) && <MenuItem value="custom">Custom Tone</MenuItem>}
                         </Select>
                       </FormControl>
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        onClick={handlePlayTone}
-                        disabled={tonePlaying || !hasToneSelected()}
-                      >
+                      <Button variant="outlined" fullWidth onClick={handlePlayTone} disabled={tonePlaying || !hasToneSelected()}>
                         {tonePlaying ? <CircularProgress size={24} sx={{ mr: 1 }} /> : '🔊'}
                         {tonePlaying ? ' Playing...' : ' Test Tone'}
                       </Button>
@@ -836,13 +886,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         </Typography>
 
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <input
-                            type="file"
-                            accept="audio/*"
-                            onChange={handleToneFileSelect}
-                            disabled={toneUploadLoading}
-                            style={{ padding: '8px' }}
-                          />
+                          <input type="file" accept="audio/*" onChange={handleToneFileSelect} disabled={toneUploadLoading} style={{ padding: '8px' }} />
 
                           {toneUploadFile && (
                             <Typography variant="caption">
@@ -857,13 +901,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                           )}
 
                           {toneUploadFile && (
-                            <Button
-                              variant="contained"
-                              color="success"
-                              onClick={handleToneUpload}
-                              disabled={toneUploadLoading}
-                              sx={{ mt: 1 }}
-                            >
+                            <Button variant="contained" color="success" onClick={handleToneUpload} disabled={toneUploadLoading} sx={{ mt: 1 }}>
                               {toneUploadLoading ? (
                                 <>
                                   <CircularProgress size={20} sx={{ mr: 1 }} />
@@ -925,17 +963,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
               </Box>
             )}
 
-            {canEdit && (
-              <ManageRestaurant
-                hotelId={id}
-                loading={loading}
-                setLoading={setLoading}
-                account={account}
-                alertSuccess={alertSuccess}
-                alertError={alertError}
-                isMobile={isMobile}
-              />
-            )}
+            {canEdit && <ManageRestaurant hotelId={id} loading={loading} setLoading={setLoading} account={account} alertSuccess={alertSuccess} alertError={alertError} isMobile={isMobile} />}
 
             <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">
               <DialogTitle id="delete-hotel-title">Delete hotel</DialogTitle>

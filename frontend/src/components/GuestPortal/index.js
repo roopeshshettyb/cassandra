@@ -1,8 +1,7 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import constants from '../../constants.json';
-import request from '../../helper/api';
 import GuestHome from './GuestHome';
 import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
@@ -10,16 +9,7 @@ import GuestBottomNav from './GuestBottomNav';
 
 export default function GuestPortal({ booking, account, isMobile, alertError, alertSuccess, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [logoUrl, setLogoUrl] = useState(null);
-
-  useEffect(() => {
-    const hotelId = booking?.hotel?.id;
-    const rawLogoUrl = booking?.hotel?.logoUrl;
-    if (!hotelId || !rawLogoUrl) { setLogoUrl(null); return; }
-    request({ method: 'GET', endpoint: `/hotels/${hotelId}/logo/signed-url` })
-      .then(res => setLogoUrl(res?.data?.signedUrl || null))
-      .catch(() => setLogoUrl(null));
-  }, [booking?.hotel?.id, booking?.hotel?.logoUrl]);
+  const logoUrl = booking?.hotel?.logoUrl || null;
   const { HOTEL_STAFF, HOTEL_OWNER, GUEST } = constants.ACCOUNT_ROLES;
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');

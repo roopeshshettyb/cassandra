@@ -87,7 +87,7 @@ export class AwsService {
   /**
    * Convert S3 bucket/key to public HTTPS URL
    */
-  private getPublicUrl(bucket: string, key: string): string {
+  getPublicUrl(bucket: string, key: string): string {
     return `https://${bucket}.s3.${this.region}.amazonaws.com/${key}`;
   }
 
@@ -126,6 +126,7 @@ export class AwsService {
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
+      ...(isPublic && { ACL: 'public-read' as const }),
     });
     return await getSignedUrl(this.s3Client, command, { expiresIn });
   }

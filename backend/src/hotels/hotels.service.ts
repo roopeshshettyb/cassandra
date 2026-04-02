@@ -408,12 +408,13 @@ ${inviteUrl}`;
     const s3Key = `${keyPrefix}hotel-logos/${hotel.id}-${Date.now()}-${body.fileName}`;
 
     try {
-      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, false);
-      const baseUrl = presignedUrl.split('?')[0];
+      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, true);
+      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
+      const publicUrl = this.awsService.getPublicUrl(publicBucket, s3Key);
 
       return {
         success: true,
-        data: { presignedUrl, s3Url: baseUrl },
+        data: { presignedUrl, s3Url: publicUrl },
       };
     } catch (error) {
       throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
@@ -433,21 +434,6 @@ ${inviteUrl}`;
       message: 'Logo updated successfully',
       data: updatedHotels[0],
     };
-  }
-
-  async getLogoSignedUrl(hotelId: number, _currentAccount: Account) {
-    const hotel = await this.findById(hotelId);
-    const logoUrl = hotel.logoUrl;
-    if (!logoUrl) return { success: true, data: { signedUrl: null } };
-
-    try {
-      const urlParts = logoUrl.split('/');
-      const s3Key = urlParts.slice(3).join('/');
-      const signedUrl = await this.awsService.getSignedUrl(s3Key, 86400, false); // 24h
-      return { success: true, data: { signedUrl } };
-    } catch (error) {
-      throw new BadRequestException(`Failed to generate signed URL: ${error.message}`);
-    }
   }
 
   async getNotificationToneSignedUrl(hotelId: number, currentAccount: Account) {

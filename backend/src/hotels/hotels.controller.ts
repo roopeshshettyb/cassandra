@@ -100,11 +100,6 @@ export class HotelsController {
     return this.hotelsService.confirmLogoUpload(Number(id), body, account);
   }
 
-  @Get(':id/logo/signed-url')
-  async getLogoSignedUrl(@Param('id') id: string, @CurrentAccount() account: Account) {
-    return this.hotelsService.getLogoSignedUrl(Number(id), account);
-  }
-
   @Post(':id/notification-tone/presigned-url')
   async getNotificationTonePresignedUrl(
     @Param('id') id: string,
