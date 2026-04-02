@@ -1,4 +1,5 @@
 // IndexedDB cache for notification tones
+import request from '../helper/api';
 const DB_NAME = 'samantha-cache';
 const STORE_NAME = 'notification-tones';
 
@@ -69,7 +70,7 @@ export async function cacheTone(hotelId, toneUrl, blob) {
 }
 
 // Get notification tone (with caching and promise deduping)
-export async function getNotificationTone(hotelId, toneUrl, backendUrl, token) {
+export async function getNotificationTone(hotelId, toneUrl, _backendUrl, token) {
   // Check cache first: if the toneUrl doesn't match, it's a stale cache (user uploaded a new tone)
   const cached = await getCachedTone(hotelId);
   if (cached?.blob && cached.toneUrl === toneUrl) {
@@ -84,19 +85,13 @@ export async function getNotificationTone(hotelId, toneUrl, backendUrl, token) {
   const downloadPromise = (async () => {
     try {
       // Get signed URL from backend
-      const response = await fetch(`${backendUrl}/hotels/${hotelId}/notification-tone/signed-url`, {
+      const data = await request({
+        endpoint: `/hotels/${hotelId}/notification-tone/signed-url`,
         method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        token,
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get signed URL: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const { signedUrl, isBuiltIn, builtInPath } = data;
+      if (!data) throw new Error('Failed to get signed URL');
+      const { signedUrl, isBuiltIn } = data;
 
       // Handle built-in tones
       if (isBuiltIn) {

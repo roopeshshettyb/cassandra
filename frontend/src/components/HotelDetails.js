@@ -322,49 +322,27 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     setLogoUploadError(null);
 
     try {
-      const presignedResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/logo/presigned-url`, {
+      const presignedRes = await request({
+        endpoint: `/hotels/${id}/logo/presigned-url`,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fileName: logoUploadFile.name, fileSize: logoUploadFile.size, contentType: logoUploadFile.type }),
+        data: { fileName: logoUploadFile.name, fileSize: logoUploadFile.size, contentType: logoUploadFile.type },
+        throw: true,
       });
-
-      if (!presignedResponse.ok) {
-        const err = await presignedResponse.json();
-        throw new Error(err.message || 'Failed to get presigned URL');
-      }
-
-      const { data } = await presignedResponse.json();
-      const { presignedUrl, s3Url } = data;
+      const { presignedUrl, s3Url } = presignedRes?.data || {};
 
       const s3Response = await fetch(presignedUrl, {
         method: 'PUT',
         headers: { 'Content-Type': logoUploadFile.type },
         body: logoUploadFile,
       });
+      if (!s3Response.ok) throw new Error(`S3 upload failed (${s3Response.status})`);
 
-      if (!s3Response.ok) {
-        const errBody = await s3Response.text();
-        throw new Error(`S3 upload failed (${s3Response.status}): ${errBody.slice(0, 800)}`);
-      }
-
-      const confirmResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/logo`, {
+      const result = await request({
+        endpoint: `/hotels/${id}/logo`,
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ s3Url }),
+        data: { s3Url },
+        throw: true,
       });
-
-      if (!confirmResponse.ok) {
-        const err = await confirmResponse.json();
-        throw new Error(err.message || 'Failed to confirm upload');
-      }
-
-      const result = await confirmResponse.json();
       if (result.success) {
         alertSuccess('Logo uploaded successfully!');
         setLogoUploadFile(null);
@@ -409,57 +387,27 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     setToneUploadError(null);
 
     try {
-      // Step 1: Get presigned URL from backend
-      const presignedResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/notification-tone/presigned-url`, {
+      const presignedRes = await request({
+        endpoint: `/hotels/${id}/notification-tone/presigned-url`,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: toneUploadFile.name,
-          fileSize: toneUploadFile.size,
-          contentType: toneUploadFile.type || 'audio/mpeg',
-        }),
+        data: { fileName: toneUploadFile.name, fileSize: toneUploadFile.size, contentType: toneUploadFile.type || 'audio/mpeg' },
+        throw: true,
       });
+      const { presignedUrl, s3Url } = presignedRes?.data || {};
 
-      if (!presignedResponse.ok) {
-        const error = await presignedResponse.json();
-        throw new Error(error.message || 'Failed to get presigned URL');
-      }
-
-      const { data } = await presignedResponse.json();
-      const { presignedUrl, s3Url } = data;
-
-      // Step 2: Upload file directly to S3
       const s3Response = await fetch(presignedUrl, {
         method: 'PUT',
-        headers: {
-          'Content-Type': toneUploadFile.type || 'audio/mpeg',
-        },
+        headers: { 'Content-Type': toneUploadFile.type || 'audio/mpeg' },
         body: toneUploadFile,
       });
+      if (!s3Response.ok) throw new Error(`S3 upload failed (${s3Response.status})`);
 
-      if (!s3Response.ok) {
-        throw new Error(`S3 upload failed (${s3Response.status})`);
-      }
-
-      // Step 3: Confirm with backend
-      const confirmResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || ''}/hotels/${id}/notification-tone`, {
+      const result = await request({
+        endpoint: `/hotels/${id}/notification-tone`,
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ s3Url }),
+        data: { s3Url },
+        throw: true,
       });
-
-      if (!confirmResponse.ok) {
-        const error = await confirmResponse.json();
-        throw new Error(error.message || 'Failed to confirm upload');
-      }
-
-      const result = await confirmResponse.json();
 
       if (result.success) {
         alertSuccess('Notification tone uploaded successfully!');
