@@ -5,6 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build:prod": "cross-env NODE_ENV=prod nest build",
+    "build:stage": "cross-env NODE_ENV=dev nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:debug": "cross-env NODE_ENV=dev nest start --watch",
