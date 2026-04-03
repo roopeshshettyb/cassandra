@@ -1,7 +1,6 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Avatar, Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
-import HotelIcon from '@mui/icons-material/Hotel';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -27,9 +26,12 @@ const HotelCard = ({ data, navigate }) => {
       >
         {/* Navy banner with centered icon */}
         <Box sx={{ background: NAVY_GRADIENT, height: 90, display: 'flex', alignItems: 'center', px: 2.5, gap: 2 }}>
-          <Box sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <HotelIcon sx={{ fontSize: 22, color: '#fff' }} />
-          </Box>
+          <Avatar
+            src={hotel.logoUrl || undefined}
+            sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, fontSize: 18, fontWeight: 700, color: '#fff', flexShrink: 0 }}
+          >
+            {!hotel.logoUrl && hotel.name?.[0]?.toUpperCase()}
+          </Avatar>
           <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#fff', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
             {hotel.name}
           </Typography>
