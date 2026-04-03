@@ -1,6 +1,5 @@
-import { Box, Typography } from '@mui/material';
+import { Avatar, Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
-import HotelIcon from '@mui/icons-material/Hotel';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
@@ -57,9 +56,12 @@ const BookingCard = ({ data, navigate }) => {
 
           {/* Hotel header */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: 1.75 }}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <HotelIcon sx={{ fontSize: 18, color: '#fff' }} />
-            </Box>
+            <Avatar
+              src={booking.hotel?.logoUrl || undefined}
+              sx={{ width: 36, height: 36, borderRadius: 2, background: BRAND_GRADIENT, fontSize: 16, fontWeight: 700, color: '#fff', flexShrink: 0 }}
+            >
+              {!booking.hotel?.logoUrl && hotelName?.[0]?.toUpperCase()}
+            </Avatar>
             <Box sx={{ minWidth: 0, flex: 1, pt: 0.2 }}>
               <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {hotelName}
