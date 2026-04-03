@@ -82,6 +82,23 @@ export class RequestsService {
     };
   }
 
+  async findByIdForAccount(id: number, currentAccount: Account) {
+    const where = await this.getWhereForAccount(currentAccount);
+    const findWhere = where ? { ...where, id } : { id };
+    const req = await this.requestsRepository.findOne({
+      where: findWhere,
+      include: [
+        { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
+        { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
+        { model: Booking, as: 'booking', attributes: ['id'] },
+      ],
+    });
+    if (!req) {
+      throw new NotFoundException();
+    }
+    return { success: true, message: null, data: req };
+  }
+
   async create(dto: CreateRequestDto, currentAccount: Account) {
     const { data: booking } = await this.bookingsService.findByIdForAccount(dto.bookingId, currentAccount);
     if (booking.hotelId !== dto.hotelId || booking.guestId !== dto.guestId) {

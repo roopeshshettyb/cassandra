@@ -62,7 +62,7 @@ export class NotificationFactory {
       const notificationData: NotificationPayload = {
         title: 'New Request',
         message: `${request.guestId === actor.id ? actor.name : 'Guest'} has submitted a new ${REQUEST_TYPE_LABEL[request.requestType] ?? request.requestType} request`,
-        link: `/bookings/${request.bookingId}?tab=requests&requestId=${request.id}`,
+        link: `/requests/${request.id}`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
@@ -99,7 +99,7 @@ export class NotificationFactory {
       const notificationData: NotificationPayload = {
         title: 'Request Updated',
         message: `Your ${REQUEST_TYPE_LABEL[request.requestType] ?? request.requestType} request has been updated by ${updatedBy.name}`,
-        link: `/bookings/${request.bookingId}?tab=requests&requestId=${request.id}`,
+        link: `/requests/${request.id}`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
@@ -167,7 +167,7 @@ export class NotificationFactory {
       const notificationData: NotificationPayload = {
         title: 'New Message',
         message: `New message from ${sender.name}: ${messagePreview}`,
-        link: `/bookings/${request.bookingId}?tab=requests&requestId=${request.id}`,
+        link: `/requests/${request.id}`,
         hotelId: request.hotelId,
         toneUrl: this.getToneUrl(hotel),
       };
@@ -229,6 +229,8 @@ export class NotificationFactory {
           toneUrl: notification.toneUrl,
           hotelId: hotelId,
           createdAt: notification.createdAt,
+          type: notification.type,
+          read: false,
         });
       }
 

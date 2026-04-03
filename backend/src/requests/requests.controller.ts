@@ -20,6 +20,11 @@ export class RequestsController {
     return this.requestsService.create(dto, account);
   }
 
+  @Get(':id')
+  async findById(@Param('id', ParseIntPipe) id: number, @CurrentAccount() account: Account) {
+    return this.requestsService.findByIdForAccount(id, account);
+  }
+
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,

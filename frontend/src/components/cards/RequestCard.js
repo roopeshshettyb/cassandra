@@ -21,7 +21,7 @@ const RequestCard = ({ data, navigate, account }) => {
   return (
     <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
       <Box
-        onClick={() => req?.bookingId && navigate?.(`/bookings/${req.bookingId}`)}
+        onClick={() => req?.id && navigate?.(`/requests/${req.id}`)}
         sx={{
           bgcolor: 'background.paper',
           borderRadius: 3,

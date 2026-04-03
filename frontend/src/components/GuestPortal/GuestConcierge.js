@@ -113,7 +113,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
     socket.on('ready', (payload) => {
       setReady(true);
       if (Array.isArray(payload?.messages)) {
-        setMessages(payload.messages.map((m) => ({ id: m.id, role: m.role, content: m.content })));
+        setMessages(payload.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })));
         setTimeout(() => inputRef.current?.focus?.(), 100);
       }
     });
@@ -199,7 +199,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           px: 2,
           py: 1.5,
           borderTop: `1px solid ${BORDER}`,
-          bgcolor: '#fff',
+          bgcolor: 'background.paper',
           flexShrink: 0,
         }}
       >
@@ -321,7 +321,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
               <Avatar
                 src={logoUrl || undefined}
-                sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
               >
                 {!logoUrl && hotelName[0]?.toUpperCase()}
               </Avatar>
@@ -370,7 +370,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
                 </motion.div>
               ) : (
                 <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                  <MicIcon sx={{ fontSize: 48, color: isRecording ? PRIMARY_CONTRAST : '#fff' }} />
+                  <MicIcon sx={{ fontSize: 48, color: PRIMARY_CONTRAST }} />
                 </motion.div>
               )}
             </AnimatePresence>

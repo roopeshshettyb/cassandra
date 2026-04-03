@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -20,6 +20,7 @@ import HotelDetails from './components/HotelDetails';
 import ManageBookings from './components/ManageBookings';
 import BookingDetails from './components/BookingDetails';
 import ManageRequests from './components/ManageRequests';
+import RequestDetails from './components/RequestDetails';
 import ManageCosts from './components/ManageCosts';
 import Rooms from './components/Rooms';
 import request from './helper/api';
@@ -166,20 +167,25 @@ const AppContent = () => {
     token: token || undefined,
   });
 
-  // Show toast when new notification arrives
+  const notificationsInitialized = useRef(false);
+
+  // Show toast only for NEW real-time notifications, not on initial fetch
   useEffect(() => {
-    if (notifications.length > 0) {
-      const latestNotification = notifications[0];
-      if (!latestNotification.read) {
-        toast.info(latestNotification.message, {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-      }
+    if (notifications.length === 0) return;
+    if (!notificationsInitialized.current) {
+      notificationsInitialized.current = true;
+      return;
+    }
+    const latestNotification = notifications[0];
+    if (!latestNotification.read) {
+      toast.info(latestNotification.message, {
+        position: 'top-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     }
   }, [notifications.length]);
 
@@ -337,6 +343,7 @@ const AppContent = () => {
     { path: '/bookings', component: ManageBookings, isProtected: true },
     { path: '/bookings/:id', component: BookingDetails, isProtected: true },
     { path: '/requests', component: ManageRequests, isProtected: true },
+    { path: '/requests/:id', component: RequestDetails, isProtected: true },
     { path: '/costs', component: ManageCosts, isProtected: true },
   ];
 

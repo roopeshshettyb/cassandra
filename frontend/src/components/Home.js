@@ -143,6 +143,7 @@ const Home = ({ openLoginPopup, navigate, isMobile }) => {
         flexDirection: 'column',
         px: { xs: 2, sm: 4, md: 6 },
         py: { xs: 3, sm: 5 },
+        pt: { xs: 6, sm: 5 },
         gap: 8,
       }}
     >

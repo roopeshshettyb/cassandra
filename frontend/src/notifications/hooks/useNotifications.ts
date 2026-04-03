@@ -24,21 +24,14 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const fetchNotifications = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await typedRequest({
-        endpoint: '/notifications/list',
-        method: 'GET',
-        defaultData: [],
-      });
-      const data = response; // Backend returns the array directly
-      if (Array.isArray(data)) {
-        setNotifications(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    } finally {
-      setLoading(false);
+    const response = await typedRequest({
+      endpoint: '/notifications/list',
+      method: 'GET',
+      setLoading,
+      defaultData: [],
+    });
+    if (Array.isArray(response)) {
+      setNotifications(response);
     }
   }, []);
 

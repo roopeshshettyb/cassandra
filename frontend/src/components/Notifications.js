@@ -5,12 +5,16 @@ import { CheckCircle, Circle } from '@mui/icons-material';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, TEXT_MUTED_DARK } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG, TEXT_MUTED_DARK } from '../theme';
 
 const typeColors = {
   DEAL_UPDATE: { color: STATUS_INFO, bg: STATUS_INFO_BG },
   PAYMENT: { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
-  SYSTEM: { color: MUTED, bg: TEXT_MUTED_DARK }, // Or HOVER_BG / TEXT_MUTED_DARK etc
+  NEW_REQUEST: { color: STATUS_INFO, bg: STATUS_INFO_BG },
+  REQUEST_UPDATED: { color: STATUS_WARNING, bg: STATUS_WARNING_BG },
+  NEW_BOOKING: { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  NEW_MESSAGE: { color: STATUS_INFO, bg: STATUS_INFO_BG },
+  SYSTEM: { color: MUTED, bg: TEXT_MUTED_DARK },
 };
 
 function NotificationItem({ data: notification, onNotificationClick }) {

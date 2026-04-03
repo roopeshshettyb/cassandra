@@ -426,14 +426,17 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
                 const firstNote = extractFirstNote(req.userNotes);
                 return (
-                  <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.62 + i * 0.07 }}>
+                  <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.62 + i * 0.07 }} whileTap={{ scale: 0.98 }}>
                     <Box
+                      onClick={() => onTabChange('requests')}
                       sx={{
                         p: 2,
                         borderRadius: 3,
                         bgcolor: 'background.paper',
                         border: `1px solid ${BORDER}`,
                         boxShadow: SHADOW,
+                        cursor: 'pointer',
+                        '&:hover': { boxShadow: SHADOW_HOVER },
                       }}
                     >
                       <Box

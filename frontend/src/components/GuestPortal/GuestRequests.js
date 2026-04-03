@@ -6,7 +6,7 @@ import SendIcon from '@mui/icons-material/Send';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import request from '../../helper/api';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, BG, SHADOW, SHADOW_BRAND, TEXT_MUTED_DARK, HOVER_BG, STATUS_WARNING_BG, BACKDROP_BG } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, BG, SHADOW, SHADOW_BRAND, TEXT_MUTED_DARK, HOVER_BG, STATUS_WARNING_BG, BACKDROP_BG, PRIMARY_CONTRAST } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../../constants/requestConfig';
 import constants from '../../constants.json';
 
@@ -54,7 +54,7 @@ function NoteThread({ userNotes, staffNotes, limit }) {
                 maxWidth: '88%',
               }}
             >
-              <Typography sx={{ fontSize: 12, color: '#333', lineHeight: 1.5 }}>{note.text}</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.primary', lineHeight: 1.5 }}>{note.text}</Typography>
             </Box>
             <Typography sx={{ fontSize: 10, color: MUTED, mt: 0.3, px: 0.5 }}>
               {isGuest ? 'You' : 'Hotel'} · {note.addedAt ? dayjs(note.addedAt).fromNow() : ''}
@@ -132,7 +132,7 @@ function RequestDetail({ req, account, onBack, alertError, alertSuccess, onUpdat
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
-  const isStaff = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
+  const isStaff = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER || account?.role === constants.ACCOUNT_ROLES.ADMIN;
 
   const handleSendMessage = useCallback(async () => {
     const text = messageText.trim();
@@ -210,7 +210,7 @@ function RequestDetail({ req, account, onBack, alertError, alertSuccess, onUpdat
                       cursor: isActive || updatingStatus ? 'default' : 'pointer',
                       fontSize: 12,
                       fontWeight: 600,
-                      color: isActive ? '#fff' : MUTED,
+                      color: isActive ? PRIMARY_CONTRAST : MUTED,
                       outline: 'none',
                       boxShadow: isActive ? SHADOW_BRAND : 'none',
                       opacity: updatingStatus ? 0.6 : 1,
@@ -313,7 +313,7 @@ export default function GuestRequests({ booking, account, alertError, alertSucce
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Avatar
               src={logoUrl || undefined}
-              sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+              sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
             >
               {!logoUrl && hotelName[0]?.toUpperCase()}
             </Avatar>
@@ -357,7 +357,7 @@ export default function GuestRequests({ booking, account, alertError, alertSucce
                       cursor: 'pointer',
                       fontSize: 12,
                       fontWeight: 600,
-                      color: isActive ? '#fff' : MUTED,
+                      color: isActive ? PRIMARY_CONTRAST : MUTED,
                       whiteSpace: 'nowrap',
                       outline: 'none',
                       boxShadow: isActive ? SHADOW_BRAND : 'none',
