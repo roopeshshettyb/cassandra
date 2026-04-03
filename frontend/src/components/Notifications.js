@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Circle, Delete } from '@mui/icons-material';
+import { CheckCircle, Circle } from '@mui/icons-material';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 
@@ -70,12 +70,10 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 800, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Inbox</Typography>
-            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Notifications</Typography>
-            {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
-          </Box>
+        <Box sx={{ mb: 4 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Inbox</Typography>
+          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Notifications</Typography>
+          {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
         </Box>
       </motion.div>
 

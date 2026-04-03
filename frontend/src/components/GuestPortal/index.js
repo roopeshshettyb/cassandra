@@ -7,8 +7,9 @@ import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
 import GuestBottomNav from './GuestBottomNav';
 
-export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate, sidebarOpen }) {
+export default function GuestPortal({ booking, account, isMobile, alertError, alertSuccess, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const logoUrl = booking?.hotel?.logoUrl || null;
   const { HOTEL_STAFF, HOTEL_OWNER, GUEST } = constants.ACCOUNT_ROLES;
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
@@ -36,6 +37,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             navigate={navigate}
             setLoading={setLoading}
             alertError={alertError}
+            logoUrl={logoUrl}
           />
         );
       case 'concierge':
@@ -46,14 +48,19 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             isWithinStay={account?.role !== GUEST ? true : booking.isWithinStay}
             isMobile={isMobile}
             setLoading={setLoading}
+            logoUrl={logoUrl}
           />
         );
       case 'requests':
         return (
           <GuestRequests
             booking={booking}
+            account={account}
             alertError={alertError}
+            alertSuccess={alertSuccess}
             setLoading={setLoading}
+            initialRequestId={searchParams.get('requestId') ? Number(searchParams.get('requestId')) : null}
+            logoUrl={logoUrl}
           />
         );
       default:
@@ -66,6 +73,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             navigate={navigate}
             setLoading={setLoading}
             alertError={alertError}
+            logoUrl={logoUrl}
           />
         );
     }

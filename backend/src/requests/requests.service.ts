@@ -125,15 +125,15 @@ export class RequestsService {
       throw new NotFoundException();
     }
 
-    // Only hotel staff/owner (or admin) can mark a request as completed.
-    if (dto.status === RequestStatus.COMPLETED) {
+    // Only hotel staff/owner (or admin) can change request status.
+    if (dto.status !== undefined) {
       const isStaffOrOwner =
         currentAccount.role === AccountRole.ADMIN ||
         currentAccount.role === AccountRole.HOTEL_OWNER ||
         currentAccount.role === AccountRole.HOTEL_STAFF;
 
       if (!isStaffOrOwner) {
-        throw new ForbiddenException('Only hotel staff or owner can mark a request as completed');
+        throw new ForbiddenException('Only hotel staff or owner can change request status');
       }
     }
 
