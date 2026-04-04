@@ -42,7 +42,7 @@ function RequestRow({ req, index, onClick }) {
           border: `1px solid ${BORDER}`,
           boxShadow: SHADOW,
           cursor: 'pointer',
-          '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.1)' },
+          '@media (hover: hover)': { '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.1)' } },
           transition: 'box-shadow 0.2s',
         }}
       >

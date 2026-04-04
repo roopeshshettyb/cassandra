@@ -214,7 +214,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                       boxShadow: SHADOW,
                       cursor: 'pointer',
                       transition: 'box-shadow 0.2s, transform 0.15s',
-                      '&:hover': { boxShadow: SHADOW_HOVER },
+                      '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
                     }}
                   >
                     <Box
@@ -345,7 +345,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                             justifyContent: 'center',
                             cursor: 'pointer',
                             color: MUTED,
-                            '&:hover': { bgcolor: HOVER_BG },
+                            '@media (hover: hover)': { '&:hover': { bgcolor: HOVER_BG } },
                           }}
                         >
                           <CloseIcon sx={{ fontSize: 14 }} />
@@ -436,7 +436,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                         border: `1px solid ${BORDER}`,
                         boxShadow: SHADOW,
                         cursor: 'pointer',
-                        '&:hover': { boxShadow: SHADOW_HOVER },
+                        '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
                       }}
                     >
                       <Box

@@ -40,7 +40,7 @@ const BookingCard = ({ data, navigate }) => {
           boxShadow: SHADOW,
           cursor: 'pointer',
           position: 'relative',
-          '&:hover': { boxShadow: SHADOW_HOVER },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
         {/* Gold left accent */}

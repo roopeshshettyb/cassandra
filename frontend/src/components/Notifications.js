@@ -36,7 +36,7 @@ function NotificationItem({ data: notification, onNotificationClick }) {
           position: 'relative',
           overflow: 'hidden',
           opacity: notification.read ? 0.6 : 1,
-          '&:hover': { boxShadow: SHADOW_HOVER },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
         {/* Unread gold accent */}

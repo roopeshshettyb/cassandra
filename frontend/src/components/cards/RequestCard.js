@@ -31,7 +31,7 @@ const RequestCard = ({ data, navigate, account }) => {
           cursor: 'pointer',
           position: 'relative',
           overflow: 'hidden',
-          '&:hover': { boxShadow: SHADOW_HOVER },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
         {/* Gold left accent */}

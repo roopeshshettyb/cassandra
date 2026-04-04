@@ -21,7 +21,7 @@ const HotelCard = ({ data, navigate }) => {
           border: `1px solid ${BORDER}`,
           boxShadow: SHADOW,
           cursor: 'pointer',
-          '&:hover': { boxShadow: SHADOW_HOVER },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
         {/* Navy banner with centered icon */}

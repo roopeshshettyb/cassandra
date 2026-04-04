@@ -225,7 +225,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
                 <IconButton
                   onClick={onSwitchToVoice}
                   size="small"
-                  sx={{ color: MUTED, '&:hover': { color: NAVY } }}
+                  sx={{ color: MUTED, '@media (hover: hover)': { '&:hover': { color: NAVY } } }}
                   title="Switch to voice"
                 >
                   <MicIcon sx={{ fontSize: 18 }} />
