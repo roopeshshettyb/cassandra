@@ -9,13 +9,12 @@ import { NAVY } from '../theme';
 
 function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, account }) {
   const [requests, setRequests] = useState([]);
-  const [dataLoading, setDataLoading] = useState(true);
 
   function fetchRequests(isBackground) {
     request({
       endpoint: '/requests',
       method: 'GET',
-      setLoading: isBackground ? null : setDataLoading,
+      setLoading: isBackground ? null : setLoading,
       setData: setRequests,
       defaultData: [],
       alertError,
@@ -44,7 +43,7 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
           <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Requests</Typography>
         </Box>
       </motion.div>
-      <DataGrid CardComponent={RequestCard} data={requests} isLoading={dataLoading} navigate={navigate} account={account} />
+      <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
     </Box>
   );
 }

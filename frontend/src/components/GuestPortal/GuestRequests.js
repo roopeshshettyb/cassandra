@@ -3,7 +3,7 @@ import { Avatar, Box, Typography } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, TEXT_MUTED_DARK, BACKDROP_BG, PRIMARY_CONTRAST } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, TEXT_MUTED_DARK, BACKDROP_BG, PRIMARY_CONTRAST, STATUS_ERROR, STATUS_WARNING, STATUS_SUCCESS } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
@@ -55,7 +55,7 @@ function RequestRow({ req, index, onClick }) {
           {req.urgency && (
             <>
               <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: BACKDROP_BG }} />
-              <Typography sx={{ fontSize: 11, color: req.urgency === 'high' ? '#DC2626' : req.urgency === 'medium' ? '#D97706' : '#059669', fontWeight: 600, textTransform: 'capitalize' }}>
+              <Typography sx={{ fontSize: 11, color: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, fontWeight: 600, textTransform: 'capitalize' }}>
                 {req.urgency} priority
               </Typography>
             </>

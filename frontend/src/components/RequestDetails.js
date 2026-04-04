@@ -6,7 +6,7 @@ import SendIcon from '@mui/icons-material/Send';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import request from '../helper/api';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, STATUS_WARNING_BG, HOVER_BG, BACKDROP_BG, PRIMARY_CONTRAST } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, STATUS_WARNING_BG, HOVER_BG, BACKDROP_BG, PRIMARY_CONTRAST, STATUS_ERROR, STATUS_WARNING, STATUS_SUCCESS } from '../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../constants/requestConfig';
 import constants from '../constants.json';
 
@@ -115,7 +115,7 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
             {req.hotel?.name && <Typography sx={{ fontSize: 12, color: MUTED }}>{req.hotel.name}</Typography>}
             <Typography sx={{ fontSize: 11, color: MUTED }}>{dayjs(req.createdAt).fromNow()}</Typography>
             {req.urgency && (
-              <Typography sx={{ fontSize: 11, color: req.urgency === 'high' ? '#DC2626' : req.urgency === 'medium' ? '#D97706' : '#059669', fontWeight: 600, textTransform: 'capitalize' }}>
+              <Typography sx={{ fontSize: 11, color: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, fontWeight: 600, textTransform: 'capitalize' }}>
                 {req.urgency} priority
               </Typography>
             )}

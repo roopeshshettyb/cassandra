@@ -354,7 +354,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
               borderRadius: '50%',
               border: 'none',
               cursor: isWithinStay ? 'pointer' : 'not-allowed',
-              background: isRecording ? BRAND_GRADIENT : '#111',
+              background: isRecording ? BRAND_GRADIENT : NAVY,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

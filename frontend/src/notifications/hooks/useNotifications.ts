@@ -24,15 +24,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const fetchNotifications = useCallback(async () => {
-    const response = await typedRequest({
+    await typedRequest({
       endpoint: '/notifications/list',
       method: 'GET',
       setLoading,
+      setData: setNotifications,
       defaultData: [],
     });
-    if (Array.isArray(response)) {
-      setNotifications(response);
-    }
   }, []);
 
   /**
@@ -159,7 +157,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   useEffect(() => {
     if (!enabled || !token) return;
 
-    const socketUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:7678';
+    const socketUrl = process.env.REACT_APP_BACKEND_URL || '';
     const socket = io(`${socketUrl}/notifications`, {
       query: { token },
       reconnection: true,

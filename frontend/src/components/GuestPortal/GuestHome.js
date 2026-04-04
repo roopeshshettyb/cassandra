@@ -100,7 +100,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Avatar
                 src={logoUrl || undefined}
-                sx={{ width: 34, height: 34, background: BRAND_GRADIENT, fontSize: 14, fontWeight: 700, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                sx={{ width: 34, height: 34, background: BRAND_GRADIENT, fontSize: 14, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
               >
                 {!logoUrl && hotelName[0]?.toUpperCase()}
               </Avatar>
@@ -117,7 +117,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 background: BRAND_GRADIENT,
                 fontSize: 13,
                 fontWeight: 700,
-                color: '#fff',
+                color: PRIMARY_CONTRAST,
                 display: { xs: 'none', sm: 'flex' },
               }}
             >
@@ -228,13 +228,13 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                         justifyContent: 'center',
                       }}
                     >
-                      <Icon sx={{ fontSize: 20, color: '#fff' }} />
+                      <Icon sx={{ fontSize: 20, color: PRIMARY_CONTRAST }} />
                     </Box>
                     <Typography
                       sx={{
                         fontSize: 11,
                         fontWeight: 600,
-                        color: '#333',
+                        color: 'text.primary',
                         textAlign: 'center',
                         lineHeight: 1.2,
                       }}
@@ -277,10 +277,10 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 flexShrink: 0,
               }}
             >
-              <SupportAgentIcon sx={{ color: '#fff', fontSize: 26 }} />
+              <SupportAgentIcon sx={{ color: PRIMARY_CONTRAST, fontSize: 26 }} />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
+              <Typography sx={{ fontWeight: 700, color: PRIMARY_CONTRAST, fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
               <Typography sx={{ fontSize: 13, color: TEXT_MUTED_LIGHT, mt: 0.4 }}>Ask anything — available 24/7</Typography>
             </Box>
           </Box>
