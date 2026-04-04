@@ -45,7 +45,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
   const CAN_ADD_HOTEL = !!constants.PERMISSIONS.CAN_ADD_HOTEL[account?.role];
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '4vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '7vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: { xs: 'flex-end', sm: 'space-between' }, mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
