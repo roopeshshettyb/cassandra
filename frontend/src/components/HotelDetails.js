@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -103,6 +103,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
+  const logoInputRef = useRef(null);
+  const toneInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState(null);
@@ -777,10 +779,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                     </Box>
                   )}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <input type="file" accept="image/*" onChange={handleLogoFileSelect} disabled={logoUploadLoading} style={{ padding: '8px' }} />
+                    <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} disabled={logoUploadLoading} style={{ display: 'none' }} />
+                    <Button variant="outlined" onClick={() => logoInputRef.current?.click()} disabled={logoUploadLoading} sx={{ alignSelf: 'flex-start' }}>
+                      {logoUploadFile ? logoUploadFile.name : 'Choose Image'}
+                    </Button>
                     {logoUploadFile && (
                       <Typography variant="caption">
-                        Selected: {logoUploadFile.name} ({(logoUploadFile.size / 1024 / 1024).toFixed(2)}MB)
+                        {(logoUploadFile.size / 1024 / 1024).toFixed(2)}MB
                       </Typography>
                     )}
                     {logoUploadError && <Alert severity="error">{logoUploadError}</Alert>}
@@ -837,11 +842,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                         </Typography>
 
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <input type="file" accept="audio/*" onChange={handleToneFileSelect} disabled={toneUploadLoading} style={{ padding: '8px' }} />
-
+                          <input ref={toneInputRef} type="file" accept="audio/*" onChange={handleToneFileSelect} disabled={toneUploadLoading} style={{ display: 'none' }} />
+                          <Button variant="outlined" onClick={() => toneInputRef.current?.click()} disabled={toneUploadLoading} sx={{ alignSelf: 'flex-start' }}>
+                            {toneUploadFile ? toneUploadFile.name : 'Choose MP3'}
+                          </Button>
                           {toneUploadFile && (
                             <Typography variant="caption">
-                              Selected: {toneUploadFile.name} ({(toneUploadFile.size / 1024 / 1024).toFixed(2)}MB)
+                              {(toneUploadFile.size / 1024 / 1024).toFixed(2)}MB
                             </Typography>
                           )}
 
