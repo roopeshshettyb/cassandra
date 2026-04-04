@@ -79,7 +79,7 @@ const getContrastText = (hexcolor) => {
 
 const AppContent = () => {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { themeConfig } = useHotelTheme();
   const [mode, setMode] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -326,6 +326,11 @@ const AppContent = () => {
 
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
+  const isGuestPortal = pathname.startsWith('/bookings/') && !!new URLSearchParams(search).get('tab');
+  const isFullScreenMobile = isMobile && (
+    pathname.startsWith('/requests/') ||
+    (pathname.startsWith('/bookings/') && new URLSearchParams(search).get('tab') === 'concierge')
+  );
 
   const routes = [
     { path: '/invite', component: InviteHandler, isProtected: false },
@@ -397,7 +402,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isLandingPage ? 0 : isMobile ? '4vh' : '2.5vh' }}>
+            <Grid sx={{ paddingTop: isGuestPortal ? 0 : { xs: '10vh', md: '3vh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
@@ -436,7 +441,7 @@ const AppContent = () => {
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          {!isLandingPage && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>

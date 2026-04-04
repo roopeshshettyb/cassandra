@@ -14,7 +14,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import dayjs from 'dayjs';
 import request from '../../helper/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG, NAVY_CONTRAST } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
 dayjs.extend(relativeTime);
 
@@ -100,7 +100,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Avatar
                 src={logoUrl || undefined}
-                sx={{ width: 34, height: 34, background: BRAND_GRADIENT, fontSize: 14, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                sx={{ width: 34, height: 34, background: BRAND_GRADIENT, fontSize: 14, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}
               >
                 {!logoUrl && hotelName[0]?.toUpperCase()}
               </Avatar>
@@ -128,7 +128,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
       </Box>
 
       {/* ── Scrollable Content ─────────────────────────── */}
-      <Box sx={{ px: 2.5, pt: 3 }}>
+      <Box sx={{ px: 2.5 }}>
         <Box sx={{ maxWidth: 640, mx: 'auto' }}>
 
           {/* Guest Welcome Header */}
@@ -277,10 +277,10 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 flexShrink: 0,
               }}
             >
-              <SupportAgentIcon sx={{ color: PRIMARY_CONTRAST, fontSize: 26 }} />
+              <SupportAgentIcon sx={{ color: NAVY_CONTRAST, fontSize: 26 }} />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 700, color: PRIMARY_CONTRAST, fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
+              <Typography sx={{ fontWeight: 700, color: NAVY_CONTRAST, fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
               <Typography sx={{ fontSize: 13, color: TEXT_MUTED_LIGHT, mt: 0.4 }}>Ask anything — available 24/7</Typography>
             </Box>
           </Box>

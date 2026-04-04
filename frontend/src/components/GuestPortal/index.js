@@ -13,6 +13,10 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const { HOTEL_STAFF, HOTEL_OWNER, GUEST } = constants.ACCOUNT_ROLES;
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
+  const isChatMode = searchParams.get('mode') === 'chat';
+  const isConcierge = isMobile && activeTab === 'concierge';
+  const hideNav = isConcierge && isChatMode;
+  const fullScreen = isConcierge; // lock scroll + hide footer for both voice and chat
 
   const setActiveTab = useCallback((tab) => {
     setSearchParams({ tab });
@@ -22,6 +26,12 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
+
+  // Lock body scroll when in full-screen mode (concierge on mobile)
+  useEffect(() => {
+    document.body.style.overflow = fullScreen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [fullScreen]);
 
   if (!booking) return null;
 
@@ -41,6 +51,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           />
         );
       case 'concierge':
+        if (isNonGuest) { setActiveTab('requests'); return null; }
         return (
           <GuestConcierge
             booking={booking}
@@ -77,8 +88,17 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     }
   };
 
+  if (fullScreen) {
+    return (
+      <Box sx={{ position: 'fixed', top: '5vh', left: 0, right: 0, bottom: 0, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+        {renderTab()}
+        {!hideNav && <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />}
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: 'background.default', pt: isMobile ? '5vh' : 0 }}>
+    <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: '10vh', md: '3vh' } }}>
       {renderTab()}
       <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />
     </Box>

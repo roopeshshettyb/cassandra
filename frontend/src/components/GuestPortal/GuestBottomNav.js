@@ -16,8 +16,8 @@ const tabs = [
 export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen, account }) {
   if (!isMobile) return null;
   const { HOTEL_STAFF, HOTEL_OWNER } = constants.ACCOUNT_ROLES;
-  const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
-  const visibleTabs = isNonGuest ? tabs.filter((t) => t.id !== 'home') : tabs;
+  const isStaffOrOwner = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
+  const visibleTabs = isStaffOrOwner ? tabs.filter((t) => t.id !== 'home' && t.id !== 'concierge') : tabs;
   return (
     <Paper
       elevation={0}

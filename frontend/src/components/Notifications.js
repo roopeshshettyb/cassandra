@@ -72,7 +72,7 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
   }, [markNotificationAsRead, navigate]);
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '7vh', sm: 3 }, pb: 6, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 800, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ mb: 4 }}>
           <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Inbox</Typography>

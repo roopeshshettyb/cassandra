@@ -590,7 +590,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: 4, py: 4 }}>
       <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Card>
           <CardContent>
@@ -775,7 +775,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   </Typography>
                   {hotel?.logoUrl && (
                     <Box sx={{ mb: 2 }}>
-                      <img src={hotel.logoUrl} alt="Hotel logo" style={{ maxHeight: 80, maxWidth: 240, objectFit: 'contain', borderRadius: 8, border: '1px solid #eee' }} />
+                      <Box component="img" src={hotel.logoUrl} alt="Hotel logo" sx={{ maxHeight: 80, maxWidth: 240, objectFit: 'contain', borderRadius: 2, border: '1px solid', borderColor: 'divider' }} />
                     </Box>
                   )}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

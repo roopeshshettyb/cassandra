@@ -142,8 +142,7 @@ const Home = ({ openLoginPopup, navigate, isMobile }) => {
         display: 'flex',
         flexDirection: 'column',
         px: { xs: 2, sm: 4, md: 6 },
-        py: { xs: 3, sm: 5 },
-        pt: { xs: '7vh', sm: 5 },
+        pb: { xs: 3, sm: 5 },
         gap: 8,
       }}
     >

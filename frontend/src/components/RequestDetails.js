@@ -72,6 +72,8 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
 
   useEffect(() => {
     request({ endpoint: `/requests/${id}`, method: 'GET', setLoading, setData: setReq, defaultData: null, alertError });
+    if (window.innerWidth < 768) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
   }, []);
 
   const isStaff = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER || account?.role === constants.ACCOUNT_ROLES.ADMIN;
@@ -98,9 +100,10 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
   const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ position: { xs: 'fixed', md: 'relative' }, top: { xs: '5vh', md: 'unset' }, left: { xs: 0, md: 'unset' }, right: { xs: 0, md: 'unset' }, bottom: { xs: 0, md: 'unset' }, height: { xs: 'unset', md: '100dvh' }, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
-      <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '7vh', sm: 2 }, pb: 2, borderBottom: `1px solid ${BORDER}`, bgcolor: 'background.default', position: 'sticky', top: 0, zIndex: 10 }}>
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '2vh', md: '3vh' }, pb: 2, borderBottom: `1px solid ${BORDER}`, bgcolor: 'background.default', flexShrink: 0 }}>
         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
             <Box sx={{ flex: 1 }}>
@@ -152,15 +155,19 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
           )}
         </Box>
       </Box>
+      </motion.div>
 
       {/* Messages */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.15 }} style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flex: 1, px: { xs: 2, sm: 3 }, py: 2, overflowY: 'auto' }}>
         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           <NoteThread userNotes={req.userNotes} staffNotes={req.staffNotes} />
         </Box>
       </Box>
+      </motion.div>
 
       {/* Input */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.2 }}>
       <Box sx={{ px: { xs: 2, sm: 3 }, py: 2, borderTop: `1px solid ${BORDER}`, bgcolor: 'background.paper', flexShrink: 0 }}>
         <Box sx={{ maxWidth: 800, mx: 'auto', display: 'flex', gap: 1, alignItems: 'flex-end' }}>
           <TextField
@@ -180,6 +187,7 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
           </IconButton>
         </Box>
       </Box>
+      </motion.div>
     </Box>
   );
 }

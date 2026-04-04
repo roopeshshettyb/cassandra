@@ -12,7 +12,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import constants from '../../constants.json';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, NAVY_CONTRAST } from '../../theme';
 
 dayjs.extend(relativeTime);
 
@@ -30,7 +30,7 @@ function WaveformBars() {
             width: 4,
             height: 20,
             borderRadius: 99,
-            background: PRIMARY_CONTRAST,
+            background: NAVY_CONTRAST,
             originY: 0.5,
           }}
           animate={{ scaleY: [0.4, 1.5, 0.4] }}
@@ -158,7 +158,8 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           flex: 1,
           overflowY: 'auto',
           px: 2,
-          py: 2,
+          pt: { xs: '2vh', md: 2 },
+          pb: 2,
           display: 'flex',
           flexDirection: 'column',
           gap: 1.5,
@@ -296,7 +297,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
 
   if (showChat) {
     return (
-      <Box sx={{ height: isMobile ? 'calc(95vh - 80px)' : 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
         <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} />
       </Box>
     );
@@ -305,13 +306,15 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
   return (
     <Box
       sx={{
-        minHeight: 'calc(100vh - 80px)',
+        flex: isMobile ? 1 : 'unset',
+        minHeight: isMobile ? 0 : 'calc(100dvh - 80px)',
+        height: isMobile ? 'unset' : 'calc(100dvh - 80px)',
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
         px: 2.5,
         pt: 3,
-        pb: 2,
+        pb: isMobile ? '10vh' : 2,
       }}
     >
       <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -321,7 +324,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
               <Avatar
                 src={logoUrl || undefined}
-                sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}
               >
                 {!logoUrl && hotelName[0]?.toUpperCase()}
               </Avatar>
@@ -370,7 +373,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
                 </motion.div>
               ) : (
                 <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                  <MicIcon sx={{ fontSize: 48, color: PRIMARY_CONTRAST }} />
+                  <MicIcon sx={{ fontSize: 48, color: NAVY_CONTRAST }} />
                 </motion.div>
               )}
             </AnimatePresence>

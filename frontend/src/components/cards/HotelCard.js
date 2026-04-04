@@ -5,7 +5,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, PRIMARY_CONTRAST } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, NAVY_CONTRAST } from '../../theme';
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;
@@ -28,11 +28,11 @@ const HotelCard = ({ data, navigate }) => {
         <Box sx={{ background: NAVY_GRADIENT, height: 90, display: 'flex', alignItems: 'center', px: 2.5, gap: 2 }}>
           <Avatar
             src={hotel.logoUrl || undefined}
-            sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, fontSize: 18, fontWeight: 700, color: PRIMARY_CONTRAST, flexShrink: 0 }}
+            sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, fontSize: 18, fontWeight: 700, color: NAVY_CONTRAST, flexShrink: 0 }}
           >
             {!hotel.logoUrl && hotel.name?.[0]?.toUpperCase()}
           </Avatar>
-          <Typography sx={{ fontWeight: 700, fontSize: 15, color: PRIMARY_CONTRAST, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 15, color: NAVY_CONTRAST, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
             {hotel.name}
           </Typography>
         </Box>

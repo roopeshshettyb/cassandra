@@ -3,7 +3,7 @@ import { Avatar, Box, Typography } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, TEXT_MUTED_DARK, BACKDROP_BG, PRIMARY_CONTRAST, STATUS_ERROR, STATUS_WARNING, STATUS_SUCCESS } from '../../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_DARK, BACKDROP_BG, PRIMARY_CONTRAST, STATUS_ERROR, STATUS_WARNING, STATUS_SUCCESS } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../../constants/requestConfig';
 
 dayjs.extend(relativeTime);
@@ -42,7 +42,7 @@ function RequestRow({ req, index, onClick }) {
           border: `1px solid ${BORDER}`,
           boxShadow: SHADOW,
           cursor: 'pointer',
-          '@media (hover: hover)': { '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.1)' } },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
           transition: 'box-shadow 0.2s',
         }}
       >
@@ -55,7 +55,9 @@ function RequestRow({ req, index, onClick }) {
           {req.urgency && (
             <>
               <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: BACKDROP_BG }} />
-              <Typography sx={{ fontSize: 11, color: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, fontWeight: 600, textTransform: 'capitalize' }}>
+              <Typography
+                sx={{ fontSize: 11, color: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, fontWeight: 600, textTransform: 'capitalize' }}
+              >
                 {req.urgency} priority
               </Typography>
             </>
@@ -72,29 +74,20 @@ export default function GuestRequests({ booking, alertError, setLoading, logoUrl
   const hotelName = booking?.hotel?.name || 'Hotel';
   const requests = Array.isArray(booking?.requests) ? booking.requests : [];
 
-  const filteredRequests = [...requests]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .filter((r) => filter === 'all' || r.requestType === filter);
+  const filteredRequests = [...requests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).filter((r) => filter === 'all' || r.requestType === filter);
 
-  const availableCategories = allCategories.filter(
-    (cat) => cat.value === 'all' || requests.some((r) => r.requestType === cat.value)
-  );
+  const availableCategories = allCategories.filter((cat) => cat.value === 'all' || requests.some((r) => r.requestType === cat.value));
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', px: 2.5, pt: 3, pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', px: 2.5, pb: 14 }}>
       <Box sx={{ maxWidth: 640, mx: 'auto' }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Avatar
-              src={logoUrl || undefined}
-              sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
-            >
+            <Avatar src={logoUrl || undefined} sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
               {!logoUrl && hotelName[0]?.toUpperCase()}
             </Avatar>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main' }}>
-              {hotelName}
-            </Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main' }}>{hotelName}</Typography>
           </Box>
           <Typography sx={{ fontSize: 24, fontWeight: 700, color: NAVY }}>Your Requests</Typography>
           <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>
@@ -150,9 +143,7 @@ export default function GuestRequests({ booking, alertError, setLoading, logoUrl
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
             <Box sx={{ textAlign: 'center', py: 10 }}>
               <Typography sx={{ color: MUTED, fontSize: 15, fontWeight: 500 }}>No requests found</Typography>
-              <Typography sx={{ fontSize: 13, color: TEXT_MUTED_DARK, mt: 0.75 }}>
-                {filter !== 'all' ? 'Try a different category' : 'Speak to your concierge to get started'}
-              </Typography>
+              <Typography sx={{ fontSize: 13, color: TEXT_MUTED_DARK, mt: 0.75 }}>{filter !== 'all' ? 'Try a different category' : 'Speak to your concierge to get started'}</Typography>
             </Box>
           </motion.div>
         )}
