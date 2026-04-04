@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, TextField, IconButton } from '@mui/material';
 import { motion } from 'framer-motion';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -101,12 +100,9 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ px: { xs: 2, sm: 3 }, pt: 2, pb: 2, borderBottom: `1px solid ${BORDER}`, bgcolor: 'background.default', position: 'sticky', top: 0, zIndex: 10 }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '7vh', sm: 2 }, pb: 2, borderBottom: `1px solid ${BORDER}`, bgcolor: 'background.default', position: 'sticky', top: 0, zIndex: 10 }}>
         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-            <IconButton onClick={() => navigate(-1)} size="small" sx={{ color: NAVY }}>
-              <ArrowBackIcon />
-            </IconButton>
             <Box sx={{ flex: 1 }}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main' }}>Request</Typography>
               <Typography sx={{ fontWeight: 700, fontSize: 20, color: NAVY }}>{title}</Typography>

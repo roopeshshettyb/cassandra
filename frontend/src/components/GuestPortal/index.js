@@ -55,12 +55,10 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
         return (
           <GuestRequests
             booking={booking}
-            account={account}
             alertError={alertError}
-            alertSuccess={alertSuccess}
             setLoading={setLoading}
-            initialRequestId={searchParams.get('requestId') ? Number(searchParams.get('requestId')) : null}
             logoUrl={logoUrl}
+            navigate={navigate}
           />
         );
       default:
