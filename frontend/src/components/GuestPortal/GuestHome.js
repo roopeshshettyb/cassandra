@@ -80,7 +80,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
   const initials = guestName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: '18vh' }}>
 
       {/* ── Sticky Top Nav Bar ─────────────────────────── */}
       <Box

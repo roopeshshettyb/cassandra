@@ -79,7 +79,7 @@ export default function GuestRequests({ booking, alertError, setLoading, logoUrl
   const availableCategories = allCategories.filter((cat) => cat.value === 'all' || requests.some((r) => r.requestType === cat.value));
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', px: 2.5, pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', px: 2.5, pb: '18vh' }}>
       <Box sx={{ maxWidth: 640, mx: 'auto' }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
