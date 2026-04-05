@@ -311,7 +311,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         display: 'flex',
         flexDirection: 'column',
         px: 2.5,
-        pt: 3,
+        pt: 1,
         pb: 2,
         position: 'relative',
       }}
