@@ -402,7 +402,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isGuestPortal ? 0 : { xs: '10vh', md: '3vh' } }}>
+            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: '10vh', md: '3vh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
