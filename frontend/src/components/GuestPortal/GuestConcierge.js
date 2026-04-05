@@ -316,7 +316,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         position: 'relative',
       }}
     >
-      <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pb: '12vh' }}>
+      <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Header — top */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
@@ -334,8 +334,8 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
           <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5 }}>How may I assist you?</Typography>
         </motion.div>
 
-        {/* Voice button — centered in remaining space */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        {/* Voice button — flex:1 centers mic in remaining space, pb clears Prefer to type */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, pb: '10vh' }}>
           <motion.button
             onClick={handleMicTap}
             style={{
