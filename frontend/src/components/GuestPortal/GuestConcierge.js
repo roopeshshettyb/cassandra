@@ -150,7 +150,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
   }, [input, sending]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* Messages */}
       <Box
         ref={scrollRef}
@@ -159,7 +159,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           overflowY: 'auto',
           px: 2,
           pt: { xs: '2vh', md: 2 },
-          pb: 2,
+          pb: '15vh',
           display: 'flex',
           flexDirection: 'column',
           gap: 1.5,
@@ -194,14 +194,17 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
         )}
       </Box>
 
-      {/* Input */}
+      {/* Input — fixed to bottom 10% */}
       <Box
         sx={{
+          position: 'absolute',
+          bottom: '10%',
+          left: 0,
+          right: 0,
           px: 2,
           py: 1.5,
           borderTop: `1px solid ${BORDER}`,
           bgcolor: 'background.paper',
-          flexShrink: 0,
         }}
       >
         <TextField
@@ -314,7 +317,8 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         flexDirection: 'column',
         px: 2.5,
         pt: 3,
-        pb: isMobile ? '10vh' : 2,
+        pb: 2,
+        position: 'relative',
       }}
     >
       <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -392,8 +396,8 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
           </Typography>
         </Box>
 
-        {/* Prefer to type? */}
-        <Box sx={{ pb: 3, textAlign: 'center' }}>
+        {/* Prefer to type? — fixed to bottom 10% */}
+        <Box sx={{ position: 'absolute', bottom: '10%', left: 0, right: 0, textAlign: 'center' }}>
           <motion.button
             onClick={openChat}
             style={{

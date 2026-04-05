@@ -16,6 +16,7 @@ import request from '../../helper/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG, NAVY_CONTRAST } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
+
 dayjs.extend(relativeTime);
 
 const quickActions = [
@@ -85,9 +86,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
       {/* ── Sticky Top Nav Bar ─────────────────────────── */}
       <Box
         sx={{
-          position: { xs: 'static', sm: 'sticky' },
-          top: 0,
-          zIndex: 100,
+          position: 'static',
           bgcolor: 'background.default',
           backdropFilter: 'blur(14px)',
           borderBottom: `1px solid ${BORDER}`,
