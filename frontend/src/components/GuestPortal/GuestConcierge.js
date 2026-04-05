@@ -318,36 +318,31 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         position: 'relative',
       }}
     >
-      <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-              <Avatar
-                src={logoUrl || undefined}
-                sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}
-              >
-                {!logoUrl && hotelName[0]?.toUpperCase()}
-              </Avatar>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main' }}>
-                {hotelName}
-              </Typography>
-            </Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 700, color: NAVY }}>Your Concierge</Typography>
-            <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5 }}>How may I assist you?</Typography>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+            <Avatar
+              src={logoUrl || undefined}
+              sx={{ width: 32, height: 32, background: BRAND_GRADIENT, fontSize: 13, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}
+            >
+              {!logoUrl && hotelName[0]?.toUpperCase()}
+            </Avatar>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main' }}>
+              {hotelName}
+            </Typography>
           </Box>
+          <Typography sx={{ fontSize: 22, fontWeight: 700, color: NAVY }}>Your Concierge</Typography>
+          <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5 }}>How may I assist you?</Typography>
         </motion.div>
 
         {/* Voice button — centered */}
         <Box
           sx={{
-            flex: 1,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
             gap: 3,
-            mt: -2,
           }}
         >
           <motion.button

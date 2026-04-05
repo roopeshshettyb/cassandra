@@ -79,7 +79,7 @@ const getContrastText = (hexcolor) => {
 
 const AppContent = () => {
   const navigate = useNavigate();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const { themeConfig } = useHotelTheme();
   const [mode, setMode] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -329,7 +329,7 @@ const AppContent = () => {
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
     pathname.startsWith('/requests/') ||
-    (pathname.startsWith('/bookings/') && new URLSearchParams(search).get('tab') === 'concierge')
+    pathname.startsWith('/bookings/')
   );
 
   const routes = [
