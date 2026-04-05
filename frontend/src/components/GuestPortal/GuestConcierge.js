@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Avatar, Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
@@ -11,12 +11,10 @@ import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
-import constants from '../../constants.json';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, NAVY_CONTRAST } from '../../theme';
 
 dayjs.extend(relativeTime);
 
-const { APP_NAME } = constants;
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
 // ── Waveform bars for listening state ──────────────────────────────────────
@@ -318,9 +316,9 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         position: 'relative',
       }}
     >
-      <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-evenly' }}>
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center' }}>
+      <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Header — top */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', paddingTop: '4vh' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
             <Avatar
               src={logoUrl || undefined}
@@ -336,13 +334,16 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
           <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5 }}>How may I assist you?</Typography>
         </motion.div>
 
-        {/* Voice button — centered */}
+        {/* Voice button — fills remaining space, centered */}
         <Box
           sx={{
+            flex: 1,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: 3,
+            pb: '15vh',
           }}
         >
           <motion.button
