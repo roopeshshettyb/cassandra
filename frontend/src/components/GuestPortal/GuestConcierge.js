@@ -150,7 +150,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
   }, [input, sending]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Messages */}
       <Box
         ref={scrollRef}
@@ -159,7 +159,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           overflowY: 'auto',
           px: 2,
           pt: { xs: '2vh', md: 2 },
-          pb: '15vh',
+          pb: 2,
           display: 'flex',
           flexDirection: 'column',
           gap: 1.5,
@@ -194,17 +194,14 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
         )}
       </Box>
 
-      {/* Input — fixed to bottom 10% */}
+      {/* Input */}
       <Box
         sx={{
-          position: 'absolute',
-          bottom: '10%',
-          left: 0,
-          right: 0,
           px: 2,
           py: 1.5,
           borderTop: `1px solid ${BORDER}`,
           bgcolor: 'background.paper',
+          flexShrink: 0,
         }}
       >
         <TextField
