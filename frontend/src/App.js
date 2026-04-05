@@ -326,7 +326,7 @@ const AppContent = () => {
 
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
-  const isGuestPortal = pathname.startsWith('/bookings/') && !!new URLSearchParams(search).get('tab');
+  const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
     pathname.startsWith('/requests/') ||
     (pathname.startsWith('/bookings/') && new URLSearchParams(search).get('tab') === 'concierge')
