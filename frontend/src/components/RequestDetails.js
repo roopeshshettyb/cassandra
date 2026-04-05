@@ -100,10 +100,10 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
   const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
 
   return (
-    <Box sx={{ position: { xs: 'fixed', md: 'relative' }, top: { xs: '10vh', md: 'unset' }, left: { xs: 0, md: 'unset' }, right: { xs: 0, md: 'unset' }, bottom: { xs: 0, md: 'unset' }, height: { xs: 'unset', md: '100dvh' }, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box sx={{ position: { xs: 'fixed', md: 'relative' }, top: { xs: 64, md: 'unset' }, left: { xs: 0, md: 'unset' }, right: { xs: 0, md: 'unset' }, bottom: { xs: 0, md: 'unset' }, height: { xs: 'unset', md: '100dvh' }, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-      <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '3vh', md: 0 }, pb: 2, borderBottom: `1px solid ${BORDER}`, bgcolor: 'background.default', flexShrink: 0  }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '1vh', md: 0 }, pb: 2, borderBottom: `1px solid ${BORDER}`, bgcolor: 'background.default', flexShrink: 0  }}>
         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
             <Box sx={{ flex: 1 }}>

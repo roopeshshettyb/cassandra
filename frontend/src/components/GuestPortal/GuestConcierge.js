@@ -156,7 +156,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           flex: 1,
           overflowY: 'auto',
           px: 2,
-          pt: { xs: '2vh', md: 2 },
+          pt: 1,
           pb: 2,
           display: 'flex',
           flexDirection: 'column',
@@ -295,7 +295,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
 
   if (showChat) {
     return (
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+      <Box sx={{ height: isMobile ? '100%' : 'calc(100dvh - 7vh)', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', minHeight: 0 }}>
         <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} />
       </Box>
     );

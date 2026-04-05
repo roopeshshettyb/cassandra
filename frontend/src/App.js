@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -397,12 +397,12 @@ const AppContent = () => {
           sx={{
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
-            minHeight: '130vh',
+            minHeight: '100dvh',
             ml: isMobile ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: '10vh', md: '3vh' } }}>
+            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: '64px', md: '3vh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
