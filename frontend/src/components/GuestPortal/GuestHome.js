@@ -50,7 +50,7 @@ const defaultNudges = [
   },
 ];
 
-export default function GuestHome({ booking, account, onTabChange, setLoading, alertError, logoUrl }) {
+export default function GuestHome({ booking, account, onTabChange, setLoading, alertError, logoUrl, navigate }) {
   const [dismissedNudges, setDismissedNudges] = useState([]);
 
   const handleViewDocument = async () => {
@@ -427,7 +427,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 return (
                   <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.62 + i * 0.07 }} whileTap={{ scale: 0.98 }}>
                     <Box
-                      onClick={() => onTabChange('requests')}
+                      onClick={() => navigate?.(`/requests/${req.id}`)}
                       sx={{
                         p: 2,
                         borderRadius: 3,

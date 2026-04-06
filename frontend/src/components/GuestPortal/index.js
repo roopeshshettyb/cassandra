@@ -14,9 +14,9 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
   const isChatMode = searchParams.get('mode') === 'chat';
-  const isConcierge = isMobile && activeTab === 'concierge';
+  const isConcierge = activeTab === 'concierge'; // applies to both mobile and desktop
   const hideNav = isConcierge && isChatMode;
-  const fullScreen = isConcierge; // lock scroll + hide footer for both voice and chat
+  const fullScreen = isConcierge; // lock scroll + fixed layout for both mobile and desktop
 
   const setActiveTab = useCallback((tab) => {
     setSearchParams({ tab });
@@ -90,7 +90,22 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
 
   if (fullScreen) {
     return (
-      <Box sx={{ position: 'fixed', top: 'var(--app-header-height)', left: 0, right: 0, bottom: 0, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 'var(--app-header-height)',
+          left: isMobile ? 0 : '20vw',
+          right: 0,
+          bottom: 0,
+          bgcolor: 'background.default',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 10,
+          // Desktop inner padding so content breathes
+          px: { xs: 0, md: 4 },
+          py: { xs: 0, md: 2 },
+        }}
+      >
         {renderTab()}
         {!hideNav && <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />}
       </Box>

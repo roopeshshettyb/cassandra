@@ -332,6 +332,8 @@ const AppContent = () => {
     pathname.startsWith('/requests/') ||
     pathname.startsWith('/bookings/')
   );
+  // Also suppress footer/padding for request detail on desktop
+  const isRequestDetail = pathname.startsWith('/requests/') && pathname !== '/requests';
 
   const routes = [
     { path: '/invite', component: InviteHandler, isProtected: false },
@@ -403,7 +405,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
+            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile || isRequestDetail) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
@@ -442,7 +444,7 @@ const AppContent = () => {
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          {!isLandingPage && !isFullScreenMobile && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>

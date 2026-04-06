@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SendIcon from '@mui/icons-material/Send';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import CloseIcon from '@mui/icons-material/Close';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,7 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, NAVY_CONTRAST } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, NAVY_CONTRAST, HOVER_BG } from '../../theme';
 
 dayjs.extend(relativeTime);
 
@@ -48,14 +50,27 @@ function WaveformBars() {
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
   return (
-    <Box sx={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '82%', display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        alignSelf: isUser ? 'flex-end' : 'flex-start',
+        maxWidth: '75%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+      }}
+    >
       <Box
         sx={{
           px: 2,
-          py: 1.25,
-          borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+          py: 1.1,
+          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+          background: isUser ? BRAND_GRADIENT : 'background.paper',
+          bgcolor: isUser ? undefined : 'background.paper',
+          border: isUser ? 'none' : `1px solid ${BORDER}`,
           boxShadow: SHADOW,
-          bgcolor: isUser ? 'primary.main' : 'background.paper',
           color: isUser ? PRIMARY_CONTRAST : 'text.primary',
           '& p': { m: 0 },
           '& ul, & ol': { m: 0, pl: 2 },
@@ -71,12 +86,12 @@ function ChatBubble({ message }) {
           {dayjs(message.createdAt).fromNow()}
         </Typography>
       )}
-    </Box>
+    </motion.div>
   );
 }
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
-function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice }) {
+function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
@@ -149,19 +164,39 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Desktop Header */}
+      <Box sx={{ px: 3, py: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'space-between', bgcolor: 'transparent', flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
+            <SupportAgentIcon sx={{ fontSize: 24 }} />
+          </Avatar>
+          <Box>
+            <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
+            <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
+          </Box>
+        </Box>
+        <IconButton onClick={onSwitchToVoice} size="small" sx={{ color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}>
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
       {/* Messages */}
       <Box
         ref={scrollRef}
         sx={{
           flex: 1,
           overflowY: 'auto',
-          px: 2,
-          pt: 1.5,
+          px: { xs: 2, md: 3 },
+          pt: { xs: 1.5, md: 3 },
           pb: 2,
           display: 'flex',
           flexDirection: 'column',
-          gap: 1.5,
-          bgcolor: 'background.default',
+          gap: 2,
+          bgcolor: 'transparent',
+          scrollBehavior: 'smooth',
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
         }}
       >
         {!ready && (
@@ -169,6 +204,49 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
             <CircularProgress size={24} sx={{ color: 'primary.main' }} />
           </Box>
         )}
+        
+        {ready && messages.length <= 1 && (
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', py: { xs: 4, md: 8 }, px: 2 }}>
+              <Box sx={{ position: 'relative', display: 'inline-block', mb: 4 }}>
+                <Box sx={{ position: 'absolute', top: -30, left: -30, right: -30, bottom: -30, background: BRAND_GRADIENT, filter: 'blur(40px)', opacity: 0.15, borderRadius: '50%' }} />
+                <Avatar sx={{ width: 80, height: 80, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: '0 12px 32px rgba(0,0,0,0.1)', position: 'relative', zIndex: 1, border: '2px solid rgba(255,255,255,0.8)' }}>
+                  <SupportAgentIcon sx={{ fontSize: 40 }} />
+                </Avatar>
+              </Box>
+              <Typography sx={{ fontWeight: 800, fontSize: { xs: 26, md: 32 }, mb: 1.5, color: NAVY }}>
+                Hi! I'm your AI Concierge.
+              </Typography>
+              <Typography sx={{ fontSize: { xs: 14, md: 16 }, color: MUTED, maxWidth: 500, mx: 'auto', mb: 5, lineHeight: 1.6 }}>
+                Experience {hotelName} effortlessly. I'm here 24/7 to manage your requests, provide local insights, and elevate your stay.
+              </Typography>
+
+              <Box sx={{ width: '100%', maxWidth: 700, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                {['Order room service', 'Request extra towels', 'Get dining recommendations', 'Arrange a late checkout'].map((prompt, i) => (
+                  <motion.div key={i} whileHover={{ y: -4, boxShadow: SHADOW_HOVER }} transition={{ duration: 0.2 }}>
+                    <Box
+                      onClick={() => {
+                         if (!sending && socketRef.current?.connected) {
+                           setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: prompt, createdAt: new Date().toISOString() }]);
+                           setSending(true);
+                           setStreamingContent('');
+                           socketRef.current.emit('message', { content: prompt });
+                         }
+                      }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5, borderRadius: 3, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s', '&:hover': { borderColor: 'primary.main' } }}
+                    >
+                      <Box sx={{ p: 1, borderRadius: 2, bgcolor: HOVER_BG, color: 'primary.main', display: 'flex' }}>
+                         <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
+                      </Box>
+                      <Typography sx={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{prompt}</Typography>
+                    </Box>
+                  </motion.div>
+                ))}
+              </Box>
+            </Box>
+          </motion.div>
+        )}
+
         {messages.map((m) => (
           <ChatBubble key={m.id} message={m} />
         ))}
@@ -195,10 +273,10 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
       {/* Input */}
       <Box
         sx={{
-          px: 2,
-          py: 1.5,
+          px: { xs: 2, md: 3 },
+          py: 2,
           borderTop: `1px solid ${BORDER}`,
-          bgcolor: 'background.paper',
+          bgcolor: 'transparent',
           flexShrink: 0,
         }}
       >
@@ -221,14 +299,16 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <IconButton
-                  onClick={onSwitchToVoice}
-                  size="small"
-                  sx={{ color: MUTED, '@media (hover: hover)': { '&:hover': { color: NAVY } } }}
-                  title="Switch to voice"
-                >
-                  <MicIcon sx={{ fontSize: 18 }} />
-                </IconButton>
+                <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                  <IconButton
+                    onClick={onSwitchToVoice}
+                    size="small"
+                    sx={{ color: MUTED, '@media (hover: hover)': { '&:hover': { color: NAVY } } }}
+                    title="Switch to voice"
+                  >
+                    <MicIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Box>
               </InputAdornment>
             ),
             endAdornment: (
@@ -237,7 +317,16 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
                   onClick={handleSend}
                   disabled={!ready || sending || !input.trim()}
                   size="small"
-                  sx={{ color: 'primary.main', '&.Mui-disabled': { opacity: 0.5 } }}
+                  sx={{ 
+                    width: { xs: 'auto', md: 40 },
+                    height: { xs: 'auto', md: 40 },
+                    background: { xs: 'none', md: (!input.trim() || sending) ? undefined : BRAND_GRADIENT },
+                    color: { xs: 'primary.main', md: (!input.trim() || sending) ? MUTED : PRIMARY_CONTRAST },
+                    borderRadius: { md: 2 },
+                    boxShadow: { md: (!input.trim() || sending) ? 'none' : SHADOW_BRAND },
+                    transition: 'all 0.2s',
+                    '&.Mui-disabled': { opacity: { xs: 0.5, md: 0.4 } } 
+                  }}
                 >
                   <SendIcon sx={{ fontSize: 18 }} />
                 </IconButton>
@@ -246,8 +335,8 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           }}
           sx={{
             '& .MuiOutlinedInput-root': {
-              borderRadius: 3,
-              bgcolor: 'background.default',
+              borderRadius: { xs: 3, md: 2.5 },
+              bgcolor: 'background.paper',
               fontSize: 14,
             },
           }}
@@ -295,8 +384,11 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
 
   if (showChat) {
     return (
-      <Box sx={{ height: isMobile ? '100%' : 'calc(100dvh - 7vh)', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', minHeight: 0 }}>
-        <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} />
+      <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', minHeight: 0 }}>
+        <Box sx={{ width: '100%', maxWidth: { md: 900 }, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: { xs: 'background.default', md: 'background.default' }, minHeight: 0, borderRadius: { md: 4 }, overflow: 'hidden', border: { md: `1px solid ${BORDER}` }, boxShadow: { md: '0 24px 48px rgba(0,0,0,0.06)' } }}>
+          {/* Main Centered Text Chat Panel */}
+          <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} />
+        </Box>
       </Box>
     );
   }
