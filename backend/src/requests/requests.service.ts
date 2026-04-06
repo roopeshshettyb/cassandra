@@ -82,6 +82,23 @@ export class RequestsService {
     };
   }
 
+  async findByIdForAccount(id: number, currentAccount: Account) {
+    const where = await this.getWhereForAccount(currentAccount);
+    const findWhere = where ? { ...where, id } : { id };
+    const req = await this.requestsRepository.findOne({
+      where: findWhere,
+      include: [
+        { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
+        { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
+        { model: Booking, as: 'booking', attributes: ['id'] },
+      ],
+    });
+    if (!req) {
+      throw new NotFoundException();
+    }
+    return { success: true, message: null, data: req };
+  }
+
   async create(dto: CreateRequestDto, currentAccount: Account) {
     const { data: booking } = await this.bookingsService.findByIdForAccount(dto.bookingId, currentAccount);
     if (booking.hotelId !== dto.hotelId || booking.guestId !== dto.guestId) {
@@ -125,15 +142,15 @@ export class RequestsService {
       throw new NotFoundException();
     }
 
-    // Only hotel staff/owner (or admin) can mark a request as completed.
-    if (dto.status === RequestStatus.COMPLETED) {
+    // Only hotel staff/owner (or admin) can change request status.
+    if (dto.status !== undefined) {
       const isStaffOrOwner =
         currentAccount.role === AccountRole.ADMIN ||
         currentAccount.role === AccountRole.HOTEL_OWNER ||
         currentAccount.role === AccountRole.HOTEL_STAFF;
 
       if (!isStaffOrOwner) {
-        throw new ForbiddenException('Only hotel staff or owner can mark a request as completed');
+        throw new ForbiddenException('Only hotel staff or owner can change request status');
       }
     }
 

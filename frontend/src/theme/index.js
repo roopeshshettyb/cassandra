@@ -7,6 +7,7 @@ if (typeof document !== 'undefined') {
   r.setProperty('--app-primary', '#D4AF37');
   r.setProperty('--app-secondary', '#C5A022');
   r.setProperty('--app-primary-contrast', '#000000');
+  r.setProperty('--app-navy-contrast', '#ffffff');
   r.setProperty('--app-border', 'rgba(0,0,0,0.07)');
   r.setProperty('--app-nav-bg', 'rgba(255,255,255,0.8)');
 }
@@ -17,6 +18,7 @@ export const BRAND_GRADIENT = 'var(--app-brand-gradient)';
 export const NAVY_GRADIENT = 'var(--app-navy-gradient)';
 export const NAVY = 'var(--app-navy)';
 export const PRIMARY_CONTRAST = 'var(--app-primary-contrast)';
+export const NAVY_CONTRAST = 'var(--app-navy-contrast)';
 export const BORDER = 'var(--app-border)';
 export const NAV_BG = 'var(--app-nav-bg)';
 export const MUTED = '#888888';

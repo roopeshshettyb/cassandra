@@ -14,8 +14,9 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import dayjs from 'dayjs';
 import request from '../../helper/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, SHADOW_HOVER, SHADOW_BRAND, TEXT_MUTED_LIGHT, HOVER_BG, NAVY_CONTRAST } from '../../theme';
 import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../constants/requestConfig';
+
 dayjs.extend(relativeTime);
 
 const quickActions = [
@@ -49,7 +50,7 @@ const defaultNudges = [
   },
 ];
 
-export default function GuestHome({ booking, account, onTabChange, setLoading, alertError }) {
+export default function GuestHome({ booking, account, onTabChange, setLoading, alertError, logoUrl }) {
   const [dismissedNudges, setDismissedNudges] = useState([]);
 
   const handleViewDocument = async () => {
@@ -80,14 +81,12 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
   const initials = guestName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 14 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: '18vh' }}>
 
       {/* ── Sticky Top Nav Bar ─────────────────────────── */}
       <Box
         sx={{
-          position: { xs: 'static', sm: 'sticky' },
-          top: 0,
-          zIndex: 100,
+          position: 'static',
           bgcolor: 'background.default',
           backdropFilter: 'blur(14px)',
           borderBottom: `1px solid ${BORDER}`,
@@ -97,11 +96,17 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
       >
         <Box sx={{ maxWidth: 640, mx: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
-            <Typography
-              sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', lineHeight: 1 }}
-            >
-              {hotelName}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar
+                src={logoUrl || undefined}
+                sx={{ width: 34, height: 34, background: BRAND_GRADIENT, fontSize: 14, fontWeight: 700, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}
+              >
+                {!logoUrl && hotelName[0]?.toUpperCase()}
+              </Avatar>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', lineHeight: 1 }}>
+                {hotelName}
+              </Typography>
+            </Box>
           </motion.div>
           <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}>
             <Avatar
@@ -111,7 +116,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 background: BRAND_GRADIENT,
                 fontSize: 13,
                 fontWeight: 700,
-                color: '#fff',
+                color: PRIMARY_CONTRAST,
                 display: { xs: 'none', sm: 'flex' },
               }}
             >
@@ -122,12 +127,12 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
       </Box>
 
       {/* ── Scrollable Content ─────────────────────────── */}
-      <Box sx={{ px: 2.5, pt: 3 }}>
+      <Box sx={{ px: 2.5 }}>
         <Box sx={{ maxWidth: 640, mx: 'auto' }}>
 
           {/* Guest Welcome Header */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.13 }}>
-            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>Welcome back,</Typography>
+            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, lineHeight: 1.2, pt: 2 }}>Welcome back,</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, mb: 1.5, lineHeight: 1.2 }}>{guestName}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box
@@ -208,7 +213,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                       boxShadow: SHADOW,
                       cursor: 'pointer',
                       transition: 'box-shadow 0.2s, transform 0.15s',
-                      '&:hover': { boxShadow: SHADOW_HOVER },
+                      '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
                     }}
                   >
                     <Box
@@ -222,13 +227,13 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                         justifyContent: 'center',
                       }}
                     >
-                      <Icon sx={{ fontSize: 20, color: '#fff' }} />
+                      <Icon sx={{ fontSize: 20, color: PRIMARY_CONTRAST }} />
                     </Box>
                     <Typography
                       sx={{
                         fontSize: 11,
                         fontWeight: 600,
-                        color: '#333',
+                        color: 'text.primary',
                         textAlign: 'center',
                         lineHeight: 1.2,
                       }}
@@ -271,10 +276,10 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 flexShrink: 0,
               }}
             >
-              <SupportAgentIcon sx={{ color: '#fff', fontSize: 26 }} />
+              <SupportAgentIcon sx={{ color: NAVY_CONTRAST, fontSize: 26 }} />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
+              <Typography sx={{ fontWeight: 700, color: NAVY_CONTRAST, fontSize: 15, lineHeight: 1.3 }}>Speak to your concierge</Typography>
               <Typography sx={{ fontSize: 13, color: TEXT_MUTED_LIGHT, mt: 0.4 }}>Ask anything — available 24/7</Typography>
             </Box>
           </Box>
@@ -339,7 +344,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                             justifyContent: 'center',
                             cursor: 'pointer',
                             color: MUTED,
-                            '&:hover': { bgcolor: HOVER_BG },
+                            '@media (hover: hover)': { '&:hover': { bgcolor: HOVER_BG } },
                           }}
                         >
                           <CloseIcon sx={{ fontSize: 14 }} />
@@ -420,14 +425,17 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
                 const firstNote = extractFirstNote(req.userNotes);
                 return (
-                  <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.62 + i * 0.07 }}>
+                  <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.62 + i * 0.07 }} whileTap={{ scale: 0.98 }}>
                     <Box
+                      onClick={() => onTabChange('requests')}
                       sx={{
                         p: 2,
                         borderRadius: 3,
                         bgcolor: 'background.paper',
                         border: `1px solid ${BORDER}`,
                         boxShadow: SHADOW,
+                        cursor: 'pointer',
+                        '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
                       }}
                     >
                       <Box

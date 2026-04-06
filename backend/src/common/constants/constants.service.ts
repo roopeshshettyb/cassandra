@@ -268,6 +268,7 @@ export class ConstantsService {
     return {
       // Environment Configuration
       NODE_ENV: this.configService.get<string>('NODE_ENV', 'development'),
+      NODE_ENV_AUTOMATION_TEST: 'automation_test',
       BACKEND_PORT: this.configService.get<number>('PORT', 3000),
       FRONTEND_URL: this.configService.get<string>('FRONTEND_URL'),
       BACKEND_URL: this.configService.get<string>('BACKEND_URL'),

@@ -7,11 +7,16 @@ import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
 import GuestBottomNav from './GuestBottomNav';
 
-export default function GuestPortal({ booking, account, isMobile, alertError, setLoading, navigate, sidebarOpen }) {
+export default function GuestPortal({ booking, account, isMobile, alertError, alertSuccess, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const logoUrl = booking?.hotel?.logoUrl || null;
   const { HOTEL_STAFF, HOTEL_OWNER, GUEST } = constants.ACCOUNT_ROLES;
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
+  const isChatMode = searchParams.get('mode') === 'chat';
+  const isConcierge = isMobile && activeTab === 'concierge';
+  const hideNav = isConcierge && isChatMode;
+  const fullScreen = isConcierge; // lock scroll + hide footer for both voice and chat
 
   const setActiveTab = useCallback((tab) => {
     setSearchParams({ tab });
@@ -21,6 +26,12 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
+
+  // Lock body scroll when in full-screen mode (concierge on mobile)
+  useEffect(() => {
+    document.body.style.overflow = fullScreen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [fullScreen]);
 
   if (!booking) return null;
 
@@ -36,9 +47,11 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             navigate={navigate}
             setLoading={setLoading}
             alertError={alertError}
+            logoUrl={logoUrl}
           />
         );
       case 'concierge':
+        if (isNonGuest) { setActiveTab('requests'); return null; }
         return (
           <GuestConcierge
             booking={booking}
@@ -46,6 +59,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             isWithinStay={account?.role !== GUEST ? true : booking.isWithinStay}
             isMobile={isMobile}
             setLoading={setLoading}
+            logoUrl={logoUrl}
           />
         );
       case 'requests':
@@ -54,6 +68,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             booking={booking}
             alertError={alertError}
             setLoading={setLoading}
+            logoUrl={logoUrl}
+            navigate={navigate}
           />
         );
       default:
@@ -66,13 +82,23 @@ export default function GuestPortal({ booking, account, isMobile, alertError, se
             navigate={navigate}
             setLoading={setLoading}
             alertError={alertError}
+            logoUrl={logoUrl}
           />
         );
     }
   };
 
+  if (fullScreen) {
+    return (
+      <Box sx={{ position: 'fixed', top: 'var(--app-header-height)', left: 0, right: 0, bottom: 0, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+        {renderTab()}
+        {!hideNav && <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />}
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: 'background.default', pt: isMobile ? '5vh' : 0 }}>
+    <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
       {renderTab()}
       <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />
     </Box>

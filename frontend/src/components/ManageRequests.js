@@ -9,13 +9,12 @@ import { NAVY } from '../theme';
 
 function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, account }) {
   const [requests, setRequests] = useState([]);
-  const [dataLoading, setDataLoading] = useState(true);
 
   function fetchRequests(isBackground) {
     request({
       endpoint: '/requests',
       method: 'GET',
-      setLoading: isBackground ? null : setDataLoading,
+      setLoading: isBackground ? null : setLoading,
       setData: setRequests,
       defaultData: [],
       alertError,
@@ -37,14 +36,14 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
   }, []);
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '4vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Box sx={{ mb: 2.5, display: { xs: 'none', sm: 'block' } }}>
           <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
           <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Requests</Typography>
         </Box>
       </motion.div>
-      <DataGrid CardComponent={RequestCard} data={requests} isLoading={dataLoading} navigate={navigate} account={account} />
+      <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
     </Box>
   );
 }

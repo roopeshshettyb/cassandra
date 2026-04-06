@@ -1,16 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Circle, Delete } from '@mui/icons-material';
+import { CheckCircle, Circle } from '@mui/icons-material';
 import MapComponent from './MapComponent';
 import request from '../helper/api';
 
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, TEXT_MUTED_DARK } from '../theme';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG, TEXT_MUTED_DARK } from '../theme';
 
 const typeColors = {
   DEAL_UPDATE: { color: STATUS_INFO, bg: STATUS_INFO_BG },
   PAYMENT: { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
-  SYSTEM: { color: MUTED, bg: TEXT_MUTED_DARK }, // Or HOVER_BG / TEXT_MUTED_DARK etc
+  NEW_REQUEST: { color: STATUS_INFO, bg: STATUS_INFO_BG },
+  REQUEST_UPDATED: { color: STATUS_WARNING, bg: STATUS_WARNING_BG },
+  NEW_BOOKING: { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  NEW_MESSAGE: { color: STATUS_INFO, bg: STATUS_INFO_BG },
+  SYSTEM: { color: MUTED, bg: TEXT_MUTED_DARK },
 };
 
 function NotificationItem({ data: notification, onNotificationClick }) {
@@ -32,7 +36,7 @@ function NotificationItem({ data: notification, onNotificationClick }) {
           position: 'relative',
           overflow: 'hidden',
           opacity: notification.read ? 0.6 : 1,
-          '&:hover': { boxShadow: SHADOW_HOVER },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
         {/* Unread gold accent */}
@@ -68,14 +72,12 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
   }, [markNotificationAsRead, navigate]);
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pt: 3, pb: 6, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 800, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Inbox</Typography>
-            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Notifications</Typography>
-            {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
-          </Box>
+        <Box sx={{ mb: 4 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Inbox</Typography>
+          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Notifications</Typography>
+          {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
         </Box>
       </motion.div>
 

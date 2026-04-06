@@ -1,12 +1,11 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Avatar, Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
-import HotelIcon from '@mui/icons-material/Hotel';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
+import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, NAVY_CONTRAST } from '../../theme';
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;
@@ -22,15 +21,18 @@ const HotelCard = ({ data, navigate }) => {
           border: `1px solid ${BORDER}`,
           boxShadow: SHADOW,
           cursor: 'pointer',
-          '&:hover': { boxShadow: SHADOW_HOVER },
+          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
         {/* Navy banner with centered icon */}
         <Box sx={{ background: NAVY_GRADIENT, height: 90, display: 'flex', alignItems: 'center', px: 2.5, gap: 2 }}>
-          <Box sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <HotelIcon sx={{ fontSize: 22, color: '#fff' }} />
-          </Box>
-          <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#fff', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          <Avatar
+            src={hotel.logoUrl || undefined}
+            sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, fontSize: 18, fontWeight: 700, color: NAVY_CONTRAST, flexShrink: 0 }}
+          >
+            {!hotel.logoUrl && hotel.name?.[0]?.toUpperCase()}
+          </Avatar>
+          <Typography sx={{ fontWeight: 700, fontSize: 15, color: NAVY_CONTRAST, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
             {hotel.name}
           </Typography>
         </Box>
@@ -69,8 +71,8 @@ const HotelCard = ({ data, navigate }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: `1px solid ${BORDER}` }}>
             <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.6 }}>#{hotel.id}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#C5A022' }}>Manage</Typography>
-              <ArrowForwardIosIcon sx={{ fontSize: 10, color: '#C5A022' }} />
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'primary.main' }}>Manage</Typography>
+              <ArrowForwardIosIcon sx={{ fontSize: 10, color: 'primary.main' }} />
             </Box>
           </Box>
         </Box>

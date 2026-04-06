@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -20,6 +20,7 @@ import HotelDetails from './components/HotelDetails';
 import ManageBookings from './components/ManageBookings';
 import BookingDetails from './components/BookingDetails';
 import ManageRequests from './components/ManageRequests';
+import RequestDetails from './components/RequestDetails';
 import ManageCosts from './components/ManageCosts';
 import Rooms from './components/Rooms';
 import request from './helper/api';
@@ -119,30 +120,72 @@ const AppContent = () => {
   };
 
   const token = localStorage.getItem('token');
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem('notificationsEnabled') !== 'false';
+  });
+
+  // On first load: if enabled and permission not yet decided, prompt for it
+  useEffect(() => {
+    if (!account) return;
+    if (!notificationsEnabled) return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'default') return;
+
+    Notification.requestPermission().then((permission) => {
+      if (permission !== 'granted') {
+        localStorage.setItem('notificationsEnabled', 'false');
+        setNotificationsEnabled(false);
+      }
+    });
+  }, [account]);
+
+  const toggleNotifications = async (enabled) => {
+    if (enabled) {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alertError('Please allow notifications in your browser settings to enable this.');
+          return;
+        }
+      }
+      localStorage.setItem('notificationsEnabled', 'true');
+      setNotificationsEnabled(true);
+    } else {
+      localStorage.setItem('notificationsEnabled', 'false');
+      setNotificationsEnabled(false);
+    }
+  };
+
   const {
     unreadCount,
     notifications,
     loading: notificationsLoading,
     markAsRead,
   } = useNotifications({
-    enabled: !!account,
+    enabled: !!account && notificationsEnabled,
     token: token || undefined,
   });
 
-  // Show toast when new notification arrives
+  const notificationsInitialized = useRef(false);
+
+  // Show toast only for NEW real-time notifications, not on initial fetch
   useEffect(() => {
-    if (notifications.length > 0) {
-      const latestNotification = notifications[0];
-      if (!latestNotification.read) {
-        toast.info(latestNotification.message, {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-      }
+    if (notifications.length === 0) return;
+    if (!notificationsInitialized.current) {
+      notificationsInitialized.current = true;
+      return;
+    }
+    const latestNotification = notifications[0];
+    if (!latestNotification.read) {
+      toast.info(latestNotification.message, {
+        position: 'top-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     }
   }, [notifications.length]);
 
@@ -191,6 +234,7 @@ const AppContent = () => {
     const contrastText = getContrastText(primary);
 
     const r = document.documentElement.style;
+    r.setProperty('--app-header-height', '64px');
     r.setProperty('--app-brand-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
     r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
     r.setProperty('--app-navy', navy);
@@ -283,6 +327,11 @@ const AppContent = () => {
 
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
+  const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
+  const isFullScreenMobile = isMobile && (
+    pathname.startsWith('/requests/') ||
+    pathname.startsWith('/bookings/')
+  );
 
   const routes = [
     { path: '/invite', component: InviteHandler, isProtected: false },
@@ -300,6 +349,7 @@ const AppContent = () => {
     { path: '/bookings', component: ManageBookings, isProtected: true },
     { path: '/bookings/:id', component: BookingDetails, isProtected: true },
     { path: '/requests', component: ManageRequests, isProtected: true },
+    { path: '/requests/:id', component: RequestDetails, isProtected: true },
     { path: '/costs', component: ManageCosts, isProtected: true },
   ];
 
@@ -333,6 +383,8 @@ const AppContent = () => {
     notifications,
     notificationsLoading: notificationsLoading,
     markNotificationAsRead: markAsRead,
+    notificationsEnabled,
+    toggleNotifications,
   };
 
   const isAuthenticated = !!(account || token);
@@ -346,12 +398,12 @@ const AppContent = () => {
           sx={{
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
-            minHeight: '130vh',
+            minHeight: '100dvh',
             ml: isMobile ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: isLandingPage ? 0 : isMobile ? '4vh' : '2.5vh' }}>
+            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
@@ -390,7 +442,7 @@ const AppContent = () => {
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          {!isLandingPage && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>

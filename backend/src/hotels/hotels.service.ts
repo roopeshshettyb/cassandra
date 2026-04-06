@@ -388,6 +388,54 @@ ${inviteUrl}`;
     }
   }
 
+  async getLogoPresignedUrl(
+    hotelId: number,
+    body: { fileName: string; fileSize: number; contentType: string },
+    currentAccount: Account,
+  ) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const maxSizeBytes = 5 * 1024 * 1024;
+    if (body.fileSize > maxSizeBytes) {
+      throw new BadRequestException('File size must not exceed 5MB');
+    }
+
+    if (!body.contentType.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}hotel-logos/${hotel.id}-${Date.now()}-${body.fileName}`;
+
+    try {
+      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, true);
+      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
+      const publicUrl = this.awsService.getPublicUrl(publicBucket, s3Key);
+
+      return {
+        success: true,
+        data: { presignedUrl, s3Url: publicUrl },
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
+    }
+  }
+
+  async confirmLogoUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    await this.findByIdForAccount(hotelId, currentAccount);
+
+    const [, updatedHotels] = await this.hotelsRepository.update(
+      { logoUrl: body.s3Url },
+      { where: { id: hotelId }, returning: true },
+    );
+
+    return {
+      success: true,
+      message: 'Logo updated successfully',
+      data: updatedHotels[0],
+    };
+  }
+
   async getNotificationToneSignedUrl(hotelId: number, currentAccount: Account) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
 
