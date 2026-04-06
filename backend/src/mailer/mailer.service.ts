@@ -84,7 +84,8 @@ export class MailerService {
   }
 
   async sendMail(options: { to: string; subject: string; text: string; html?: string }): Promise<void> {
-    if (this.constantsService.private.NODE_ENV === 'automation_test') return;
+    const { NODE_ENV, NODE_ENV_AUTOMATION_TEST } = this.constantsService.private;
+    if (NODE_ENV === NODE_ENV_AUTOMATION_TEST) return;
     const privateConstants = this.constantsService.private;
     const publicConstants = this.constantsService.public;
     const email = privateConstants.GODADDY_EMAIL;
