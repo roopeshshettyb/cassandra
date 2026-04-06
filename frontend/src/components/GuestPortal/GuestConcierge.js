@@ -156,7 +156,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice })
           flex: 1,
           overflowY: 'auto',
           px: 2,
-          pt: 1,
+          pt: 1.5,
           pb: 2,
           display: 'flex',
           flexDirection: 'column',
@@ -305,8 +305,8 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
     <Box
       sx={{
         flex: isMobile ? 1 : 'unset',
-        minHeight: isMobile ? 0 : 'calc(100dvh - 80px)',
-        height: isMobile ? 'unset' : 'calc(100dvh - 80px)',
+        minHeight: isMobile ? 0 : '89dvh',
+        height: isMobile ? 'unset' : '89dvh',
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
@@ -335,7 +335,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         </motion.div>
 
         {/* Voice button — flex:1 centers mic in remaining space, pb clears Prefer to type */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, pb: '10vh' }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, pb: '10svh' }}>
           <motion.button
             onClick={handleMicTap}
             style={{

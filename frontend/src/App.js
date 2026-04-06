@@ -234,6 +234,7 @@ const AppContent = () => {
     const contrastText = getContrastText(primary);
 
     const r = document.documentElement.style;
+    r.setProperty('--app-header-height', '64px');
     r.setProperty('--app-brand-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
     r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
     r.setProperty('--app-navy', navy);
@@ -402,7 +403,7 @@ const AppContent = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: '64px', md: '3vh' } }}>
+            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />

@@ -90,7 +90,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
 
   if (fullScreen) {
     return (
-      <Box sx={{ position: 'fixed', top: 64, left: 0, right: 0, bottom: 0, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+      <Box sx={{ position: 'fixed', top: 'var(--app-header-height)', left: 0, right: 0, bottom: 0, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
         {renderTab()}
         {!hideNav && <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />}
       </Box>
@@ -98,7 +98,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   }
 
   return (
-    <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: '64px', md: '3vh' } }}>
+    <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
       {renderTab()}
       <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />
     </Box>

@@ -9,16 +9,16 @@ import { Booking } from './bookings/bookings.model';
 import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/requests.model';
 
 // Load environment variables from env file (same pattern as NestJS app)
-const nodeEnv = process.env.NODE_ENV || 'dev';
-const envFile = 'prod.env';
+const nodeEnv = process.env.NODE_ENV;
+const envFile = nodeEnv === 'prod' ? 'prod.env' : 'dev.env';
 dotenv.config({ path: path.resolve(__dirname, `../${envFile}`) });
 
 async function seed() {
-  const dbHost = process.env.DB_HOST || 'localhost';
-  const dbPort = parseInt(process.env.DB_PORT || '5432', 10);
-  const dbUsername = process.env.DB_USERNAME || 'postgres';
-  const dbPassword = process.env.DB_PASSWORD || 'postgres';
-  const dbName = process.env.DB_NAME || 'profile_aura';
+  const dbHost = process.env.DB_HOST;
+  const dbPort = parseInt(process.env.DB_PORT, 10);
+  const dbUsername = process.env.DB_USERNAME;
+  const dbPassword = process.env.DB_PASSWORD;
+  const dbName = process.env.DB_NAME;
   const dbSsl = process.env.DB_SSL === 'true' || process.env.DB_SSL === '1';
 
   const sequelize = new Sequelize({
