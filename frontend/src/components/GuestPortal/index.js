@@ -93,7 +93,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
       <Box
         sx={{
           position: 'fixed',
-          top: 'var(--app-header-height)',
+          top: { xs: 'var(--app-header-height)', md: '4svh' },
           left: isMobile ? 0 : '20vw',
           right: 0,
           bottom: 0,
@@ -103,7 +103,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           zIndex: 10,
           // Desktop inner padding so content breathes
           px: { xs: 0, md: 4 },
-          py: { xs: 0, md: 2 },
+          py: { xs: 0, md: 0 },
         }}
       >
         {renderTab()}
@@ -113,7 +113,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   }
 
   return (
-    <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
+    <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: 'calc(var(--app-header-height) + 2svh)', md: '4svh' } }}>
       {renderTab()}
       <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />
     </Box>

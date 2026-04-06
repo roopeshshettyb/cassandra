@@ -165,7 +165,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Desktop Header */}
-      <Box sx={{ px: 3, py: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'space-between', bgcolor: 'transparent', flexShrink: 0 }}>
+      <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'space-between', bgcolor: 'transparent', flexShrink: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
             <SupportAgentIcon sx={{ fontSize: 24 }} />
@@ -403,7 +403,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         display: 'flex',
         flexDirection: 'column',
         px: 2.5,
-        pt: 1,
+        pt: { xs: 1, md: 0 },
         pb: 2,
         position: 'relative',
       }}

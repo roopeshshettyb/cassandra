@@ -190,7 +190,7 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
   return (
     <Box sx={{
       position: 'fixed',
-      top: 'var(--app-header-height)',
+      top: '4svh',
       left: '20vw',
       right: 0,
       bottom: 0,
