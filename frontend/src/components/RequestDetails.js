@@ -116,7 +116,7 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
     setSending(true);
     const result = await request({ endpoint: `/requests/${req.id}/append-message`, method: 'POST', data: { message: text }, alertError });
     setSending(false);
-    if (result?.data) { setMessageText(''); setReq(result.data); alertSuccess?.('Message sent'); inputRef.current?.focus?.(); }
+    if (result?.data) { setMessageText(''); setReq(prev => ({ ...prev, ...result.data })); alertSuccess?.('Message sent'); inputRef.current?.focus?.(); }
   };
 
   const handleStatusChange = async (newStatus) => {
@@ -124,7 +124,7 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
     setUpdatingStatus(true);
     const result = await request({ endpoint: `/requests/${req.id}`, method: 'PATCH', data: { status: newStatus }, alertError });
     setUpdatingStatus(false);
-    if (result?.data) { setReq(result.data); alertSuccess?.('Status updated'); }
+    if (result?.data) { setReq(prev => ({ ...prev, ...result.data })); alertSuccess?.('Status updated'); }
   };
 
   if (!req) return null;
