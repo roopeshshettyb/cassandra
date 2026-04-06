@@ -193,6 +193,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         fullWidth
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 3 } }}
+        sx={{ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)' } }}
       >
         <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>New Booking</DialogTitle>
         <Box component="form" onSubmit={handleCreateBooking}>
