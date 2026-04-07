@@ -50,7 +50,7 @@ const defaultNudges = [
   },
 ];
 
-export default function GuestHome({ booking, account, onTabChange, setLoading, alertError, logoUrl }) {
+export default function GuestHome({ booking, account, onTabChange, setLoading, alertError, logoUrl, navigate }) {
   const [dismissedNudges, setDismissedNudges] = useState([]);
 
   const handleViewDocument = async () => {
@@ -86,6 +86,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
       {/* ── Sticky Top Nav Bar ─────────────────────────── */}
       <Box
         sx={{
+          display: { xs: 'block', md: 'none' },
           position: 'static',
           bgcolor: 'background.default',
           backdropFilter: 'blur(14px)',
@@ -132,7 +133,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
 
           {/* Guest Welcome Header */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.13 }}>
-            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, lineHeight: 1.2, pt: 2 }}>Welcome back,</Typography>
+            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, lineHeight: 1.2, pt: 0 }}>Welcome back,</Typography>
             <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, mb: 1.5, lineHeight: 1.2 }}>{guestName}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box
@@ -427,7 +428,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                 return (
                   <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.62 + i * 0.07 }} whileTap={{ scale: 0.98 }}>
                     <Box
-                      onClick={() => onTabChange('requests')}
+                      onClick={() => navigate?.(`/requests/${req.id}`)}
                       sx={{
                         p: 2,
                         borderRadius: 3,
