@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Avatar, Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
@@ -442,6 +444,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
   // Refs to avoid circular deps in handleVoiceReady
   const sendTextRef = useRef(null);
   const startRecordingRef = useRef(null);
+  const chipsScrollRef = useRef(null);
 
   // Called every time the backend is ready for a new turn.
   // Unified logic: whether the previous turn was voice or chip, open the mic next.
@@ -601,46 +604,67 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.2 }}
             >
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 1,
-                  overflowX: 'auto',
-                  pb: 1,
-                  px: 0.5,
-                  '&::-webkit-scrollbar': { display: 'none' },
-                  msOverflowStyle: 'none',
-                  scrollbarWidth: 'none',
-                }}
-              >
-                {voiceSuggestions.map((prompt) => (
-                  <Box
-                    key={prompt}
-                    component={motion.button}
-                    onClick={() => {
-                      hasInteractedRef.current = true;
-                      userStoppedRef.current = false;
-                      sendText(prompt);
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    sx={{
-                      flexShrink: 0,
-                      border: `1px solid ${BORDER}`,
-                      borderRadius: 5,
-                      px: 1.75,
-                      py: 0.75,
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: NAVY,
-                      bgcolor: 'background.paper',
-                      boxShadow: SHADOW,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {prompt}
-                  </Box>
-                ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* Left arrow — desktop only */}
+                <IconButton
+                  size="small"
+                  onClick={() => chipsScrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+                  sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
+                >
+                  <ChevronLeftIcon fontSize="small" />
+                </IconButton>
+
+                <Box
+                  ref={chipsScrollRef}
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    overflowX: 'auto',
+                    pb: 1,
+                    px: 0.5,
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  {voiceSuggestions.map((prompt) => (
+                    <Box
+                      key={prompt}
+                      component={motion.button}
+                      onClick={() => {
+                        hasInteractedRef.current = true;
+                        userStoppedRef.current = true;
+                        sendText(prompt);
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      sx={{
+                        flexShrink: 0,
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 5,
+                        px: 1.75,
+                        py: 0.75,
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: NAVY,
+                        bgcolor: 'background.paper',
+                        boxShadow: SHADOW,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {prompt}
+                    </Box>
+                  ))}
+                </Box>
+
+                {/* Right arrow — desktop only */}
+                <IconButton
+                  size="small"
+                  onClick={() => chipsScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+                  sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
+                >
+                  <ChevronRightIcon fontSize="small" />
+                </IconButton>
               </Box>
             </motion.div>
           )}
