@@ -235,6 +235,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 state.statistics.ttsMs += Date.now() - t0;
               } else {
                 await state.ttsQueue;
+                // All sentences were flushed with emitEnd:false — emit audio_end now so the
+                // client's source.onended counter can resolve and voice_playback_done is sent.
+                client.emit('voice_audio_end');
               }
               state.statistics.totalProcessingMs = Date.now() - state.statistics.responseStart;
               this.loggerService.log({
@@ -381,7 +384,94 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   onPlaybackDone(client: any) {
     if (this.isGptVoicePipeline()) {
       this.voiceRealtimeService.onPlaybackDone(client.id);
+    } else {
+      client.voiceBusy = false;
+      client.emit('voice_ready');
     }
+  }
+
+  @SubscribeMessage('voice_send_text')
+  async onVoiceSendText(client: any, payload: { text: string }) {
+    const session: ChatSession | undefined = client.session;
+    if (!session) {
+      client.emit('error', { message: 'Not authenticated' });
+      return;
+    }
+
+    const textToSpeak = payload?.text?.trim();
+    if (!textToSpeak) return;
+
+    if (this.isGptVoicePipeline()) {
+      try {
+        this.voiceRealtimeService.sendClientEvent(client.id, {
+          type: 'conversation.item.create',
+          item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: textToSpeak }] },
+        });
+        this.voiceRealtimeService.sendClientEvent(client.id, { type: 'response.create' });
+      } catch (err: any) {
+        client.emit('error', { message: err?.message || 'Failed to inject text' });
+      }
+      return;
+    }
+
+    // Custom STT pipeline (and Deepgram voice agent fallback — direct LLM path)
+    if (client.voiceBusy) return;
+
+    client.voiceBusy = true;
+    client.emit('voice_turn_end');
+    client.emit('voice_user_message', { text: textToSpeak });
+
+    const provider = this.ttsFactory.getProvider();
+    const statistics: VoiceTurnStatistics = {
+      lastAudioAt: Date.now(),
+      responseStart: Date.now(),
+      sttMs: 0,
+      llmStart: Date.now(),
+      llmMs: 0,
+      ttsMs: 0,
+      totalProcessingMs: 0,
+    };
+    const state = {
+      sentenceBuffer: '',
+      fullText: '',
+      ttsQueue: Promise.resolve() as Promise<void>,
+      statistics,
+      languageCode: session.languageCode ?? null,
+    };
+
+    this.chatLlmService
+      .streamUserMessage(session, textToSpeak, {
+        mode: 'voice',
+        onChunk: (chunk: string) => {
+          if (!chunk) return;
+          state.sentenceBuffer += chunk;
+          this.flushCompletedSentencesToTts(state, client, provider);
+        },
+        onEnd: async (result) => {
+          statistics.llmMs = Date.now() - statistics.llmStart;
+          if (state.sentenceBuffer.trim().length > 0) {
+            state.fullText += state.sentenceBuffer.trim();
+            await state.ttsQueue;
+            const t0 = Date.now();
+            await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true, languageCode: state.languageCode });
+            statistics.ttsMs += Date.now() - t0;
+          } else {
+            await state.ttsQueue;
+            // All sentences were flushed with emitEnd:false — emit audio_end now so the
+            // client's source.onended counter can resolve and voice_playback_done is sent.
+            client.emit('voice_audio_end');
+          }
+          client.emit('voice_text_end', { text: result.fullContent || state.fullText });
+          // voiceBusy reset and voice_ready are deferred to onPlaybackDone,
+          // so the animation stays alive until the client finishes playing audio.
+        },
+      })
+      .catch((err: any) => {
+        this.loggerService.warn({ message: err?.message ?? String(err), traces: [{ error: 'voice_send_text LLM+TTS' }] });
+        client.emit('error', { message: 'Voice response failed' });
+        client.voiceBusy = false;
+        client.emit('voice_ready');
+      });
   }
 
   @SubscribeMessage('voice_stop')

@@ -28,13 +28,19 @@ export const base64ToUint8Array = (base64: string): Uint8Array => {
   return bytes;
 };
 
-export const playPcmChunk = (base64: string, audioContextRef: { current: AudioContext | null }, playbackTimeRef: { current: number }) => {
+export const playPcmChunk = (
+  base64: string,
+  audioContextRef: { current: AudioContext | null },
+  playbackTimeRef: { current: number },
+): void => {
   const bytes = base64ToUint8Array(base64);
-  const AudioContextImpl = window.AudioContext || (window as any).webkitAudioContext;
+  const win: any = window;
+  const AudioContextImpl = win.AudioContext || win.webkitAudioContext;
   if (!audioContextRef.current) {
     audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
   }
   const audioContext = audioContextRef.current;
+  if (!audioContext) return;
   const bufferLength = Math.floor(bytes.byteLength / 2);
   if (bufferLength === 0) return;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
