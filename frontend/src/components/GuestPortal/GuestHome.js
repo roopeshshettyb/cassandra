@@ -20,10 +20,10 @@ import { REQUEST_STATUS, REQUEST_TYPE_LABEL, extractFirstNote } from '../../cons
 dayjs.extend(relativeTime);
 
 const quickActions = [
-  { icon: CleaningServicesIcon, label: 'Housekeeping' },
-  { icon: LocalLaundryServiceIcon, label: 'Laundry' },
-  { icon: RestaurantIcon, label: 'Dining' },
-  { icon: FitnessCenterIcon, label: 'Facilities' },
+  { icon: CleaningServicesIcon, label: 'Housekeeping', prompt: 'I need help with housekeeping' },
+  { icon: LocalLaundryServiceIcon, label: 'Laundry', prompt: 'I need help with laundry' },
+  { icon: RestaurantIcon, label: 'Dining', prompt: 'I need dining recommendations or room service' },
+  { icon: FitnessCenterIcon, label: 'Facilities', prompt: 'Tell me about the hotel facilities' },
 ];
 
 const defaultNudges = [
@@ -33,6 +33,7 @@ const defaultNudges = [
     title: 'Turndown Service',
     description: 'Would you like us to prepare your room for the evening?',
     action: 'Yes, please',
+    prompt: 'I would like turndown service for my room this evening.',
   },
   {
     id: 'breakfast',
@@ -40,6 +41,7 @@ const defaultNudges = [
     title: 'Breakfast Tomorrow',
     description: 'Reserve your table for breakfast? Available 7–10:30 AM.',
     action: 'Reserve',
+    prompt: 'I would like to reserve a table for breakfast tomorrow morning.',
   },
   {
     id: 'spa',
@@ -47,6 +49,7 @@ const defaultNudges = [
     title: 'Complimentary Spa Session',
     description: 'Enjoy a 15-min welcome massage — available today.',
     action: 'Book Now',
+    prompt: 'I would like to book the complimentary 15-minute welcome spa session.',
   },
 ];
 
@@ -202,7 +205,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
               return (
                 <motion.div key={action.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 + i * 0.07 }} whileTap={{ scale: 0.94 }}>
                   <Box
-                    onClick={() => onTabChange('concierge')}
+                    onClick={() => onTabChange('concierge', action.prompt)}
                     sx={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -371,7 +374,7 @@ export default function GuestHome({ booking, account, onTabChange, setLoading, a
                             <Box
                               component={motion.button}
                               whileTap={{ scale: 0.96 }}
-                              onClick={() => onTabChange('concierge')}
+                              onClick={() => onTabChange('concierge', nudge.prompt)}
                               sx={{
                                 mt: 1.5,
                                 px: 2,

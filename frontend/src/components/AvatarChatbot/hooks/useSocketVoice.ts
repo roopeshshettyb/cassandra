@@ -6,13 +6,14 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 interface UseSocketVoiceProps {
   bookingId: number | string;
+  onReady?: () => void;
   onUserMessage?: (text: string) => void;
   onAssistantTextChunk?: (text: string) => void;
   onAssistantTextEnd?: (text: string) => void;
   onError?: (error: string) => void;
 }
 
-export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
+export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -20,12 +21,28 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
   const [isProcessing, setIsProcessing] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const playbackTimeRef = useRef<number>(0);
-  const playbackDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // RAF handle — polls audioCtx.currentTime until past playbackTimeRef.current
+  const playbackRafRef = useRef<number | null>(null);
+  // Fallback timer in case RAF stalls (background tab, suspended context)
+  const playbackFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelPlaybackTracking = useCallback(() => {
+    if (playbackRafRef.current !== null) {
+      cancelAnimationFrame(playbackRafRef.current);
+      playbackRafRef.current = null;
+    }
+    if (playbackFallbackTimerRef.current !== null) {
+      clearTimeout(playbackFallbackTimerRef.current);
+      playbackFallbackTimerRef.current = null;
+    }
+  }, []);
 
   const cleanupAudio = useCallback(() => {
     if (processorRef.current) {
@@ -57,6 +74,35 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
 
     socketRef.current = socket;
 
+    // Signal server that client finished playing audio.
+    // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
+    const signalPlaybackDone = () => {
+      cancelPlaybackTracking();
+      setIsSpeaking(false);
+      socket.emit('voice_playback_done');
+    };
+
+    // Start RAF polling: fires every ~16ms, checks if audio has finished.
+    // Fallback timer kicks in after (duration + 2s) in case RAF stalls.
+    const startPlaybackTracking = (scheduledEndTime: number) => {
+      cancelPlaybackTracking();
+
+      const poll = () => {
+        const audioCtx = playbackAudioContextRef.current;
+        if (!audioCtx || audioCtx.currentTime >= scheduledEndTime) {
+          signalPlaybackDone();
+        } else {
+          playbackRafRef.current = requestAnimationFrame(poll);
+        }
+      };
+      playbackRafRef.current = requestAnimationFrame(poll);
+
+      // Fallback: force done if RAF stalls (suspended ctx, background tab)
+      const audioCtx = playbackAudioContextRef.current;
+      const remaining = audioCtx ? Math.max(0, (scheduledEndTime - audioCtx.currentTime) * 1000) : 0;
+      playbackFallbackTimerRef.current = setTimeout(signalPlaybackDone, remaining + 2000);
+    };
+
     socket.on('connect', () => setIsReady(true));
 
     socket.on('disconnect', () => {
@@ -64,25 +110,23 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
       setIsRecording(false);
       setIsSpeaking(false);
       setIsProcessing(false);
-      if (playbackDoneTimerRef.current) {
-        clearTimeout(playbackDoneTimerRef.current);
-        playbackDoneTimerRef.current = null;
-      }
+      cancelPlaybackTracking();
       cleanupAudio();
     });
 
-    // Backend is ready / ready for the next turn — mic stays open
+    // Backend is ready / ready for the next turn
     socket.on('voice_ready', () => {
       setIsReady(true);
       setIsProcessing(false);
       setIsSpeaking(false);
+      cancelPlaybackTracking();
+      onReadyRef.current?.();
     });
 
-    // Custom pipeline: STT detected end of speech, backend now processing LLM+TTS.
-    // Do NOT touch the mic — audio chunks keep streaming and the backend will
-    // create a new STT session automatically once voiceBusy resets (voice_ready).
+    // Custom pipeline: STT detected end of speech, backend now processing LLM+TTS
     socket.on('voice_turn_end', () => {
       setIsProcessing(true);
+      cancelPlaybackTracking();
     });
 
     // GPT pipeline: session closed
@@ -110,15 +154,7 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
     });
 
     socket.on('voice_text_end', (payload: any) => {
-      setIsSpeaking(false);
       onAssistantTextEnd?.(payload?.text || '');
-
-      if (playbackDoneTimerRef.current) clearTimeout(playbackDoneTimerRef.current);
-      const ctx = playbackAudioContextRef.current;
-      const remainingMs = ctx && playbackTimeRef.current > ctx.currentTime ? (playbackTimeRef.current - ctx.currentTime) * 1000 + 300 : 0;
-      playbackDoneTimerRef.current = setTimeout(() => {
-        socket.emit('voice_playback_done');
-      }, remainingMs);
     });
 
     socket.on('voice_audio_chunk', (payload: any) => {
@@ -128,20 +164,19 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
       }
     });
 
+    // All audio chunks are now scheduled. playbackTimeRef.current = AudioContext time
+    // when the last sample will finish. Poll until currentTime passes that point.
     socket.on('voice_audio_end', () => {
-      // speaking cleared by voice_text_end
+      startPlaybackTracking(playbackTimeRef.current);
     });
 
     return () => {
-      if (playbackDoneTimerRef.current) {
-        clearTimeout(playbackDoneTimerRef.current);
-        playbackDoneTimerRef.current = null;
-      }
+      cancelPlaybackTracking();
       cleanupAudio();
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [bookingId, cleanupAudio]);
+  }, [bookingId, cleanupAudio, cancelPlaybackTracking]);
 
   const startRecording = async () => {
     if (isRecording) return;
@@ -153,12 +188,13 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      const AudioContextImpl = window.AudioContext || (window as any).webkitAudioContext;
+      const win: any = window;
+      const AudioContextImpl = win.AudioContext || win.webkitAudioContext;
       const audioContext = new AudioContextImpl({ sampleRate: 24000 });
       const source = audioContext.createMediaStreamSource(stream);
       const processor = audioContext.createScriptProcessor(2048, 1, 1);
 
-      processor.onaudioprocess = (e) => {
+      processor.onaudioprocess = (e: AudioProcessingEvent) => {
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm = floatTo16BitPCM(inputData);
         const base64 = arrayBufferToBase64(pcm.buffer);
@@ -176,12 +212,16 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
 
       socketRef.current.emit('voice_start');
       setIsRecording(true);
-      setIsProcessing(false);
     } catch (err: any) {
       onError?.(err?.message || 'Microphone access denied');
       setIsRecording(false);
     }
   };
+
+  const sendText = useCallback((text: string) => {
+    if (!socketRef.current?.connected || !text.trim()) return;
+    socketRef.current.emit('voice_send_text', { text });
+  }, []);
 
   // Called when user manually taps to stop
   const stopRecording = useCallback(() => {
@@ -190,7 +230,6 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
       socketRef.current.emit('voice_stop');
     }
     setIsRecording(false);
-    setIsProcessing(false);
   }, [cleanupAudio]);
 
   return {
@@ -200,5 +239,6 @@ export function useSocketVoice({ bookingId, onUserMessage, onAssistantTextChunk,
     isProcessing,
     startRecording,
     stopRecording,
+    sendText,
   };
 }

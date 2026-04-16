@@ -89,8 +89,6 @@ export class LightningTtsService {
       const emitEnd = options?.emitEnd !== false;
       if (emitEnd) {
         client.emit('voice_audio_end');
-        client.emit('voice_ready');
-        client.voiceBusy = false;
       }
     } catch (err: any) {
       this.logger.warn({

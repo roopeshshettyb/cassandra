@@ -18,8 +18,11 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const hideNav = isConcierge && isChatMode;
   const fullScreen = isConcierge; // lock scroll + fixed layout for both mobile and desktop
 
-  const setActiveTab = useCallback((tab) => {
-    setSearchParams({ tab });
+  const setActiveTab = useCallback((tab, prompt, mode) => {
+    const params = { tab };
+    if (prompt) params.prompt = prompt;
+    if (mode) params.mode = mode;
+    setSearchParams(params);
   }, [setSearchParams]);
 
   // Scroll to top whenever the tab changes

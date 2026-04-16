@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Avatar, Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
@@ -13,7 +15,18 @@ import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, NAVY_CONTRAST, HOVER_BG } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, SHADOW_HOVER, NAVY_CONTRAST, HOVER_BG } from '../../theme';
+import constants from '../../constants.json';
+
+/** Return `count` items picked at random from `arr` (no repeats). */
+const randomPick = (arr, count) => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, count);
+};
 
 dayjs.extend(relativeTime);
 
@@ -91,15 +104,18 @@ function ChatBubble({ message }) {
 }
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
-function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName }) {
+function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
   const [sending, setSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  // Pick 8 random suggestions once on mount
+  const [suggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 8));
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const initialPromptSentRef = useRef(false);
 
   useEffect(() => {
     const scrollEl = scrollRef.current;
@@ -127,6 +143,13 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
       setReady(true);
       if (Array.isArray(payload?.messages)) {
         setMessages(payload.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })));
+      }
+      if (initialPrompt && !initialPromptSentRef.current) {
+        initialPromptSentRef.current = true;
+        setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: initialPrompt, createdAt: new Date().toISOString() }]);
+        setSending(true);
+        socket.emit('message', { content: initialPrompt });
+      } else {
         setTimeout(() => inputRef.current?.focus?.(), 100);
       }
     });
@@ -222,7 +245,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
               </Typography>
 
               <Box sx={{ width: '100%', maxWidth: 700, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                {['Order room service', 'Request extra towels', 'Get dining recommendations', 'Arrange a late checkout'].map((prompt, i) => (
+                {['I need room service', 'Request extra towels', 'Get dining recommendations', 'Arrange a late checkout'].map((prompt, i) => (
                   <motion.div key={i} whileHover={{ y: -4, boxShadow: SHADOW_HOVER }} transition={{ duration: 0.2 }}>
                     <Box
                       onClick={() => {
@@ -269,6 +292,56 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
           </Box>
         )}
       </Box>
+
+      {/* Suggestion chips */}
+      {ready && !sending && (
+        <Box
+          sx={{
+            px: { xs: 2, md: 3 },
+            pt: 1.5,
+            pb: 0.5,
+            display: 'flex',
+            gap: 1,
+            overflowX: 'auto',
+            flexShrink: 0,
+            '&::-webkit-scrollbar': { display: 'none' },
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none',
+          }}
+        >
+          {suggestions.map((suggestion) => (
+            <Box
+              key={suggestion}
+              component={motion.button}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                if (!sending && socketRef.current?.connected) {
+                  setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: suggestion, createdAt: new Date().toISOString() }]);
+                  setSending(true);
+                  setStreamingContent('');
+                  socketRef.current.emit('message', { content: suggestion });
+                }
+              }}
+              sx={{
+                flexShrink: 0,
+                border: `1px solid ${BORDER}`,
+                borderRadius: 5,
+                px: 1.5,
+                py: 0.75,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 500,
+                color: NAVY,
+                bgcolor: 'background.paper',
+                boxShadow: SHADOW,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {suggestion}
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {/* Input */}
       <Box
@@ -346,6 +419,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
   );
 }
 
+
 // ── Main GuestConcierge ────────────────────────────────────────────────────
 export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile, logoUrl }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -356,11 +430,48 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
 
   const bookingId = booking?.id;
   const hotelName = booking?.hotel?.name || 'Hotel';
+  // Pick 4 random suggestions once on mount for the voice chip strip
+  const [voiceSuggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 4));
 
-  const { isReady, isRecording, startRecording, stopRecording } = useSocketVoice({
+  // Auto-send prompt from URL (e.g. quick action tapped on Home)
+  const promptRef = useRef(searchParams.get('prompt') || '');
+  const promptSentRef = useRef(false);
+  // True once the user has interacted (mic tap or chip tap) — prevents auto-start on page load
+  const hasInteractedRef = useRef(false);
+  // True when user explicitly tapped the mic to stop — prevents auto-restart after that
+  const userStoppedRef = useRef(false);
+
+  // Refs to avoid circular deps in handleVoiceReady
+  const sendTextRef = useRef(null);
+  const startRecordingRef = useRef(null);
+  const chipsScrollRef = useRef(null);
+
+  // Called every time the backend is ready for a new turn.
+  // Unified logic: whether the previous turn was voice or chip, open the mic next.
+  const handleVoiceReady = useCallback(() => {
+    // Auto-send URL prompt (e.g. from quick action on Home tab)
+    if (promptRef.current && !promptSentRef.current) {
+      promptSentRef.current = true;
+      hasInteractedRef.current = true;
+      sendTextRef.current?.(promptRef.current);
+      setSearchParams({ tab: 'concierge' }, { replace: true });
+      return;
+    }
+    // After any response, reopen mic for continuous voice flow —
+    // unless the user explicitly tapped the mic button to stop.
+    if (isWithinStay && hasInteractedRef.current && !userStoppedRef.current) {
+      startRecordingRef.current?.();
+    }
+  }, [setSearchParams, isWithinStay]);
+
+  const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
     bookingId: showChat ? null : bookingId,
+    onReady: handleVoiceReady,
     onError: (err) => alertError?.(err),
   });
+
+  sendTextRef.current = sendText;
+  startRecordingRef.current = startRecording;
 
   const handleMicTap = async () => {
     if (!isWithinStay) {
@@ -372,8 +483,13 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
       return;
     }
     if (isRecording) {
+      // User explicitly stops — break the continuous loop
+      userStoppedRef.current = true;
       stopRecording();
     } else {
+      // User explicitly starts — enter continuous loop
+      userStoppedRef.current = false;
+      hasInteractedRef.current = true;
       try {
         await startRecording();
       } catch (e) {
@@ -383,11 +499,12 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
   };
 
   if (showChat) {
+    const chatPrompt = searchParams.get('prompt') || '';
     return (
       <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', minHeight: 0 }}>
         <Box sx={{ width: '100%', maxWidth: { md: 900 }, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: { xs: 'background.default', md: 'background.default' }, minHeight: 0, borderRadius: { md: 4 }, overflow: 'hidden', border: { md: `1px solid ${BORDER}` }, boxShadow: { md: '0 24px 48px rgba(0,0,0,0.06)' } }}>
           {/* Main Centered Text Chat Panel */}
-          <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} />
+          <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} />
         </Box>
       </Box>
     );
@@ -404,8 +521,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         flexDirection: 'column',
         px: 2.5,
         pt: { xs: 1, md: 0 },
-        pb: 2,
-        position: 'relative',
+        pb: { xs: '68px', md: 2 },
       }}
     >
       <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -426,53 +542,136 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
           <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5 }}>How may I assist you?</Typography>
         </motion.div>
 
-        {/* Voice button — flex:1 centers mic in remaining space, pb clears Prefer to type */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, pb: '10svh' }}>
-          <motion.button
-            onClick={handleMicTap}
-            style={{
-              width: 148,
-              height: 148,
-              borderRadius: '50%',
-              border: 'none',
-              cursor: isWithinStay ? 'pointer' : 'not-allowed',
-              background: isRecording ? BRAND_GRADIENT : NAVY,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: isRecording ? SHADOW_BRAND : SHADOW,
-              outline: 'none',
-            }}
-            whileTap={{ scale: 0.94 }}
-          >
-            <AnimatePresence mode="wait">
-              {isRecording ? (
-                <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                  <WaveformBars />
-                </motion.div>
-              ) : (
-                <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                  <MicIcon sx={{ fontSize: 48, color: NAVY_CONTRAST }} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.button>
+        {/* Mic button — flex:1 centers it in the available space */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2.5 }}>
+          {(() => {
+            const isActive = isRecording || isProcessing;
+            const statusText = !isWithinStay
+              ? 'Available during your stay'
+              : isRecording
+              ? 'Listening… tap to stop'
+              : isSpeaking
+              ? 'Responding…'
+              : isProcessing
+              ? 'Thinking…'
+              : 'Tap to speak';
+            return (
+              <>
+                <motion.button
+                  onClick={handleMicTap}
+                  style={{
+                    width: 140,
+                    height: 140,
+                    borderRadius: '50%',
+                    border: 'none',
+                    cursor: isWithinStay ? 'pointer' : 'not-allowed',
+                    background: isActive ? BRAND_GRADIENT : NAVY,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: isActive ? SHADOW_BRAND : SHADOW,
+                    outline: 'none',
+                  }}
+                  whileTap={{ scale: 0.94 }}
+                >
+                  <AnimatePresence mode="wait">
+                    {isActive ? (
+                      <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
+                        <WaveformBars />
+                      </motion.div>
+                    ) : (
+                      <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
+                        <MicIcon sx={{ fontSize: 44, color: NAVY_CONTRAST }} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
 
-          <Typography
-            sx={{
-              fontSize: 14,
-              color: MUTED,
-              letterSpacing: '0.04em',
-              textAlign: 'center',
-              fontWeight: 500,
-            }}
-          >
-            {!isWithinStay ? 'Available during your stay' : isRecording ? 'Tap to stop' : 'Tap to speak'}
-          </Typography>
+                <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500 }}>
+                  {statusText}
+                </Typography>
+              </>
+            );
+          })()}
         </Box>
 
-        {/* Prefer to type? — fixed to bottom 10% */}
-        <Box sx={{ position: 'absolute', bottom: '10%', left: 0, right: 0, textAlign: 'center' }}>
+        {/* Suggestion chips — horizontal scroll strip, shown only when idle */}
+        <AnimatePresence>
+          {isWithinStay && isReady && !isRecording && !isProcessing && !isSpeaking && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* Left arrow — desktop only */}
+                <IconButton
+                  size="small"
+                  onClick={() => chipsScrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+                  sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
+                >
+                  <ChevronLeftIcon fontSize="small" />
+                </IconButton>
+
+                <Box
+                  ref={chipsScrollRef}
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    overflowX: 'auto',
+                    pb: 1,
+                    px: 0.5,
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  {voiceSuggestions.map((prompt) => (
+                    <Box
+                      key={prompt}
+                      component={motion.button}
+                      onClick={() => {
+                        hasInteractedRef.current = true;
+                        userStoppedRef.current = true;
+                        sendText(prompt);
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      sx={{
+                        flexShrink: 0,
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 5,
+                        px: 1.75,
+                        py: 0.75,
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: NAVY,
+                        bgcolor: 'background.paper',
+                        boxShadow: SHADOW,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {prompt}
+                    </Box>
+                  ))}
+                </Box>
+
+                {/* Right arrow — desktop only */}
+                <IconButton
+                  size="small"
+                  onClick={() => chipsScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+                  sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
+                >
+                  <ChevronRightIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Prefer to type? — always visible at bottom */}
+        <Box sx={{ textAlign: 'center', py: 1 }}>
           <motion.button
             onClick={openChat}
             style={{
@@ -485,7 +684,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
               color: MUTED,
               fontSize: 14,
               fontWeight: 500,
-              padding: '10px 16px',
+              padding: '8px 16px',
             }}
             whileTap={{ scale: 0.97 }}
           >
