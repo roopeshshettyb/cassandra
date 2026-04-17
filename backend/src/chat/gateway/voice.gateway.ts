@@ -293,16 +293,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
     if (this.isGptVoicePipeline()) {
       try {
-        await this.voiceRealtimeService.createSession(client.id, toolContext, {
-          onServerEvent: (event) => this.handleRealtimeEvent(client, event),
-          onError: (error) => {
-            this.logger.error(error);
-            client.emit('error', { message: error.message || 'Voice session error' });
-          },
-          onClose: () => {
-            client.emit('voice_closed');
-          },
-        });
+        if (!this.voiceRealtimeService.hasSession(client.id)) {
+          await this.voiceRealtimeService.createSession(client.id, toolContext, {
+            onServerEvent: (event) => this.handleRealtimeEvent(client, event),
+            onError: (error) => {
+              this.logger.error(error);
+              client.emit('error', { message: error.message || 'Voice session error' });
+            },
+            onClose: () => {
+              client.emit('voice_closed');
+            },
+          });
+        }
         client.emit('voice_ready');
       } catch (err: any) {
         this.logger.error(err);
