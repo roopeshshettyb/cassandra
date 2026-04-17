@@ -403,6 +403,27 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (this.isGptVoicePipeline()) {
       try {
+        // Auto-create Realtime session if the user sent text (e.g. tapped a chip)
+        // without ever tapping the mic — voice_start is never called in that flow.
+        if (!this.voiceRealtimeService.hasSession(client.id)) {
+          const toolContext = {
+            account: session.account,
+            bookingId: session.bookingId,
+            chatId: session.chatId,
+            hotel: session.hotel,
+            booking: session.booking,
+            languageCode: session.languageCode ?? null,
+          };
+          await this.voiceRealtimeService.createSession(client.id, toolContext, {
+            onServerEvent: (event) => this.handleRealtimeEvent(client, event),
+            onError: (error) => {
+              this.logger.error(error);
+              client.emit('error', { message: error.message || 'Voice session error' });
+            },
+            onClose: () => { client.emit('voice_closed'); },
+          });
+        }
+        // sendClientEvent queues events internally until the OpenAI WS is open+configured
         this.voiceRealtimeService.sendClientEvent(client.id, {
           type: 'conversation.item.create',
           item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: textToSpeak }] },
