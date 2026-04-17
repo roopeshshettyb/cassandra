@@ -384,6 +384,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   onPlaybackDone(client: any) {
     if (this.isGptVoicePipeline()) {
       this.voiceRealtimeService.onPlaybackDone(client.id);
+      client.emit('voice_ready');
     } else {
       client.voiceBusy = false;
       client.emit('voice_ready');
@@ -425,6 +426,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             onClose: () => { client.emit('voice_closed'); },
           });
         }
+        // Save text as user transcript so response.done persists it to DB
+        this.voiceRealtimeService.setUserTranscript(client.id, textToSpeak);
+        client.emit('voice_user_message', { text: textToSpeak });
         // sendClientEvent queues events internally until the OpenAI WS is open+configured
         this.voiceRealtimeService.sendClientEvent(client.id, {
           type: 'conversation.item.create',

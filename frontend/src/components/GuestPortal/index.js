@@ -43,7 +43,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
       setSearchParams({ tab: 'concierge' }, { replace: true });
       return;
     }
-    // Only auto-restart mic when user is on the concierge tab
+    // Only auto-restart mic after user has explicitly interacted (mic tap or chip tap)
     if (activeTab === 'concierge' && isWithinStay && hasInteractedRef.current && !userStoppedRef.current) {
       startRecordingRef.current?.();
     }
@@ -70,7 +70,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
         // Socket already authenticated — send immediately, skip URL prompt
         promptSentRef.current = true;
         hasInteractedRef.current = true;
-        userStoppedRef.current = true;
+        userStoppedRef.current = false;
         sendTextRef.current?.(prompt);
       } else {
         // Cold start — put prompt in URL for handleVoiceReady to pick up
@@ -91,6 +91,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     document.body.style.overflow = fullScreen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [fullScreen]);
+
 
   if (!booking) return null;
 

@@ -7,7 +7,6 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
-import CloseIcon from '@mui/icons-material/Close';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -187,19 +186,14 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Desktop Header */}
-      <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'space-between', bgcolor: 'transparent', flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
-            <SupportAgentIcon sx={{ fontSize: 24 }} />
-          </Avatar>
-          <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
-            <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
-          </Box>
+      <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5, bgcolor: 'transparent', flexShrink: 0 }}>
+        <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
+          <SupportAgentIcon sx={{ fontSize: 24 }} />
+        </Avatar>
+        <Box>
+          <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
+          <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
         </Box>
-        <IconButton onClick={onSwitchToVoice} size="small" sx={{ color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}>
-          <CloseIcon />
-        </IconButton>
       </Box>
 
       {/* Messages */}
@@ -463,7 +457,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
       <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', minHeight: 0 }}>
         <Box sx={{ width: '100%', maxWidth: { md: 900 }, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: { xs: 'background.default', md: 'background.default' }, minHeight: 0, borderRadius: { md: 4 }, overflow: 'hidden', border: { md: `1px solid ${BORDER}` }, boxShadow: { md: '0 24px 48px rgba(0,0,0,0.06)' } }}>
           {/* Main Centered Text Chat Panel */}
-          <TextChatPanel bookingId={bookingId} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} />
+          <TextChatPanel bookingId={booking?.id} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} />
         </Box>
       </Box>
     );
@@ -556,7 +550,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
 
         {/* Suggestion chips — horizontal scroll strip, shown only when idle */}
         <AnimatePresence>
-          {isWithinStay && isReady && !isRecording && !isProcessing && !isSpeaking && (
+          {isWithinStay && !isRecording && !isProcessing && !isSpeaking && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -592,7 +586,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
                       component={motion.button}
                       onClick={() => {
                         hasInteractedRef.current = true;
-                        userStoppedRef.current = true;
+                        userStoppedRef.current = false;
                         sendText(prompt);
                       }}
                       whileTap={{ scale: 0.95 }}
