@@ -402,6 +402,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!textToSpeak) return;
 
     if (this.isGptVoicePipeline()) {
+      // Immediately signal "Thinking…" so the animation starts before LLM responds
+      client.emit('voice_turn_end');
       try {
         // Auto-create Realtime session if the user sent text (e.g. tapped a chip)
         // without ever tapping the mic — voice_start is never called in that flow.

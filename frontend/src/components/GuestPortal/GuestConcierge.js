@@ -14,7 +14,6 @@ import remarkGfm from 'remark-gfm';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, SHADOW_HOVER, NAVY_CONTRAST, HOVER_BG } from '../../theme';
 import constants from '../../constants.json';
 
@@ -421,57 +420,17 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
 
 
 // ── Main GuestConcierge ────────────────────────────────────────────────────
-export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile, logoUrl }) {
+export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile, logoUrl, isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText, hasInteractedRef, userStoppedRef }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const showChat = searchParams.get('mode') === 'chat';
 
   const openChat = useCallback(() => setSearchParams({ tab: 'concierge', mode: 'chat' }), [setSearchParams]);
   const openVoice = useCallback(() => setSearchParams({ tab: 'concierge' }), [setSearchParams]);
 
-  const bookingId = booking?.id;
   const hotelName = booking?.hotel?.name || 'Hotel';
-  // Pick 4 random suggestions once on mount for the voice chip strip
   const [voiceSuggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 4));
 
-  // Auto-send prompt from URL (e.g. quick action tapped on Home)
-  const promptRef = useRef(searchParams.get('prompt') || '');
-  const promptSentRef = useRef(false);
-  // True once the user has interacted (mic tap or chip tap) — prevents auto-start on page load
-  const hasInteractedRef = useRef(false);
-  // True when user explicitly tapped the mic to stop — prevents auto-restart after that
-  const userStoppedRef = useRef(false);
-
-  // Refs to avoid circular deps in handleVoiceReady
-  const sendTextRef = useRef(null);
-  const startRecordingRef = useRef(null);
   const chipsScrollRef = useRef(null);
-
-  // Called every time the backend is ready for a new turn.
-  // Unified logic: whether the previous turn was voice or chip, open the mic next.
-  const handleVoiceReady = useCallback(() => {
-    // Auto-send URL prompt (e.g. from quick action on Home tab)
-    if (promptRef.current && !promptSentRef.current) {
-      promptSentRef.current = true;
-      hasInteractedRef.current = true;
-      sendTextRef.current?.(promptRef.current);
-      setSearchParams({ tab: 'concierge' }, { replace: true });
-      return;
-    }
-    // After any response, reopen mic for continuous voice flow —
-    // unless the user explicitly tapped the mic button to stop.
-    if (isWithinStay && hasInteractedRef.current && !userStoppedRef.current) {
-      startRecordingRef.current?.();
-    }
-  }, [setSearchParams, isWithinStay]);
-
-  const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
-    bookingId: showChat ? null : bookingId,
-    onReady: handleVoiceReady,
-    onError: (err) => alertError?.(err),
-  });
-
-  sendTextRef.current = sendText;
-  startRecordingRef.current = startRecording;
 
   const handleMicTap = async () => {
     if (!isWithinStay) {
