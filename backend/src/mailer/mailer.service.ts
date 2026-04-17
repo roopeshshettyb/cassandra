@@ -83,6 +83,23 @@ export class MailerService {
     return this.transporter;
   }
 
+  async sendNotificationEmail(to: string, title: string, message: string, link?: string): Promise<void> {
+    const { APP_NAME } = this.constantsService.public;
+    const frontendUrl = this.constantsService.private.FRONTEND_URL || '';
+    const fullLink = link ? `${frontendUrl}${link}` : null;
+    const contentHtml = `
+      <p style="font-size:16px;font-weight:700;color:#1B2340;">${title}</p>
+      <p style="font-size:14px;color:#555;line-height:1.6;">${message}</p>
+      ${fullLink ? `<p style="margin-top:24px;"><a href="${fullLink}" style="background:linear-gradient(135deg,#D4AF37,#C5A022);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Details</a></p>` : ''}
+    `;
+    await this.sendMail({
+      to,
+      subject: `${title} — ${APP_NAME}`,
+      text: `${title}\n\n${message}${fullLink ? `\n\n${fullLink}` : ''}`,
+      html: this.buildBaseEmailHtml(contentHtml),
+    });
+  }
+
   async sendMail(options: { to: string; subject: string; text: string; html?: string }): Promise<void> {
     const privateConstants = this.constantsService.private;
     const publicConstants = this.constantsService.public;

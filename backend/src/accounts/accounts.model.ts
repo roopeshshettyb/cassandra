@@ -88,6 +88,14 @@ export class Account extends Model<Account> {
     field: 'otp_expires_at',
   })
   otpExpiresAt: Date;
+
+  @Column({
+    type: DataType.JSONB,
+    allowNull: false,
+    defaultValue: { push: true, email: true },
+    field: 'notification_preferences',
+  })
+  notificationPreferences: { push: boolean; email: boolean };
 }
 
 export { AccountRole };

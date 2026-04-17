@@ -47,6 +47,16 @@ export class CreateAccountDto {
   readonly role?: AccountRole;
 }
 
+export class UpdateNotificationPreferencesDto {
+  @IsOptional()
+  @ApiProperty({ required: false })
+  readonly push?: boolean;
+
+  @IsOptional()
+  @ApiProperty({ required: false })
+  readonly email?: boolean;
+}
+
 export class UpdateAccountDto {
   @IsOptional()
   @IsString()

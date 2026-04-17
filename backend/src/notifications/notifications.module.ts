@@ -9,9 +9,10 @@ import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
 import { HotelsModule } from '../hotels/hotels.module';
 import { HotelAccountsRepository } from '../hotels/hotels.repository';
+import { MailerModule } from '../mailer/mailer.module';
 
 @Module({
-  imports: [DatabaseModule, AccountsModule, AuthModule, forwardRef(() => HotelsModule)],
+  imports: [DatabaseModule, AccountsModule, AuthModule, forwardRef(() => HotelsModule), MailerModule],
   controllers: [NotificationsController],
   providers: [NotificationsRepository, NotificationsService, NotificationsGateway, NotificationFactory, HotelAccountsRepository],
   exports: [NotificationsService, NotificationsGateway, NotificationFactory],

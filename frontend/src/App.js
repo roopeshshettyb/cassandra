@@ -119,13 +119,44 @@ const AppContent = () => {
   };
 
   const token = localStorage.getItem('token');
+
+  const [notificationPreferences, setNotificationPreferences] = useState({ push: true, email: true });
+
+  // On first load: if push enabled and permission not yet decided, prompt for it
+  useEffect(() => {
+    if (!account) return;
+    // Sync prefs from account data
+    if (account.notificationPreferences) setNotificationPreferences(account.notificationPreferences);
+    if (!account.notificationPreferences?.push) return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'default') return;
+    Notification.requestPermission().then((permission) => {
+      if (permission !== 'granted') updateNotificationPreferences({ push: false });
+    });
+  }, [account]);
+
+  const updateNotificationPreferences = async (patch) => {
+    if (patch.push === true) {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alertError('Please allow notifications in your browser settings.');
+          return;
+        }
+      }
+    }
+    const next = { ...notificationPreferences, ...patch };
+    setNotificationPreferences(next);
+    request({ endpoint: '/accounts/me/notification-preferences', method: 'PATCH', body: patch, alertError });
+  };
+
   const {
     unreadCount,
     notifications,
     loading: notificationsLoading,
     markAsRead,
   } = useNotifications({
-    enabled: !!account,
+    enabled: !!account && notificationPreferences.push,
     token: token || undefined,
   });
 
@@ -333,6 +364,8 @@ const AppContent = () => {
     notifications,
     notificationsLoading: notificationsLoading,
     markNotificationAsRead: markAsRead,
+    notificationPreferences,
+    updateNotificationPreferences,
   };
 
   const isAuthenticated = !!(account || token);

@@ -8,6 +8,8 @@ import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { HotelAccount } from '../hotels/hotel-accounts.model';
+import { AccountsService } from '../accounts/accounts.service';
+import { MailerService } from '../mailer/mailer.service';
 import { Op } from 'sequelize';
 
 export interface NotificationPayload {
@@ -26,6 +28,8 @@ export class NotificationFactory {
     @Inject(NOTIFICATIONS_REPOSITORY) private readonly notificationsRepository: typeof Notification,
     private readonly notificationsGateway: NotificationsGateway,
     @Inject('HOTEL_ACCOUNTS_REPOSITORY') private readonly hotelAccountRepository: typeof HotelAccount,
+    private readonly accountsService: AccountsService,
+    private readonly mailerService: MailerService,
   ) {}
 
   /**
@@ -166,7 +170,8 @@ export class NotificationFactory {
   }
 
   /**
-   * Create notification records in DB and emit via WebSocket
+   * Create notification records in DB, emit via WebSocket (if push enabled),
+   * and send email (if email enabled) — per each recipient's preferences.
    */
   private async createAndEmitNotifications(
     accountIds: number[],
@@ -176,15 +181,30 @@ export class NotificationFactory {
   ) {
     if (accountIds.length === 0) return;
 
-    // Remove duplicates
-    const uniqueAccountIds = Array.from(new Set(accountIds));
+    // Deduplicate
+    const seen = new Set<number>();
+    const uniqueAccountIds: number[] = [];
+    for (let i = 0; i < accountIds.length; i++) {
+      if (!seen.has(accountIds[i])) {
+        seen.add(accountIds[i]);
+        uniqueAccountIds.push(accountIds[i]);
+      }
+    }
+
+    // Load accounts to check preferences and get emails
+    const accounts = await this.accountsService.findAll({ where: { id: uniqueAccountIds } });
+    const accountMap = new Map<number, Account>();
+    for (let i = 0; i < accounts.length; i++) {
+      accountMap.set(accounts[i].id, accounts[i]);
+    }
 
     try {
-      const createdNotifications: Notification[] = [];
-      
-      // Use old school for loop as per rule 6
       for (let i = 0; i < uniqueAccountIds.length; i++) {
         const accountId = uniqueAccountIds[i];
+        const account = accountMap.get(accountId);
+        const prefs = account?.notificationPreferences ?? { push: true, email: true };
+
+        // Always create DB record so it appears in the notification list
         const notification = await this.notificationsRepository.create({
           accountId,
           hotelId,
@@ -195,26 +215,31 @@ export class NotificationFactory {
           type: this.mapEventTypeToNotificationType(eventType),
           read: false,
         });
-        createdNotifications.push(notification);
+
+        // Push: emit real-time WebSocket event if enabled
+        if (prefs.push) {
+          this.notificationsGateway.emitToAccount(accountId, {
+            id: notification.id,
+            title: notification.title,
+            message: notification.message,
+            link: notification.link,
+            toneUrl: notification.toneUrl,
+            hotelId,
+            createdAt: notification.createdAt,
+            type: notification.type,
+            read: false,
+          });
+        }
+
+        // Email: send if enabled and account has an email address
+        if (prefs.email && account?.email) {
+          this.mailerService
+            .sendNotificationEmail(account.email, notificationData.title, notificationData.message, notificationData.link)
+            .catch((err) => this.logger.error('Failed to send notification email', err instanceof Error ? err.stack : String(err)));
+        }
       }
 
-      // Emit real-time notification via WebSocket individually to include the correct ID
-      for (let i = 0; i < createdNotifications.length; i++) {
-        const notification = createdNotifications[i];
-        this.notificationsGateway.emitToAccount(notification.accountId, {
-          id: notification.id,
-          title: notification.title,
-          message: notification.message,
-          link: notification.link,
-          toneUrl: notification.toneUrl,
-          hotelId: hotelId,
-          createdAt: notification.createdAt,
-        });
-      }
-
-      this.logger.debug(
-        `Notifications created and emitted for hotel ${hotelId}: ${uniqueAccountIds.length} recipients`,
-      );
+      this.logger.debug(`Notifications processed for hotel ${hotelId}: ${uniqueAccountIds.length} recipients`);
     } catch (error) {
       this.logger.error(
         `Failed to create/emit notifications for hotel ${hotelId}`,

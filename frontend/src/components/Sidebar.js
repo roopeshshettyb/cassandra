@@ -143,7 +143,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
           justifyContent: 'flex-start',
           minWidth: 'auto',
           px: 2,
-          display: 'flex',
+          flex: 1,
           ...(data.variant && { variant: data.variant }),
         }}
       >

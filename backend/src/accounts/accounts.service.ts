@@ -56,4 +56,13 @@ export class AccountsService {
   async upsert(data: Partial<Account>): Promise<[Account, boolean]> {
     return this.accountsRepository.upsert(data, { conflictFields: ['uuid'] });
   }
+
+  async updateNotificationPreferences(accountId: number, prefs: { push?: boolean; email?: boolean }): Promise<Account> {
+    const account = await this.accountsRepository.findByPk(accountId);
+    if (!account) throw new NotFoundException('Account not found');
+    const current = account.notificationPreferences ?? { push: true, email: true };
+    const merged = { ...current, ...prefs };
+    const [, updated] = await this.update({ notificationPreferences: merged }, { id: accountId });
+    return updated[0];
+  }
 }

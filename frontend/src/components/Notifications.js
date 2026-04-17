@@ -1,9 +1,8 @@
-import React, { useCallback, useState } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import React, { useCallback } from 'react';
+import { Box, Typography, Switch } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Circle, Delete } from '@mui/icons-material';
+import { CheckCircle, Circle, NotificationsActive, Email } from '@mui/icons-material';
 import MapComponent from './MapComponent';
-import request from '../helper/api';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, TEXT_MUTED_DARK } from '../theme';
 
@@ -58,7 +57,22 @@ function NotificationItem({ data: notification, onNotificationClick }) {
   );
 }
 
-function Notifications({ notifications = [], notificationsLoading: loading = false, markNotificationAsRead, navigate, alertSuccess, alertError }) {
+const PREF_ITEMS = [
+  {
+    key: 'push',
+    Icon: NotificationsActive,
+    label: 'Push Notifications',
+    description: 'Real-time alerts inside the app',
+  },
+  {
+    key: 'email',
+    Icon: Email,
+    label: 'Email Notifications',
+    description: 'Receive updates via email',
+  },
+];
+
+function Notifications({ notifications = [], notificationsLoading: loading = false, markNotificationAsRead, navigate, notificationPreferences = { push: true, email: true }, updateNotificationPreferences }) {
 
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.read) {
@@ -78,6 +92,30 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
           </Box>
         </Box>
       </motion.div>
+
+      {/* Preference toggles */}
+      <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {PREF_ITEMS.map(({ key, Icon, label, description }) => (
+          <Box
+            key={key}
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, borderRadius: 3, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, boxShadow: SHADOW }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Icon sx={{ fontSize: 22, color: 'primary.main' }} />
+              <Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{label}</Typography>
+                <Typography sx={{ fontSize: 12, color: MUTED }}>{description}</Typography>
+              </Box>
+            </Box>
+            <Switch
+              size="small"
+              checked={!!notificationPreferences[key]}
+              onChange={(e) => updateNotificationPreferences?.({ [key]: e.target.checked })}
+              color="primary"
+            />
+          </Box>
+        ))}
+      </Box>
 
       <AnimatePresence>
         <MapComponent Component={NotificationItem} data={notifications} onNotificationClick={handleNotificationClick} isLoading={loading} />

@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, Query, Patch, Param, Delete, ValidationPipe, UseGuards } from '@nestjs/common';
-import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
+import { CreateAccountDto, UpdateAccountDto, UpdateNotificationPreferencesDto } from './accounts.dto';
 import { AccountsService } from './accounts.service';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from './accounts.model';
@@ -35,5 +35,12 @@ export class AccountsController {
   @UseGuards(JwtAuthGuard)
   async updateMe(@Body(ValidationPipe) updateAccountDto: UpdateAccountDto, @CurrentAccount() account: Account) {
     return this.accountsService.updateMe(updateAccountDto, account);
+  }
+
+  @Patch('me/notification-preferences')
+  @UseGuards(JwtAuthGuard)
+  async updateNotificationPreferences(@Body(ValidationPipe) dto: UpdateNotificationPreferencesDto, @CurrentAccount() account: Account) {
+    const updated = await this.accountsService.updateNotificationPreferences(account.id, dto);
+    return { success: true, message: 'Preferences updated', data: updated.notificationPreferences };
   }
 }
