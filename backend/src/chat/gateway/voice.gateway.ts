@@ -235,6 +235,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 state.statistics.ttsMs += Date.now() - t0;
               } else {
                 await state.ttsQueue;
+                // All sentences were flushed with emitEnd:false — emit audio_end now so the
+                // client's source.onended counter can resolve and voice_playback_done is sent.
+                client.emit('voice_audio_end');
               }
               state.statistics.totalProcessingMs = Date.now() - state.statistics.responseStart;
               this.loggerService.log({
@@ -290,16 +293,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
     if (this.isGptVoicePipeline()) {
       try {
-        await this.voiceRealtimeService.createSession(client.id, toolContext, {
-          onServerEvent: (event) => this.handleRealtimeEvent(client, event),
-          onError: (error) => {
-            this.logger.error(error);
-            client.emit('error', { message: error.message || 'Voice session error' });
-          },
-          onClose: () => {
-            client.emit('voice_closed');
-          },
-        });
+        if (!this.voiceRealtimeService.hasSession(client.id)) {
+          await this.voiceRealtimeService.createSession(client.id, toolContext, {
+            onServerEvent: (event) => this.handleRealtimeEvent(client, event),
+            onError: (error) => {
+              this.logger.error(error);
+              client.emit('error', { message: error.message || 'Voice session error' });
+            },
+            onClose: () => {
+              client.emit('voice_closed');
+            },
+          });
+        }
         client.emit('voice_ready');
       } catch (err: any) {
         this.logger.error(err);
@@ -381,7 +386,121 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   onPlaybackDone(client: any) {
     if (this.isGptVoicePipeline()) {
       this.voiceRealtimeService.onPlaybackDone(client.id);
+      client.emit('voice_ready');
+    } else {
+      client.voiceBusy = false;
+      client.emit('voice_ready');
     }
+  }
+
+  @SubscribeMessage('voice_send_text')
+  async onVoiceSendText(client: any, payload: { text: string }) {
+    const session: ChatSession | undefined = client.session;
+    if (!session) {
+      client.emit('error', { message: 'Not authenticated' });
+      return;
+    }
+
+    const textToSpeak = payload?.text?.trim();
+    if (!textToSpeak) return;
+
+    if (this.isGptVoicePipeline()) {
+      // Immediately signal "Thinking…" so the animation starts before LLM responds
+      client.emit('voice_turn_end');
+      try {
+        // Auto-create Realtime session if the user sent text (e.g. tapped a chip)
+        // without ever tapping the mic — voice_start is never called in that flow.
+        if (!this.voiceRealtimeService.hasSession(client.id)) {
+          const toolContext = {
+            account: session.account,
+            bookingId: session.bookingId,
+            chatId: session.chatId,
+            hotel: session.hotel,
+            booking: session.booking,
+            languageCode: session.languageCode ?? null,
+          };
+          await this.voiceRealtimeService.createSession(client.id, toolContext, {
+            onServerEvent: (event) => this.handleRealtimeEvent(client, event),
+            onError: (error) => {
+              this.logger.error(error);
+              client.emit('error', { message: error.message || 'Voice session error' });
+            },
+            onClose: () => { client.emit('voice_closed'); },
+          });
+        }
+        // Save text as user transcript so response.done persists it to DB
+        this.voiceRealtimeService.setUserTranscript(client.id, textToSpeak);
+        client.emit('voice_user_message', { text: textToSpeak });
+        // sendClientEvent queues events internally until the OpenAI WS is open+configured
+        this.voiceRealtimeService.sendClientEvent(client.id, {
+          type: 'conversation.item.create',
+          item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: textToSpeak }] },
+        });
+        this.voiceRealtimeService.sendClientEvent(client.id, { type: 'response.create' });
+      } catch (err: any) {
+        client.emit('error', { message: err?.message || 'Failed to inject text' });
+      }
+      return;
+    }
+
+    // Custom STT pipeline (and Deepgram voice agent fallback — direct LLM path)
+    if (client.voiceBusy) return;
+
+    client.voiceBusy = true;
+    client.emit('voice_turn_end');
+    client.emit('voice_user_message', { text: textToSpeak });
+
+    const provider = this.ttsFactory.getProvider();
+    const statistics: VoiceTurnStatistics = {
+      lastAudioAt: Date.now(),
+      responseStart: Date.now(),
+      sttMs: 0,
+      llmStart: Date.now(),
+      llmMs: 0,
+      ttsMs: 0,
+      totalProcessingMs: 0,
+    };
+    const state = {
+      sentenceBuffer: '',
+      fullText: '',
+      ttsQueue: Promise.resolve() as Promise<void>,
+      statistics,
+      languageCode: session.languageCode ?? null,
+    };
+
+    this.chatLlmService
+      .streamUserMessage(session, textToSpeak, {
+        mode: 'voice',
+        onChunk: (chunk: string) => {
+          if (!chunk) return;
+          state.sentenceBuffer += chunk;
+          this.flushCompletedSentencesToTts(state, client, provider);
+        },
+        onEnd: async (result) => {
+          statistics.llmMs = Date.now() - statistics.llmStart;
+          if (state.sentenceBuffer.trim().length > 0) {
+            state.fullText += state.sentenceBuffer.trim();
+            await state.ttsQueue;
+            const t0 = Date.now();
+            await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true, languageCode: state.languageCode });
+            statistics.ttsMs += Date.now() - t0;
+          } else {
+            await state.ttsQueue;
+            // All sentences were flushed with emitEnd:false — emit audio_end now so the
+            // client's source.onended counter can resolve and voice_playback_done is sent.
+            client.emit('voice_audio_end');
+          }
+          client.emit('voice_text_end', { text: result.fullContent || state.fullText });
+          // voiceBusy reset and voice_ready are deferred to onPlaybackDone,
+          // so the animation stays alive until the client finishes playing audio.
+        },
+      })
+      .catch((err: any) => {
+        this.loggerService.warn({ message: err?.message ?? String(err), traces: [{ error: 'voice_send_text LLM+TTS' }] });
+        client.emit('error', { message: 'Voice response failed' });
+        client.voiceBusy = false;
+        client.emit('voice_ready');
+      });
   }
 
   @SubscribeMessage('voice_stop')

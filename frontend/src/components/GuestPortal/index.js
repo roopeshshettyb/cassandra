@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { Box } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import constants from '../../constants.json';
@@ -6,6 +6,7 @@ import GuestHome from './GuestHome';
 import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
 import GuestBottomNav from './GuestBottomNav';
+import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 
 export default function GuestPortal({ booking, account, isMobile, alertError, alertSuccess, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,26 +15,91 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
   const isChatMode = searchParams.get('mode') === 'chat';
-  const isConcierge = activeTab === 'concierge'; // applies to both mobile and desktop
+  const isConcierge = activeTab === 'concierge';
   const hideNav = isConcierge && isChatMode;
-  const fullScreen = isConcierge; // lock scroll + fixed layout for both mobile and desktop
+  const fullScreen = isConcierge;
 
-  const setActiveTab = useCallback((tab) => {
-    setSearchParams({ tab });
-  }, [setSearchParams]);
+  const isWithinStay = account?.role !== GUEST ? true : !!booking?.isWithinStay;
 
-  // Scroll to top whenever the tab changes
+  // ── Voice socket pre-warm ─────────────────────────────────────────────────
+  // Keep socket alive across tabs so suggestions from Home tab respond instantly.
+  const promptRef = useRef(searchParams.get('prompt') || '');
+  const promptSentRef = useRef(false);
+  const hasInteractedRef = useRef(false);
+  const userStoppedRef = useRef(false);
+  const sendTextRef = useRef(null);
+  const startRecordingRef = useRef(null);
+
+  // Sync promptRef from URL on every render (only while not yet sent)
+  if (!promptSentRef.current) {
+    promptRef.current = searchParams.get('prompt') || '';
+  }
+
+  const handleVoiceReady = useCallback(() => {
+    if (promptRef.current && !promptSentRef.current) {
+      promptSentRef.current = true;
+      hasInteractedRef.current = true;
+      sendTextRef.current?.(promptRef.current);
+      setSearchParams({ tab: 'concierge' }, { replace: true });
+      return;
+    }
+    // Only auto-restart mic after user has explicitly interacted (mic tap or chip tap)
+    if (activeTab === 'concierge' && isWithinStay && hasInteractedRef.current && !userStoppedRef.current) {
+      startRecordingRef.current?.();
+    }
+  }, [setSearchParams, isWithinStay, activeTab]);
+
+  // Only pre-warm for guests within their stay (non-guests never see concierge)
+  const voiceBookingId = (!isNonGuest && isWithinStay && !isChatMode) ? booking?.id : null;
+
+  const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
+    bookingId: voiceBookingId,
+    onReady: handleVoiceReady,
+    onError: (err) => alertError?.(err),
+  });
+
+  sendTextRef.current = sendText;
+  startRecordingRef.current = startRecording;
+
+  const setActiveTab = useCallback((tab, prompt, mode) => {
+    const params = { tab };
+    if (mode) params.mode = mode;
+
+    if (tab === 'concierge' && prompt) {
+      if (isReady && !promptSentRef.current) {
+        // Socket already authenticated — send immediately, skip URL prompt
+        promptSentRef.current = true;
+        hasInteractedRef.current = true;
+        userStoppedRef.current = false;
+        sendTextRef.current?.(prompt);
+      } else {
+        // Cold start — put prompt in URL for handleVoiceReady to pick up
+        params.prompt = prompt;
+        promptRef.current = prompt;
+        promptSentRef.current = false;
+      }
+    }
+
+    setSearchParams(params);
+  }, [setSearchParams, isReady]);
+
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
 
-  // Lock body scroll when in full-screen mode (concierge on mobile)
   useEffect(() => {
     document.body.style.overflow = fullScreen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [fullScreen]);
 
+
   if (!booking) return null;
+
+  const voiceProps = {
+    isReady, isRecording, isProcessing, isSpeaking,
+    startRecording, stopRecording, sendText,
+    hasInteractedRef, userStoppedRef,
+  };
 
   const renderTab = () => {
     switch (activeTab) {
@@ -56,10 +122,11 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           <GuestConcierge
             booking={booking}
             alertError={alertError}
-            isWithinStay={account?.role !== GUEST ? true : booking.isWithinStay}
+            isWithinStay={isWithinStay}
             isMobile={isMobile}
             setLoading={setLoading}
             logoUrl={logoUrl}
+            {...voiceProps}
           />
         );
       case 'requests':
@@ -73,7 +140,6 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           />
         );
       default:
-        // Fallback to home if tab is unknown
         return (
           <GuestHome
             booking={booking}
@@ -101,7 +167,6 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           display: 'flex',
           flexDirection: 'column',
           zIndex: 10,
-          // Desktop inner padding so content breathes
           px: { xs: 0, md: 4 },
           py: { xs: 0, md: 0 },
         }}

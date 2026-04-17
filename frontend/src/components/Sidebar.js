@@ -110,6 +110,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
 
     const handleClick = () => {
       if (data.action === 'login') {
+        if (isMobile) setSidebarOpen(false);
         openLoginPopup();
       } else if (data.action === 'logout') {
         handleLogout();

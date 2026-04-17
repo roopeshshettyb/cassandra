@@ -162,6 +162,16 @@ export class VoiceRealtimeService {
     });
   }
 
+  hasSession(sessionId: string): boolean {
+    return this.sessions.has(sessionId);
+  }
+
+  setUserTranscript(sessionId: string, text: string): void {
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
+    state.userTranscript = text;
+  }
+
   sendClientEvent(sessionId: string, event: unknown): void {
     const state = this.sessions.get(sessionId);
     if (!state) {
