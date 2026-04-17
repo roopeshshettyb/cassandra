@@ -78,7 +78,8 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
     // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
     const signalPlaybackDone = () => {
       cancelPlaybackTracking();
-      setIsSpeaking(false);
+      // Keep isSpeaking=true until voice_ready resets it, so the animation
+      // stays alive during the server round-trip and mic restart.
       socket.emit('voice_playback_done');
     };
 
@@ -182,6 +183,8 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       onError?.('Voice connection not ready');
       return;
     }
+    // Mark recording immediately so animation stays live during getUserMedia setup
+    setIsRecording(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -209,10 +212,9 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       processorRef.current = processor;
 
       socketRef.current.emit('voice_start');
-      setIsRecording(true);
     } catch (err: any) {
-      onError?.(err?.message || 'Microphone access denied');
       setIsRecording(false);
+      onError?.(err?.message || 'Microphone access denied');
     }
   };
 
