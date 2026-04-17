@@ -545,7 +545,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         {/* Mic button — flex:1 centers it in the available space */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2.5 }}>
           {(() => {
-            const isActive = isRecording || isProcessing;
+            const isActive = isRecording || isProcessing || isSpeaking;
             const statusText = !isWithinStay
               ? 'Available during your stay'
               : isRecording
