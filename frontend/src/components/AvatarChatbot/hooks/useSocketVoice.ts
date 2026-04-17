@@ -103,8 +103,6 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       playbackFallbackTimerRef.current = setTimeout(signalPlaybackDone, remaining + 2000);
     };
 
-    socket.on('connect', () => setIsReady(true));
-
     socket.on('disconnect', () => {
       setIsReady(false);
       setIsRecording(false);
