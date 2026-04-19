@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useCallback, useState, useEffect } from 'react';
+import { Box, Typography, Switch, FormControlLabel, Divider } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Circle } from '@mui/icons-material';
 import MapComponent from './MapComponent';
@@ -39,7 +39,6 @@ function NotificationItem({ data: notification, onNotificationClick }) {
           '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
-        {/* Unread gold accent */}
         {!notification.read && <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: BRAND_GRADIENT, borderRadius: '3px 0 0 3px' }} />}
 
         <Box sx={{ pl: notification.read ? 0 : 0.5 }}>
@@ -62,7 +61,63 @@ function NotificationItem({ data: notification, onNotificationClick }) {
   );
 }
 
-function Notifications({ notifications = [], notificationsLoading: loading = false, markNotificationAsRead, navigate, alertSuccess, alertError }) {
+function PreferencesSection({ setLoading }) {
+  const [preferences, setPreferences] = useState([]);
+
+  useEffect(() => {
+    request({
+      endpoint: '/notifications/preferences',
+      method: 'GET',
+      setLoading,
+      setData: setPreferences,
+      defaultData: [],
+    });
+  }, []);
+
+  const handleToggle = async (hotelId, field, value) => {
+    setPreferences((prev) => {
+      const next = [];
+      for (let i = 0; i < prev.length; i++) {
+        next.push(prev[i].hotelId === hotelId ? { ...prev[i], [field]: value } : prev[i]);
+      }
+      return next;
+    });
+    await request({
+      endpoint: '/notifications/preferences',
+      method: 'PATCH',
+      body: { hotelId, [field]: value },
+    });
+  };
+
+  if (preferences.length === 0) return null;
+
+  return (
+    <Box sx={{ mb: 5 }}>
+      <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Settings</Typography>
+      <Typography sx={{ fontSize: 20, fontWeight: 700, color: NAVY, mb: 2 }}>Notification Preferences</Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {preferences.map((pref) => (
+          <Box key={pref.hotelId} sx={{ bgcolor: 'background.paper', borderRadius: 3, p: 2.5, border: `1px solid ${BORDER}`, boxShadow: SHADOW }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: NAVY, mb: 1.5 }}>{pref.hotelName}</Typography>
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <FormControlLabel
+                control={<Switch size="small" checked={!!pref.pushEnabled} onChange={(e) => handleToggle(pref.hotelId, 'pushEnabled', e.target.checked)} color="primary" />}
+                label={<Typography sx={{ fontSize: 13, color: MUTED }}>Push Notifications</Typography>}
+              />
+              <FormControlLabel
+                control={<Switch size="small" checked={!!pref.emailEnabled} onChange={(e) => handleToggle(pref.hotelId, 'emailEnabled', e.target.checked)} color="primary" />}
+                label={<Typography sx={{ fontSize: 13, color: MUTED }}>Email Notifications</Typography>}
+              />
+            </Box>
+          </Box>
+        ))}
+      </Box>
+      <Divider sx={{ mt: 4, mb: 4 }} />
+    </Box>
+  );
+}
+
+function Notifications({ notifications = [], notificationsLoading: loading = false, markNotificationAsRead, navigate, setLoading }) {
 
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.read) {
@@ -80,6 +135,8 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
           {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
         </Box>
       </motion.div>
+
+      <PreferencesSection setLoading={setLoading} />
 
       <AnimatePresence>
         <MapComponent Component={NotificationItem} data={notifications} onNotificationClick={handleNotificationClick} isLoading={loading} />

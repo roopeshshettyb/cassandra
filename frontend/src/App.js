@@ -121,49 +121,13 @@ const AppContent = () => {
 
   const token = localStorage.getItem('token');
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
-    return localStorage.getItem('notificationsEnabled') !== 'false';
-  });
-
-  // On first load: if enabled and permission not yet decided, prompt for it
-  useEffect(() => {
-    if (!account) return;
-    if (!notificationsEnabled) return;
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'default') return;
-
-    Notification.requestPermission().then((permission) => {
-      if (permission !== 'granted') {
-        localStorage.setItem('notificationsEnabled', 'false');
-        setNotificationsEnabled(false);
-      }
-    });
-  }, [account]);
-
-  const toggleNotifications = async (enabled) => {
-    if (enabled) {
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          alertError('Please allow notifications in your browser settings to enable this.');
-          return;
-        }
-      }
-      localStorage.setItem('notificationsEnabled', 'true');
-      setNotificationsEnabled(true);
-    } else {
-      localStorage.setItem('notificationsEnabled', 'false');
-      setNotificationsEnabled(false);
-    }
-  };
-
   const {
     unreadCount,
     notifications,
     loading: notificationsLoading,
     markAsRead,
   } = useNotifications({
-    enabled: !!account && notificationsEnabled,
+    enabled: !!account,
     token: token || undefined,
   });
 
@@ -385,8 +349,6 @@ const AppContent = () => {
     notifications,
     notificationsLoading: notificationsLoading,
     markNotificationAsRead: markAsRead,
-    notificationsEnabled,
-    toggleNotifications,
   };
 
   const isAuthenticated = !!(account || token);
