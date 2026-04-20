@@ -10,7 +10,6 @@ import { CommonModule } from '../common/common.module';
 import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
 import { HotelsModule } from '../hotels/hotels.module';
-import { HotelAccountsRepository } from '../hotels/hotels.repository';
 import { MailerModule } from '../mailer/mailer.module';
 import { Account } from '../accounts/accounts.model';
 
@@ -23,7 +22,6 @@ import { Account } from '../accounts/accounts.model';
     NotificationsService,
     NotificationsGateway,
     NotificationFactory,
-    HotelAccountsRepository,
     { provide: 'ACCOUNTS_REPOSITORY', useValue: Account },
   ],
   exports: [NotificationsService, NotificationsGateway, NotificationFactory],

@@ -168,7 +168,7 @@ export class NotificationFactory {
 
     for (let i = 0; i < uniqueAccountIds.length; i++) {
       const accountId = uniqueAccountIds[i];
-      const pref = await this.getOrDefaultPreference(accountId, hotelId);
+      const pref = await this.getOrDefaultPreference(accountId);
 
       if (pref.pushEnabled) {
         try {
@@ -213,8 +213,8 @@ export class NotificationFactory {
     this.logger.debug(`Notifications dispatched for hotel ${hotelId}: ${uniqueAccountIds.length} recipients`);
   }
 
-  private async getOrDefaultPreference(accountId: number, hotelId: number): Promise<{ pushEnabled: boolean; emailEnabled: boolean }> {
-    const pref = await this.preferenceRepository.findOne({ where: { accountId, hotelId } });
+  private async getOrDefaultPreference(accountId: number): Promise<{ pushEnabled: boolean; emailEnabled: boolean }> {
+    const pref = await this.preferenceRepository.findOne({ where: { accountId } });
     return pref ?? { pushEnabled: true, emailEnabled: true };
   }
 

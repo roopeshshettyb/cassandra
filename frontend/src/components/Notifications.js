@@ -105,68 +105,63 @@ function PrefToggleRow({ icon: Icon, label, description, checked, onChange }) {
 }
 
 function PreferencesSection({ setLoading }) {
-  const [preferences, setPreferences] = useState([]);
+  const [prefs, setPrefs] = useState({ pushEnabled: true, emailEnabled: true });
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     request({
       endpoint: '/notifications/preferences',
       method: 'GET',
       setLoading,
-      setData: setPreferences,
-      defaultData: [],
+      setData: (data) => {
+        if (data && typeof data === 'object') {
+          setPrefs(data);
+          setLoaded(true);
+        }
+      },
+      defaultData: { pushEnabled: true, emailEnabled: true },
     });
   }, []);
 
-  const handleToggle = async (hotelId, field, value) => {
-    setPreferences((prev) => {
-      const next = [];
-      for (let i = 0; i < prev.length; i++) {
-        next.push(prev[i].hotelId === hotelId ? { ...prev[i], [field]: value } : prev[i]);
-      }
-      return next;
-    });
+  const handleToggle = async (field, value) => {
+    setPrefs((prev) => ({ ...prev, [field]: value }));
     await request({
       endpoint: '/notifications/preferences',
       method: 'PATCH',
-      body: { hotelId, [field]: value },
+      data: { [field]: value },
     });
   };
 
-  if (preferences.length === 0) return null;
+  if (!loaded) return null;
 
   return (
     <Box sx={{ mb: 5 }}>
       <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Settings</Typography>
       <Typography sx={{ fontSize: 20, fontWeight: 700, color: NAVY, mb: 2 }}>Notification Preferences</Typography>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {preferences.map((pref) => (
-          <Box
-            key={pref.hotelId}
-            sx={{ bgcolor: 'background.paper', borderRadius: 3, overflow: 'hidden', border: `1px solid ${BORDER}`, boxShadow: SHADOW }}
-          >
-            <Box sx={{ px: 2.5, py: 1.5, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: BRAND_GRADIENT, flexShrink: 0 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 13, color: NAVY }}>{pref.hotelName}</Typography>
-            </Box>
-            <Box sx={{ p: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-              <PrefToggleRow
-                icon={NotificationsNone}
-                label="Push"
-                description="In-app alerts"
-                checked={pref.pushEnabled}
-                onChange={(v) => handleToggle(pref.hotelId, 'pushEnabled', v)}
-              />
-              <PrefToggleRow
-                icon={EmailOutlined}
-                label="Email"
-                description="Send to inbox"
-                checked={pref.emailEnabled}
-                onChange={(v) => handleToggle(pref.hotelId, 'emailEnabled', v)}
-              />
-            </Box>
-          </Box>
-        ))}
+      <Box
+        sx={{ bgcolor: 'background.paper', borderRadius: 3, overflow: 'hidden', border: `1px solid ${BORDER}`, boxShadow: SHADOW }}
+      >
+        <Box sx={{ px: 2.5, py: 1.5, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: BRAND_GRADIENT, flexShrink: 0 }} />
+          <Typography sx={{ fontWeight: 700, fontSize: 13, color: NAVY }}>My Notifications</Typography>
+        </Box>
+        <Box sx={{ p: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          <PrefToggleRow
+            icon={NotificationsNone}
+            label="Push"
+            description="In-app alerts"
+            checked={prefs.pushEnabled}
+            onChange={(v) => handleToggle('pushEnabled', v)}
+          />
+          <PrefToggleRow
+            icon={EmailOutlined}
+            label="Email"
+            description="Send to inbox"
+            checked={prefs.emailEnabled}
+            onChange={(v) => handleToggle('emailEnabled', v)}
+          />
+        </Box>
       </Box>
 
       <Divider sx={{ mt: 4, mb: 4 }} />
@@ -195,7 +190,7 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
       <PreferencesSection setLoading={setLoading} />
 
       <AnimatePresence>
-        <MapComponent Component={NotificationItem} data={notifications} onNotificationClick={handleNotificationClick} isLoading={loading} />
+        <MapComponent Component={NotificationItem} data={notifications} onNotificationClick={handleNotificationClick} isLoading={loading} showNoDataAvailable={false} />
       </AnimatePresence>
 
       {!loading && notifications.length === 0 && (

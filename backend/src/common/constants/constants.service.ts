@@ -261,6 +261,9 @@ export class ConstantsService {
           LOGIN_OPTIONS,
         },
       },
+      NOTIFICATIONS_FETCHED: 'Notifications fetched',
+      PREFERENCES_FETCHED: 'Preferences fetched',
+      PREFERENCES_UPDATED: 'Preferences updated',
     };
   }
 
