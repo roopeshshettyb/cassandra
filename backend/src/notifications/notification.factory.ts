@@ -1,8 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
-import { NOTIFICATION_PREFERENCE_REPOSITORY } from './notification-preference.repository';
 import { Notification, NotificationType } from './notifications.model';
-import { NotificationPreference } from './notification-preference.model';
 import { NotificationsGateway } from './notifications.gateway';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService, NotificationTone } from '../common/constants/constants.service';
@@ -34,7 +32,6 @@ export class NotificationFactory {
 
   constructor(
     @Inject(NOTIFICATIONS_REPOSITORY) private readonly notificationsRepository: typeof Notification,
-    @Inject(NOTIFICATION_PREFERENCE_REPOSITORY) private readonly preferenceRepository: typeof NotificationPreference,
     @Inject('ACCOUNTS_REPOSITORY') private readonly accountsRepository: typeof Account,
     private readonly notificationsGateway: NotificationsGateway,
     private readonly mailerService: MailerService,
@@ -168,7 +165,8 @@ export class NotificationFactory {
 
     for (let i = 0; i < uniqueAccountIds.length; i++) {
       const accountId = uniqueAccountIds[i];
-      const pref = await this.getOrDefaultPreference(accountId);
+      const account = accountMap.get(accountId);
+      const pref = this.getOrDefaultPreference(account);
 
       if (pref.pushEnabled) {
         try {
@@ -199,7 +197,6 @@ export class NotificationFactory {
       }
 
       if (pref.emailEnabled) {
-        const account = accountMap.get(accountId);
         if (account?.email) {
           try {
             await this.sendNotificationEmail(account, notificationData);
@@ -213,9 +210,14 @@ export class NotificationFactory {
     this.logger.debug(`Notifications dispatched for hotel ${hotelId}: ${uniqueAccountIds.length} recipients`);
   }
 
-  private async getOrDefaultPreference(accountId: number): Promise<{ pushEnabled: boolean; emailEnabled: boolean }> {
-    const pref = await this.preferenceRepository.findOne({ where: { accountId } });
-    return pref ?? { pushEnabled: true, emailEnabled: true };
+  private getOrDefaultPreference(account?: Account): { pushEnabled: boolean; emailEnabled: boolean } {
+    if (!account || !account.notificationPreferences) {
+      return { pushEnabled: true, emailEnabled: true };
+    }
+    return {
+      pushEnabled: account.notificationPreferences.push,
+      emailEnabled: account.notificationPreferences.email,
+    };
   }
 
   private async sendNotificationEmail(account: Account, data: NotificationPayload): Promise<void> {
