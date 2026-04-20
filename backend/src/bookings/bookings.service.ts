@@ -11,14 +11,13 @@ import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
-import { NotificationFactory } from '../notifications/notification.factory';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Op } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
 import { forwardRef } from '@nestjs/common';
 import { CostsService } from '../costs/costs.service';
-import { Express } from 'express';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -33,7 +32,7 @@ export class BookingsService {
     private readonly awsService: AwsService,
     private readonly documentExtractionService: DocumentExtractionService,
     @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
-    @Inject(forwardRef(() => NotificationFactory)) private readonly notificationFactory: NotificationFactory,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private parseDateTime(dateStr: string, timeStr: string): Date {
@@ -109,7 +108,13 @@ export class BookingsService {
     }
 
     // Emit notification for new booking (fail silently)
-    this.notificationFactory.notifyNewBooking(booking, hotel, guest, currentAccount);
+    this.notificationsService.notify({
+      eventType: 'NEW_BOOKING',
+      booking,
+      hotel,
+      guest,
+      actor: currentAccount,
+    });
 
     return {
       success: true,
