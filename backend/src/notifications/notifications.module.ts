@@ -1,7 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsRepository } from './notifications.repository';
-import { NotificationPreferenceRepository } from './notification-preference.repository';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationFactory } from './notification.factory';
@@ -18,7 +17,6 @@ import { Account } from '../accounts/accounts.model';
   controllers: [NotificationsController],
   providers: [
     NotificationsRepository,
-    NotificationPreferenceRepository,
     NotificationsService,
     NotificationsGateway,
     NotificationFactory,

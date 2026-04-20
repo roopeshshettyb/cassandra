@@ -21,6 +21,11 @@ interface NotifyInput {
   messagePreview?: string;
 }
 
+interface NotifyHandlerConfig {
+  canHandle: (input: NotifyInput) => boolean;
+  handler: (input: NotifyInput) => Promise<void>;
+}
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -68,20 +73,38 @@ export class NotificationsService {
   }
 
   async notify(input: NotifyInput): Promise<void> {
-    if (input.eventType === 'NEW_REQUEST' && input.request) {
-      await this.notificationFactory.notifyNewRequest(input.request, input.hotel, input.actor);
+    const config: Record<NotificationEventType, NotifyHandlerConfig> = {
+      NEW_REQUEST: {
+        canHandle: (data) => !!data.request,
+        handler: async (data) => {
+          await this.notificationFactory.notifyNewRequest(data.request!, data.hotel, data.actor);
+        },
+      },
+      REQUEST_UPDATED: {
+        canHandle: (data) => !!data.request,
+        handler: async (data) => {
+          await this.notificationFactory.notifyRequestUpdated(data.request!, data.hotel, data.actor);
+        },
+      },
+      NEW_BOOKING: {
+        canHandle: (data) => !!data.booking && !!data.guest,
+        handler: async (data) => {
+          await this.notificationFactory.notifyNewBooking(data.booking!, data.hotel, data.guest!, data.actor);
+        },
+      },
+      NEW_MESSAGE: {
+        canHandle: (data) => !!data.request,
+        handler: async (data) => {
+          await this.notificationFactory.notifyMessageInRequest(data.request!, data.hotel, data.actor, data.messagePreview || '');
+        },
+      },
+    };
+
+    const eventConfig = config[input.eventType];
+    if (!eventConfig.canHandle(input)) {
       return;
     }
-    if (input.eventType === 'REQUEST_UPDATED' && input.request) {
-      await this.notificationFactory.notifyRequestUpdated(input.request, input.hotel, input.actor);
-      return;
-    }
-    if (input.eventType === 'NEW_BOOKING' && input.booking && input.guest) {
-      await this.notificationFactory.notifyNewBooking(input.booking, input.hotel, input.guest, input.actor);
-      return;
-    }
-    if (input.eventType === 'NEW_MESSAGE' && input.request) {
-      await this.notificationFactory.notifyMessageInRequest(input.request, input.hotel, input.actor, input.messagePreview || '');
-    }
+
+    await eventConfig.handler(input);
   }
 }
