@@ -4,13 +4,11 @@ import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ConstantsService } from '../common/constants/constants.service';
-import { AccountsService } from '../accounts/accounts.service';
 
 @Controller('notifications')
 export class NotificationsController {
   constructor(
     private notificationsService: NotificationsService,
-    private accountsService: AccountsService,
     private constants: ConstantsService,
   ) {}
 
@@ -30,15 +28,11 @@ export class NotificationsController {
   @Get('preferences')
   @UseGuards(JwtAuthGuard)
   async getPreferences(@CurrentAccount() account: Account) {
-    const savedAccount = await this.accountsService.findOne({ where: { id: account.id } });
-    const pref = savedAccount?.notificationPreferences;
+    const data = await this.notificationsService.getPreferences(account.id);
     return {
       success: true,
       message: this.constants.public.PREFERENCES_FETCHED,
-      data: {
-        pushEnabled: pref ? pref.push : true,
-        emailEnabled: pref ? pref.email : true,
-      },
+      data,
     };
   }
 
@@ -48,13 +42,7 @@ export class NotificationsController {
     @CurrentAccount() account: Account,
     @Body() body: { pushEnabled?: boolean; emailEnabled?: boolean },
   ) {
-    const savedAccount = await this.accountsService.findOne({ where: { id: account.id } });
-    const currentPreferences = savedAccount?.notificationPreferences || { push: true, email: true };
-    const nextPreferences = {
-      push: body.pushEnabled !== undefined ? body.pushEnabled : currentPreferences.push,
-      email: body.emailEnabled !== undefined ? body.emailEnabled : currentPreferences.email,
-    };
-    await this.accountsService.update({ notificationPreferences: nextPreferences }, { id: account.id });
+    await this.notificationsService.updatePreferences(account.id, body);
     return { success: true, message: this.constants.public.PREFERENCES_UPDATED, data: null };
   }
 }

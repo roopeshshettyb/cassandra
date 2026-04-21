@@ -8,6 +8,7 @@ import { Request } from '../requests/requests.model';
 import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Account } from '../accounts/accounts.model';
+import { AccountsService } from '../accounts/accounts.service';
 
 type NotificationEventType = 'NEW_REQUEST' | 'REQUEST_UPDATED' | 'NEW_BOOKING' | 'NEW_MESSAGE';
 
@@ -31,6 +32,7 @@ export class NotificationsService {
   constructor(
     @Inject(NOTIFICATIONS_REPOSITORY) private readonly notificationsRepository: typeof Notification,
     private readonly notificationFactory: NotificationFactory,
+    private readonly accountsService: AccountsService,
   ) {}
 
   async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
@@ -72,6 +74,27 @@ export class NotificationsService {
     });
   }
 
+  async getPreferences(accountId: number): Promise<{ pushEnabled: boolean; emailEnabled: boolean }> {
+    const savedAccount = await this.accountsService.findOne({ where: { id: accountId } });
+    const pref = savedAccount?.notificationPreferences;
+    return {
+      pushEnabled: pref ? pref.push : true,
+      emailEnabled: pref ? pref.email : true,
+    };
+  }
+
+  async updatePreferences(
+    accountId: number,
+    body: { pushEnabled?: boolean; emailEnabled?: boolean },
+  ): Promise<void> {
+    const savedAccount = await this.accountsService.findOne({ where: { id: accountId } });
+    const currentPreferences = savedAccount?.notificationPreferences || { push: true, email: true };
+    const nextPreferences = {
+      push: body.pushEnabled !== undefined ? body.pushEnabled : currentPreferences.push,
+      email: body.emailEnabled !== undefined ? body.emailEnabled : currentPreferences.email,
+    };
+    await this.accountsService.update({ notificationPreferences: nextPreferences }, { id: accountId });
+  }
   async notify(input: NotifyInput): Promise<void> {
     const config: Record<NotificationEventType, NotifyHandlerConfig> = {
       NEW_REQUEST: {
