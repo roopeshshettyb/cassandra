@@ -7,7 +7,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { Booking } from '../bookings/bookings.model';
-import { NotificationFactory } from '../notifications/notification.factory';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Op } from 'sequelize';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class RequestsService {
     @Inject(REQUESTS_REPOSITORY) private readonly requestsRepository: typeof Request,
     @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
     private readonly hotelsService: HotelsService,
-    @Inject(forwardRef(() => NotificationFactory)) private readonly notificationFactory: NotificationFactory,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async getWhereForAccount(currentAccount: Account): Promise<{ [key: string]: any } | null> {
@@ -124,7 +124,12 @@ export class RequestsService {
 
     // Emit notification for new request (fail silently)
     const hotel = await this.hotelsService.findById(dto.hotelId);
-    this.notificationFactory.notifyNewRequest(request, hotel, currentAccount);
+    this.notificationsService.notify({
+      eventType: 'NEW_REQUEST',
+      request,
+      hotel,
+      actor: currentAccount,
+    });
 
     return {
       success: true,
@@ -158,7 +163,12 @@ export class RequestsService {
 
     // Emit notification for request update (fail silently)
     const hotel = await this.hotelsService.findById(request.hotelId);
-    this.notificationFactory.notifyRequestUpdated(request, hotel, currentAccount);
+    this.notificationsService.notify({
+      eventType: 'REQUEST_UPDATED',
+      request,
+      hotel,
+      actor: currentAccount,
+    });
 
     return {
       success: true,
@@ -223,7 +233,13 @@ export class RequestsService {
     // Emit notification for new message (fail silently)
     const hotel = await this.hotelsService.findById(request.hotelId);
     const messagePreview = message.substring(0, 50);
-    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
+    this.notificationsService.notify({
+      eventType: 'NEW_MESSAGE',
+      request,
+      hotel,
+      actor: currentAccount,
+      messagePreview,
+    });
 
     return {
       success: true,
@@ -258,7 +274,13 @@ export class RequestsService {
     // Emit notification for new message (fail silently)
     const hotel = await this.hotelsService.findById(request.hotelId);
     const messagePreview = message.substring(0, 50);
-    this.notificationFactory.notifyMessageInRequest(request, hotel, currentAccount, messagePreview);
+    this.notificationsService.notify({
+      eventType: 'NEW_MESSAGE',
+      request,
+      hotel,
+      actor: currentAccount,
+      messagePreview,
+    });
 
     return {
       success: true,

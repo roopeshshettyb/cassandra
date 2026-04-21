@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Box, IconButton, Button, Badge, Typography, Switch } from '@mui/material';
+import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
 import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
@@ -74,7 +74,7 @@ const ROLE_SPECIFIC_ITEMS = {
   ],
 };
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount, notificationsEnabled, toggleNotifications }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount }) => {
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
@@ -151,15 +151,6 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
         >
           {data.text}
         </Button>
-        {data.key === 'Notifications' && account && toggleNotifications && (
-          <Switch
-            size="small"
-            checked={!!notificationsEnabled}
-            onChange={(e) => toggleNotifications(e.target.checked)}
-            color="primary"
-            sx={{ mr: 1 }}
-          />
-        )}
       </Box>
     );
   };

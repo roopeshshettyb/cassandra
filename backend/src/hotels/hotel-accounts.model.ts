@@ -31,4 +31,7 @@ export class HotelAccount extends Model<HotelAccount> {
 
   @BelongsTo(() => Account, { foreignKey: 'accountId', as: 'account' })
   account: Account;
+
+  @BelongsTo(() => Hotel, { foreignKey: 'hotelId', as: 'hotel' })
+  hotel: Hotel;
 }

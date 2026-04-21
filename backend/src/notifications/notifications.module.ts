@@ -5,16 +5,23 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationFactory } from './notification.factory';
 import { DatabaseModule } from '../database/database.module';
+import { CommonModule } from '../common/common.module';
 import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
 import { HotelsModule } from '../hotels/hotels.module';
-import { HotelAccountsRepository } from '../hotels/hotels.repository';
+import { MailerModule } from '../mailer/mailer.module';
+import { Account } from '../accounts/accounts.model';
 
 @Module({
-  imports: [DatabaseModule, AccountsModule, AuthModule, forwardRef(() => HotelsModule)],
+  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, forwardRef(() => HotelsModule), MailerModule],
   controllers: [NotificationsController],
-  providers: [NotificationsRepository, NotificationsService, NotificationsGateway, NotificationFactory, HotelAccountsRepository],
+  providers: [
+    NotificationsRepository,
+    NotificationsService,
+    NotificationsGateway,
+    NotificationFactory,
+    { provide: 'ACCOUNTS_REPOSITORY', useValue: Account },
+  ],
   exports: [NotificationsService, NotificationsGateway, NotificationFactory],
 })
 export class NotificationsModule {}
-

@@ -8,6 +8,11 @@ export enum AuthType {
   INSTAGRAM = 'instagram',
 }
 
+export interface NotificationPreferences {
+  push: boolean;
+  email: boolean;
+}
+
 @Table({ tableName: 'accounts' })
 export class Account extends Model<Account> {
   @Column({
@@ -88,6 +93,14 @@ export class Account extends Model<Account> {
     field: 'otp_expires_at',
   })
   otpExpiresAt: Date;
+
+  @Column({
+    type: DataType.JSONB,
+    allowNull: false,
+    defaultValue: { push: true, email: true },
+    field: 'notification_preferences',
+  })
+  notificationPreferences: NotificationPreferences;
 }
 
 export { AccountRole };
