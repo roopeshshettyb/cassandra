@@ -243,6 +243,7 @@ export class ConstantsService {
     return {
       // App Configuration
       APP_NAME: this.configService.get<string>('APP_NAME', 'Samantha'),
+      GOOGLE_MAPS_API: this.configService.get<string>('GOOGLE_MAPS_API'),
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
       DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Samantha is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
@@ -276,6 +277,9 @@ export class ConstantsService {
       FRONTEND_URL: this.configService.get<string>('FRONTEND_URL'),
       BACKEND_URL: this.configService.get<string>('BACKEND_URL'),
       GOOGLE_CLIENT_ID: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+      GOOGLE_MAPS_API: this.configService.get<string>('GOOGLE_MAPS_API'),
+      GOOGLE_SERVICE_JSON: this.configService.get<string>('GOOGLE_SERVICE_JSON'),
+      TAVILY_API_KEY: this.configService.get<string>('TAVILY_API_KEY'),
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 
       // Database Configuration
