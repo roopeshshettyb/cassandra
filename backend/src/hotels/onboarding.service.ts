@@ -10,23 +10,23 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 
 const HOTEL_EXTRACTION_SCHEMA = z.object({
-  brandName: z.string().nullable().describe('The parent brand name (e.g. Hilton, Marriott, W Hotels, Radisson Blu, OYO)'),
-  checkInTime: z.string().nullable().describe('Standard check-in time in HH:MM 24h format'),
-  checkOutTime: z.string().nullable().describe('Standard check-out time in HH:MM 24h format'),
-  poolHours: z.string().nullable().describe('Operating hours for the pool'),
-  gymHours: z.string().nullable().describe('Operating hours for the gym'),
-  restaurantHours: z.string().nullable().describe('Operating hours for the main restaurant'),
-  wifiPassword: z.string().nullable().describe('Public or guest wifi password if mentioned'),
-  breakfastHours: z.string().nullable().describe('When breakfast is served'),
-  lunchHours: z.string().nullable().describe('When lunch is served'),
-  dinnerHours: z.string().nullable().describe('When dinner is served'),
-  snacksHours: z.string().nullable(),
-  houseKeepingHours: z.string().nullable(),
-  roomServiceHours: z.string().nullable(),
+  brandName: z.string().nullable().describe('Parent hotel chain/brand name only if clearly identifiable (e.g. Radisson Blu, Marriott, OYO). Null for independent hotels.'),
+  checkInTime: z.string().nullable().describe('Check-in time in HH:MM 24h format. ONLY if explicitly stated in the data. Null otherwise.'),
+  checkOutTime: z.string().nullable().describe('Check-out time in HH:MM 24h format. ONLY if explicitly stated in the data. Null otherwise.'),
+  poolHours: z.string().nullable().describe('Pool operating hours. ONLY if explicitly stated. Null otherwise.'),
+  gymHours: z.string().nullable().describe('Gym operating hours. ONLY if explicitly stated. Null otherwise.'),
+  restaurantHours: z.string().nullable().describe('Main restaurant hours. ONLY if explicitly stated. Null otherwise.'),
+  wifiPassword: z.string().nullable().describe('Guest wifi password. ONLY if explicitly stated. Null otherwise.'),
+  breakfastHours: z.string().nullable().describe('Breakfast service hours. ONLY if explicitly stated. Null otherwise.'),
+  lunchHours: z.string().nullable().describe('Lunch service hours. ONLY if explicitly stated. Null otherwise.'),
+  dinnerHours: z.string().nullable().describe('Dinner service hours. ONLY if explicitly stated. Null otherwise.'),
+  snacksHours: z.string().nullable().describe('Snacks/cafe hours. ONLY if explicitly stated. Null otherwise.'),
+  houseKeepingHours: z.string().nullable().describe('Housekeeping hours. ONLY if explicitly stated. Null otherwise.'),
+  roomServiceHours: z.string().nullable().describe('Room service hours. ONLY if explicitly stated. Null otherwise.'),
   themeConfig: z.object({
-    primaryColor: z.string().nullable().describe('Hex color code (#RRGGBB) of the dominant brand color. Use your knowledge of the brand if not found in crawl data. E.g. Radisson Blu=#004B87, Marriott=#8B1A1A, Hilton=#003580, OYO=#EE2E24, Taj=#8B6914, ITC=#1B3A6B'),
-    secondaryColor: z.string().nullable().describe('Hex color code (#RRGGBB) of the secondary/accent brand color'),
-  }).describe('Brand theme colors — use brand knowledge if not extractable from crawl'),
+    primaryColor: z.string().nullable().describe('Hex color (#RRGGBB) extracted from CSS hints only. Null if not found in CSS.'),
+    secondaryColor: z.string().nullable().describe('Hex color (#RRGGBB) extracted from CSS hints only. Null if not found in CSS.'),
+  }).describe('Colors from CSS only — do not guess from brand knowledge here'),
 });
 
 @Injectable()
@@ -86,36 +86,64 @@ export class OnboardingService {
       ? rawHtml.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\d+,\s*\d+,\s*\d+\)|--[\w-]*color[\w-]*:\s*[^;]+/gi)?.slice(0, 30).join(', ') || ''
       : '';
 
-    // Step 2: Extract via LLM
+    // Step 2: Extract via LLM — strict extraction only, no hallucination
     const model = this.createModel();
     const structuredModel = model.withStructuredOutput(HOTEL_EXTRACTION_SCHEMA, { name: 'extractor' });
 
-    const prompt = `You are a hotel data extraction assistant.
-    Analyze the following website crawl data for "${details.name}" and extract the requested fields.
-    
-    IMPORTANT RULES:
-    - checkInTime / checkOutTime: look for patterns like "check-in: 3pm", "check out by 12", "arrival from 14:00". Convert to HH:MM 24h. For known chains use defaults if not found: checkIn=14:00, checkOut=12:00.
-    - themeConfig.primaryColor / secondaryColor: ALWAYS provide a value. Use CSS hints if available, otherwise use your knowledge of the brand's official colors. Never return null for colors if you know the brand.
-    - Known brand colors: Radisson Blu=#00009F secondary=#417FBE, Radisson=#003478 secondary=#A37C49, Marriott=#8B1A1A secondary=#C9A84C, Hilton=#003580 secondary=#0066CC, OYO=#EE2E24 secondary=#1A1A1A, Taj Hotels=#8B6914 secondary=#C5A028, ITC Hotels=#1B3A6B secondary=#C5A028, Four Seasons=#1A1A1A secondary=#C5A028, Hyatt=#B5A36A secondary=#1A1A1A, Accor=#C8102E secondary=#1A1A1A, Wyndham=#003087 secondary=#C5A028, JW Marriott=#8B1A1A secondary=#C9A84C, Sheraton=#003580 secondary=#C9A84C.
-    
-    CSS COLOR HINTS FROM WEBSITE:
-    ${colorHints || 'Not available'}
-    
-    CRAWL DATA:
-    ${crawlData}`;
+    const prompt = `You are a precise hotel data extraction assistant. Your job is to extract ONLY information that is explicitly stated in the provided crawl data.
+
+STRICT RULES — READ CAREFULLY:
+1. ONLY extract values that are explicitly present in the crawl data below. Do NOT guess, infer, or use general knowledge for operating hours, wifi passwords, or room service hours.
+2. For checkInTime / checkOutTime: look for explicit text like "check-in from 3pm", "check out by 12:00", "arrival after 14:00", "departure before 11:00". Convert to HH:MM 24h format. If not explicitly found in the data, return null — do NOT use a default.
+3. For brandName: identify the parent hotel chain/brand (e.g. "Radisson Blu", "Marriott", "OYO"). Return null if this is clearly an independent hotel.
+4. For themeConfig colors: extract ONLY from the CSS color hints provided. If CSS hints are empty or don't contain clear brand colors, return null. Do NOT guess colors from brand knowledge.
+5. Return null for any field not found. Do not fabricate data.
+
+HOTEL NAME: ${details.name}
+
+CSS COLOR HINTS (extracted from website HTML — use ONLY these for colors):
+${colorHints || 'None available'}
+
+CRAWL DATA:
+${crawlData}`;
 
     const rawData = await structuredModel.invoke([
-      new SystemMessage('Extract structured hotel information accurately.'),
+      new SystemMessage('You are a strict data extractor. Only return values explicitly found in the provided data. Never hallucinate or use prior knowledge for factual fields.'),
       new HumanMessage(prompt),
     ]);
 
     const extracted: z.infer<typeof HOTEL_EXTRACTION_SCHEMA> = rawData;
 
+    // Pass 2: If brand identified, apply brand-level knowledge for colors only (not operational data)
+    if (extracted.brandName && !extracted.themeConfig?.primaryColor) {
+      const brandColorPrompt = `What are the official brand colors (hex codes) for the hotel chain "${extracted.brandName}"?
+      Return ONLY if you are highly confident this is a well-known international hotel brand.
+      Format: primaryColor=#XXXXXX secondaryColor=#XXXXXX
+      If you are not confident, return: UNKNOWN`;
+
+      const colorResult = await model.invoke([new HumanMessage(brandColorPrompt)]);
+      const colorText = (colorResult.content as string).trim();
+
+      if (colorText !== 'UNKNOWN') {
+        const primaryMatch = colorText.match(/primaryColor=(#[0-9a-fA-F]{6})/);
+        const secondaryMatch = colorText.match(/secondaryColor=(#[0-9a-fA-F]{6})/);
+        if (primaryMatch || secondaryMatch) {
+          extracted.themeConfig = {
+            primaryColor: primaryMatch?.[1] || null,
+            secondaryColor: secondaryMatch?.[1] || null,
+          };
+        }
+      }
+    }
+
     // Step 3: Fuzzy Brand Matching via LLM
     let brand = null;
     if (extracted.brandName) {
       const existingBrands = await this.brandsRepository.findAll();
-      const brandNames = existingBrands.map((b) => b.name);
+      const brandNames = [];
+      for (let i = 0; i < existingBrands.length; i++) {
+        brandNames.push(existingBrands[i].name);
+      }
 
       if (brandNames.length > 0) {
         const matchPrompt = `The agent extracted the brand name "${extracted.brandName}" for the hotel "${details.name}".
@@ -154,7 +182,8 @@ export class OnboardingService {
         'avatarConfig', 'logoUrl', 'notificationTone', 'customToneUrl',
       ];
 
-      for (const field of brandFields) {
+      for (let i = 0; i < brandFields.length; i++) {
+        const field = brandFields[i];
         if (brand[field] !== null && brand[field] !== undefined) {
           finalData[field] = brand[field];
         }
@@ -213,11 +242,30 @@ export class OnboardingService {
       brandId = brand.id;
     }
 
-    // 2. Create Hotel (persist all fields)
-    const hotel = await this.hotelsRepository.create({
-      ...hotelData,
-      hotelBrandId: brandId,
-    });
+    // 2. Upsert Hotel — update if same address exists, otherwise create
+    const existingHotel = await this.hotelsRepository.findOne({ where: { address: hotelData.address } });
+
+    if (existingHotel) {
+      // Only update fields that were actually extracted (non-null)
+      const updates: any = { hotelBrandId: brandId };
+      const fields = [
+        'name', 'website', 'phoneNumber', 'checkInTime', 'checkOutTime',
+        'poolHours', 'gymHours', 'restaurantHours', 'wifiPassword',
+        'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
+        'houseKeepingHours', 'roomServiceHours', 'llmInstructions', 'themeConfig',
+      ];
+      for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        if (hotelData[field] !== null && hotelData[field] !== undefined) {
+          updates[field] = hotelData[field];
+        }
+      }
+      await this.hotelsRepository.update(updates, { where: { id: existingHotel.id } });
+      const updated = await this.hotelsRepository.findOne({ where: { id: existingHotel.id } });
+      return { success: true, message: 'Hotel updated successfully', data: updated };
+    }
+
+    const hotel = await this.hotelsRepository.create({ ...hotelData, hotelBrandId: brandId });
 
     return {
       success: true,
