@@ -1,45 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
 import HotelCard from './cards/HotelCard';
-
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
+import { BRAND_GRADIENT, NAVY, PRIMARY_CONTRAST, SHADOW } from '../theme';
 import constants from '../constants.json';
+import AddHotelOnboarding from './AddHotelOnboarding';
 
-function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
+function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, alertError }) {
   const [hotels, setHotels] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [formValues, setFormValues] = useState({ name: '', address: '', checkInTime: '', checkOutTime: '' });
-  const [dataLoading, setDataLoading] = useState(true);
 
   const fetchHotels = async () => {
-    await request({ endpoint: '/hotels', method: 'GET', setLoading: setDataLoading, defaultData: [], alertError, setData: setHotels });
+    await request({ endpoint: '/hotels', method: 'GET', setLoading, defaultData: [], alertError, setData: setHotels });
   };
 
   useEffect(() => {
     if (account) fetchHotels();
   }, [account]);
 
-  const handleInputChange = (field) => (e) => setFormValues((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const handleCreateHotel = async (e) => {
-    e.preventDefault();
-    if (!formValues.name || !formValues.address) {
-      alertError?.('Name and address are required');
-      return;
-    }
-    setCreating(true);
-    try {
-      await request({ endpoint: '/hotels', method: 'POST', data: formValues, setLoading, alertSuccess, alertError });
-      setFormValues({ name: '', address: '', checkInTime: '', checkOutTime: '' });
-      setShowAddForm(false);
-      await fetchHotels();
-    } finally {
-      setCreating(false);
-    }
+  const handleHotelOnboarded = () => {
+    fetchHotels();
+    setShowAddForm(false);
   };
 
   const CAN_ADD_HOTEL = !!constants.PERMISSIONS.CAN_ADD_HOTEL[account?.role];
@@ -56,17 +39,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
             <motion.button
               onClick={() => setShowAddForm(true)}
               whileTap={{ scale: 0.97 }}
-              style={{
-                background: BRAND_GRADIENT,
-                border: 'none',
-                borderRadius: 10,
-                padding: '10px 22px',
-                color: PRIMARY_CONTRAST,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: SHADOW,
-              }}
+              style={{ background: BRAND_GRADIENT, border: 'none', borderRadius: 10, padding: '10px 22px', color: PRIMARY_CONTRAST, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: SHADOW }}
             >
               + Add Hotel
             </motion.button>
@@ -74,47 +47,15 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
         </Box>
       </motion.div>
 
-      <Dialog open={showAddForm && CAN_ADD_HOTEL} onClose={() => setShowAddForm(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>Add Hotel</DialogTitle>
-        <Box component="form" onSubmit={handleCreateHotel}>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField fullWidth label="Hotel Name" value={formValues.name} onChange={handleInputChange('name')} required />
-              <TextField fullWidth label="Address" value={formValues.address} onChange={handleInputChange('address')} required />
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Check-in Time"
-                  type="time"
-                  value={formValues.checkInTime}
-                  onChange={handleInputChange('checkInTime')}
-                  inputProps={{ step: 60 }}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <TextField
-                  fullWidth
-                  label="Check-out Time"
-                  type="time"
-                  value={formValues.checkOutTime}
-                  onChange={handleInputChange('checkOutTime')}
-                  inputProps={{ step: 60 }}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Box>
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setShowAddForm(false)} sx={{ color: MUTED }}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={creating}>
-              {creating ? 'Saving…' : 'Save Hotel'}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
+      <AddHotelOnboarding
+        open={showAddForm && CAN_ADD_HOTEL}
+        onClose={() => setShowAddForm(false)}
+        onHotelCreated={handleHotelOnboarded}
+        alertError={alertError}
+        alertSuccess={alertSuccess}
+      />
 
-      <DataGrid CardComponent={HotelCard} data={hotels} isLoading={dataLoading} navigate={navigate} />
+      <DataGrid CardComponent={HotelCard} data={hotels} isLoading={loading} navigate={navigate} />
     </Box>
   );
 }

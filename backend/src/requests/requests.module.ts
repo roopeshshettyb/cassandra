@@ -8,7 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { RequestsController } from './requests.controller';
 
 @Module({
-  imports: [DatabaseModule, forwardRef(() => BookingsModule), HotelsModule, forwardRef(() => NotificationsModule)],
+  imports: [DatabaseModule, forwardRef(() => BookingsModule), forwardRef(() => HotelsModule), forwardRef(() => NotificationsModule)],
   controllers: [RequestsController],
   providers: [RequestsRepository, RequestsService],
   exports: [RequestsRepository, RequestsService],

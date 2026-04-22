@@ -18,6 +18,16 @@ export class CreateHotelDto {
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })
+  readonly website?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
   readonly checkInTime?: string;
 
   @IsOptional()
@@ -97,6 +107,16 @@ export class UpdateHotelDto {
   @IsString()
   @ApiProperty({ required: false })
   readonly address?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly website?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly phoneNumber?: string;
 
   @IsOptional()
   @IsString()

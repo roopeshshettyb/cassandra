@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { HotelsService } from './hotels.service';
 import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, UpdateHotelDto } from './hotels.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -6,14 +6,28 @@ import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { Account } from '../accounts/accounts.model';
 
+import { OnboardingService } from './onboarding.service';
+import { MapsService } from '../common/maps/maps.service';
+
 @Controller('hotels')
 @UseGuards(JwtAuthGuard)
 export class HotelsController {
-  constructor(private readonly hotelsService: HotelsService) {}
+  constructor(
+    private readonly hotelsService: HotelsService,
+    private readonly onboardingService: OnboardingService,
+    private readonly mapsService: MapsService,
+  ) {}
 
   @Get()
   async findAll(@CurrentAccount() account: Account) {
     return this.hotelsService.findAllForAccount(account);
+  }
+
+  @Get('brands')
+  @AdminOnly()
+  async listBrands() {
+    const brands = await this.onboardingService.listAllBrands();
+    return { success: true, data: brands };
   }
 
   @Get(':id')
@@ -121,5 +135,31 @@ export class HotelsController {
   @Get(':id/notification-tone/signed-url')
   async getNotificationToneSignedUrl(@Param('id') id: string, @CurrentAccount() account: Account) {
     return this.hotelsService.getNotificationToneSignedUrl(Number(id), account);
+  }
+
+  // Onboarding Endpoints
+  @Get('onboarding/search')
+  @AdminOnly()
+  async search(@Query('query') query: string) {
+    const data = await this.mapsService.searchPlaces(query);
+    return { success: true, data };
+  }
+
+  @Get('onboarding/analyze/:placeId')
+  @AdminOnly()
+  async analyze(@Param('placeId') placeId: string) {
+    return this.onboardingService.analyzePlace(placeId);
+  }
+
+  @Post('onboarding/extract')
+  @AdminOnly()
+  async extract(@Body() body: { placeId: string; website?: string }) {
+    return this.onboardingService.crawlAndExtract(body.placeId, body.website);
+  }
+
+  @Post('onboarding/finalize')
+  @AdminOnly()
+  async finalize(@Body() body: any) {
+    return this.onboardingService.finalizeOnboarding(body);
   }
 }
