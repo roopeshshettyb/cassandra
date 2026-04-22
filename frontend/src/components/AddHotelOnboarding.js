@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -27,8 +27,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const [manualWebsite, setManualWebsite] = useState('');
   const [extractedData, setExtractedData] = useState(null);
   const [finalizing, setFinalizing] = useState(false);
-  const searchTimerRef = React.useRef(null);
-  const justSelectedRef = React.useRef(false);
+  const searchTimerRef = useRef(null);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
@@ -112,7 +112,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3, mx: { xs: 2, sm: 3 } } }}>
       <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>
         {step === 'review' ? 'Review Hotel Data' : 'Add New Hotel'}
       </DialogTitle>
@@ -253,10 +253,13 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
 }
 
 function DataField({ label, value }) {
+  const display = label === 'Website' && value
+    ? (() => { try { return new URL(value).hostname; } catch { return value; } })()
+    : value;
   return (
     <Box>
       <Typography sx={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase' }}>{label}</Typography>
-      <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 500 }}>{value || 'Not found'}</Typography>
+      <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 500 }}>{display || 'Not found'}</Typography>
     </Box>
   );
 }
