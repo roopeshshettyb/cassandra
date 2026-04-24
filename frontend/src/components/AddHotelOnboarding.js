@@ -11,6 +11,7 @@ import LanguageIcon from '@mui/icons-material/Language';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ApartmentIcon from '@mui/icons-material/Apartment';
 import request from '../helper/api';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, NAVY_GRADIENT, SHADOW } from '../theme';
 
@@ -200,8 +201,14 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
           {step === 'extracting' && (
             <motion.div key="extracting" {...FADE} transition={{ duration: 0.2 }}>
               <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Box sx={{ width: 56, height: 56, borderRadius: '50%', background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2.5, boxShadow: '0 4px 16px rgba(212,175,55,0.35)' }}>
-                  <AutoAwesomeIcon sx={{ color: PRIMARY_CONTRAST, fontSize: 26 }} />
+                <Box sx={{ position: 'relative', mx: 'auto', mb: 2.5, width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <motion.div animate={{ scale: [1, 1.5, 1], opacity: [0.25, 0, 0.25] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(212,175,55,0.35)' }} />
+                  <motion.div animate={{ scale: [1, 1.25, 1], opacity: [0.4, 0.1, 0.4] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+                    style={{ position: 'absolute', inset: 6, borderRadius: '50%', background: 'rgba(212,175,55,0.3)' }} />
+                  <Box sx={{ width: 56, height: 56, borderRadius: '50%', background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(212,175,55,0.5)', zIndex: 1 }}>
+                    <ApartmentIcon sx={{ color: PRIMARY_CONTRAST, fontSize: 28 }} />
+                  </Box>
                 </Box>
                 <Typography sx={{ fontWeight: 800, fontSize: 16, color: NAVY, mb: 0.5 }}>Learning your hotel...</Typography>
                 <Typography sx={{ color: MUTED, fontSize: 13, mb: 2.5 }}>Discovering what makes your property extraordinary</Typography>
