@@ -3,6 +3,7 @@ import { AxiosRequestConfig } from 'axios';
 import { ConstantsService } from '../constants/constants.service';
 import { LoggerService } from '../logger.service';
 import { ApiService } from '../api/api.service';
+import { CacheService } from '../cache/cache.service';
 import { GoogleAuth } from 'google-auth-library';
 
 export interface PlaceSuggestion {
@@ -30,6 +31,7 @@ export class MapsService {
     private readonly constantsService: ConstantsService,
     private readonly loggerService: LoggerService,
     private readonly apiService: ApiService,
+    private readonly cacheService: CacheService,
   ) {
     this.apiKey = this.constantsService.private.GOOGLE_MAPS_API;
     const serviceJson = this.constantsService.private.GOOGLE_SERVICE_JSON;
@@ -48,11 +50,18 @@ export class MapsService {
 
   private async getAuthHeader(): Promise<Record<string, string>> {
     if (this.auth) {
+      const cacheKey = this.constantsService.private.GOOGLE_MAPS_TOKEN_CACHE_KEY;
+      const cached = this.cacheService.get<string>(cacheKey);
+      if (cached) return { Authorization: `Bearer ${cached}` };
+
       try {
         const client = await this.auth.getClient();
         const tokenResponse = await client.getAccessToken();
         const token = tokenResponse?.token;
-        if (token) return { Authorization: `Bearer ${token}` };
+        if (token) {
+          this.cacheService.set(cacheKey, token, this.constantsService.private.GOOGLE_MAPS_TOKEN_CACHE_EXPIRY_MINUTES);
+          return { Authorization: `Bearer ${token}` };
+        }
       } catch (e) {
         this.loggerService.error({ error: e });
       }
@@ -60,10 +69,11 @@ export class MapsService {
     return { 'X-Goog-Api-Key': this.apiKey };
   }
 
-  private async callApi<T = any>(config: AxiosRequestConfig): Promise<T> {
+  private async callApi<T = any>(route: string, config: Omit<AxiosRequestConfig, 'url'>): Promise<T> {
     const authHeader = await this.getAuthHeader();
     const response = await this.apiService.request<T>({
       ...config,
+      url: `${this.constantsService.private.GOOGLE_MAPS_BASE_URL}${route}`,
       headers: { ...authHeader, ...config.headers },
     });
     return response.data;
@@ -72,9 +82,8 @@ export class MapsService {
   async searchPlaces(query: string): Promise<PlaceSuggestion[]> {
     if (!this.apiKey && !this.auth) return [];
     try {
-      const data = await this.callApi<{ places?: any[] }>({
+      const data = await this.callApi<{ places?: any[] }>(':searchText', {
         method: 'POST',
-        url: `${this.constantsService.private.GOOGLE_MAPS_BASE_URL}:searchText`,
         data: { textQuery: query, includedType: 'lodging' },
         headers: {
           'Content-Type': 'application/json',
@@ -95,9 +104,8 @@ export class MapsService {
   async getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
     if (!this.apiKey && !this.auth) return null;
     try {
-      const p = await this.callApi<any>({
+      const p = await this.callApi<any>(`/${placeId}`, {
         method: 'GET',
-        url: `${this.constantsService.private.GOOGLE_MAPS_BASE_URL}/${placeId}`,
         headers: {
           'X-Goog-FieldMask': this.constantsService.private.GOOGLE_MAPS_DETAILS_FIELD_MASK,
         },
