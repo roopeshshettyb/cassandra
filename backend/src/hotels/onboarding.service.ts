@@ -139,7 +139,10 @@ export class OnboardingService {
     const colorHints = websiteHtml
       ? websiteHtml.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\d+,\s*\d+,\s*\d+\)|--[\w-]*color[\w-]*:\s*[^;]+/gi)?.slice(0, 30).join(', ') || ''
       : '';
-    const logoUrl = this.extractLogoUrl(websiteHtml, website) || this.getFaviconUrl(website);
+    const rawLogoUrl = this.extractLogoUrl(websiteHtml, website) || this.getFaviconUrl(website);
+    const logoUrl = rawLogoUrl && !rawLogoUrl.includes(this.constantsService.private.AWS_S3_URL_DOMAIN)
+      ? await this.uploadLogoFromUrl(rawLogoUrl, details.name)
+      : rawLogoUrl;
 
     // Step 2: Extract via LLM — strict extraction only, no hallucination
     const model = this.llmService.createModel(0);
