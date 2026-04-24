@@ -30,6 +30,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const [step, setStep] = useState('search');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [noResults, setNoResults] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [manualWebsite, setManualWebsite] = useState('');
   const [extractedData, setExtractedData] = useState(null);
@@ -41,13 +42,16 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
       setLoading,
       alertError,
     });
-    if (response?.success) setSuggestions(response.data);
+    if (response?.success) {
+      setSuggestions(response.data);
+      setNoResults(response.data.length === 0);
+    }
   }, 500), []);
 
   useEffect(() => () => debouncedSearch.clear(), []);
 
   const handleInputChange = (_, value) => {
-    if (!value || value.length <= 2) { setSuggestions([]); return; }
+    if (!value || value.length <= 2) { setSuggestions([]); setNoResults(false); return; }
     debouncedSearch(value);
   };
 
@@ -77,8 +81,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   };
 
   const resetState = () => {
-    setStep('search'); setSuggestions([]); setSelectedPlace(null);
-    setExtractedData(null); setManualWebsite('');
+    setStep('search'); setSuggestions([]); setNoResults(false);
+    setSelectedPlace(null); setExtractedData(null); setManualWebsite('');
   };
 
   const handleClose = () => onClose();
@@ -135,8 +139,9 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                   options={suggestions}
                   getOptionLabel={(o) => `${o.name} — ${o.address}`}
                   filterOptions={(x) => x}
-                  open={suggestions.length > 0}
-                  onClose={() => setSuggestions([])}
+                  open={suggestions.length > 0 || noResults}
+                  onClose={() => { setSuggestions([]); setNoResults(false); }}
+                  noOptionsText="No results found"
                   onInputChange={handleInputChange}
                   onChange={handleSelectPlace}
                   loading={loading}
