@@ -10,7 +10,6 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LanguageIcon from '@mui/icons-material/Language';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import request from '../helper/api';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, NAVY_GRADIENT, SHADOW } from '../theme';
@@ -98,7 +97,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 2, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AutoAwesomeIcon sx={{ fontSize: 18, color: PRIMARY_CONTRAST }} />
+              <ApartmentIcon sx={{ fontSize: 18, color: PRIMARY_CONTRAST }} />
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#fff', lineHeight: 1.2 }}>
