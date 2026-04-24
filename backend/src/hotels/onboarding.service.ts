@@ -1,11 +1,13 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { MapsService } from '../common/maps/maps.service';
 import { TavilyService } from '../common/tavily/tavily.service';
+import { LlmService } from '../common/llm/llm.service';
+import { ApiService } from '../common/api/api.service';
+import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { HotelBrand } from './brands.model';
 import { Hotel } from './hotels.model';
 import { HOTELS_REPOSITORY, HOTEL_BRANDS_REPOSITORY } from './hotels.repository';
-import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 
@@ -34,22 +36,13 @@ export class OnboardingService {
   constructor(
     private readonly mapsService: MapsService,
     private readonly tavilyService: TavilyService,
+    private readonly llmService: LlmService,
+    private readonly apiService: ApiService,
+    private readonly awsService: AwsService,
     private readonly constantsService: ConstantsService,
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_BRANDS_REPOSITORY) private readonly brandsRepository: typeof HotelBrand,
   ) {}
-
-  private createModel() {
-    const llmConfig = this.constantsService.private.LLM;
-    return new ChatOpenAI({
-      modelName: llmConfig.TEXT_MODEL,
-      apiKey: this.constantsService.private.LLM.OPENROUTER.API_KEY,
-      temperature: 0,
-      configuration: {
-        baseURL: llmConfig.OPENROUTER.BASE_URL,
-      },
-    });
-  }
 
   async analyzePlace(placeId: string) {
     const details = await this.mapsService.getPlaceDetails(placeId);
@@ -57,11 +50,67 @@ export class OnboardingService {
 
     return {
       success: true,
+      message: null,
       data: {
         ...details,
         needsWebsite: !details.website,
       },
     };
+  }
+
+  private async fetchWebsiteHtml(website: string): Promise<string> {
+    try {
+      const response = await this.apiService.request<string>({
+        method: 'GET',
+        url: website,
+        headers: {
+          'User-Agent': this.constantsService.private.ONBOARDING_FETCH_USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+        timeout: 10000,
+      });
+      return typeof response.data === 'string' ? response.data : '';
+    } catch {
+      return '';
+    }
+  }
+
+  private getFaviconUrl(website: string): string | null {
+    try {
+      const u = new URL(website);
+      return `${this.constantsService.private.ONBOARDING_FAVICON_BASE_URL}&url=${u.protocol}//${u.host}&size=256`;
+    } catch {
+      return null;
+    }
+  }
+
+  private extractLogoUrl(rawHtml: string, website: string): string | null {
+    if (!rawHtml) return null;
+    const base = (() => { try { const u = new URL(website); return `${u.protocol}//${u.host}`; } catch { return ''; } })();
+    const resolve = (href: string) => {
+      if (!href) return null;
+      if (href.startsWith('http')) return href;
+      if (href.startsWith('//')) return `https:${href}`;
+      if (href.startsWith('/')) return `${base}${href}`;
+      return null;
+    };
+
+    const patterns = [
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+      /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']apple-touch-icon["']/i,
+      /<link[^>]+rel=["']icon["'][^>]+type=["']image\/png["'][^>]+href=["']([^"']+)["']/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = rawHtml.match(pattern);
+      const resolved = match ? resolve(match[1]) : null;
+      if (resolved) return resolved;
+    }
+    return null;
   }
 
   async crawlAndExtract(placeId: string, manualWebsite?: string) {
@@ -73,21 +122,27 @@ export class OnboardingService {
       throw new BadRequestException('Website is required for deep analysis');
     }
 
-    // Step 1: Crawl — parallel: general info + policy search + raw HTML for theme
-    const [crawlGeneral, crawlPolicy, rawHtml] = await Promise.all([
+    // Step 1: Crawl — parallel: general info + policy search + direct HTML fetch (for logo + colors)
+    const [crawlGeneral, crawlPolicy, websiteHtml] = await Promise.all([
       this.tavilyService.crawlWebsite(website),
       this.tavilyService.search(`"${details.name}" check-in check-out time hotel policy`, 'advanced', 5),
-      this.tavilyService.fetchRawHtml(website),
+      this.fetchWebsiteHtml(website),
     ]);
-    const crawlData = crawlGeneral + '\n\n' + crawlPolicy.map(r => `--- SOURCE: ${r.url} ---\n${r.content}`).join('\n\n');
+    let policyText = '';
+    for (let i = 0; i < crawlPolicy.length; i++) {
+      if (policyText) policyText += '\n\n';
+      policyText += `--- SOURCE: ${crawlPolicy[i].url} ---\n${crawlPolicy[i].content}`;
+    }
+    const crawlData = crawlGeneral + '\n\n' + policyText;
 
-    // Extract CSS color hints from raw HTML (hex colors, CSS variables, brand colors)
-    const colorHints = rawHtml
-      ? rawHtml.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\d+,\s*\d+,\s*\d+\)|--[\w-]*color[\w-]*:\s*[^;]+/gi)?.slice(0, 30).join(', ') || ''
+    // Extract CSS color hints and logo from directly-fetched HTML (not Tavily markdown)
+    const colorHints = websiteHtml
+      ? websiteHtml.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\d+,\s*\d+,\s*\d+\)|--[\w-]*color[\w-]*:\s*[^;]+/gi)?.slice(0, 30).join(', ') || ''
       : '';
+    const logoUrl = this.extractLogoUrl(websiteHtml, website) || this.getFaviconUrl(website);
 
     // Step 2: Extract via LLM — strict extraction only, no hallucination
-    const model = this.createModel();
+    const model = this.llmService.createModel(0);
     const structuredModel = model.withStructuredOutput(HOTEL_EXTRACTION_SCHEMA, { name: 'extractor' });
 
     const prompt = `You are a precise hotel data extraction assistant. Your job is to extract ONLY information that is explicitly stated in the provided crawl data.
@@ -168,6 +223,7 @@ ${crawlData}`;
       address: details.address,
       website: website,
       phoneNumber: details.phoneNumber,
+      logoUrl: logoUrl || null,
       ...extracted,
       brandFound: !!brand,
       brandId: brand?.id,
@@ -198,11 +254,38 @@ ${crawlData}`;
 
     return {
       success: true,
+      message: null,
       data: finalData,
     };
   }
 
+  private async uploadLogoFromUrl(logoUrl: string, hotelName: string): Promise<string> {
+    try {
+      const response = await this.apiService.request<ArrayBuffer>({
+        method: 'GET',
+        url: logoUrl,
+        responseType: 'arraybuffer',
+        timeout: 10000,
+      });
+      const contentType = (response.headers['content-type'] as string)?.split(';')[0]?.trim() || 'image/png';
+      const ext = contentType.includes('svg') ? 'svg' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'png';
+      const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+      const key = `${keyPrefix}hotel-logos/onboarding-${hotelName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.${ext}`;
+      const buffer = Buffer.from(response.data);
+      await this.awsService.upload(key, buffer, contentType, true);
+      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
+      return this.awsService.getPublicUrl(publicBucket, key);
+    } catch {
+      return logoUrl;
+    }
+  }
+
   async finalizeOnboarding(hotelData: any) {
+    // Upload logo to S3 if it's an external URL
+    if (hotelData.logoUrl && !hotelData.logoUrl.includes(this.constantsService.private.AWS_S3_URL_DOMAIN)) {
+      hotelData.logoUrl = await this.uploadLogoFromUrl(hotelData.logoUrl, hotelData.name);
+    }
+
     // 1. Handle Brand — upsert with extracted data
     let brandId = hotelData.brandId;
     if (hotelData.brandName) {
@@ -218,6 +301,7 @@ ${crawlData}`;
         dinnerHours: hotelData.dinnerHours,
         llmInstructions: hotelData.llmInstructions,
         themeConfig: hotelData.themeConfig,
+        logoUrl: hotelData.logoUrl,
       };
 
       const [brand, created] = await this.brandsRepository.findOrCreate({
@@ -249,7 +333,7 @@ ${crawlData}`;
       // Only update fields that were actually extracted (non-null)
       const updates: any = { hotelBrandId: brandId };
       const fields = [
-        'name', 'website', 'phoneNumber', 'checkInTime', 'checkOutTime',
+        'name', 'website', 'phoneNumber', 'logoUrl', 'checkInTime', 'checkOutTime',
         'poolHours', 'gymHours', 'restaurantHours', 'wifiPassword',
         'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
         'houseKeepingHours', 'roomServiceHours', 'llmInstructions', 'themeConfig',
