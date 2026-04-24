@@ -76,10 +76,12 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
     if (response?.success) { onHotelCreated(); handleClose(); }
   };
 
-  const handleClose = () => {
+  const resetState = () => {
     setStep('search'); setSuggestions([]); setSelectedPlace(null);
-    setExtractedData(null); setManualWebsite(''); onClose();
+    setExtractedData(null); setManualWebsite('');
   };
+
+  const handleClose = () => onClose();
 
   const isReview = step === 'review';
   const primaryColor = extractedData?.themeConfig?.primaryColor;
@@ -87,7 +89,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const logoUrl = extractedData?.logoUrl;
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm"
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm" TransitionProps={{ onExited: resetState }}
       PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden', mx: { xs: '4%', sm: 3 }, mt: { xs: '12vh', sm: '5vh' }, mb: { xs: '2vh', sm: '5vh' }, maxHeight: { xs: '86vh', sm: '90vh' }, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' } }}>
 
       {/* Header */}
@@ -119,7 +121,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
         )}
       </Box>
 
-      <DialogContent sx={{ p: 0, minHeight: 280, flex: 1, overflowY: 'auto' }}>
+      <DialogContent sx={{ p: 0, flex: 1, overflowY: 'auto' }}>
         <AnimatePresence mode="wait">
 
           {/* SEARCH */}
@@ -133,6 +135,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                   options={suggestions}
                   getOptionLabel={(o) => `${o.name} — ${o.address}`}
                   filterOptions={(x) => x}
+                  open={suggestions.length > 0}
+                  onClose={() => setSuggestions([])}
                   onInputChange={handleInputChange}
                   onChange={handleSelectPlace}
                   loading={loading}
@@ -199,11 +203,11 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                 <Box sx={{ width: 56, height: 56, borderRadius: '50%', background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2.5, boxShadow: '0 4px 16px rgba(212,175,55,0.35)' }}>
                   <AutoAwesomeIcon sx={{ color: PRIMARY_CONTRAST, fontSize: 26 }} />
                 </Box>
-                <Typography sx={{ fontWeight: 800, fontSize: 16, color: NAVY, mb: 0.5 }}>Samantha is working...</Typography>
-                <Typography sx={{ color: MUTED, fontSize: 13, mb: 2.5 }}>Crawling website and extracting hotel information</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: 16, color: NAVY, mb: 0.5 }}>Learning your hotel...</Typography>
+                <Typography sx={{ color: MUTED, fontSize: 13, mb: 2.5 }}>Discovering what makes your property extraordinary</Typography>
                 <LinearProgress sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(0,0,0,0.06)', '& .MuiLinearProgress-bar': { background: BRAND_GRADIENT, borderRadius: 3 } }} />
                 <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
-                  {['Operating hours', 'Brand identity', 'Theme colors'].map((t) => (
+                  {['Daily rhythm', 'Brand essence', 'Guest experience'].map((t) => (
                     <Typography key={t} sx={{ fontSize: 11, color: MUTED, bgcolor: 'rgba(0,0,0,0.04)', px: 1.5, py: 0.5, borderRadius: 10 }}>{t}</Typography>
                   ))}
                 </Box>
