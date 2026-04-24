@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import debounce from '@mui/utils/debounce';
 import {
   Box, Button, Dialog, DialogContent, TextField, Typography,
   Autocomplete, CircularProgress, LinearProgress, Chip, Divider,
@@ -32,36 +33,31 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [manualWebsite, setManualWebsite] = useState('');
   const [extractedData, setExtractedData] = useState(null);
-  const [finalizing, setFinalizing] = useState(false);
-  const searchTimerRef = useRef(null);
-  const justSelectedRef = useRef(false);
 
-  useEffect(() => {
-    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
-  }, []);
+  const debouncedSearch = useMemo(() => debounce(async (value) => {
+    const response = await request({
+      endpoint: `/hotels/onboarding/search?query=${encodeURIComponent(value)}`,
+      method: 'GET',
+      setLoading,
+      alertError,
+    });
+    if (response?.success) setSuggestions(response.data);
+  }, 500), []);
+
+  useEffect(() => () => debouncedSearch.clear(), []);
 
   const handleInputChange = (_, value) => {
-    if (justSelectedRef.current) { justSelectedRef.current = false; return; }
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (!value || value.length <= 2) { setSuggestions([]); return; }
-    searchTimerRef.current = setTimeout(async () => {
-      const response = await request({
-        endpoint: `/hotels/onboarding/search?query=${encodeURIComponent(value)}`,
-        method: 'GET',
-        setLoading,
-        alertError,
-      });
-      if (response?.success) setSuggestions(response.data);
-    }, 500);
+    debouncedSearch(value);
   };
 
   const handleSelectPlace = async (_, value) => {
     if (!value) return;
-    justSelectedRef.current = true;
+    debouncedSearch.clear();
     setSuggestions([]);
     setSelectedPlace(value);
     setStep('analyzing');
-    const response = await request({ endpoint: `/hotels/onboarding/analyze/${value.id}`, method: 'GET', alertError });
+    const response = await request({ endpoint: `/hotels/onboarding/analyze/${value.id}`, method: 'GET', setLoading, alertError });
     if (response?.success) {
       if (response.data.needsWebsite) { setStep('website-required'); }
       else { triggerExtraction(value.id); }
@@ -70,16 +66,14 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
 
   const triggerExtraction = async (placeId, website = null) => {
     setStep('extracting');
-    const response = await request({ endpoint: '/hotels/onboarding/extract', method: 'POST', data: { placeId, website }, alertError });
+    const response = await request({ endpoint: '/hotels/onboarding/extract', method: 'POST', data: { placeId, website }, setLoading, alertError });
     if (response?.success) { setExtractedData(response.data); setStep('review'); }
     else { setStep('search'); }
   };
 
   const handleFinalize = async () => {
-    setFinalizing(true);
-    const response = await request({ endpoint: '/hotels/onboarding/finalize', method: 'POST', data: extractedData, alertError, alertSuccess });
+    const response = await request({ endpoint: '/hotels/onboarding/finalize', method: 'POST', data: extractedData, setLoading, alertError, alertSuccess });
     if (response?.success) { onHotelCreated(); handleClose(); }
-    setFinalizing(false);
   };
 
   const handleClose = () => {
@@ -90,6 +84,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const isReview = step === 'review';
   const primaryColor = extractedData?.themeConfig?.primaryColor;
   const secondaryColor = extractedData?.themeConfig?.secondaryColor;
+  const logoUrl = extractedData?.logoUrl;
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm"
@@ -142,8 +137,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                   onChange={handleSelectPlace}
                   loading={loading}
                   popupIcon={null}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props} sx={{ py: 1.5, px: 2 }}>
+                  renderOption={({ key, ...optionProps }, option) => (
+                    <Box key={key} component="li" {...optionProps} sx={{ py: 1.5, px: 2 }}>
                       <LocationOnIcon sx={{ fontSize: 16, color: 'primary.main', mr: 1.5, flexShrink: 0 }} />
                       <Box>
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{option.name}</Typography>
@@ -223,23 +218,39 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                 {/* Brand header */}
                 <Box sx={{ borderRadius: 3, overflow: 'hidden', mb: 2.5, border: '1px solid rgba(0,0,0,0.07)', boxShadow: SHADOW }}>
                   <Box sx={{ background: primaryColor ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor || primaryColor} 100%)` : NAVY_GRADIENT, px: 2.5, py: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box>
-                        <Typography sx={{ fontWeight: 800, fontSize: 17, color: '#fff', lineHeight: 1.3 }}>{extractedData.name}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.5 }}>
-                          <LocationOnIcon sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', flexShrink: 0, mt: 0.2 }} />
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4 }}>{extractedData.address}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      {/* Logo */}
+                      <Box sx={{ flexShrink: 0, width: 52, height: 52, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                        {logoUrl
+                          ? <Box component="img" src={logoUrl} alt="logo" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                          : null}
+                        <Box sx={{ display: logoUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography sx={{ fontWeight: 900, fontSize: 20, color: 'rgba(255,255,255,0.8)', lineHeight: 1 }}>
+                            {extractedData.name?.[0]?.toUpperCase()}
+                          </Typography>
                         </Box>
                       </Box>
+                      {/* Name + address */}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#fff', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extractedData.name}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.4 }}>
+                          <LocationOnIcon sx={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', flexShrink: 0, mt: 0.15 }} />
+                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{extractedData.address}</Typography>
+                        </Box>
+                      </Box>
+                      {/* Color swatches */}
                       {primaryColor && (
-                        <Box sx={{ display: 'flex', gap: 0.75 }}>
-                          <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: primaryColor, border: '2px solid rgba(255,255,255,0.4)', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} />
-                          {secondaryColor && <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: secondaryColor, border: '2px solid rgba(255,255,255,0.4)', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} />}
+                        <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: primaryColor, border: '2px solid rgba(255,255,255,0.5)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+                          {secondaryColor && <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: secondaryColor, border: '2px solid rgba(255,255,255,0.5)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />}
                         </Box>
                       )}
                     </Box>
                   </Box>
                   <Box sx={{ px: 2.5, py: 1.5, bgcolor: '#fff', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    {logoUrl && (
+                      <Chip label="Logo extracted ✓" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(99,102,241,0.08)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.2)' }} />
+                    )}
                     {extractedData.brandName && (
                       <Chip label={extractedData.brandName} size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(212,175,55,0.12)', color: 'primary.main', border: '1px solid rgba(212,175,55,0.25)' }} />
                     )}
@@ -299,9 +310,9 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
       <Box sx={{ px: 3, py: 2, borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Button onClick={handleClose} sx={{ color: MUTED, fontWeight: 600, fontSize: 13 }}>Cancel</Button>
         {step === 'review' && (
-          <Button onClick={handleFinalize} variant="contained" disabled={finalizing}
+          <Button onClick={handleFinalize} variant="contained" disabled={loading}
             sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, px: 3.5, py: 1, borderRadius: 2, fontWeight: 700, fontSize: 13, boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
-            {finalizing ? <><CircularProgress size={14} sx={{ mr: 1, color: 'inherit' }} />Saving...</> : 'Confirm & Save'}
+            {loading ? <><CircularProgress size={14} sx={{ mr: 1, color: 'inherit' }} />Saving...</> : 'Confirm & Save'}
           </Button>
         )}
       </Box>

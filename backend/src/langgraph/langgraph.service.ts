@@ -12,6 +12,7 @@ import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
 import { ConstantsService } from '../common/constants/constants.service';
+import { LlmService } from '../common/llm/llm.service';
 
 export interface ExtractedBookingFields {
   startDate?: string | null;
@@ -72,24 +73,8 @@ export class LangGraphService {
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
     private readonly constantsService: ConstantsService,
+    private readonly llmService: LlmService,
   ) {}
-
-  private createModel(): ChatOpenAI {
-    const llmConfig = this.constantsService.private.LLM;
-    const openrouterConfig = llmConfig.OPENROUTER;
-    const apiKey = openrouterConfig.API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY is required');
-    }
-    return new ChatOpenAI({
-      modelName: llmConfig.TEXT_MODEL,
-      apiKey,
-      temperature: 0.7,
-      configuration: {
-        baseURL: openrouterConfig.BASE_URL,
-      },
-    });
-  }
 
   private createVisionModel(): ChatOpenAI {
     const openaiConfig = this.constantsService.private?.LLM?.STT_CONFIG?.OPENAI;
@@ -207,7 +192,7 @@ export class LangGraphService {
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
     const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
-    const model = this.createModel();
+    const model = this.llmService.createModel(0.7);
     const agent = createAgent({ model, tools });
 
     const threadId = `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
