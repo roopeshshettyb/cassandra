@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import debounce from '@mui/utils/debounce';
 import {
   Box, Button, Dialog, DialogContent, TextField, Typography,
-  Autocomplete, CircularProgress, LinearProgress, Chip, Divider,
+  Autocomplete, CircularProgress, LinearProgress, Chip,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchIcon from '@mui/icons-material/Search';
@@ -316,16 +316,14 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
         </AnimatePresence>
       </DialogContent>
 
-      {/* Footer */}
-      <Box sx={{ px: 3, py: 2, borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button onClick={handleClose} sx={{ color: MUTED, fontWeight: 600, fontSize: 13 }}>Cancel</Button>
-        {step === 'review' && (
+      {step === 'review' && (
+        <Box sx={{ px: 3, py: 2, borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'flex-end' }}>
           <Button onClick={handleFinalize} variant="contained" disabled={loading}
             sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, px: 3.5, py: 1, borderRadius: 2, fontWeight: 700, fontSize: 13, boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
             {loading ? <><CircularProgress size={14} sx={{ mr: 1, color: 'inherit' }} />Saving...</> : 'Confirm & Save'}
           </Button>
-        )}
-      </Box>
+        </Box>
+      )}
     </Dialog>
   );
 }
