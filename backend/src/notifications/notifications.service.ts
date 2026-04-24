@@ -95,7 +95,6 @@ export class NotificationsService {
     };
     await this.accountsService.update({ notificationPreferences: nextPreferences }, { id: accountId });
   }
-
   async notify(input: NotifyInput): Promise<void> {
     const config: Record<NotificationEventType, NotifyHandlerConfig> = {
       NEW_REQUEST: {
