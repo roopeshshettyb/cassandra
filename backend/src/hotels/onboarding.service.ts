@@ -1,7 +1,7 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
 import { MapsService } from '../common/maps/maps.service';
 import { TavilyService } from '../common/tavily/tavily.service';
-import { LlmService } from '../common/llm/llm.service';
+import { LangGraphService } from '../langgraph/langgraph.service';
 import { ApiService } from '../common/api/api.service';
 import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
@@ -36,7 +36,7 @@ export class OnboardingService {
   constructor(
     private readonly mapsService: MapsService,
     private readonly tavilyService: TavilyService,
-    private readonly llmService: LlmService,
+    @Inject(forwardRef(() => LangGraphService)) private readonly langGraphService: LangGraphService,
     private readonly apiService: ApiService,
     private readonly awsService: AwsService,
     private readonly constantsService: ConstantsService,
@@ -145,7 +145,7 @@ export class OnboardingService {
       : rawLogoUrl;
 
     // Step 2: Extract via LLM — strict extraction only, no hallucination
-    const model = this.llmService.createModel(0);
+    const model = this.langGraphService.createModel(0);
     const structuredModel = model.withStructuredOutput(HOTEL_EXTRACTION_SCHEMA, { name: 'extractor' });
 
     const prompt = `You are a precise hotel data extraction assistant. Your job is to extract ONLY information that is explicitly stated in the provided crawl data.
