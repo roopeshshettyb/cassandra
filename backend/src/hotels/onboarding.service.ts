@@ -1,4 +1,5 @@
 import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
+import axios from 'axios';
 import { MapsService } from '../common/maps/maps.service';
 import { TavilyService } from '../common/tavily/tavily.service';
 import { LangGraphService } from '../langgraph/langgraph.service';
@@ -261,12 +262,7 @@ ${crawlData}`;
 
   private async uploadLogoFromUrl(logoUrl: string, hotelName: string): Promise<string> {
     try {
-      const response: any = await this.apiService.request({
-        method: 'GET',
-        url: logoUrl,
-        responseType: 'arraybuffer',
-        timeout: 10000,
-      });
+      const response: { data: ArrayBuffer; headers: any } = await axios.get(logoUrl, { responseType: 'arraybuffer', timeout: 10000 });
       const contentType = response.headers['content-type']?.split(';')[0]?.trim() || 'image/png';
       const ext = contentType.includes('svg') ? 'svg' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'png';
       const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
