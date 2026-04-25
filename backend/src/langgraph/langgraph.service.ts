@@ -84,6 +84,11 @@ export class LangGraphService {
     });
   }
 
+  async invoke(messages: BaseMessage[], temperature = 0): Promise<string> {
+    const result = await this.createModel(temperature).invoke(messages);
+    return result.content as string;
+  }
+
   private createVisionModel(): ChatOpenAI {
     const openaiConfig = this.constantsService.private?.LLM?.STT_CONFIG?.OPENAI;
     const apiKey = openaiConfig?.API_KEY;
