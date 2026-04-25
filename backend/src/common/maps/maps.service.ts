@@ -69,12 +69,13 @@ export class MapsService {
     return { 'X-Goog-Api-Key': this.apiKey };
   }
 
-  private async callApi<T = any>(route: string, config: Omit<AxiosRequestConfig, 'url'>): Promise<T> {
+  private async callApi(config: AxiosRequestConfig & { route: string }): Promise<any> {
+    const { route, ...rest } = config;
     const authHeader = await this.getAuthHeader();
-    const response = await this.apiService.request<T>({
-      ...config,
+    const response = await this.apiService.request({
+      ...rest,
       url: `${this.constantsService.private.GOOGLE_MAPS_BASE_URL}${route}`,
-      headers: { ...authHeader, ...config.headers },
+      headers: { ...authHeader, ...rest.headers },
     });
     return response.data;
   }
@@ -82,7 +83,8 @@ export class MapsService {
   async searchPlaces(query: string): Promise<PlaceSuggestion[]> {
     if (!this.apiKey && !this.auth) return [];
     try {
-      const data = await this.callApi<{ places?: any[] }>(':searchText', {
+      const data = await this.callApi({
+        route: ':searchText',
         method: 'POST',
         data: { textQuery: query, includedType: 'lodging' },
         headers: {
@@ -104,7 +106,8 @@ export class MapsService {
   async getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
     if (!this.apiKey && !this.auth) return null;
     try {
-      const p = await this.callApi<any>(`/${placeId}`, {
+      const p = await this.callApi({
+        route: `/${placeId}`,
         method: 'GET',
         headers: {
           'X-Goog-FieldMask': this.constantsService.private.GOOGLE_MAPS_DETAILS_FIELD_MASK,
