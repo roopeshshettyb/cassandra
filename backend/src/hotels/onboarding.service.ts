@@ -145,8 +145,7 @@ export class OnboardingService {
       : rawLogoUrl;
 
     // Step 2: Extract via LLM — strict extraction only, no hallucination
-    const model = this.langGraphService.createModel(0);
-    const structuredModel = model.withStructuredOutput(HOTEL_EXTRACTION_SCHEMA, { name: 'extractor' });
+    const structuredModel = this.langGraphService.createModel(0).withStructuredOutput(HOTEL_EXTRACTION_SCHEMA, { name: 'extractor' });
 
     const prompt = `You are a precise hotel data extraction assistant. Your job is to extract ONLY information that is explicitly stated in the provided crawl data.
 
@@ -179,8 +178,7 @@ ${crawlData}`;
       Format: primaryColor=#XXXXXX secondaryColor=#XXXXXX
       If you are not confident, return: UNKNOWN`;
 
-      const colorResult = await model.invoke([new HumanMessage(brandColorPrompt)]);
-      const colorText = (colorResult.content as string).trim();
+      const colorText = (await this.langGraphService.invoke([new HumanMessage(brandColorPrompt)])).trim();
 
       if (colorText !== 'UNKNOWN') {
         const primaryMatch = colorText.match(/primaryColor=(#[0-9a-fA-F]{6})/);
@@ -211,8 +209,7 @@ ${crawlData}`;
         Does "${extracted.brandName}" match any of these existing brands? 
         Answer ONLY with the exact matching name from the list, or "NEW" if it is a new brand.`;
 
-        const matchResult = await model.invoke([new HumanMessage(matchPrompt)]);
-        const matchedName = (matchResult.content as string).trim();
+        const matchedName = (await this.langGraphService.invoke([new HumanMessage(matchPrompt)])).trim();
 
         if (matchedName !== 'NEW') {
           brand = existingBrands.find((b) => b.name === matchedName);
@@ -264,13 +261,13 @@ ${crawlData}`;
 
   private async uploadLogoFromUrl(logoUrl: string, hotelName: string): Promise<string> {
     try {
-      const response = await this.apiService.request<ArrayBuffer>({
+      const response: any = await this.apiService.request({
         method: 'GET',
         url: logoUrl,
         responseType: 'arraybuffer',
         timeout: 10000,
       });
-      const contentType = (response.headers['content-type'] as string)?.split(';')[0]?.trim() || 'image/png';
+      const contentType = response.headers['content-type']?.split(';')[0]?.trim() || 'image/png';
       const ext = contentType.includes('svg') ? 'svg' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'png';
       const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
       const key = `${keyPrefix}hotel-logos/onboarding-${hotelName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.${ext}`;
