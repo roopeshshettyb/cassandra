@@ -89,6 +89,11 @@ export class LangGraphService {
     return result.content as string;
   }
 
+  async invokeWithStructuredOutput<T>(schema: z.ZodType<T>, messages: BaseMessage[], schemaName?: string, temperature = 0): Promise<T> {
+    const result = await this.createModel(temperature).withStructuredOutput(schema, { name: schemaName }).invoke(messages);
+    return result as T;
+  }
+
   private createVisionModel(): ChatOpenAI {
     const openaiConfig = this.constantsService.private?.LLM?.STT_CONFIG?.OPENAI;
     const apiKey = openaiConfig?.API_KEY;

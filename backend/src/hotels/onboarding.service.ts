@@ -145,8 +145,6 @@ export class OnboardingService {
       : rawLogoUrl;
 
     // Step 2: Extract via LLM — strict extraction only, no hallucination
-    const structuredModel = this.langGraphService.createModel(0).withStructuredOutput(HOTEL_EXTRACTION_SCHEMA, { name: 'extractor' });
-
     const prompt = `You are a precise hotel data extraction assistant. Your job is to extract ONLY information that is explicitly stated in the provided crawl data.
 
 STRICT RULES — READ CAREFULLY:
@@ -164,12 +162,14 @@ ${colorHints || 'None available'}
 CRAWL DATA:
 ${crawlData}`;
 
-    const rawData = await structuredModel.invoke([
-      new SystemMessage('You are a strict data extractor. Only return values explicitly found in the provided data. Never hallucinate or use prior knowledge for factual fields.'),
-      new HumanMessage(prompt),
-    ]);
-
-    const extracted: z.infer<typeof HOTEL_EXTRACTION_SCHEMA> = rawData;
+    const extracted = await this.langGraphService.invokeWithStructuredOutput(
+      HOTEL_EXTRACTION_SCHEMA,
+      [
+        new SystemMessage('You are a strict data extractor. Only return values explicitly found in the provided data. Never hallucinate or use prior knowledge for factual fields.'),
+        new HumanMessage(prompt),
+      ],
+      'extractor',
+    );
 
     // Pass 2: If brand identified, apply brand-level knowledge for colors only (not operational data)
     if (extracted.brandName && !extracted.themeConfig?.primaryColor) {
