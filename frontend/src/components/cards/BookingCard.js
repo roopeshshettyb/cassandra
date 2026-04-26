@@ -2,6 +2,9 @@ import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import DescriptionIcon from '@mui/icons-material/Description';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
 import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_INFO, STATUS_INFO_BG, STATUS_ERROR, STATUS_ERROR_BG, TEXT_MUTED_DARK } from '../../theme';
 
@@ -35,6 +38,7 @@ const BookingCard = ({ data, navigate }) => {
     : isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
   const st = statusConfig[status];
   const guestName = booking.guest?.name || booking.guest?.email || null;
+  const hasDoc = !!booking.reservationDocumentS3Key;
 
   return (
     <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }}>
@@ -52,7 +56,7 @@ const BookingCard = ({ data, navigate }) => {
           },
         }}
       >
-        {/* Themed header — hotel logo + name + status badge */}
+        {/* Themed header */}
         <Box sx={{ background: headerGradient, px: 2.5, pt: 2, pb: 2, position: 'relative' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pr: 7 }}>
             {/* Logo tile */}
@@ -82,23 +86,24 @@ const BookingCard = ({ data, navigate }) => {
               {hotelName}
             </Typography>
           </Box>
-          {/* Status badge — top right of header */}
-          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{status}</Typography>
+          {/* Status badge */}
+          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: st.bg }}>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: st.color, whiteSpace: 'nowrap' }}>{status}</Typography>
           </Box>
         </Box>
 
         {/* Body */}
         <Box sx={{ px: 2.5, pt: 1.75, pb: 2 }}>
-          {/* IN / OUT date badges */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 1.75 }}>
+
+          {/* IN / OUT date badges + nights */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
             {[{ label: 'Check in', value: fmtDate(start) }, { label: 'Check out', value: fmtDate(end) }].map(({ label, value }) => (
               <Box key={label} sx={{
                 flex: 1, borderRadius: 2, p: 1.1, textAlign: 'center',
                 bgcolor: `${accent}12`, border: `1px solid ${accent}28`,
               }}>
                 <Typography sx={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>{label}</Typography>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: accent, lineHeight: 1.3, mt: 0.3 }}>{value}</Typography>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent, lineHeight: 1.3, mt: 0.3 }}>{value}</Typography>
               </Box>
             ))}
             {nights > 0 && (
@@ -107,13 +112,28 @@ const BookingCard = ({ data, navigate }) => {
                 bgcolor: `${accent}12`, border: `1px solid ${accent}28`,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.25,
               }}>
-                <NightsStayIcon sx={{ fontSize: 13, color: MUTED }} />
+                <NightsStayIcon sx={{ fontSize: 12, color: MUTED }} />
                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: accent, lineHeight: 1 }}>{nights}n</Typography>
               </Box>
             )}
           </Box>
 
-          {/* Guest */}
+          {/* Room + Guest row */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+            {booking.roomNumber && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.5, borderRadius: 1.5, bgcolor: `${accent}12`, border: `1px solid ${accent}28` }}>
+                <MeetingRoomIcon sx={{ fontSize: 12, color: accent }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>Room {booking.roomNumber}</Typography>
+              </Box>
+            )}
+            {hasDoc && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.5, borderRadius: 1.5, bgcolor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <DescriptionIcon sx={{ fontSize: 12, color: '#6366f1' }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#6366f1' }}>Doc</Typography>
+              </Box>
+            )}
+          </Box>
+
           {guestName && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
               <PersonIcon sx={{ fontSize: 13, color: MUTED, flexShrink: 0 }} />
@@ -126,9 +146,10 @@ const BookingCard = ({ data, navigate }) => {
           {/* Footer */}
           <Box sx={{ pt: 1, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.5 }}>#{booking.id}</Typography>
-            {booking.roomNumber && (
-              <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED }}>Room {booking.roomNumber}</Typography>
-            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>View</Typography>
+              <ArrowForwardIosIcon sx={{ fontSize: 9, color: accent }} />
+            </Box>
           </Box>
         </Box>
       </Box>
