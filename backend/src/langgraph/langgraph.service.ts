@@ -74,21 +74,24 @@ export class LangGraphService {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  private createModel(): ChatOpenAI {
+  createModel(temperature = 0): ChatOpenAI {
     const llmConfig = this.constantsService.private.LLM;
-    const openrouterConfig = llmConfig.OPENROUTER;
-    const apiKey = openrouterConfig.API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY is required');
-    }
     return new ChatOpenAI({
       modelName: llmConfig.TEXT_MODEL,
-      apiKey,
-      temperature: 0.7,
-      configuration: {
-        baseURL: openrouterConfig.BASE_URL,
-      },
+      apiKey: llmConfig.OPENROUTER.API_KEY,
+      temperature,
+      configuration: { baseURL: llmConfig.OPENROUTER.BASE_URL },
     });
+  }
+
+  async invoke(messages: BaseMessage[], temperature = 0): Promise<string> {
+    const result = await this.createModel(temperature).invoke(messages);
+    return result.content as string;
+  }
+
+  async invokeWithStructuredOutput<T>(schema: z.ZodType<T>, messages: BaseMessage[], schemaName?: string, temperature = 0): Promise<T> {
+    const result = await this.createModel(temperature).withStructuredOutput(schema, { name: schemaName }).invoke(messages);
+    return result as T;
   }
 
   private createVisionModel(): ChatOpenAI {
@@ -207,7 +210,7 @@ export class LangGraphService {
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
     const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
-    const model = this.createModel();
+    const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 
     const threadId = `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;

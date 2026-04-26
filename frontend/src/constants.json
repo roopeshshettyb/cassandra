@@ -1,5 +1,6 @@
 {
   "APP_NAME": "Samantha",
+  "GOOGLE_MAPS_API": "AIzaSyCwWuMlCGlns0jRHwLfMUCp9ysTsoMYoAw",
   "TAGLINE": "With you, always",
   "DESCRIPTION": "Samantha is your personal concierge and will make your stay a breeze.",
   "X_API_URL": "https://api.twitter.com",
@@ -102,5 +103,8 @@
         }
       ]
     }
-  }
+  },
+  "NOTIFICATIONS_FETCHED": "Notifications fetched",
+  "PREFERENCES_FETCHED": "Preferences fetched",
+  "PREFERENCES_UPDATED": "Preferences updated"
 }

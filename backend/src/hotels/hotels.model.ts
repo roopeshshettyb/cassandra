@@ -1,5 +1,6 @@
-import { Table, Model, Column, DataType } from 'sequelize-typescript';
+import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { NotificationTone, DEFAULT_NOTIFICATION_TONE } from '../common/constants/constants.service';
+import { HotelBrand } from './brands.model';
 
 @Table({ tableName: 'hotels' })
 export class Hotel extends Model<Hotel> {
@@ -154,4 +155,28 @@ export class Hotel extends Model<Hotel> {
     field: 'custom_tone_url',
   })
   customToneUrl: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  website: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'phone_number',
+  })
+  phoneNumber: string;
+
+  @ForeignKey(() => HotelBrand)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'hotel_brand_id',
+  })
+  hotelBrandId: number;
+
+  @BelongsTo(() => HotelBrand)
+  brand: HotelBrand;
 }

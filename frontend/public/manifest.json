@@ -1,12 +1,47 @@
 {
   "short_name": "Samantha",
   "name": "Samantha - With you, always",
-   "icons": [
+  "id": "/samantha-concierge",
+  "icons": [
     {
-      "src": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg",
+      "src": "logo192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "logo192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://placehold.jp/390x844.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Samantha Mobile View"
+    },
+    {
+      "src": "https://placehold.jp/1920x1080.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Samantha Desktop View"
     }
   ],
   "start_url": "/",
@@ -15,5 +50,10 @@
   "orientation": "portrait-primary",
   "theme_color": "#1B2340",
   "background_color": "#ffffff",
-  "description": "Samantha is your personal concierge and will make your stay a breeze."
+  "description": "Samantha is your personal concierge and will make your stay a breeze.",
+  "categories": [
+    "travel",
+    "productivity",
+    "lifestyle"
+  ]
 }

@@ -243,6 +243,7 @@ export class ConstantsService {
     return {
       // App Configuration
       APP_NAME: this.configService.get<string>('APP_NAME', 'Samantha'),
+      GOOGLE_MAPS_API: this.configService.get<string>('GOOGLE_MAPS_API'),
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
       DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Samantha is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
@@ -276,6 +277,19 @@ export class ConstantsService {
       FRONTEND_URL: this.configService.get<string>('FRONTEND_URL'),
       BACKEND_URL: this.configService.get<string>('BACKEND_URL'),
       GOOGLE_CLIENT_ID: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+      GOOGLE_MAPS_API: this.configService.get<string>('GOOGLE_MAPS_API'),
+      GOOGLE_SERVICE_JSON: this.configService.get<string>('GOOGLE_SERVICE_JSON'),
+      GOOGLE_MAPS_BASE_URL: 'https://places.googleapis.com/v1/places',
+      GOOGLE_MAPS_AUTH_SCOPE: 'https://www.googleapis.com/auth/cloud-platform',
+      GOOGLE_MAPS_SEARCH_FIELD_MASK: 'places.id,places.displayName,places.formattedAddress',
+      GOOGLE_MAPS_DETAILS_FIELD_MASK: 'id,displayName,formattedAddress,websiteUri,nationalPhoneNumber,rating,location',
+      GOOGLE_MAPS_TOKEN_CACHE_KEY: 'google_maps_auth_token',
+      GOOGLE_MAPS_TOKEN_CACHE_EXPIRY_MINUTES: 55,
+      TAVILY_API_KEY: this.configService.get<string>('TAVILY_API_KEY'),
+      TAVILY_BASE_URL: 'https://api.tavily.com/search',
+      ONBOARDING_FETCH_USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      ONBOARDING_FAVICON_BASE_URL: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL',
+      AWS_S3_URL_DOMAIN: '.amazonaws.com',
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 
       // Database Configuration

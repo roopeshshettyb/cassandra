@@ -14,6 +14,7 @@
 4. Run build and ensure no issues
 5. Standard response structure for all APIs: `{ success, message, data }`
 6. Avoid `map`, `forEach` at all costs. Only use good old `for` loops ONLY IF ABSOLUTELY NECESSARY
+7. `ApiService` is for JSON API calls only. For binary downloads (`responseType: 'arraybuffer'`), use `axios` directly and type the response variable explicitly (e.g. `response: { data: ArrayBuffer; headers: any }`)
 
 ## Frontend (`frontend/`)
 1. `api.js` must be used for ALL API calls. Never use raw `fetch` or `axios` directly — `api.js` handles loading, notifications, auth headers, and error handling. Always pass loaders to allow it to handle loading. Let the backend return messages so `api.js` handles alerts. Use `setData` to directly set state
