@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
 import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
@@ -42,7 +43,8 @@ const HotelCard = ({ data, navigate }) => {
               boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
             }}>
               {hotel.logoUrl
-                ? <Box component="img" src={hotel.logoUrl} alt={hotel.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                ? <Box component="img" src={hotel.logoUrl} alt={hotel.name}
+                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                     sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : null}
               <Box sx={{ display: hotel.logoUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
@@ -51,14 +53,24 @@ const HotelCard = ({ data, navigate }) => {
                 </Typography>
               </Box>
             </Box>
-            {/* Name */}
-            <Typography sx={{
-              fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1.35,
-              overflow: 'hidden', textOverflow: 'ellipsis',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            }}>
-              {hotel.name}
-            </Typography>
+            {/* Name + rating */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{
+                fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1.35,
+                overflow: 'hidden', textOverflow: 'ellipsis',
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+              }}>
+                {hotel.name}
+              </Typography>
+              {hotel.rating && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mt: 0.5 }}>
+                  <StarRoundedIcon sx={{ fontSize: 13, color: '#FFD700' }} />
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
+                    {hotel.rating.toFixed(1)}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
 
@@ -80,8 +92,7 @@ const HotelCard = ({ data, navigate }) => {
             {[{ label: 'Check in', value: hotel.checkInTime }, { label: 'Check out', value: hotel.checkOutTime }].map(({ label, value }) => (
               <Box key={label} sx={{
                 flex: 1, borderRadius: 2, p: 1.1, textAlign: 'center',
-                bgcolor: `${accent}12`,
-                border: `1px solid ${accent}28`,
+                bgcolor: `${accent}12`, border: `1px solid ${accent}28`,
               }}>
                 <Typography sx={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>{label}</Typography>
                 <Typography sx={{ fontSize: 15, fontWeight: 800, color: accent, lineHeight: 1.2, mt: 0.3 }}>{value || '—'}</Typography>
