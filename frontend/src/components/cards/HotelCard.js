@@ -1,78 +1,100 @@
-import React from 'react';
-import { Avatar, Box, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { BRAND_GRADIENT, NAVY_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, NAVY_CONTRAST } from '../../theme';
+import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;
+  const primary = hotel.themeConfig?.primaryColor;
+  const secondary = hotel.themeConfig?.secondaryColor;
+  const accent = primary || '#D4AF37';
+  const headerGradient = primary
+    ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)`
+    : NAVY_GRADIENT;
 
   return (
-    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }}>
       <Box
         onClick={() => hotel?.id && navigate?.(`/hotels/${hotel.id}`)}
         sx={{
           bgcolor: 'background.paper',
           borderRadius: 3,
           overflow: 'hidden',
-          border: `1px solid ${BORDER}`,
-          boxShadow: SHADOW,
+          border: `1px solid ${primary ? primary + '30' : BORDER}`,
+          boxShadow: primary ? `0 2px 12px ${primary}25` : SHADOW,
           cursor: 'pointer',
-          '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
+          '@media (hover: hover)': {
+            '&:hover': { boxShadow: primary ? `0 8px 28px ${primary}40` : SHADOW_HOVER },
+          },
         }}
       >
-        {/* Navy banner with centered icon */}
-        <Box sx={{ background: NAVY_GRADIENT, height: 90, display: 'flex', alignItems: 'center', px: 2.5, gap: 2 }}>
-          <Avatar
-            src={hotel.logoUrl || undefined}
-            sx={{ width: 44, height: 44, borderRadius: 2, background: BRAND_GRADIENT, fontSize: 18, fontWeight: 700, color: NAVY_CONTRAST, flexShrink: 0 }}
-          >
-            {!hotel.logoUrl && hotel.name?.[0]?.toUpperCase()}
-          </Avatar>
-          <Typography sx={{ fontWeight: 700, fontSize: 15, color: NAVY_CONTRAST, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-            {hotel.name}
-          </Typography>
+        {/* Themed header */}
+        <Box sx={{ background: headerGradient, px: 2.5, pt: 2.5, pb: 2.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
+            {/* Logo tile */}
+            <Box sx={{
+              width: 52, height: 52, borderRadius: 2, flexShrink: 0,
+              overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.18)',
+              border: '2px solid rgba(255,255,255,0.35)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+            }}>
+              {hotel.logoUrl
+                ? <Box component="img" src={hotel.logoUrl} alt={hotel.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : null}
+              <Box sx={{ display: hotel.logoUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ fontWeight: 900, fontSize: 22, color: '#fff', lineHeight: 1 }}>
+                  {hotel.name?.[0]?.toUpperCase()}
+                </Typography>
+              </Box>
+            </Box>
+            {/* Name */}
+            <Typography sx={{
+              fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1.35,
+              overflow: 'hidden', textOverflow: 'ellipsis',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            }}>
+              {hotel.name}
+            </Typography>
+          </Box>
         </Box>
 
-        {/* Info rows */}
-        <Box sx={{ px: 2.5, py: 2, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          {hotel.address ? (
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-              <LocationOnIcon sx={{ fontSize: 14, color: MUTED, mt: 0.2, flexShrink: 0 }} />
-              <Typography sx={{ fontSize: 12, color: MUTED, lineHeight: 1.45, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                {hotel.address}
-              </Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LocationOnIcon sx={{ fontSize: 14, color: TEXT_MUTED_DARK, flexShrink: 0, opacity: 0.5 }} />
-              <Typography sx={{ fontSize: 12, color: TEXT_MUTED_DARK, fontStyle: 'italic', opacity: 0.6 }}>No address</Typography>
-            </Box>
-          )}
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AccessTimeIcon sx={{ fontSize: 14, color: MUTED, flexShrink: 0 }} />
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
-              <Box>
-                <Typography sx={{ fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>In</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{hotel.checkInTime || '—'}</Typography>
-              </Box>
-              <Box sx={{ width: 1, bgcolor: BORDER, mx: 0.5 }} />
-              <Box>
-                <Typography sx={{ fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Out</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{hotel.checkOutTime || '—'}</Typography>
-              </Box>
-            </Box>
+        {/* Body */}
+        <Box sx={{ px: 2.5, pt: 1.75, pb: 2 }}>
+          {/* Address */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mb: 1.75 }}>
+            <LocationOnIcon sx={{ fontSize: 13, color: MUTED, mt: 0.25, flexShrink: 0 }} />
+            {hotel.address
+              ? <Typography sx={{ fontSize: 12, color: MUTED, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {hotel.address}
+                </Typography>
+              : <Typography sx={{ fontSize: 12, color: TEXT_MUTED_DARK, fontStyle: 'italic', opacity: 0.55 }}>No address</Typography>
+            }
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: `1px solid ${BORDER}` }}>
-            <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.6 }}>#{hotel.id}</Typography>
+          {/* Check-in / Check-out badges */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 1.75 }}>
+            {[{ label: 'Check in', value: hotel.checkInTime }, { label: 'Check out', value: hotel.checkOutTime }].map(({ label, value }) => (
+              <Box key={label} sx={{
+                flex: 1, borderRadius: 2, p: 1.1, textAlign: 'center',
+                bgcolor: `${accent}12`,
+                border: `1px solid ${accent}28`,
+              }}>
+                <Typography sx={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>{label}</Typography>
+                <Typography sx={{ fontSize: 15, fontWeight: 800, color: accent, lineHeight: 1.2, mt: 0.3 }}>{value || '—'}</Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* Footer */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1, borderTop: `1px solid ${BORDER}` }}>
+            <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.5 }}>#{hotel.id}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'primary.main' }}>Manage</Typography>
-              <ArrowForwardIosIcon sx={{ fontSize: 10, color: 'primary.main' }} />
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>Manage</Typography>
+              <ArrowForwardIosIcon sx={{ fontSize: 9, color: accent }} />
             </Box>
           </Box>
         </Box>
