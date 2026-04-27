@@ -7,6 +7,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
+import { HotelBrand } from '../hotels/brands.model';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
@@ -340,7 +341,7 @@ export class BookingsService {
   }
 
   async findAllForAccount(currentAccount: Account) {
-    const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl'] };
+    const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl', 'themeConfig'], include: [{ model: HotelBrand, as: 'brand' }] };
     const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
     const where = await this.getWhereForAccount(currentAccount);
     const options: any = { include: [includeHotel, includeGuest], order: [['startTime', 'DESC']] };
@@ -357,7 +358,7 @@ export class BookingsService {
     const booking = await this.bookingsRepository.findOne({
       where: findWhere,
       include: [
-        { model: Hotel, as: 'hotel' },
+        { model: Hotel, as: 'hotel', include: [{ model: HotelBrand, as: 'brand' }] },
         { model: Account, as: 'guest', attributes: ['id', 'email', 'name'] },
         {
           model: Request,

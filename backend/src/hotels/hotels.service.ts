@@ -85,7 +85,7 @@ export class HotelsService {
   }
 
   async findById(id: number): Promise<Hotel> {
-    const hotel = await this.hotelsRepository.findOne({ where: { id } });
+    const hotel = await this.hotelsRepository.findOne({ where: { id }, include: [{ model: HotelBrand, as: 'brand' }] });
     if (!hotel) {
       throw new NotFoundException();
     }
