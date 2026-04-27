@@ -1,6 +1,7 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
 import { Hotel } from './hotels.model';
+import { HotelBrand } from './brands.model';
 import { HotelAccount } from './hotel-accounts.model';
 import { CreateHotelDto, UpdateHotelDto, GrantHotelAccessDto, AddHotelStaffDto } from './hotels.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
@@ -47,6 +48,7 @@ export class HotelsService {
     }
     const data = await this.hotelsRepository.findAll({
       where: hotelsWhere,
+      include: [{ model: HotelBrand, as: 'brand' }],
     });
     return { success: true, message: 'Hotels Fetched', data };
   }
@@ -72,6 +74,7 @@ export class HotelsService {
 
     const hotel = await this.hotelsRepository.findOne({
       where: hotelWhere,
+      include: [{ model: HotelBrand, as: 'brand' }],
     });
 
     if (!hotel) {
