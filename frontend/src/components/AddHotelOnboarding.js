@@ -34,6 +34,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [manualWebsite, setManualWebsite] = useState('');
   const [extractedData, setExtractedData] = useState(null);
+  const [brandMatch, setBrandMatch] = useState(null);
+  const [placeNeedsWebsite, setPlaceNeedsWebsite] = useState(false);
 
   const debouncedSearch = useMemo(() => debounce(async (value) => {
     const response = await request({
@@ -63,9 +65,31 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
     setStep('analyzing');
     const response = await request({ endpoint: `/hotels/onboarding/analyze/${value.id}`, method: 'GET', setLoading, alertError });
     if (response?.success) {
-      if (response.data.needsWebsite) { setStep('website-required'); }
-      else { triggerExtraction(value.id); }
+      if (response.data.brandMatch) {
+        setBrandMatch(response.data.brandMatch);
+        setPlaceNeedsWebsite(response.data.needsWebsite);
+        setStep('brand-found');
+      } else if (response.data.needsWebsite) {
+        setStep('website-required');
+      } else {
+        triggerExtraction(value.id);
+      }
     } else { setStep('search'); }
+  };
+
+  const useBrandData = async () => {
+    const response = await request({ endpoint: `/hotels/brands/${brandMatch.id}`, method: 'GET', setLoading, alertError });
+    if (response?.success) {
+      setExtractedData({
+        name: selectedPlace?.name,
+        address: selectedPlace?.address,
+        brandName: response.data.name,
+        brandId: response.data.id,
+        brandFound: true,
+        ...response.data,
+      });
+      setStep('review');
+    }
   };
 
   const triggerExtraction = async (placeId, website = null) => {
@@ -82,7 +106,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
 
   const resetState = () => {
     setStep('search'); setSuggestions([]); setNoResults(false);
-    setSelectedPlace(null); setExtractedData(null); setManualWebsite('');
+    setSelectedPlace(null); setExtractedData(null); setManualWebsite(''); setBrandMatch(null); setPlaceNeedsWebsite(false);
   };
 
   const handleClose = () => onClose();
@@ -118,8 +142,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
         {/* Step indicator */}
         {!isReview && (
           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-            {['search', 'analyzing', 'website-required', 'extracting'].map((s, i) => (
-              <Box key={s} sx={{ flex: 1, height: 3, borderRadius: 2, bgcolor: ['search', 'analyzing', 'website-required', 'extracting'].indexOf(step) >= i ? BRAND_GRADIENT : 'rgba(255,255,255,0.15)', transition: 'all 0.3s' }} />
+            {['search', 'analyzing', 'brand-found', 'website-required', 'extracting'].map((s, i) => (
+              <Box key={s} sx={{ flex: 1, height: 3, borderRadius: 2, bgcolor: ['search', 'analyzing', 'brand-found', 'website-required', 'extracting'].indexOf(step) >= i ? BRAND_GRADIENT : 'rgba(255,255,255,0.15)', transition: 'all 0.3s' }} />
             ))}
           </Box>
         )}
@@ -173,6 +197,36 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                 <CircularProgress size={44} thickness={3} sx={{ mb: 2.5, color: 'primary.main' }} />
                 <Typography sx={{ fontWeight: 700, fontSize: 15, color: NAVY, mb: 0.5 }}>Fetching location data</Typography>
                 <Typography sx={{ color: MUTED, fontSize: 13 }}>Getting address, website and contact info from Google Maps...</Typography>
+              </Box>
+            </motion.div>
+          )}
+
+          {/* BRAND FOUND */}
+          {step === 'brand-found' && brandMatch && (
+            <motion.div key="brand-found" {...FADE} transition={{ duration: 0.2 }}>
+              <Box sx={{ p: 3 }}>
+                <Box sx={{ p: 2, bgcolor: 'rgba(5,150,105,0.07)', borderRadius: 2, border: '1px solid rgba(5,150,105,0.2)', mb: 3 }}>
+                  <Typography sx={{ fontSize: 13, color: '#059669', fontWeight: 700, mb: 0.5 }}>Brand already in system</Typography>
+                  <Typography sx={{ fontSize: 12, color: MUTED }}>
+                    <strong>{brandMatch.name}</strong> was matched from existing brand data. Use it to skip crawling, or run full analysis for this specific property.
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Button variant="contained" fullWidth onClick={useBrandData} disabled={loading}
+                    sx={{ borderRadius: 2, py: 1.3, fontWeight: 700, background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#fff', boxShadow: '0 4px 14px rgba(5,150,105,0.35)' }}>
+                    {loading ? <><CircularProgress size={14} sx={{ mr: 1, color: 'inherit' }} />Loading...</> : `Use ${brandMatch.name} data`}
+                  </Button>
+                  <Button variant="outlined" fullWidth
+                    onClick={() => {
+                      if (selectedPlace) {
+                        if (placeNeedsWebsite) { setStep('website-required'); }
+                        else { triggerExtraction(selectedPlace.id); }
+                      }
+                    }}
+                    sx={{ borderRadius: 2, py: 1.3, fontWeight: 700, borderColor: 'rgba(0,0,0,0.15)', color: NAVY }}>
+                    Full analysis for this property
+                  </Button>
+                </Box>
               </Box>
             </motion.div>
           )}

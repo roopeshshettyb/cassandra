@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import axios from 'axios';
 import { MapsService } from '../common/maps/maps.service';
 import { TavilyService } from '../common/tavily/tavily.service';
@@ -8,7 +8,10 @@ import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { HotelBrand } from './brands.model';
 import { Hotel } from './hotels.model';
-import { HOTELS_REPOSITORY, HOTEL_BRANDS_REPOSITORY } from './hotels.repository';
+import { HotelAccount } from './hotel-accounts.model';
+import { HOTELS_REPOSITORY, HOTEL_BRANDS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
+import { Account, AccountRole } from '../accounts/accounts.model';
+import { UpdateBrandDto } from './hotels.dto';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 
@@ -43,11 +46,24 @@ export class OnboardingService {
     private readonly constantsService: ConstantsService,
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_BRANDS_REPOSITORY) private readonly brandsRepository: typeof HotelBrand,
+    @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
   ) {}
 
   async analyzePlace(placeId: string) {
     const details = await this.mapsService.getPlaceDetails(placeId);
     if (!details) throw new NotFoundException('Place not found');
+
+    // Quick brand match via case-insensitive substring (no LLM, low latency)
+    // Sort by name length descending so longer/more-specific names match first
+    const existingBrands = await this.brandsRepository.findAll({ order: [['name', 'DESC']] });
+    let matchedBrand: HotelBrand | null = null;
+    const hotelNameLower = details.name.toLowerCase();
+    for (let i = 0; i < existingBrands.length; i++) {
+      if (hotelNameLower.includes(existingBrands[i].name.toLowerCase())) {
+        matchedBrand = existingBrands[i];
+        break;
+      }
+    }
 
     return {
       success: true,
@@ -55,6 +71,7 @@ export class OnboardingService {
       data: {
         ...details,
         needsWebsite: !details.website,
+        brandMatch: matchedBrand ? { id: matchedBrand.id, name: matchedBrand.name } : null,
       },
     };
   }
@@ -358,5 +375,33 @@ ${crawlData}`;
     return this.brandsRepository.findAll({
       order: [['name', 'ASC']],
     });
+  }
+
+  async getBrandById(id: number) {
+    const brand = await this.brandsRepository.findByPk(id);
+    if (!brand) throw new NotFoundException('Brand not found');
+    return { success: true, message: null, data: brand };
+  }
+
+  async updateBrand(id: number, dto: UpdateBrandDto, account: Account) {
+    const brand = await this.brandsRepository.findByPk(id);
+    if (!brand) throw new NotFoundException('Brand not found');
+
+    if (account.role !== AccountRole.ADMIN) {
+      // hotel_owner: must have at least one hotel with this brand
+      const hotelAccounts = await this.hotelAccountsRepository.findAll({ where: { accountId: account.id } });
+      const hotelIds: number[] = [];
+      for (let i = 0; i < hotelAccounts.length; i++) {
+        hotelIds.push(hotelAccounts[i].hotelId);
+      }
+      const hotelWithBrand = hotelIds.length > 0
+        ? await this.hotelsRepository.findOne({ where: { id: hotelIds, hotelBrandId: id } })
+        : null;
+      if (!hotelWithBrand) throw new ForbiddenException();
+    }
+
+    await this.brandsRepository.update(dto as any, { where: { id } });
+    const updated = await this.brandsRepository.findByPk(id);
+    return { success: true, message: 'Brand updated', data: updated };
   }
 }

@@ -103,6 +103,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
+  const [brandEditOpen, setBrandEditOpen] = useState(false);
+  const [brandEditValues, setBrandEditValues] = useState({});
   const logoInputRef = useRef(null);
   const toneInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
@@ -282,6 +284,53 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       setHotel(updated);
       setThemeConfig(updated.themeConfig || null);
       setIsEditing(false);
+    }
+  };
+
+  const handleBrandInputChange = (field) => (event) => {
+    setBrandEditValues((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const openBrandEdit = () => {
+    const brand = hotel?.brand || {};
+    setBrandEditValues({
+      checkInTime: brand.checkInTime || '',
+      checkOutTime: brand.checkOutTime || '',
+      poolHours: brand.poolHours || '',
+      gymHours: brand.gymHours || '',
+      restaurantHours: brand.restaurantHours || '',
+      wifiPassword: brand.wifiPassword || '',
+      breakfastHours: brand.breakfastHours || '',
+      lunchHours: brand.lunchHours || '',
+      dinnerHours: brand.dinnerHours || '',
+      snacksHours: brand.snacksHours || '',
+      houseKeepingHours: brand.houseKeepingHours || '',
+      roomServiceHours: brand.roomServiceHours || '',
+      llmInstructions: brand.llmInstructions || '',
+      primaryColor: brand.themeConfig?.primaryColor || '',
+      secondaryColor: brand.themeConfig?.secondaryColor || '',
+    });
+    setBrandEditOpen(true);
+  };
+
+  const handleBrandSave = async () => {
+    const themeObj = {};
+    if (brandEditValues.primaryColor?.trim()) themeObj.primaryColor = brandEditValues.primaryColor.trim();
+    if (brandEditValues.secondaryColor?.trim()) themeObj.secondaryColor = brandEditValues.secondaryColor.trim();
+    const payload = { ...brandEditValues, themeConfig: Object.keys(themeObj).length ? themeObj : null };
+    delete payload.primaryColor;
+    delete payload.secondaryColor;
+    const result = await request({
+      endpoint: `/hotels/brands/${hotel.brand.id}`,
+      method: 'PATCH',
+      data: payload,
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
+    if (result?.success) {
+      setBrandEditOpen(false);
+      fetchHotel();
     }
   };
 
@@ -892,6 +941,20 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
               <HotelInfoCard hotel={hotel} loading={loading} />
             )}
 
+            {hotel?.brand && (
+              <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6">Brand: {hotel.brand.name}</Typography>
+                  {canEdit && (
+                    <Button variant="outlined" size="small" onClick={openBrandEdit}>Edit Brand</Button>
+                  )}
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  Brand-level defaults inherited by all {hotel.brand.name} properties.
+                </Typography>
+              </Box>
+            )}
+
             {CAN_MANAGE_STAFF && (
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>
@@ -922,6 +985,36 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
             )}
 
             {canEdit && <ManageRestaurant hotelId={id} loading={loading} setLoading={setLoading} account={account} alertSuccess={alertSuccess} alertError={alertError} isMobile={isMobile} />}
+
+            <Dialog open={brandEditOpen} onClose={() => setBrandEditOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Edit Brand — {hotel?.brand?.name}</DialogTitle>
+              <DialogContent>
+                <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Grid container spacing={2}>
+                    <MapComponent Component={HoursEditField} data={hoursFieldConfigs} editValues={brandEditValues} handleInputChange={handleBrandInputChange} showNoDataAvailable={false} isLoading={loading} />
+                  </Grid>
+                  <TextField fullWidth multiline minRows={3} label="Brand LLM instructions" value={brandEditValues.llmInstructions || ''} onChange={handleBrandInputChange('llmInstructions')} placeholder="Brand-level AI guidance applied to all properties" />
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField fullWidth label="Primary color" value={brandEditValues.primaryColor || ''} onChange={handleBrandInputChange('primaryColor')} placeholder="#D4AF37"
+                        InputProps={{ endAdornment: <input type="color" value={brandEditValues.primaryColor || '#D4AF37'} onChange={(e) => handleBrandInputChange('primaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField fullWidth label="Secondary color" value={brandEditValues.secondaryColor || ''} onChange={handleBrandInputChange('secondaryColor')} placeholder="#C5A022"
+                        InputProps={{ endAdornment: <input type="color" value={brandEditValues.secondaryColor || '#C5A022'} onChange={(e) => handleBrandInputChange('secondaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setBrandEditOpen(false)}>Cancel</Button>
+                <Button onClick={handleBrandSave} variant="contained" disabled={loading}>Save</Button>
+              </DialogActions>
+            </Dialog>
 
             <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">
               <DialogTitle id="delete-hotel-title">Delete hotel</DialogTitle>

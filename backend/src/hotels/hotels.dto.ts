@@ -197,6 +197,65 @@ export class UpdateHotelDto {
   readonly notificationTone?: NotificationTone;
 }
 
+export class UpdateBrandDto {
+  @IsOptional()
+  @IsString()
+  readonly checkInTime?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly checkOutTime?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly poolHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly gymHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly restaurantHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly wifiPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly breakfastHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly lunchHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly dinnerHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly snacksHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly houseKeepingHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly roomServiceHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly llmInstructions?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => o.themeConfig != null)
+  @IsObject()
+  readonly themeConfig?: Record<string, unknown>;
+}
+
 export class GrantHotelAccessDto {
   @IsInt()
   @ApiProperty()
