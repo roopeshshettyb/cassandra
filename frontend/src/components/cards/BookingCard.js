@@ -6,13 +6,16 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_INFO, STATUS_INFO_BG, STATUS_ERROR, STATUS_ERROR_BG, TEXT_MUTED_DARK } from '../../theme';
+import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
 
-const statusConfig = {
-  Active:    { color: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
-  Upcoming:  { color: STATUS_INFO,    bg: STATUS_INFO_BG },
-  Past:      { color: MUTED,          bg: TEXT_MUTED_DARK },
-  Cancelled: { color: STATUS_ERROR,   bg: STATUS_ERROR_BG },
+const getLuminance = (hex) => {
+  const c = (hex || '').replace('#', '');
+  if (c.length < 6) return 0;
+  const r = parseInt(c.slice(0, 2), 16) / 255;
+  const g = parseInt(c.slice(2, 4), 16) / 255;
+  const b = parseInt(c.slice(4, 6), 16) / 255;
+  const lin = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 };
 
 const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -26,6 +29,9 @@ const BookingCard = ({ data, navigate }) => {
   const headerGradient = primary
     ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)`
     : NAVY_GRADIENT;
+  // Navy default is dark — luminance ~0.02; treat no-primary as dark header
+  const headerLuminance = primary ? getLuminance(primary) : 0;
+  const badgeTextColor = headerLuminance > 0.35 ? '#000000' : '#ffffff';
 
   const start = booking.startTime ? new Date(booking.startTime) : null;
   const end = booking.endTime ? new Date(booking.endTime) : null;
@@ -36,7 +42,6 @@ const BookingCard = ({ data, navigate }) => {
   const status = booking.status && statusConfig[booking.status]
     ? booking.status
     : isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
-  const st = statusConfig[status];
   const guestName = booking.guest?.name || booking.guest?.email || null;
   const hasDoc = !!booking.reservationDocumentS3Key;
 
@@ -87,8 +92,8 @@ const BookingCard = ({ data, navigate }) => {
             </Typography>
           </Box>
           {/* Status badge */}
-          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: st.bg }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: st.color, whiteSpace: 'nowrap' }}>{status}</Typography>
+          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: 'rgba(0,0,0,0.22)' }}>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
           </Box>
         </Box>
 
