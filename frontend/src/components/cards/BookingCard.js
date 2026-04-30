@@ -23,8 +23,9 @@ const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { month: 'short', day: 
 const BookingCard = ({ data, navigate }) => {
   const booking = data;
   const hotelName = booking.hotel?.name || 'Unknown Hotel';
-  const primary = booking.hotel?.themeConfig?.primaryColor;
-  const secondary = booking.hotel?.themeConfig?.secondaryColor;
+  const themeConfig = booking.hotel?.themeConfig || booking.hotel?.brand?.themeConfig;
+  const primary = themeConfig?.primaryColor;
+  const secondary = themeConfig?.secondaryColor;
   const accent = primary || '#D4AF37';
   const headerGradient = primary
     ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)`
