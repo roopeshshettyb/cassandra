@@ -53,9 +53,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
 
   useEffect(() => {
     fetchBookings();
-    if (account && constants.PERMISSIONS.CAN_CREATE_BOOKING[account.role]) {
-      fetchHotels();
-    }
+    fetchHotels();
   }, []);
 
   const CAN_CREATE_BOOKING = account && !!constants.PERMISSIONS.CAN_CREATE_BOOKING[account.role];
@@ -254,7 +252,18 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </Box>
       </Dialog>
 
-      <DataGrid CardComponent={BookingCard} data={bookings} isLoading={dataLoading} navigate={navigate} />
+      <DataGrid CardComponent={BookingCard} data={(() => {
+        const hotelMap = {};
+        for (let i = 0; i < hotels.length; i++) hotelMap[hotels[i].id] = hotels[i];
+        const enriched = [];
+        for (let i = 0; i < bookings.length; i++) {
+          const b = bookings[i];
+          const full = b.hotel?.id ? hotelMap[b.hotel.id] : null;
+          const themeConfig = b.hotel?.themeConfig || full?.themeConfig || full?.brand?.themeConfig;
+          enriched.push(themeConfig ? { ...b, hotel: { ...b.hotel, themeConfig } } : b);
+        }
+        return enriched;
+      })()} isLoading={dataLoading} navigate={navigate} />
     </Box>
   );
 }

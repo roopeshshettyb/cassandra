@@ -27,7 +27,7 @@ export class HotelsController {
   @AdminOnly()
   async listBrands() {
     const brands = await this.onboardingService.listAllBrands();
-    return { success: true, data: brands };
+    return { success: true, message: null, data: brands };
   }
 
   @Get(':id')
