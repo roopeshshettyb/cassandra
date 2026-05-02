@@ -63,8 +63,25 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
     setStep('analyzing');
     const response = await request({ endpoint: `/hotels/onboarding/analyze/${value.id}`, method: 'GET', setLoading, alertError });
     if (response?.success) {
-      if (response.data.needsWebsite) { setStep('website-required'); }
-      else { triggerExtraction(value.id); }
+      if (response.data.brandMatch) {
+        // Brand exists — skip crawl, use brand data directly
+        const brandRes = await request({ endpoint: `/hotels/brands/${response.data.brandMatch.id}`, method: 'GET', setLoading, alertError });
+        if (brandRes?.success) {
+          setExtractedData({
+            name: value.name,
+            address: value.address,
+            brandName: brandRes.data.name,
+            brandId: brandRes.data.id,
+            brandFound: true,
+            ...brandRes.data,
+          });
+          setStep('review');
+        } else { setStep('search'); }
+      } else if (response.data.needsWebsite) {
+        setStep('website-required');
+      } else {
+        triggerExtraction(value.id);
+      }
     } else { setStep('search'); }
   };
 
