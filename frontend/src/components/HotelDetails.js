@@ -103,8 +103,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
-  const [brandEditOpen, setBrandEditOpen] = useState(false);
-  const [brandEditValues, setBrandEditValues] = useState({});
+  const [showBrandApplyDialog, setShowBrandApplyDialog] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
   const logoInputRef = useRef(null);
   const toneInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
@@ -249,8 +249,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     }));
   };
 
-  const handleSave = async (event) => {
-    event.preventDefault();
+  const buildPayload = () => {
     const payload = { ...editValues };
     const themeObj = {};
     if (editValues.primaryColor?.trim()) themeObj.primaryColor = editValues.primaryColor.trim();
@@ -270,7 +269,21 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     delete payload.fontFamily;
     delete payload.backgroundDefault;
     delete payload.backgroundPaper;
+    return payload;
+  };
 
+  const handleSave = async (event) => {
+    event.preventDefault();
+    const payload = buildPayload();
+    if (hotel?.brand) {
+      setPendingPayload(payload);
+      setShowBrandApplyDialog(true);
+      return;
+    }
+    await doSave(payload);
+  };
+
+  const doSave = async (payload) => {
     const updated = await request({
       endpoint: `/hotels/${id}`,
       method: 'PATCH',
@@ -279,58 +292,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       alertSuccess,
       alertError,
     });
-
     if (updated) {
       setHotel(updated);
       setThemeConfig(updated.themeConfig || null);
       setIsEditing(false);
-    }
-  };
-
-  const handleBrandInputChange = (field) => (event) => {
-    setBrandEditValues((prev) => ({ ...prev, [field]: event.target.value }));
-  };
-
-  const openBrandEdit = () => {
-    const brand = hotel?.brand || {};
-    setBrandEditValues({
-      checkInTime: brand.checkInTime || '',
-      checkOutTime: brand.checkOutTime || '',
-      poolHours: brand.poolHours || '',
-      gymHours: brand.gymHours || '',
-      restaurantHours: brand.restaurantHours || '',
-      wifiPassword: brand.wifiPassword || '',
-      breakfastHours: brand.breakfastHours || '',
-      lunchHours: brand.lunchHours || '',
-      dinnerHours: brand.dinnerHours || '',
-      snacksHours: brand.snacksHours || '',
-      houseKeepingHours: brand.houseKeepingHours || '',
-      roomServiceHours: brand.roomServiceHours || '',
-      llmInstructions: brand.llmInstructions || '',
-      primaryColor: brand.themeConfig?.primaryColor || '',
-      secondaryColor: brand.themeConfig?.secondaryColor || '',
-    });
-    setBrandEditOpen(true);
-  };
-
-  const handleBrandSave = async () => {
-    const themeObj = {};
-    if (brandEditValues.primaryColor?.trim()) themeObj.primaryColor = brandEditValues.primaryColor.trim();
-    if (brandEditValues.secondaryColor?.trim()) themeObj.secondaryColor = brandEditValues.secondaryColor.trim();
-    const payload = { ...brandEditValues, themeConfig: Object.keys(themeObj).length ? themeObj : null };
-    delete payload.primaryColor;
-    delete payload.secondaryColor;
-    const result = await request({
-      endpoint: `/hotels/brands/${hotel.brand.id}`,
-      method: 'PATCH',
-      data: payload,
-      setLoading,
-      alertSuccess,
-      alertError,
-    });
-    if (result?.success) {
-      setBrandEditOpen(false);
-      fetchHotel();
     }
   };
 
@@ -942,15 +907,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
             )}
 
             {hotel?.brand && (
-              <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="h6">Brand: {hotel.brand.name}</Typography>
-                  {canEdit && (
-                    <Button variant="outlined" size="small" onClick={openBrandEdit}>Edit Brand</Button>
-                  )}
-                </Box>
+              <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="body2" color="text.secondary">
-                  Brand-level defaults inherited by all {hotel.brand.name} properties.
+                  Brand: <strong>{hotel.brand.name}</strong> — changes can be applied to all {hotel.brand.name} properties when saving.
                 </Typography>
               </Box>
             )}
@@ -986,33 +945,20 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
             {canEdit && <ManageRestaurant hotelId={id} loading={loading} setLoading={setLoading} account={account} alertSuccess={alertSuccess} alertError={alertError} isMobile={isMobile} />}
 
-            <Dialog open={brandEditOpen} onClose={() => setBrandEditOpen(false)} maxWidth="sm" fullWidth>
-              <DialogTitle>Edit Brand — {hotel?.brand?.name}</DialogTitle>
+            <Dialog open={showBrandApplyDialog} onClose={() => setShowBrandApplyDialog(false)} maxWidth="xs" fullWidth>
+              <DialogTitle>Apply changes to all {hotel?.brand?.name} hotels?</DialogTitle>
               <DialogContent>
-                <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Grid container spacing={2}>
-                    <MapComponent Component={HoursEditField} data={hoursFieldConfigs} editValues={brandEditValues} handleInputChange={handleBrandInputChange} showNoDataAvailable={false} isLoading={loading} />
-                  </Grid>
-                  <TextField fullWidth multiline minRows={3} label="Brand LLM instructions" value={brandEditValues.llmInstructions || ''} onChange={handleBrandInputChange('llmInstructions')} placeholder="Brand-level AI guidance applied to all properties" />
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <TextField fullWidth label="Primary color" value={brandEditValues.primaryColor || ''} onChange={handleBrandInputChange('primaryColor')} placeholder="#D4AF37"
-                        InputProps={{ endAdornment: <input type="color" value={brandEditValues.primaryColor || '#D4AF37'} onChange={(e) => handleBrandInputChange('primaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <TextField fullWidth label="Secondary color" value={brandEditValues.secondaryColor || ''} onChange={handleBrandInputChange('secondaryColor')} placeholder="#C5A022"
-                        InputProps={{ endAdornment: <input type="color" value={brandEditValues.secondaryColor || '#C5A022'} onChange={(e) => handleBrandInputChange('secondaryColor')({ target: { value: e.target.value } })} style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} /> }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
+                <DialogContentText>
+                  Do you want these changes to apply to all <strong>{hotel?.brand?.name}</strong> properties, or just this hotel?
+                </DialogContentText>
               </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setBrandEditOpen(false)}>Cancel</Button>
-                <Button onClick={handleBrandSave} variant="contained" disabled={loading}>Save</Button>
+              <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 3, alignItems: 'stretch' }}>
+                <Button variant="contained" color="primary" onClick={async () => { setShowBrandApplyDialog(false); await doSave({ ...pendingPayload, applyToBrand: true }); }}>
+                  All {hotel?.brand?.name} hotels
+                </Button>
+                <Button variant="outlined" onClick={async () => { setShowBrandApplyDialog(false); await doSave(pendingPayload); }}>
+                  Just this hotel
+                </Button>
               </DialogActions>
             </Dialog>
 
