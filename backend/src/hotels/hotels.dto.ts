@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf, IsEnum } from 'class-validator';
+// IsBoolean used by UpdateBrandDto
 import { NotificationTone } from '../common/constants/constants.service';
 
 const HH_MM_REGEX = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -195,11 +196,6 @@ export class UpdateHotelDto {
   @IsEnum(NotificationTone)
   @ApiProperty({ required: false, enum: NotificationTone })
   readonly notificationTone?: NotificationTone;
-
-  @IsOptional()
-  @IsBoolean()
-  @ApiProperty({ required: false })
-  readonly applyToBrand?: boolean;
 }
 
 export class UpdateBrandDto {
@@ -259,6 +255,10 @@ export class UpdateBrandDto {
   @ValidateIf((o) => o.themeConfig != null)
   @IsObject()
   readonly themeConfig?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsBoolean()
+  readonly propagate?: boolean;
 }
 
 export class GrantHotelAccessDto {

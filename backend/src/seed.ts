@@ -8,6 +8,7 @@ import { HotelBrand } from './hotels/brands.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
 import { Booking } from './bookings/bookings.model';
 import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/requests.model';
+import { Chat } from './chat/chat.model';
 
 const nodeEnv = process.env.NODE_ENV;
 const envFile = nodeEnv === 'prod' ? 'prod.env' : 'dev.env';
@@ -22,7 +23,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat],
     define: { underscored: true, timestamps: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -30,7 +31,7 @@ async function seed() {
   });
 
   await sequelize.authenticate();
-  await sequelize.sync({ alter: true });
+  await sequelize.sync();
 
   // ── Accounts ────────────────────────────────────────────────────────────────
   const accountData = [
@@ -42,7 +43,7 @@ async function seed() {
   ];
   const accounts: Account[] = [];
   for (const row of accountData) {
-    const [acc] = await Account.upsert(row as any);
+    const [acc] = await Account.findOrCreate({ where: { email: row.email }, defaults: row as any });
     accounts.push(acc);
   }
 
@@ -179,8 +180,7 @@ async function seed() {
   const hotels: Hotel[] = [];
   for (const row of hotelData) {
     const [h] = await Hotel.findOrCreate({ where: { name: row.name }, defaults: row as any });
-    // Update brand link on existing records
-    if (row.hotelBrandId && h.hotelBrandId !== row.hotelBrandId) {
+    if (row.hotelBrandId && !h.hotelBrandId) {
       await Hotel.update({ hotelBrandId: row.hotelBrandId, themeConfig: row.themeConfig }, { where: { id: h.id } });
     }
     hotels.push(h);

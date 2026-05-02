@@ -1,5 +1,5 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY, HOTEL_BRANDS_REPOSITORY } from './hotels.repository';
+import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
 import { Hotel } from './hotels.model';
 import { HotelBrand } from './brands.model';
 import { HotelAccount } from './hotel-accounts.model';
@@ -19,7 +19,6 @@ export class HotelsService {
   constructor(
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
-    @Inject(HOTEL_BRANDS_REPOSITORY) private readonly brandsRepository: typeof HotelBrand,
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
     private readonly accountsService: AccountsService,
     private readonly authService: AuthService,
@@ -113,31 +112,10 @@ export class HotelsService {
       if (!hotelAccount) throw new ForbiddenException();
     }
 
-    const { applyToBrand, ...hotelFields } = updateHotelDto;
-
-    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(hotelFields, { where: { id }, returning: true });
+    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(updateHotelDto, { where: { id }, returning: true });
     if (affectedCount === 0) throw new NotFoundException();
 
-    if (applyToBrand) {
-      const hotel = updatedHotels[0];
-      if (hotel.hotelBrandId) {
-        const brandFields: any = {};
-        const propagatable = ['checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
-          'wifiPassword', 'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
-          'houseKeepingHours', 'roomServiceHours', 'llmInstructions', 'themeConfig'];
-        for (let i = 0; i < propagatable.length; i++) {
-          const key = propagatable[i];
-          if (hotelFields[key] !== undefined) brandFields[key] = hotelFields[key];
-        }
-        if (Object.keys(brandFields).length > 0) {
-          await this.brandsRepository.update(brandFields, { where: { id: hotel.hotelBrandId } });
-          await this.hotelsRepository.update(brandFields, { where: { hotelBrandId: hotel.hotelBrandId } });
-        }
-      }
-    }
-
-    const updated = await this.hotelsRepository.findOne({ where: { id }, include: [{ model: HotelBrand, as: 'brand' }] });
-    return updated;
+    return updatedHotels[0];
   }
 
   private async ensureCanManageStaff(hotelId: number, currentAccount: Account): Promise<Hotel> {

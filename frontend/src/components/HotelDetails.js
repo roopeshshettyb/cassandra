@@ -103,8 +103,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
-  const [showBrandApplyDialog, setShowBrandApplyDialog] = useState(false);
-  const [pendingPayload, setPendingPayload] = useState(null);
   const logoInputRef = useRef(null);
   const toneInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
@@ -249,7 +247,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     }));
   };
 
-  const buildPayload = () => {
+  const handleSave = async (event) => {
+    event.preventDefault();
     const payload = { ...editValues };
     const themeObj = {};
     if (editValues.primaryColor?.trim()) themeObj.primaryColor = editValues.primaryColor.trim();
@@ -269,29 +268,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     delete payload.fontFamily;
     delete payload.backgroundDefault;
     delete payload.backgroundPaper;
-    return payload;
-  };
 
-  const handleSave = async (event) => {
-    event.preventDefault();
-    const payload = buildPayload();
-    if (hotel?.brand) {
-      setPendingPayload(payload);
-      setShowBrandApplyDialog(true);
-      return;
-    }
-    await doSave(payload);
-  };
-
-  const doSave = async (payload) => {
-    const updated = await request({
-      endpoint: `/hotels/${id}`,
-      method: 'PATCH',
-      data: payload,
-      setLoading,
-      alertSuccess,
-      alertError,
-    });
+    const updated = await request({ endpoint: `/hotels/${id}`, method: 'PATCH', data: payload, setLoading, alertSuccess, alertError });
     if (updated) {
       setHotel(updated);
       setThemeConfig(updated.themeConfig || null);
@@ -907,10 +885,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
             )}
 
             {hotel?.brand && (
-              <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Brand: <strong>{hotel.brand.name}</strong> — changes can be applied to all {hotel.brand.name} properties when saving.
-                </Typography>
+              <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">Brand: <strong>{hotel.brand.name}</strong></Typography>
+                <Button size="small" onClick={() => navigate(`/brands/${hotel.brand.id}`)}>Manage Brand</Button>
               </Box>
             )}
 
@@ -944,23 +921,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
             )}
 
             {canEdit && <ManageRestaurant hotelId={id} loading={loading} setLoading={setLoading} account={account} alertSuccess={alertSuccess} alertError={alertError} isMobile={isMobile} />}
-
-            <Dialog open={showBrandApplyDialog} onClose={() => setShowBrandApplyDialog(false)} maxWidth="xs" fullWidth>
-              <DialogTitle>Apply changes to all {hotel?.brand?.name} hotels?</DialogTitle>
-              <DialogContent>
-                <DialogContentText>
-                  Do you want these changes to apply to all <strong>{hotel?.brand?.name}</strong> properties, or just this hotel?
-                </DialogContentText>
-              </DialogContent>
-              <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 3, alignItems: 'stretch' }}>
-                <Button variant="contained" color="primary" onClick={async () => { setShowBrandApplyDialog(false); await doSave({ ...pendingPayload, applyToBrand: true }); }}>
-                  All {hotel?.brand?.name} hotels
-                </Button>
-                <Button variant="outlined" onClick={async () => { setShowBrandApplyDialog(false); await doSave(pendingPayload); }}>
-                  Just this hotel
-                </Button>
-              </DialogActions>
-            </Dialog>
 
             <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">
               <DialogTitle id="delete-hotel-title">Delete hotel</DialogTitle>

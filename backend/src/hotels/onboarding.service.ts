@@ -378,7 +378,9 @@ ${crawlData}`;
   }
 
   async getBrandById(id: number) {
-    const brand = await this.brandsRepository.findByPk(id);
+    const brand = await this.brandsRepository.findByPk(id, {
+      include: [{ model: Hotel, as: 'hotels', attributes: ['id', 'name', 'address'] }],
+    });
     if (!brand) throw new NotFoundException('Brand not found');
     return { success: true, message: null, data: brand };
   }
@@ -388,7 +390,6 @@ ${crawlData}`;
     if (!brand) throw new NotFoundException('Brand not found');
 
     if (account.role !== AccountRole.ADMIN) {
-      // hotel_owner: must have at least one hotel with this brand
       const hotelAccounts = await this.hotelAccountsRepository.findAll({ where: { accountId: account.id } });
       const hotelIds: number[] = [];
       for (let i = 0; i < hotelAccounts.length; i++) {
@@ -400,8 +401,26 @@ ${crawlData}`;
       if (!hotelWithBrand) throw new ForbiddenException();
     }
 
-    await this.brandsRepository.update(dto as any, { where: { id } });
-    const updated = await this.brandsRepository.findByPk(id);
+    const { propagate, ...brandFields } = dto;
+    await this.brandsRepository.update(brandFields as any, { where: { id } });
+
+    if (propagate) {
+      const propagatable = ['checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
+        'wifiPassword', 'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
+        'houseKeepingHours', 'roomServiceHours', 'llmInstructions', 'themeConfig'];
+      const hotelFields: any = {};
+      for (let i = 0; i < propagatable.length; i++) {
+        const key = propagatable[i];
+        if (brandFields[key] !== undefined) hotelFields[key] = brandFields[key];
+      }
+      if (Object.keys(hotelFields).length > 0) {
+        await this.hotelsRepository.update(hotelFields, { where: { hotelBrandId: id } });
+      }
+    }
+
+    const updated = await this.brandsRepository.findByPk(id, {
+      include: [{ model: Hotel, as: 'hotels', attributes: ['id', 'name', 'address'] }],
+    });
     return { success: true, message: 'Brand updated', data: updated };
   }
 }
