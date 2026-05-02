@@ -374,6 +374,7 @@ ${crawlData}`;
   async listAllBrands() {
     return this.brandsRepository.findAll({
       order: [['name', 'ASC']],
+      include: [{ model: Hotel, as: 'hotels', attributes: ['id'] }],
     });
   }
 
