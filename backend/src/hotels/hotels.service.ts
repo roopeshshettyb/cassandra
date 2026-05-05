@@ -107,31 +107,13 @@ export class HotelsService {
   }
 
   async updateHotel(id: number, updateHotelDto: UpdateHotelDto, currentAccount: Account): Promise<Hotel> {
-    const hotelWhere: any = { id };
-
     if (currentAccount.role !== AccountRole.ADMIN) {
-      const hotelAccountWhere = {
-        hotelId: id,
-        accountId: currentAccount.id,
-      };
-
-      const hotelAccount = await this.hotelAccountsRepository.findOne({
-        where: hotelAccountWhere,
-      });
-
-      if (!hotelAccount) {
-        throw new ForbiddenException();
-      }
+      const hotelAccount = await this.hotelAccountsRepository.findOne({ where: { hotelId: id, accountId: currentAccount.id } });
+      if (!hotelAccount) throw new ForbiddenException();
     }
 
-    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(updateHotelDto, {
-      where: hotelWhere,
-      returning: true,
-    });
-
-    if (affectedCount === 0) {
-      throw new NotFoundException();
-    }
+    const [affectedCount, updatedHotels] = await this.hotelsRepository.update(updateHotelDto, { where: { id }, returning: true });
+    if (affectedCount === 0) throw new NotFoundException();
 
     return updatedHotels[0];
   }

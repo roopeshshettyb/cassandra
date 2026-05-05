@@ -269,15 +269,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     delete payload.backgroundDefault;
     delete payload.backgroundPaper;
 
-    const updated = await request({
-      endpoint: `/hotels/${id}`,
-      method: 'PATCH',
-      data: payload,
-      setLoading,
-      alertSuccess,
-      alertError,
-    });
-
+    const updated = await request({ endpoint: `/hotels/${id}`, method: 'PATCH', data: payload, setLoading, alertSuccess, alertError });
     if (updated) {
       setHotel(updated);
       setThemeConfig(updated.themeConfig || null);
@@ -890,6 +882,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
               </Box>
             ) : (
               <HotelInfoCard hotel={hotel} loading={loading} />
+            )}
+
+            {hotel?.brand && (
+              <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">Brand: <strong>{hotel.brand.name}</strong></Typography>
+                <Button size="small" onClick={() => navigate(`/brands/${hotel.brand.id}`)}>Manage Brand</Button>
+              </Box>
             )}
 
             {CAN_MANAGE_STAFF && (

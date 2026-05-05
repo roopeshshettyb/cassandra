@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf, IsEnum } from 'class-validator';
+import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf, IsEnum } from 'class-validator';
+// IsBoolean used by UpdateBrandDto
 import { NotificationTone } from '../common/constants/constants.service';
 
 const HH_MM_REGEX = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -195,6 +196,69 @@ export class UpdateHotelDto {
   @IsEnum(NotificationTone)
   @ApiProperty({ required: false, enum: NotificationTone })
   readonly notificationTone?: NotificationTone;
+}
+
+export class UpdateBrandDto {
+  @IsOptional()
+  @IsString()
+  readonly checkInTime?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly checkOutTime?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly poolHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly gymHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly restaurantHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly wifiPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly breakfastHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly lunchHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly dinnerHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly snacksHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly houseKeepingHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly roomServiceHours?: string;
+
+  @IsOptional()
+  @IsString()
+  readonly llmInstructions?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => o.themeConfig != null)
+  @IsObject()
+  readonly themeConfig?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsBoolean()
+  readonly propagate?: boolean;
 }
 
 export class GrantHotelAccessDto {

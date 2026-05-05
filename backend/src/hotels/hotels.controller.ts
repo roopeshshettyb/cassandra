@@ -1,11 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { HotelsService } from './hotels.service';
-import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, UpdateHotelDto } from './hotels.dto';
+import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, UpdateBrandDto, UpdateHotelDto } from './hotels.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { Account } from '../accounts/accounts.model';
-
 import { OnboardingService } from './onboarding.service';
 import { MapsService } from '../common/maps/maps.service';
 
@@ -28,6 +27,17 @@ export class HotelsController {
   async listBrands() {
     const brands = await this.onboardingService.listAllBrands();
     return { success: true, message: null, data: brands };
+  }
+
+  @Get('brands/:brandId')
+  @AdminOnly()
+  async getBrand(@Param('brandId') brandId: string) {
+    return this.onboardingService.getBrandById(Number(brandId));
+  }
+
+  @Patch('brands/:brandId')
+  async updateBrand(@Param('brandId') brandId: string, @Body(ValidationPipe) dto: UpdateBrandDto, @CurrentAccount() account: Account) {
+    return this.onboardingService.updateBrand(Number(brandId), dto, account);
   }
 
   @Get(':id')

@@ -17,6 +17,8 @@ import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
 import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
+import ManageBrands from './components/ManageBrands';
+import BrandDetails from './components/BrandDetails';
 import ManageBookings from './components/ManageBookings';
 import BookingDetails from './components/BookingDetails';
 import ManageRequests from './components/ManageRequests';
@@ -312,6 +314,8 @@ const AppContent = () => {
     { path: '/rooms', component: Rooms, isProtected: true },
     { path: '/hotels', component: ManageHotels, isProtected: true },
     { path: '/hotels/:id', component: HotelDetails, isProtected: true },
+    { path: '/brands', component: ManageBrands, isProtected: true },
+    { path: '/brands/:id', component: BrandDetails, isProtected: true },
     { path: '/bookings', component: ManageBookings, isProtected: true },
     { path: '/bookings/:id', component: BookingDetails, isProtected: true },
     { path: '/requests', component: ManageRequests, isProtected: true },

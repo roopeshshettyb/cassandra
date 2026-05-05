@@ -40,9 +40,7 @@ const BookingCard = ({ data, navigate }) => {
   const now = new Date();
   const isActive = start && end && now >= start && now <= end;
   const isPast = end && now > end;
-  const status = booking.status && statusConfig[booking.status]
-    ? booking.status
-    : isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
+  const status = isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
   const guestName = booking.guest?.name || booking.guest?.email || null;
   const hasDoc = !!booking.reservationDocumentS3Key;
 
