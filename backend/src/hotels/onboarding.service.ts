@@ -230,7 +230,9 @@ ${crawlData}`;
         const matchedName = (await this.langGraphService.invoke([new HumanMessage(matchPrompt)])).trim();
 
         if (matchedName !== 'NEW') {
-          brand = existingBrands.find((b) => b.name === matchedName);
+          for (let i = 0; i < existingBrands.length; i++) {
+            if (existingBrands[i].name === matchedName) { brand = existingBrands[i]; break; }
+          }
         }
       }
     }
@@ -403,7 +405,8 @@ ${crawlData}`;
     }
 
     const { propagate, ...brandFields } = dto;
-    await this.brandsRepository.update(brandFields as any, { where: { id } });
+    const updatePayload: any = brandFields;
+    await this.brandsRepository.update(updatePayload, { where: { id } });
 
     if (propagate) {
       const propagatable = ['checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
