@@ -364,7 +364,28 @@ ${crawlData}`;
       return { success: true, message: 'Hotel updated successfully', data: updated };
     }
 
-    const hotel = await this.hotelsRepository.create({ ...hotelData, hotelBrandId: brandId });
+    const hotel = await this.hotelsRepository.create({
+      name: hotelData.name,
+      address: hotelData.address,
+      website: hotelData.website,
+      phoneNumber: hotelData.phoneNumber,
+      logoUrl: hotelData.logoUrl,
+      checkInTime: hotelData.checkInTime,
+      checkOutTime: hotelData.checkOutTime,
+      poolHours: hotelData.poolHours,
+      gymHours: hotelData.gymHours,
+      restaurantHours: hotelData.restaurantHours,
+      wifiPassword: hotelData.wifiPassword,
+      breakfastHours: hotelData.breakfastHours,
+      lunchHours: hotelData.lunchHours,
+      dinnerHours: hotelData.dinnerHours,
+      snacksHours: hotelData.snacksHours,
+      houseKeepingHours: hotelData.houseKeepingHours,
+      roomServiceHours: hotelData.roomServiceHours,
+      llmInstructions: hotelData.llmInstructions,
+      themeConfig: hotelData.themeConfig,
+      hotelBrandId: brandId,
+    });
 
     return {
       success: true,
