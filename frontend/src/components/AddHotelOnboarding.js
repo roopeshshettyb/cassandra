@@ -68,12 +68,12 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
         const brandRes = await request({ endpoint: `/hotels/brands/${response.data.brandMatch.id}`, method: 'GET', setLoading, alertError });
         if (brandRes?.success) {
           setExtractedData({
+            ...brandRes.data,
             name: value.name,
             address: value.address,
             brandName: brandRes.data.name,
             brandId: brandRes.data.id,
             brandFound: true,
-            ...brandRes.data,
           });
           setStep('review');
         } else { setStep('search'); }
