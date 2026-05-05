@@ -8,10 +8,9 @@ import { NAVY } from '../theme';
 
 function ManageBrands({ loading, setLoading, account, navigate, alertError }) {
   const [brands, setBrands] = useState([]);
-  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    request({ endpoint: '/hotels/brands', method: 'GET', setLoading: setDataLoading, setData: setBrands, defaultData: [], alertError });
+    request({ endpoint: '/hotels/brands', method: 'GET', setLoading, setData: setBrands, defaultData: [], alertError });
   }, []);
 
   return (
@@ -22,7 +21,7 @@ function ManageBrands({ loading, setLoading, account, navigate, alertError }) {
           <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Brands</Typography>
         </Box>
       </motion.div>
-      <DataGrid CardComponent={BrandCard} data={brands} isLoading={dataLoading} navigate={navigate} />
+      <DataGrid CardComponent={BrandCard} data={brands} isLoading={loading} navigate={navigate} />
     </Box>
   );
 }

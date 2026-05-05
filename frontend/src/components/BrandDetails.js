@@ -84,7 +84,7 @@ function BrandDetails({ loading, setLoading, account, navigate, alertSuccess, al
     if (brandData) { setBrand(brandData); loadEditValues(brandData); }
   };
 
-  useEffect(() => { fetchBrand(); }, [id]);
+  useEffect(() => { fetchBrand(); }, []);
 
   const handleInputChange = (field) => (event) => setEditValues((prev) => ({ ...prev, [field]: event.target.value }));
 
