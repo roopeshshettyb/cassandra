@@ -5,6 +5,7 @@ import constants from '../../constants.json';
 import GuestHome from './GuestHome';
 import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
+import GuestAssistant from './GuestAssistant';
 import GuestBottomNav from './GuestBottomNav';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 
@@ -139,6 +140,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
             navigate={navigate}
           />
         );
+      case 'assistant':
+        return <GuestAssistant navigate={navigate} alertError={alertError} />;
       default:
         return (
           <GuestHome

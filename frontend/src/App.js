@@ -34,6 +34,7 @@ import Home from './components/Home';
 import constants from './constants.json';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
+import AllRounderWidget, { PANEL_WIDTH } from './components/AllRounder/AllRounderWidget';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 import { BRAND_GRADIENT } from './theme/index';
 import { useNotifications } from './notifications/hooks/useNotifications';
@@ -89,6 +90,8 @@ const AppContent = () => {
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentNav, setCurrentNav] = useState('404');
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -292,6 +295,11 @@ const AppContent = () => {
   };
 
   const isMobile = useMediaQuery('(max-width:768px)');
+
+  useEffect(() => {
+    if (!isMobile) setSidebarCollapsed(assistantOpen);
+  }, [assistantOpen, isMobile]);
+
   const isLandingPage = pathname === '/';
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
@@ -361,13 +369,25 @@ const AppContent = () => {
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Sidebar {...commonProps} />
+        <Sidebar {...commonProps} assistantOpen={assistantOpen} onAssistantToggle={() => setAssistantOpen((p) => !p)} sidebarCollapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((p) => !p)} />
+        {account && account.role !== constants.ACCOUNT_ROLES.GUEST && (
+          <AllRounderWidget
+            account={account}
+            navigate={navigate}
+            alertError={alertError}
+            isMobile={isMobile}
+            open={assistantOpen}
+            onOpenChange={setAssistantOpen}
+          />
+        )}
         <Box
           sx={{
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '100dvh',
-            ml: isMobile ? 0 : '20vw',
+            ml: isMobile ? 0 : (sidebarCollapsed ? 0 : '20vw'),
+            mr: !isMobile && assistantOpen ? `${PANEL_WIDTH}px` : 0,
+            transition: 'margin-left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), margin-right 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         >
           <Box sx={{ flex: 1 }}>
