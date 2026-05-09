@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
-import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers } from '@mui/icons-material';
+import { Box, IconButton, Button, Badge, Typography, Divider } from '@mui/material';
+import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, ChevronLeft, ChevronRight } from '@mui/icons-material';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
 
-import { BORDER, NAV_BG, BACKDROP_BG } from '../theme/index';
+import { BORDER, NAV_BG, BACKDROP_BG, BRAND_GRADIENT, PRIMARY_CONTRAST } from '../theme/index';
 
 const MotionBox = motion(Box);
 
@@ -75,7 +76,7 @@ const ROLE_SPECIFIC_ITEMS = {
   ],
 };
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount, assistantOpen, onAssistantToggle, sidebarCollapsed, onToggleCollapsed }) => {
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
@@ -240,10 +241,10 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
               />
             )}
             <MotionBox
-              initial={{ x: isMobile ? sidebarOffset : 0 }}
-              animate={{ x: 0 }}
+              initial={{ x: isMobile ? sidebarOffset : (sidebarCollapsed ? sidebarOffset : 0) }}
+              animate={{ x: isMobile ? 0 : (sidebarCollapsed ? sidebarOffset : 0) }}
               exit={{ x: sidebarOffset }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               sx={{
                 position: 'fixed',
                 left: 0,
@@ -264,20 +265,18 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
               {isMobile && (
                 <IconButton
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  sx={{
-                    position: 'absolute',
-                    top: 16,
-                    right: 16,
-                    zIndex: 1003,
-                    color: 'text.primary',
-                    padding: 0,
-                    minWidth: 'auto',
-                    '&:hover': {
-                      bgcolor: 'transparent',
-                    },
-                  }}
+                  sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1003, color: 'text.primary', padding: 0, minWidth: 'auto', '&:hover': { bgcolor: 'transparent' } }}
                 >
                   <Menu />
+                </IconButton>
+              )}
+              {!isMobile && onToggleCollapsed && (
+                <IconButton
+                  onClick={onToggleCollapsed}
+                  size="small"
+                  sx={{ position: 'absolute', top: 12, right: 12, zIndex: 1003, color: 'text.secondary', '&:hover': { color: 'text.primary', bgcolor: 'action.hover' } }}
+                >
+                  <ChevronLeft fontSize="small" />
                 </IconButton>
               )}
 
@@ -289,9 +288,72 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   // but MapComponent might pass them as props if it maps 'data' to 'Component'.
                   // Standard MapComponent usually iterates data and renders Component with item as 'data' prop.
                 />
+                {account && account.role !== 'guest' && onAssistantToggle && (
+                  <>
+                    <Divider />
+                    <Box
+                      component={motion.div}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => { onAssistantToggle(); if (isMobile) setSidebarOpen(false); }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        px: 1.5,
+                        py: 1.25,
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        background: assistantOpen ? BRAND_GRADIENT : 'transparent',
+                        border: `1.5px solid ${assistantOpen ? 'transparent' : BORDER}`,
+                        transition: 'all 0.2s',
+                        '&:hover': { background: assistantOpen ? BRAND_GRADIENT : 'action.hover', opacity: assistantOpen ? 0.9 : 1 },
+                      }}
+                    >
+                      <SmartToyIcon sx={{ fontSize: 18, color: assistantOpen ? PRIMARY_CONTRAST : 'text.secondary', flexShrink: 0 }} />
+                      <Typography sx={{ fontSize: 14, fontWeight: 600, color: assistantOpen ? PRIMARY_CONTRAST : 'text.primary' }}>
+                        AI Assistant
+                      </Typography>
+                    </Box>
+                  </>
+                )}
               </Box>
             </MotionBox>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop expand tab — visible only when collapsed */}
+      <AnimatePresence>
+        {!isMobile && sidebarCollapsed && onToggleCollapsed && (
+          <motion.div
+            key="expand-tab"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 1499, display: 'flex', alignItems: 'center' }}
+          >
+            <Box
+              onClick={onToggleCollapsed}
+              sx={{
+                width: 20,
+                height: 56,
+                bgcolor: 'background.paper',
+                border: `1px solid ${BORDER}`,
+                borderLeft: 'none',
+                borderRadius: '0 8px 8px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '2px 0 8px rgba(0,0,0,0.08)',
+                '&:hover': { bgcolor: 'action.hover' },
+                transition: 'background 0.15s',
+              }}
+            >
+              <ChevronRight sx={{ fontSize: 14, color: 'text.secondary' }} />
+            </Box>
+          </motion.div>
         )}
       </AnimatePresence>
     </>
