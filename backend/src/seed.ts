@@ -180,9 +180,11 @@ async function seed() {
   const hotels: Hotel[] = [];
   for (const row of hotelData) {
     const [h] = await Hotel.findOrCreate({ where: { name: row.name }, defaults: row as any });
-    if (row.hotelBrandId && !h.hotelBrandId) {
-      await Hotel.update({ hotelBrandId: row.hotelBrandId, themeConfig: row.themeConfig }, { where: { id: h.id } });
-    }
+    const updates: any = {};
+    if (row.hotelBrandId && !h.hotelBrandId) { updates.hotelBrandId = row.hotelBrandId; updates.themeConfig = row.themeConfig; }
+    if (row.checkInTime && !h.checkInTime) { updates.checkInTime = row.checkInTime; }
+    if (row.checkOutTime && !h.checkOutTime) { updates.checkOutTime = row.checkOutTime; }
+    if (Object.keys(updates).length > 0) { await Hotel.update(updates, { where: { id: h.id } }); }
     hotels.push(h);
   }
 

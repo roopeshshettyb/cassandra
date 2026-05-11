@@ -65,7 +65,7 @@ export class RequestsService {
       include: [
         { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
         { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
-        { model: Booking, as: 'booking', attributes: ['id'] },
+        { model: Booking, as: 'booking', attributes: ['id', 'roomNumber'] },
       ],
     };
 
