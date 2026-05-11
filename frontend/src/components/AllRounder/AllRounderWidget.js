@@ -369,49 +369,46 @@ export default function AllRounderWidget({ account, navigate, alertError, isMobi
   return (
     <>
       {/* Mobile backdrop */}
-      <AnimatePresence>
-        {open && isMobile && (
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => onOpenChange(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 1199, background: 'rgba(0,0,0,0.45)' }}
-          />
-        )}
-      </AnimatePresence>
+      {isMobile && (
+        <Box
+          onClick={() => onOpenChange(false)}
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1599,
+            background: 'rgba(0,0,0,0.45)',
+            opacity: open ? 1 : 0,
+            pointerEvents: open ? 'auto' : 'none',
+            transition: 'opacity 0.3s',
+          }}
+        />
+      )}
 
       {/* Panel */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="panel"
-            initial={{ x: isMobile ? '100%' : PANEL_WIDTH }}
-            animate={{ x: 0 }}
-            exit={{ x: isMobile ? '100%' : PANEL_WIDTH }}
-            transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-            style={{
-              position: 'fixed',
-              top: isMobile ? 0 : 'var(--app-header-height, 64px)',
-              right: 0,
-              bottom: 0,
-              width: isMobile ? '100%' : PANEL_WIDTH,
-              zIndex: 1200,
-              borderLeft: `1px solid ${BORDER}`,
-              boxShadow: '-8px 0 40px rgba(0,0,0,0.1)',
-            }}
-          >
-            <ChatPanel
-              account={account}
-              navigate={navigate}
-              alertError={alertError}
-              isMobile={isMobile}
-              onClose={() => onOpenChange(false)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: isMobile ? '100%' : PANEL_WIDTH,
+          zIndex: 1600,
+          borderLeft: `1px solid ${BORDER}`,
+          boxShadow: '-8px 0 40px rgba(0,0,0,0.1)',
+          transform: open ? 'translateX(0)' : `translateX(${isMobile ? '100%' : `${PANEL_WIDTH}px`})`,
+          transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <ChatPanel
+          account={account}
+          navigate={navigate}
+          alertError={alertError}
+          isMobile={isMobile}
+          onClose={() => onOpenChange(false)}
+        />
+      </Box>
     </>
   );
 }

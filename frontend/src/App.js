@@ -300,6 +300,15 @@ const AppContent = () => {
     if (!isMobile) setSidebarCollapsed(assistantOpen);
   }, [assistantOpen, isMobile]);
 
+  // Close assistant + restore sidebar on pages where widget is hidden
+  useEffect(() => {
+    const excluded = pathname.startsWith('/requests/') || pathname.startsWith('/bookings/');
+    if (excluded) {
+      setAssistantOpen(false);
+      setSidebarCollapsed(false);
+    }
+  }, [pathname]);
+
   const isLandingPage = pathname === '/';
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
@@ -370,7 +379,7 @@ const AppContent = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Sidebar {...commonProps} assistantOpen={assistantOpen} onAssistantToggle={() => setAssistantOpen((p) => !p)} sidebarCollapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((p) => !p)} />
-        {account && account.role !== constants.ACCOUNT_ROLES.GUEST && (
+        {account && account.role !== constants.ACCOUNT_ROLES.GUEST && !isRequestDetail && !isGuestPortal && (
           <AllRounderWidget
             account={account}
             navigate={navigate}
