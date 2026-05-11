@@ -23,6 +23,7 @@ import { ChatContextModule } from './chat-context/chat-context.module';
 import { LangGraphModule } from './langgraph/langgraph.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { CostsModule } from './costs/costs.module';
+import { AllRounderModule } from './allrounder/allrounder.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 
@@ -57,6 +58,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     LangGraphModule,
     RestaurantModule,
     CostsModule,
+    AllRounderModule,
   ],
   controllers: [AppController],
   providers: [
