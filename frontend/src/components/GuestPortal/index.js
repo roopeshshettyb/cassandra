@@ -164,7 +164,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           position: 'fixed',
           top: { xs: 'var(--app-header-height)', md: '4svh' },
           left: isMobile ? 0 : '20vw',
-          right: 0,
+          right: { xs: 0, md: 'var(--assistant-panel-right, 0px)' },
           bottom: 0,
           bgcolor: 'background.default',
           display: 'flex',
@@ -172,6 +172,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           zIndex: 10,
           px: { xs: 0, md: 4 },
           py: { xs: 0, md: 0 },
+          transition: 'right 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }}
       >
         {renderTab()}
