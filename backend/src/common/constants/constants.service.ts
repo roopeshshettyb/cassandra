@@ -265,6 +265,20 @@ export class ConstantsService {
       NOTIFICATIONS_FETCHED: 'Notifications fetched',
       PREFERENCES_FETCHED: 'Preferences fetched',
       PREFERENCES_UPDATED: 'Preferences updated',
+      CONCIERGE_SUGGESTIONS: [
+        'I need room service',
+        'Request extra towels',
+        'Get dining recommendations',
+        'Arrange a late checkout',
+        'Book a spa appointment',
+        'Request a wake-up call',
+        'Ask about local attractions',
+        'Order extra pillows',
+        'Request laundry service',
+        'Ask about hotel amenities',
+        'Book a taxi',
+        'Request a cot or extra bed',
+      ],
     };
   }
 
