@@ -11,10 +11,11 @@ import { Booking } from '../bookings/bookings.model';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { CostsService } from '../costs/costs.service';
 import { CostType } from '../costs/costs.model';
+import { ChatContextService } from '../chat-context/chat-context.service';
+import { buildSystemInstructions } from '../chat/chat-prompt.builder';
 import { AllRounderSession } from './allrounder-session.interface';
 import { AllRounderToolContext, AgentCard } from './allrounder-tool.context';
 import { AllRounderToolDeps, createAllRounderTools } from './allrounder.tools';
-import { buildAllRounderPrompt } from './allrounder-prompt.builder';
 import { AllRounderChatService } from './allrounder-chat.service';
 import { AllRounderMessageRole, AllRounderToolCallRecord } from './allrounder-message.model';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
@@ -35,6 +36,7 @@ export class AllRounderLlmService {
     private readonly requestsService: RequestsService,
     private readonly bookingsService: BookingsService,
     private readonly allRounderChatService: AllRounderChatService,
+    private readonly chatContextService: ChatContextService,
     private readonly costsService: CostsService,
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
   ) {}
@@ -141,11 +143,23 @@ export class AllRounderLlmService {
     const appName = this.constantsService.public.APP_NAME;
     const isVoice = options.mode === 'voice';
 
-    // Build context from DB history
+    // Sync AllRounder DB history → Redis so buildSystemInstructions can read it
     const recentMessages = await this.allRounderChatService.getRecentMessages(session.chatId, 20);
-    const context = this.allRounderChatService.buildContextString(recentMessages);
+    const contextStr = this.allRounderChatService.buildContextString(recentMessages);
+    this.chatContextService.setContextString(session.chatId, contextStr);
 
-    const promptMessages = buildAllRounderPrompt(context, session, userMessage, appName, isVoice);
+    // Use the same prompt builder as the concierge — language, role, don't-repeat rules all shared
+    // Hotel list context injected as llmInstructions so agent knows which hotels it has access to
+    const { instructions } = await buildSystemInstructions(
+      this.chatContextService,
+      session.chatId,
+      appName,
+      session.hotelContext,
+      session.account.role,
+      null,
+      isVoice,
+    );
+    const promptMessages = [...instructions, { role: 'user' as const, content: userMessage }];
 
     const ctx: AllRounderToolContext = { account: session.account, scopedHotelIds: session.scopedHotelIds };
     const toolDeps: AllRounderToolDeps = {
