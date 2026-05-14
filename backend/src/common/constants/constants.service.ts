@@ -262,6 +262,7 @@ export class ConstantsService {
           LOGIN_OPTIONS,
         },
       },
+      AI_ASSISTANT_TITLE: 'AI Assistant',
       NOTIFICATIONS_FETCHED: 'Notifications fetched',
       PREFERENCES_FETCHED: 'Preferences fetched',
       PREFERENCES_UPDATED: 'Preferences updated',
@@ -380,6 +381,7 @@ export class ConstantsService {
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
             REALTIME_MODEL: this.configService.get<string>('OPENAI_REALTIME_MODEL', 'gpt-4o-realtime-preview-2024-12-17'),
+            REALTIME_VOICE: this.configService.get<string>('OPENAI_REALTIME_VOICE', 'marin'),
             TRANSCRIBE_MODEL: this.configService.get<string>('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
             REALTIME_URL: this.configService.get<string>('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime'),

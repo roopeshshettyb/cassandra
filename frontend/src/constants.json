@@ -77,6 +77,7 @@
       ]
     }
   },
+  "AI_ASSISTANT_TITLE": "AI Assistant",
   "NOTIFICATIONS_FETCHED": "Notifications fetched",
   "PREFERENCES_FETCHED": "Preferences fetched",
   "PREFERENCES_UPDATED": "Preferences updated",

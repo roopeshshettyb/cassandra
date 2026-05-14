@@ -48,6 +48,7 @@ export class VoiceRealtimeService {
     }
 
     const model = openaiConfig.REALTIME_MODEL;
+    const realtimeVoice = openaiConfig.REALTIME_VOICE;
     const baseUrl = openaiConfig.REALTIME_URL;
     const url = `${baseUrl}?model=${encodeURIComponent(model)}`;
 
@@ -114,7 +115,7 @@ export class VoiceRealtimeService {
               },
               output: {
                 format: { type: 'audio/pcm', rate: 24000 },
-                voice: 'marin',
+                voice: realtimeVoice,
                 speed: 1,
               },
             },

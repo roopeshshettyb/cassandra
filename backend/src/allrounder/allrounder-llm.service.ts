@@ -50,11 +50,13 @@ export class AllRounderLlmService {
   }
 
   private parseMessages(messages: Array<{ role: string; content: string }>): BaseMessage[] {
-    return messages.map((msg) => {
-      if (msg.role === 'user') return new HumanMessage(msg.content);
-      if (msg.role === 'assistant') return new AIMessage(msg.content);
-      return new SystemMessage(msg.content);
-    });
+    const result: BaseMessage[] = [];
+    for (const msg of messages) {
+      if (msg.role === 'user') result.push(new HumanMessage(msg.content));
+      else if (msg.role === 'assistant') result.push(new AIMessage(msg.content));
+      else result.push(new SystemMessage(msg.content));
+    }
+    return result;
   }
 
   private extractToolCalls(messages: BaseMessage[]): ToolCallRecord[] {
