@@ -50,8 +50,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     }
   }, [setSearchParams, isWithinStay, activeTab]);
 
-  // Only pre-warm for guests within their stay (non-guests never see concierge)
-  const voiceBookingId = (!isNonGuest && isWithinStay && !isChatMode) ? booking?.id : null;
+  const voiceBookingId = (isWithinStay && !isChatMode) ? booking?.id : null;
 
   const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
     bookingId: voiceBookingId,
