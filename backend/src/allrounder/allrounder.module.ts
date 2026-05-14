@@ -7,6 +7,7 @@ import { SttModule } from '../stt/stt.module';
 import { TtsModule } from '../tts/tts.module';
 import { CommonModule } from '../common/common.module';
 import { CostsModule } from '../costs/costs.module';
+import { ChatContextModule } from '../chat-context/chat-context.module';
 import { AllRounderGateway } from './allrounder.gateway';
 import { AllRounderLlmService } from './allrounder-llm.service';
 import { AllRounderChatService, AllRounderChatRepository, AllRounderMessageRepository } from './allrounder-chat.service';
@@ -21,6 +22,7 @@ import { AllRounderChatService, AllRounderChatRepository, AllRounderMessageRepos
     SttModule,
     TtsModule,
     CommonModule,
+    ChatContextModule,
   ],
   providers: [
     AllRounderChatRepository,

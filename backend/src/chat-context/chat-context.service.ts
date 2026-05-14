@@ -49,6 +49,11 @@ export class ChatContextService {
     return result;
   }
 
+  setContextString(chatId: number, contextStr: string): void {
+    const key = CACHE_KEY_PREFIX + String(chatId);
+    this.cacheService.set(key, { context: contextStr, lastMessageCount: 0 }, CACHE_TTL_MINUTES);
+  }
+
   private formatToolCalls(toolCalls: ToolCallRecord[]): string {
     let result = '';
     for (const toolCall of toolCalls) {
