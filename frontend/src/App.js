@@ -1,4 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import { motion } from 'framer-motion';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -298,13 +300,12 @@ const AppContent = () => {
 
   useEffect(() => {
     if (!isMobile) setSidebarCollapsed(assistantOpen);
+    document.documentElement.style.setProperty('--assistant-panel-right', !isMobile && assistantOpen ? `${PANEL_WIDTH}px` : '0px');
   }, [assistantOpen, isMobile]);
 
-  // Close assistant + restore sidebar on pages where widget is hidden
+  // Close assistant + restore sidebar only on guest portal (bookings detail)
   useEffect(() => {
-    const excluded = pathname.startsWith('/requests/') || pathname.startsWith('/bookings/');
-    if (excluded) {
-      setAssistantOpen(false);
+    if (pathname.startsWith('/bookings/') && pathname !== '/bookings') {
       setSidebarCollapsed(false);
     }
   }, [pathname]);
@@ -379,7 +380,7 @@ const AppContent = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Sidebar {...commonProps} assistantOpen={assistantOpen} onAssistantToggle={() => setAssistantOpen((p) => !p)} sidebarCollapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((p) => !p)} />
-        {account && account.role !== constants.ACCOUNT_ROLES.GUEST && !isRequestDetail && !isGuestPortal && (
+        {account && (
           <AllRounderWidget
             account={account}
             navigate={navigate}
@@ -388,6 +389,33 @@ const AppContent = () => {
             open={assistantOpen}
             onOpenChange={setAssistantOpen}
           />
+        )}
+        {/* Guest FAB — guests have no sidebar so need a floating trigger */}
+        {account && account.role === constants.ACCOUNT_ROLES.GUEST && isGuestPortal && !assistantOpen && (
+          <Box
+            component={motion.div}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setAssistantOpen(true)}
+            sx={{
+              position: 'fixed',
+              bottom: { xs: 80, md: 24 },
+              right: 16,
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: BRAND_GRADIENT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(197,160,34,0.4)',
+              zIndex: 1100,
+              color: 'white',
+            }}
+          >
+            <SmartToyIcon sx={{ fontSize: 26 }} />
+          </Box>
         )}
         <Box
           sx={{
@@ -439,7 +467,7 @@ const AppContent = () => {
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && !isGuestPortal && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>
