@@ -34,14 +34,11 @@ export function createAllRounderTools(ctx: AllRounderToolContext, deps: AllRound
         schema: z.object({}),
         func: async () => {
           const result = await deps.hotelsService.findAllForAccount(account);
-          return JSON.stringify(
-            result.data.map((h: any) => ({
-              id: h.id,
-              name: h.name,
-              address: h.address ?? null,
-              _card_type: 'hotel',
-            })),
-          );
+          const hotels: any[] = [];
+          for (const h of result.data) {
+            hotels.push({ id: h.id, name: h.name, address: h.address ?? null, _card_type: 'hotel' });
+          }
+          return JSON.stringify(hotels);
         },
       }),
     },
@@ -75,20 +72,11 @@ export function createAllRounderTools(ctx: AllRounderToolContext, deps: AllRound
             requests = requests.filter((r: any) => r.booking?.roomNumber === args.roomNumber || String(r.booking?.roomNumber) === String(args.roomNumber));
           }
           requests = requests.slice(0, args.limit ?? 10);
-          return JSON.stringify(
-            requests.map((r: any) => ({
-              id: r.id,
-              requestType: r.requestType,
-              status: r.status,
-              urgency: r.urgency,
-              guestName: r.guest?.name ?? null,
-              hotelName: r.hotel?.name ?? null,
-              roomNumber: r.booking?.roomNumber ?? null,
-              bookingId: r.bookingId,
-              createdAt: r.createdAt,
-              _card_type: 'request',
-            })),
-          );
+          const mapped: any[] = [];
+          for (const r of requests) {
+            mapped.push({ id: r.id, requestType: r.requestType, status: r.status, urgency: r.urgency, guestName: r.guest?.name ?? null, hotelName: r.hotel?.name ?? null, roomNumber: r.booking?.roomNumber ?? null, bookingId: r.bookingId, createdAt: r.createdAt, _card_type: 'request' });
+          }
+          return JSON.stringify(mapped);
         },
       }),
     },
@@ -179,17 +167,11 @@ export function createAllRounderTools(ctx: AllRounderToolContext, deps: AllRound
             limit: 20,
           });
 
-          return JSON.stringify(
-            bookings.map((b: any) => ({
-              id: b.id,
-              roomNumber: b.roomNumber,
-              startTime: b.startTime,
-              endTime: b.endTime,
-              guestName: b.guest?.name ?? null,
-              guestEmail: b.guest?.email ?? null,
-              _card_type: 'booking',
-            })),
-          );
+          const todayMapped: any[] = [];
+          for (const b of bookings) {
+            todayMapped.push({ id: b.id, roomNumber: b.roomNumber, startTime: b.startTime, endTime: b.endTime, guestName: (b as any).guest?.name ?? null, guestEmail: (b as any).guest?.email ?? null, _card_type: 'booking' });
+          }
+          return JSON.stringify(todayMapped);
         },
       }),
     },
@@ -223,17 +205,11 @@ export function createAllRounderTools(ctx: AllRounderToolContext, deps: AllRound
             limit: 10,
           });
 
-          return JSON.stringify(
-            bookings.map((b: any) => ({
-              id: b.id,
-              roomNumber: b.roomNumber,
-              startTime: b.startTime,
-              endTime: b.endTime,
-              guestName: b.guest?.name ?? null,
-              guestEmail: b.guest?.email ?? null,
-              _card_type: 'booking',
-            })),
-          );
+          const searchMapped: any[] = [];
+          for (const b of bookings) {
+            searchMapped.push({ id: b.id, roomNumber: b.roomNumber, startTime: b.startTime, endTime: b.endTime, guestName: (b as any).guest?.name ?? null, guestEmail: (b as any).guest?.email ?? null, _card_type: 'booking' });
+          }
+          return JSON.stringify(searchMapped);
         },
       }),
     },
@@ -271,17 +247,11 @@ export function createAllRounderTools(ctx: AllRounderToolContext, deps: AllRound
             order: [['startTime', 'DESC']],
             limit: 5,
           });
-          return JSON.stringify(
-            bookings.map((b: any) => ({
-              id: b.id,
-              roomNumber: b.roomNumber,
-              startTime: b.startTime,
-              endTime: b.endTime,
-              hotelName: b.hotel?.name ?? null,
-              hotelId: b.hotelId,
-              _card_type: 'booking',
-            })),
-          );
+          const guestBookings: any[] = [];
+          for (const b of bookings) {
+            guestBookings.push({ id: b.id, roomNumber: b.roomNumber, startTime: b.startTime, endTime: b.endTime, hotelName: (b as any).hotel?.name ?? null, hotelId: b.hotelId, _card_type: 'booking' });
+          }
+          return JSON.stringify(guestBookings);
         },
       }),
     },

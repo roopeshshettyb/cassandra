@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(git checkout *)",
+      "Bash(git fetch *)",
+      "Bash(curl -s https://samantha-api-dev.flashpact.in/health)",
+      "Bash(curl -v https://samantha-api-dev.flashpact.in/health)",
+      "Bash(openssl s_client -connect samantha-api-dev.flashpact.in:443)",
+      "Bash(curl -s \"https://samantha-api-dev.flashpact.in/socket.io/?EIO=4&transport=polling&namespace=/allrounder\")",
+      "Bash(curl -s https://samantha-api-dev.flashpact.in/accounts/me -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjcsInV1aWQiOiJlbWFpbDpmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwiZW1haWwiOiJmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzc4MjU0MDY2LCJleHAiOjE3NzgzNDA0NjZ9.mUuKOAkGvPl1oVhmQIPKvjsK-Y5Aq5vof8vA_ji1nxs')",
+      "Bash(curl -s https://samantha-api-dev.flashpact.in/accounts/me -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjcsInV1aWQiOiJlbWFpbDpmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwiZW1haWwiOiJmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwibmFtZSI6IkZsYXNoIFBhY3QgT25lIiwicm9sZSI6ImFkbWluIiwicHJvZmlsZVBpY1VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0phbjduckRRVHJOTkJPeFNRZ0lVb201NHhITkU3OFVIdFVHU2pGUDVoa0E3ZGwtZz1zOTYtYyIsImlhdCI6MTc3ODUxNTYxMCwiZXhwIjoxNzc5MTIwNDEwfQ.Sy_IMV1Eg3EqpDgYVsyBLkjlUpsqXOzbrkadTLTvSbA')",
+      "Bash(curl -s 'https://samantha-api-dev.flashpact.in/socket.io/?EIO=4&transport=polling&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjcsInV1aWQiOiJlbWFpbDpmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwiZW1haWwiOiJmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwibmFtZSI6IkZsYXNoIFBhY3QgT25lIiwicm9sZSI6ImFkbWluIiwicHJvZmlsZVBpY1VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0phbjduckRRVHJOTkJPeFNRZ0lVb201NHhITkU3OFVIdFVHU2pGUDVoa0E3ZGwtZz1zOTYtYyIsImlhdCI6MTc3ODUxNTYxMCwiZXhwIjoxNzc5MTIwNDEwfQ.Sy_IMV1Eg3EqpDgYVsyBLkjlUpsqXOzbrkadTLTvSbA')",
+      "Bash(PGPASSWORD=iSxHKOjSc05Qo7BP psql -h flashpact.cnwye8sskct5.ap-south-1.rds.amazonaws.com -U flashpactone -d cassandra_dev -c \"SELECT id, email, role FROM accounts WHERE email LIKE '%seed%';\")",
+      "Bash(curl -s http://localhost:7676/health)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -I{} taskkill /PID {} /F)",
+      "Bash(curl -s http://localhost:7678)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:7678)",
+      "Bash(curl -s http://localhost:7676/constants/public)",
+      "WebFetch(domain:platform.openai.com)"
+    ]
+  }
+}

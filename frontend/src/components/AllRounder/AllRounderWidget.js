@@ -77,7 +77,7 @@ function ChatBubble({ message, navigate }) {
             <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
           </Box>
           <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {constants.AI_ASSISTANT_TITLE || 'AI Assistant'}
+            {constants.AI_ASSISTANT_TITLE}
           </Typography>
         </Box>
       )}
@@ -199,7 +199,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
           )}
         </Box>
         <Box sx={{ flex: 1 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{constants.AI_ASSISTANT_TITLE || 'AI Assistant'}</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{constants.AI_ASSISTANT_TITLE}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <motion.div
               animate={{ opacity: isActive ? [0.5, 1, 0.5] : 1 }}
@@ -333,7 +333,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
                     <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
                   </Box>
                   <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {constants.AI_ASSISTANT_TITLE || 'AI Assistant'}
+                    {constants.AI_ASSISTANT_TITLE}
                   </Typography>
                 </Box>
                 <Box sx={{ px: 1.75, py: 1, borderRadius: '4px 14px 14px 14px', border: `1px solid ${BORDER}`, bgcolor: 'background.paper', boxShadow: SHADOW, fontSize: 13.5, lineHeight: 1.55, '& p': { m: 0 } }}>
