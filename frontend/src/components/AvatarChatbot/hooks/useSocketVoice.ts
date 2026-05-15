@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useReducer } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk } from '../utils/audio';
 
@@ -19,6 +19,8 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
   const [isSpeaking, setIsSpeaking] = useState(false);
   // True between voice_turn_end and voice_ready (backend is processing LLM+TTS)
   const [isProcessing, setIsProcessing] = useState(false);
+  const [retryCount, incRetry] = useReducer((c: number) => c + 1, 0);
+  const isReadyRef = useRef(false);
 
   const socketRef = useRef<Socket | null>(null);
   const onReadyRef = useRef(onReady);
@@ -73,6 +75,16 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
     });
 
     socketRef.current = socket;
+    isReadyRef.current = false;
+
+    // If voice_ready doesn't arrive within 10s, destroy socket and retry
+    const readyTimeout = setTimeout(() => {
+      if (!isReadyRef.current) {
+        socket.removeAllListeners();
+        socket.disconnect();
+        incRetry();
+      }
+    }, 10000);
 
     // Signal server that client finished playing audio.
     // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
@@ -115,6 +127,8 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
 
     // Backend is ready / ready for the next turn
     socket.on('voice_ready', () => {
+      isReadyRef.current = true;
+      clearTimeout(readyTimeout);
       setIsReady(true);
       setIsProcessing(false);
       setIsSpeaking(false);
@@ -170,12 +184,13 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
     });
 
     return () => {
+      clearTimeout(readyTimeout);
       cancelPlaybackTracking();
       cleanupAudio();
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [bookingId, cleanupAudio, cancelPlaybackTracking]);
+  }, [bookingId, cleanupAudio, cancelPlaybackTracking, retryCount]);
 
   const startRecording = async () => {
     if (isRecording) return;
