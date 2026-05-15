@@ -72,19 +72,20 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       transports: ['polling', 'websocket'],
       query: { token, bookingId: String(bookingId) },
       auth: { token },
+      reconnection: false,
     });
 
     socketRef.current = socket;
     isReadyRef.current = false;
 
-    // If voice_ready doesn't arrive within 10s, destroy socket and retry
+    // If voice_ready doesn't arrive within 3s, destroy socket and retry
     const readyTimeout = setTimeout(() => {
       if (!isReadyRef.current) {
         socket.removeAllListeners();
         socket.disconnect();
         incRetry();
       }
-    }, 10000);
+    }, 3000);
 
     // Signal server that client finished playing audio.
     // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
