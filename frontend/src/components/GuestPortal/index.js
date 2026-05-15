@@ -37,6 +37,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   }
 
   const handleVoiceReady = useCallback(() => {
+    setLoading?.(false);
     if (promptRef.current && !promptSentRef.current) {
       promptSentRef.current = true;
       hasInteractedRef.current = true;
@@ -48,9 +49,19 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     if (activeTab === 'concierge' && isWithinStay && hasInteractedRef.current && !userStoppedRef.current) {
       startRecordingRef.current?.();
     }
-  }, [setSearchParams, isWithinStay, activeTab]);
+  }, [setSearchParams, isWithinStay, activeTab, setLoading]);
 
   const voiceBookingId = (isWithinStay && !isChatMode) ? booking?.id : null;
+
+  // Show loader while voice socket is connecting on the concierge mic screen
+  useEffect(() => {
+    if (isConcierge && !isChatMode && !isReady) {
+      setLoading?.(true);
+    } else {
+      setLoading?.(false);
+    }
+    return () => { setLoading?.(false); };
+  }, [isConcierge, isChatMode, isReady, setLoading]);
 
   const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
     bookingId: voiceBookingId,
