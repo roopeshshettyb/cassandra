@@ -501,6 +501,8 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
             const isActive = isRecording || isProcessing || isSpeaking;
             const statusText = !isWithinStay
               ? 'Available during your stay'
+              : !isReady
+              ? 'Connecting…'
               : isRecording
               ? 'Listening… tap to stop'
               : isSpeaking
@@ -517,7 +519,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
                     height: 140,
                     borderRadius: '50%',
                     border: 'none',
-                    cursor: isWithinStay ? 'pointer' : 'not-allowed',
+                    cursor: (!isWithinStay || !isReady) ? 'not-allowed' : 'pointer',
                     background: isActive ? BRAND_GRADIENT : NAVY,
                     display: 'flex',
                     alignItems: 'center',
