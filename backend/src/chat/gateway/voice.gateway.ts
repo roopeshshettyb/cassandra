@@ -301,7 +301,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               client.emit('error', { message: error.message || 'Voice session error' });
             },
             onClose: () => {
-              client.emit('voice_closed');
+              if (!client._voiceStoppedCleanly) client.emit('voice_closed');
+              client._voiceStoppedCleanly = false;
             },
           });
         }
@@ -319,7 +320,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('error', { message: error.message || 'Voice session error' });
           },
           onClose: () => {
-            client.emit('voice_closed');
+            if (!client._voiceStoppedCleanly) client.emit('voice_closed');
+            client._voiceStoppedCleanly = false;
           },
         });
         client.emit('voice_ready');
@@ -425,7 +427,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               this.logger.error(error);
               client.emit('error', { message: error.message || 'Voice session error' });
             },
-            onClose: () => { client.emit('voice_closed'); },
+            onClose: () => { if (!client._voiceStoppedCleanly) client.emit('voice_closed'); client._voiceStoppedCleanly = false; },
           });
         }
         // Save text as user transcript so response.done persists it to DB
@@ -509,16 +511,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!session) return;
     if (this.isGptVoicePipeline()) {
       try {
+        client._voiceStoppedCleanly = true;
         this.voiceRealtimeService.closeSession(client.id);
-        client.emit('voice_closed');
+        client.emit('voice_ready'); // session closed cleanly — ready for next voice_start
       } catch (err: any) {
         this.logger.error(err);
         client.emit('error', { message: err?.message || 'Failed to stop voice session' });
       }
     } else if (this.isDeepgramVoicePipeline()) {
       try {
+        client._voiceStoppedCleanly = true;
         this.deepgramVoiceAgentService.closeSession(client.id);
-        client.emit('voice_closed');
+        client.emit('voice_ready');
       } catch (err: any) {
         this.logger.error(err);
         client.emit('error', { message: err?.message || 'Failed to stop voice session' });

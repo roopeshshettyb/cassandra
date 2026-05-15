@@ -129,7 +129,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
 
     const socket = io(`${url}/chat`, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       query: { token, bookingId: String(bookingId) },
       auth: { token },
       reconnection: true,

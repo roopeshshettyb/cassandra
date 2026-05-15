@@ -145,7 +145,9 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
   const { isReady, isRecording, isSpeaking, isProcessing, isSending, sendMessage, startRecording, stopRecording } = useSocketAllRounder({
     onReady: (dbMessages) => {
       if (dbMessages?.length) {
-        setMessages(dbMessages.map((m) => ({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt })));
+        const loaded = [];
+        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+        setMessages(loaded);
       }
     },
     onStreamChunk: (chunk) => setStreamingContent((prev) => prev + chunk),
@@ -156,7 +158,10 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
   });
 
   useEffect(() => {
-    if (scrollRef.current && mode === 'chat') scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!scrollRef.current || mode !== 'chat') return;
+    const el = scrollRef.current;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (nearBottom) el.scrollTop = el.scrollHeight;
   }, [messages, streamingContent, mode]);
 
   const handleSend = useCallback((text) => {

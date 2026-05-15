@@ -48,9 +48,10 @@ export class AllRounderChatService {
   }
 
   buildHistoryForPrompt(messages: AllRounderMessage[]): ChatMessageInput[] {
-    return messages.map((m) => ({
-      role: m.role === AllRounderMessageRole.USER ? 'user' : 'assistant',
-      content: m.content,
-    }));
+    const result: ChatMessageInput[] = [];
+    for (const m of messages) {
+      result.push({ role: m.role === AllRounderMessageRole.USER ? 'user' : 'assistant', content: m.content });
+    }
+    return result;
   }
 }

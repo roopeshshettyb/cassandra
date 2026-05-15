@@ -38,19 +38,28 @@ export async function authenticateAllRounderAndInit(
     }
 
     if (hotels.length > 0) {
-      hotelContext = 'Hotels you have access to (use these IDs internally when calling tools — never expose IDs to the user, always refer by hotel name):\n';
+      const mapping: Record<string, number> = {};
+      const nameList: string[] = [];
       for (const h of hotels) {
-        hotelContext += `  - "${h.name}" → internal ID ${h.id}${h.address ? ` (${h.address})` : ''}\n`;
+        mapping[h.name] = h.id;
+        nameList.push(`${h.name}${h.address ? ` (${h.address})` : ''}`);
       }
+      hotelContext = `INTERNAL HOTEL MAPPING (for tool calls only — NEVER show these numbers to the user):
+${JSON.stringify(mapping)}
+
+Hotels this user can access (use these names when talking to user):
+${nameList.join('\n')}`;
     } else {
       hotelContext = 'No hotels are currently assigned to this account.';
     }
 
-    hotelContext += `\nCRITICAL RULES:
-- NEVER expose database IDs (hotel ID, request ID, booking ID) to the user. Refer to everything by name, room number, or date.
-- NEVER ask the user for a hotel ID, request ID, or booking ID. Ask for hotel name or guest name instead.
-- You already know which hotels this user has access to (listed above). When user says "my hotel" or "the hotel", use the list above — do not ask which hotel if there is only one, or ask by NAME if there are multiple.
-- For requests: call list_requests first with filters (guest name, type, status), show results, then ask user to confirm before updating.
+    hotelContext += `\n\nCRITICAL RULES:
+- NEVER show any hotel ID, request ID, booking ID, or any numeric database reference to the user — not in lists, not in sentences, not anywhere.
+- When asking the user to clarify which hotel, list ONLY hotel names. No numbers, no IDs, no codes.
+- NEVER ask the user for any ID. Ask for hotel name, guest name, room number, or date.
+- If user has only one hotel, use it automatically without asking.
+- When tool results are returned, they are shown as visual cards to the user. Do NOT repeat the data in your text reply — just write a brief 1-sentence summary like "Here are your requests" or "Found X hotels". Let the cards do the detail work.
+- For requests: call list_requests first with filters, show results as cards, then confirm before updating.
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
 
     const chat = await deps.allRounderChatService.findOrCreateForAccount(account.id);
