@@ -53,6 +53,12 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
 
   const voiceBookingId = (isWithinStay && !isChatMode) ? booking?.id : null;
 
+  const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
+    bookingId: voiceBookingId,
+    onReady: handleVoiceReady,
+    onError: (err) => alertError?.(err),
+  });
+
   // Show loader while voice socket is connecting on the concierge mic screen
   useEffect(() => {
     if (isConcierge && !isChatMode && !isReady) {
@@ -62,12 +68,6 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     }
     return () => { setLoading?.(false); };
   }, [isConcierge, isChatMode, isReady, setLoading]);
-
-  const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
-    bookingId: voiceBookingId,
-    onReady: handleVoiceReady,
-    onError: (err) => alertError?.(err),
-  });
 
   sendTextRef.current = sendText;
   startRecordingRef.current = startRecording;
