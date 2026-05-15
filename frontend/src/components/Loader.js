@@ -21,8 +21,8 @@ const Loader = ({ message = 'Loading...', isMobile }) => {
         gap: 2,
       }}
     >
-      <CircularProgress />
-      <Typography variant="body1" sx={{ color: 'text.primary' }}>
+      <CircularProgress sx={{ color: '#fff' }} />
+      <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
         {message}
       </Typography>
     </Box>
