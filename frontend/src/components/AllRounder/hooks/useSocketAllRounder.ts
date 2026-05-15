@@ -95,7 +95,7 @@ export function useSocketAllRounder({
 
     const socket = io(`${BACKEND_URL}/allrounder`, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       query: { token },
       auth: { token },
     });

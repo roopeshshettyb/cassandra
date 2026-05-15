@@ -15,7 +15,7 @@ const createBookingFieldConfigs = [
   { field: 'guestEmail', label: 'Guest Email', type: 'email', required: true },
   { field: 'guestName', label: 'Guest Name', type: 'text' },
   { field: 'guestPhone', label: 'Guest Phone', type: 'tel' },
-  { field: 'roomNumber', label: 'Room Number', type: 'text' },
+  { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
 
 function CreateFieldRow({ data, createValues, handleCreateInput }) {

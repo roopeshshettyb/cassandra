@@ -36,10 +36,10 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
-  @IsOptional()
   @IsString()
-  @ApiProperty({ required: false })
-  readonly roomNumber?: string;
+  @IsNotEmpty()
+  @ApiProperty()
+  readonly roomNumber: string;
 
   @IsOptional()
   @IsBoolean()

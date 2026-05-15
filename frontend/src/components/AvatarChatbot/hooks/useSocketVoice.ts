@@ -67,7 +67,7 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
 
     const socket = io(`${BACKEND_URL}/voice`, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       query: { token, bookingId: String(bookingId) },
       auth: { token },
     });
