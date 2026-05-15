@@ -1,6 +1,4 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { motion } from 'framer-motion';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -389,33 +387,6 @@ const AppContent = () => {
             open={assistantOpen}
             onOpenChange={setAssistantOpen}
           />
-        )}
-        {/* Guest FAB — guests have no sidebar so need a floating trigger */}
-        {account && account.role === constants.ACCOUNT_ROLES.GUEST && isGuestPortal && !assistantOpen && (
-          <Box
-            component={motion.div}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setAssistantOpen(true)}
-            sx={{
-              position: 'fixed',
-              bottom: { xs: 80, md: 24 },
-              right: 16,
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              background: BRAND_GRADIENT,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(197,160,34,0.4)',
-              zIndex: 1100,
-              color: 'white',
-            }}
-          >
-            <SmartToyIcon sx={{ fontSize: 26 }} />
-          </Box>
         )}
         <Box
           sx={{
