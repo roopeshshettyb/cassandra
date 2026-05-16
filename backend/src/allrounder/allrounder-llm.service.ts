@@ -228,7 +228,7 @@ export class AllRounderLlmService {
       hotelId: null,
       accountId: session.account.id,
       role: session.account.role,
-      chatId: assistantMessage.id,
+      chatId: session.chatId,
       messageId: assistantMessage.id,
     });
 

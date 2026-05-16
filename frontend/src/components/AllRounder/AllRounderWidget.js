@@ -18,12 +18,7 @@ import constants from '../../constants.json';
 
 export const PANEL_WIDTH = 420;
 
-const ROLE_SUGGESTIONS = {
-  admin: ['Show high priority requests', 'Hotel stats overview', "Today's check-ins", 'Search a booking'],
-  hotel_owner: ['High priority requests today', 'My hotel stats', "Today's check-ins", 'Pending requests'],
-  hotel_staff: ['Show pending requests', 'High priority requests', "Today's bookings", 'Update a request'],
-  guest: ['I need room service', 'Request housekeeping', 'Book a taxi', "What's included in my stay?"],
-};
+const ROLE_SUGGESTIONS = constants.AI_ASSISTANT_ROLE_SUGGESTIONS || {};
 
 function WaveformBars() {
   return (
