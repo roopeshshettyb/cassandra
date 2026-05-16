@@ -64,7 +64,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   if (isReady) everConnectedRef.current = true;
 
   useEffect(() => {
-    if (isConcierge && !isChatMode && !isReady && !everConnectedRef.current) {
+    if (isConcierge && !isChatMode && !isReady && !everConnectedRef.current && isWithinStay) {
       setLoading?.(true);
     } else {
       setLoading?.(false);
