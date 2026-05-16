@@ -28,6 +28,23 @@ export class AllRounderChatService {
     return this.chatRepo.create({ accountId });
   }
 
+  async listForAccount(accountId: number): Promise<{ id: number; createdAt: Date; preview: string }[]> {
+    const chats = await this.chatRepo.findAll({
+      where: { accountId },
+      order: [['createdAt', 'DESC']],
+      limit: 20,
+    });
+    const result: { id: number; createdAt: Date; preview: string }[] = [];
+    for (const chat of chats) {
+      const firstMsg = await this.messageRepo.findOne({
+        where: { chatId: chat.id, role: AllRounderMessageRole.USER },
+        order: [['createdAt', 'ASC']],
+      });
+      result.push({ id: chat.id, createdAt: chat.createdAt as Date, preview: firstMsg?.content?.slice(0, 60) || 'New chat' });
+    }
+    return result;
+  }
+
   async saveMessage(chatId: number, role: AllRounderMessageRole, content: string, toolCalls?: AllRounderToolCallRecord[]): Promise<AllRounderMessage> {
     return this.messageRepo.create({ chatId, role, content, toolCalls: toolCalls ?? null });
   }
