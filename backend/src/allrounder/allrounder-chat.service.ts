@@ -19,8 +19,12 @@ export class AllRounderChatService {
   ) {}
 
   async findOrCreateForAccount(accountId: number): Promise<AllRounderChat> {
-    const existing = await this.chatRepo.findOne({ where: { accountId } });
+    const existing = await this.chatRepo.findOne({ where: { accountId }, order: [['createdAt', 'DESC']] });
     if (existing) return existing;
+    return this.chatRepo.create({ accountId });
+  }
+
+  async createForAccount(accountId: number): Promise<AllRounderChat> {
     return this.chatRepo.create({ accountId });
   }
 

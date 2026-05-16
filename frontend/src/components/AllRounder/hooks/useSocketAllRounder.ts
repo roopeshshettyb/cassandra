@@ -21,6 +21,7 @@ interface UseSocketAllRounderProps {
   onVoiceTextChunk?: (text: string) => void;
   onVoiceTextEnd?: (result: { text: string; cards: AgentCard[] }) => void;
   onError?: (error: string) => void;
+  onChatCreated?: () => void;
 }
 
 export function useSocketAllRounder({
@@ -28,6 +29,7 @@ export function useSocketAllRounder({
   onUserMessage,
   onStreamChunk,
   onStreamEnd,
+  onChatCreated,
   onVoiceTextChunk,
   onVoiceTextEnd,
   onError,
@@ -53,6 +55,8 @@ export function useSocketAllRounder({
   onUserMessageRef.current = onUserMessage;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onChatCreatedRef = useRef(onChatCreated);
+  onChatCreatedRef.current = onChatCreated;
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -191,6 +195,10 @@ export function useSocketAllRounder({
       startPlaybackTracking(playbackTimeRef.current);
     });
 
+    socket.on('chat_created', () => {
+      onChatCreatedRef.current?.();
+    });
+
     return () => {
       cancelPlaybackTracking();
       cleanupAudio();
@@ -203,6 +211,11 @@ export function useSocketAllRounder({
     if (!socketRef.current?.connected || !text.trim()) return;
     setIsSending(true);
     socketRef.current.emit('message', { content: text });
+  }, []);
+
+  const newChat = useCallback(() => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit('new_chat');
   }, []);
 
   const sendVoiceText = useCallback((text: string) => {
@@ -260,6 +273,7 @@ export function useSocketAllRounder({
     isSending,
     sendMessage,
     sendVoiceText,
+    newChat,
     startRecording,
     stopRecording,
   };

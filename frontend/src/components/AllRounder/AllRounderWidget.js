@@ -138,7 +138,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
     setMessages((prev) => [...prev, { role, content, cards, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }]);
   }, []);
 
-  const { isReady, isRecording, isSpeaking, isProcessing, isSending, sendMessage, startRecording, stopRecording } = useSocketAllRounder({
+  const { isReady, isRecording, isSpeaking, isProcessing, isSending, sendMessage, newChat, startRecording, stopRecording } = useSocketAllRounder({
     onReady: (dbMessages) => {
       if (dbMessages?.length) {
         const loaded = [];
@@ -151,6 +151,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
     onUserMessage: (text) => addMessage('user', text),
     onVoiceTextEnd: ({ text, cards }) => { addMessage('assistant', text, cards); },
     onError: (err) => alertError?.(err),
+    onChatCreated: () => { setMessages([]); setStreamingContent(''); setMode('voice'); },
   });
 
   useEffect(() => {
@@ -215,7 +216,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
             <KeyboardVoiceIcon fontSize="small" />
           </IconButton>
         )}
-        <IconButton size="small" onClick={() => { setMessages([]); setStreamingContent(''); setMode('voice'); }} sx={{ color: MUTED, '&:hover': { color: NAVY } }} title="New chat">
+        <IconButton size="small" onClick={() => newChat()} sx={{ color: MUTED, '&:hover': { color: NAVY } }} title="New chat">
           <AddIcon fontSize="small" />
         </IconButton>
         <IconButton size="small" onClick={onClose} sx={{ color: MUTED, '&:hover': { color: NAVY } }}>
