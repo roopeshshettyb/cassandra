@@ -553,15 +553,14 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
           })()}
         </Box>
 
-        {/* Suggestion chips — horizontal scroll strip, shown only when idle */}
-        <AnimatePresence>
-          {isWithinStay && !isRecording && !isProcessing && !isSpeaking && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2 }}
-            >
+        {/* Suggestion chips — always mounted to prevent layout shift, opacity-only toggle */}
+        <Box
+          sx={{
+            opacity: (isWithinStay && !isRecording && !isProcessing && !isSpeaking) ? 1 : 0,
+            pointerEvents: (isWithinStay && !isRecording && !isProcessing && !isSpeaking) ? 'auto' : 'none',
+            transition: 'opacity 0.2s',
+          }}
+        >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {/* Left arrow — desktop only */}
                 <IconButton
@@ -624,9 +623,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
                   <ChevronRightIcon fontSize="small" />
                 </IconButton>
               </Box>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </Box>
 
         {/* Prefer to type? — always visible at bottom */}
         <Box sx={{ textAlign: 'center', py: 1 }}>
