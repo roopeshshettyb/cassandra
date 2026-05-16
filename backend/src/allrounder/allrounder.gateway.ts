@@ -97,6 +97,23 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     }
   }
 
+  @SubscribeMessage('new_chat')
+  async onNewChat(client: any) {
+    const session: AllRounderSession | undefined = client.session;
+    if (!session) {
+      client.emit('error', { message: 'Not authenticated' });
+      return;
+    }
+    try {
+      const newChat = await this.allRounderChatService.createForAccount(session.account.id);
+      session.chatId = newChat.id;
+      client.emit('chat_created', { chatId: newChat.id });
+    } catch (err: any) {
+      this.logger.error(err);
+      client.emit('error', { message: err?.message || 'Failed to create new chat' });
+    }
+  }
+
   private flushCompletedSentencesToTts(
     state: { sentenceBuffer: string; ttsQueue: Promise<void> },
     client: any,
