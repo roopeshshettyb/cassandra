@@ -51,7 +51,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     }
   }, [setSearchParams, isWithinStay, activeTab, setLoading]);
 
-  const voiceBookingId = (isWithinStay && !isChatMode) ? booking?.id : null;
+  const bookingWithinStay = !!booking?.isWithinStay;
+  const voiceBookingId = (isWithinStay && bookingWithinStay && !isChatMode) ? booking?.id : null;
 
   const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
     bookingId: voiceBookingId,
@@ -64,7 +65,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   if (isReady) everConnectedRef.current = true;
 
   useEffect(() => {
-    if (isConcierge && !isChatMode && !isReady && !everConnectedRef.current && isWithinStay) {
+    if (isConcierge && !isChatMode && !isReady && !everConnectedRef.current && isWithinStay && bookingWithinStay) {
       setLoading?.(true);
     } else {
       setLoading?.(false);
