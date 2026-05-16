@@ -18,7 +18,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const isChatMode = searchParams.get('mode') === 'chat';
   const isConcierge = activeTab === 'concierge';
   const hideNav = isConcierge && isChatMode;
-  const fullScreen = isConcierge;
+  const fullScreen = isConcierge || activeTab === 'assistant';
 
   const isWithinStay = account?.role !== GUEST ? true : !!booking?.isWithinStay;
 
