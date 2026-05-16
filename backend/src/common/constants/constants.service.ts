@@ -263,6 +263,12 @@ export class ConstantsService {
         },
       },
       AI_ASSISTANT_TITLE: 'AI Assistant',
+      AI_ASSISTANT_ROLE_SUGGESTIONS: {
+        admin: ['Show high priority requests', 'Hotel stats overview', "Today's check-ins", 'Search a booking'],
+        hotel_owner: ['High priority requests today', 'My hotel stats', "Today's check-ins", 'Pending requests'],
+        hotel_staff: ['Show pending requests', 'High priority requests', "Today's bookings", 'Update a request'],
+        guest: ['I need room service', 'Request housekeeping', 'Book a taxi', "What's included in my stay?"],
+      },
       NOTIFICATIONS_FETCHED: 'Notifications fetched',
       PREFERENCES_FETCHED: 'Preferences fetched',
       PREFERENCES_UPDATED: 'Preferences updated',
