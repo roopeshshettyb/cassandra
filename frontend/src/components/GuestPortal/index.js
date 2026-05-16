@@ -59,9 +59,12 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     onError: (err) => alertError?.(err),
   });
 
-  // Show loader while voice socket is connecting on the concierge mic screen
+  // Show loader only on INITIAL voice connection — not on reconnects after backgrounding
+  const everConnectedRef = useRef(false);
+  if (isReady) everConnectedRef.current = true;
+
   useEffect(() => {
-    if (isConcierge && !isChatMode && !isReady) {
+    if (isConcierge && !isChatMode && !isReady && !everConnectedRef.current) {
       setLoading?.(true);
     } else {
       setLoading?.(false);
