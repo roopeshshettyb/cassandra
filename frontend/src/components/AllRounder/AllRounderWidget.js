@@ -6,6 +6,7 @@ import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import SendIcon from '@mui/icons-material/Send';
+import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import KeyboardVoiceIcon from '@mui/icons-material/KeyboardVoice';
@@ -214,6 +215,9 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
             <KeyboardVoiceIcon fontSize="small" />
           </IconButton>
         )}
+        <IconButton size="small" onClick={() => { setMessages([]); setStreamingContent(''); setMode('voice'); }} sx={{ color: MUTED, '&:hover': { color: NAVY } }} title="New chat">
+          <AddIcon fontSize="small" />
+        </IconButton>
         <IconButton size="small" onClick={onClose} sx={{ color: MUTED, '&:hover': { color: NAVY } }}>
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -356,7 +360,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
           )}
 
           {/* Input */}
-          <Box sx={{ px: 2, py: 1.5, borderTop: `1px solid ${BORDER}`, bgcolor: 'background.paper', flexShrink: 0 }}>
+          <Box sx={{ px: 2, pt: 1.5, pb: `calc(12px + env(safe-area-inset-bottom, 0px))`, borderTop: `1px solid ${BORDER}`, bgcolor: 'background.paper', flexShrink: 0 }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               {/* Mic toggle in chat */}
               <Box sx={{ position: 'relative', flexShrink: 0 }}>
@@ -389,7 +393,6 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
               />
             </Box>
           </Box>
-          <Box sx={{ height: 'env(safe-area-inset-bottom, 0px)', bgcolor: 'background.paper' }} />
         </>
       )}
     </Box>

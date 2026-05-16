@@ -468,13 +468,14 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
       sx={{
         flex: isMobile ? 1 : 'unset',
         minHeight: isMobile ? 0 : '89dvh',
-        height: isMobile ? 'unset' : '89dvh',
+        height: isMobile ? '100%' : '89dvh',
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
         px: 2.5,
         pt: { xs: 1, md: 0 },
-        pb: { xs: '68px', md: 2 },
+        pb: { xs: '80px', md: 2 },
+        overflow: 'hidden',
       }}
     >
       <Box sx={{ maxWidth: 640, mx: 'auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -529,17 +530,19 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
                   }}
                   whileTap={{ scale: 0.94 }}
                 >
-                  <AnimatePresence mode="wait">
-                    {isActive ? (
-                      <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                        <WaveformBars />
-                      </motion.div>
-                    ) : (
-                      <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                        <MicIcon sx={{ fontSize: 44, color: NAVY_CONTRAST }} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <Box sx={{ position: 'relative', width: 44, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <AnimatePresence mode="wait">
+                      {isActive ? (
+                        <motion.div key="waveform" style={{ position: 'absolute' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                          <WaveformBars />
+                        </motion.div>
+                      ) : (
+                        <motion.div key="mic" style={{ position: 'absolute' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                          <MicIcon sx={{ fontSize: 44, color: NAVY_CONTRAST }} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </Box>
                 </motion.button>
 
                 <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500 }}>
