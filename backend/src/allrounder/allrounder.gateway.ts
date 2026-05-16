@@ -100,10 +100,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
   @SubscribeMessage('new_chat')
   async onNewChat(client: any) {
     const session: AllRounderSession | undefined = client.session;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
+    if (!session) { client.emit('error', { message: 'Not authenticated' }); return; }
     try {
       const newChat = await this.allRounderChatService.createForAccount(session.account.id);
       session.chatId = newChat.id;
@@ -111,6 +108,35 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Failed to create new chat' });
+    }
+  }
+
+  @SubscribeMessage('list_chats')
+  async onListChats(client: any) {
+    const session: AllRounderSession | undefined = client.session;
+    if (!session) { client.emit('error', { message: 'Not authenticated' }); return; }
+    try {
+      const chats = await this.allRounderChatService.listForAccount(session.account.id);
+      client.emit('chats_list', { chats, activeChatId: session.chatId });
+    } catch (err: any) {
+      this.logger.error(err);
+      client.emit('error', { message: err?.message || 'Failed to list chats' });
+    }
+  }
+
+  @SubscribeMessage('switch_chat')
+  async onSwitchChat(client: any, payload: { chatId: number }) {
+    const session: AllRounderSession | undefined = client.session;
+    if (!session) { client.emit('error', { message: 'Not authenticated' }); return; }
+    try {
+      const chatId = payload?.chatId;
+      if (!chatId) { client.emit('error', { message: 'chatId required' }); return; }
+      const messages = await this.allRounderChatService.getRecentMessages(chatId, 50);
+      session.chatId = chatId;
+      client.emit('chat_switched', { chatId, messages });
+    } catch (err: any) {
+      this.logger.error(err);
+      client.emit('error', { message: err?.message || 'Failed to switch chat' });
     }
   }
 

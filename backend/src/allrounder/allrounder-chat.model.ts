@@ -1,7 +1,7 @@
 import { Table, Model, Column, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
 import { Account } from '../accounts/accounts.model';
 
-@Table({ tableName: 'allrounder_chats' })
+@Table({ tableName: 'allrounder_chats', timestamps: true })
 export class AllRounderChat extends Model<AllRounderChat> {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
   id: number;

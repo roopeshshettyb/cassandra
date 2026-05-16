@@ -7,6 +7,8 @@ import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import SendIcon from '@mui/icons-material/Send';
 import AddIcon from '@mui/icons-material/Add';
+import HistoryIcon from '@mui/icons-material/History';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import KeyboardVoiceIcon from '@mui/icons-material/KeyboardVoice';
@@ -131,6 +133,8 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streamingContent, setStreamingContent] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -138,7 +142,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
     setMessages((prev) => [...prev, { role, content, cards, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }]);
   }, []);
 
-  const { isReady, isRecording, isSpeaking, isProcessing, isSending, sendMessage, newChat, startRecording, stopRecording } = useSocketAllRounder({
+  const { isReady, isRecording, isSpeaking, isProcessing, isSending, sendMessage, newChat, listChats, switchChat, startRecording, stopRecording } = useSocketAllRounder({
     onReady: (dbMessages) => {
       if (dbMessages?.length) {
         const loaded = [];
@@ -151,7 +155,16 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
     onUserMessage: (text) => addMessage('user', text),
     onVoiceTextEnd: ({ text, cards }) => { addMessage('assistant', text, cards); },
     onError: (err) => alertError?.(err),
-    onChatCreated: () => { setMessages([]); setStreamingContent(''); setMode('voice'); },
+    onChatCreated: () => { setMessages([]); setStreamingContent(''); setMode('voice'); setShowHistory(false); },
+    onChatsList: (chats) => { setChatHistory(chats); setShowHistory(true); },
+    onChatSwitched: (chatId, msgs) => {
+      const loaded = [];
+      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+      setMessages(loaded);
+      setStreamingContent('');
+      setMode(loaded.length > 0 ? 'chat' : 'voice');
+      setShowHistory(false);
+    },
   });
 
   useEffect(() => {
@@ -216,6 +229,9 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
             <KeyboardVoiceIcon fontSize="small" />
           </IconButton>
         )}
+        <IconButton size="small" onClick={() => listChats()} sx={{ color: MUTED, '&:hover': { color: NAVY } }} title="Chat history">
+          <HistoryIcon fontSize="small" />
+        </IconButton>
         <IconButton size="small" onClick={() => newChat()} sx={{ color: MUTED, '&:hover': { color: NAVY } }} title="New chat">
           <AddIcon fontSize="small" />
         </IconButton>
@@ -224,8 +240,40 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
         </IconButton>
       </Box>
 
+      {/* History panel */}
+      {showHistory && (
+        <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: `1px solid ${BORDER}` }}>
+            <IconButton size="small" onClick={() => setShowHistory(false)} sx={{ color: MUTED }}>
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: NAVY }}>Chat history</Typography>
+          </Box>
+          {chatHistory.length === 0 ? (
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography sx={{ fontSize: 13, color: MUTED }}>No previous chats</Typography>
+            </Box>
+          ) : (
+            chatHistory.map((chat) => (
+              <Box
+                key={chat.id}
+                onClick={() => switchChat(chat.id)}
+                sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${BORDER}`, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s' }}
+              >
+                <Typography sx={{ fontSize: 13, fontWeight: 500, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {chat.preview}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: MUTED, mt: 0.25 }}>
+                  {new Date(chat.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Typography>
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+
       {/* Voice mode */}
-      {mode === 'voice' && (
+      {!showHistory && mode === 'voice' && (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', px: 2.5, py: 2, overflow: 'hidden' }}>
           {/* Mic button centered */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2.5 }}>
@@ -293,7 +341,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
       )}
 
       {/* Chat mode */}
-      {mode === 'chat' && (
+      {!showHistory && mode === 'chat' && (
         <>
           <Box
             ref={scrollRef}

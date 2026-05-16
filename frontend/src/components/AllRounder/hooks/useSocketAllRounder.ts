@@ -22,6 +22,8 @@ interface UseSocketAllRounderProps {
   onVoiceTextEnd?: (result: { text: string; cards: AgentCard[] }) => void;
   onError?: (error: string) => void;
   onChatCreated?: () => void;
+  onChatsList?: (chats: any[], activeChatId: number) => void;
+  onChatSwitched?: (chatId: number, messages: any[]) => void;
 }
 
 export function useSocketAllRounder({
@@ -30,6 +32,8 @@ export function useSocketAllRounder({
   onStreamChunk,
   onStreamEnd,
   onChatCreated,
+  onChatsList,
+  onChatSwitched,
   onVoiceTextChunk,
   onVoiceTextEnd,
   onError,
@@ -57,6 +61,10 @@ export function useSocketAllRounder({
   onErrorRef.current = onError;
   const onChatCreatedRef = useRef(onChatCreated);
   onChatCreatedRef.current = onChatCreated;
+  const onChatsListRef = useRef(onChatsList);
+  onChatsListRef.current = onChatsList;
+  const onChatSwitchedRef = useRef(onChatSwitched);
+  onChatSwitchedRef.current = onChatSwitched;
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -199,6 +207,14 @@ export function useSocketAllRounder({
       onChatCreatedRef.current?.();
     });
 
+    socket.on('chats_list', (payload: any) => {
+      onChatsListRef.current?.(payload?.chats || [], payload?.activeChatId);
+    });
+
+    socket.on('chat_switched', (payload: any) => {
+      onChatSwitchedRef.current?.(payload?.chatId, payload?.messages || []);
+    });
+
     return () => {
       cancelPlaybackTracking();
       cleanupAudio();
@@ -216,6 +232,16 @@ export function useSocketAllRounder({
   const newChat = useCallback(() => {
     if (!socketRef.current?.connected) return;
     socketRef.current.emit('new_chat');
+  }, []);
+
+  const listChats = useCallback(() => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit('list_chats');
+  }, []);
+
+  const switchChat = useCallback((chatId: number) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit('switch_chat', { chatId });
   }, []);
 
   const sendVoiceText = useCallback((text: string) => {
@@ -274,6 +300,8 @@ export function useSocketAllRounder({
     sendMessage,
     sendVoiceText,
     newChat,
+    listChats,
+    switchChat,
     startRecording,
     stopRecording,
   };
