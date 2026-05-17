@@ -6,6 +6,7 @@
 3. Defaults are only allowed in `constants.service.ts`. For ANY variable read from constants, no defaults should be set in code
 4. Focus on writing less code
 5. Don't use `as any` anywhere — use only `: any`
+6. Never commit API keys, JWT tokens, or credentials to `.claude/settings.json` or `settings.local.json` — these files are git-tracked
 
 ## Backend (`backend/`)
 1. All strings should be in constants service. If read from env, put in private constants. No defaults in code — if any default it should be in private constants itself
