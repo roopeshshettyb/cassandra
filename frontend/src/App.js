@@ -298,7 +298,8 @@ const AppContent = () => {
 
   useEffect(() => {
     if (!isMobile) setSidebarCollapsed(assistantOpen);
-    document.documentElement.style.setProperty('--assistant-panel-right', !isMobile && assistantOpen ? `${PANEL_WIDTH}px` : '0px');
+    const pw = !isMobile && typeof window !== 'undefined' && window.innerWidth <= 1024 ? Math.min(PANEL_WIDTH, Math.floor(window.innerWidth * 0.42)) : PANEL_WIDTH;
+    document.documentElement.style.setProperty('--assistant-panel-right', !isMobile && assistantOpen ? `${pw}px` : '0px');
   }, [assistantOpen, isMobile]);
 
   // Close assistant + restore sidebar only on guest portal (bookings detail)
@@ -394,7 +395,7 @@ const AppContent = () => {
             flexDirection: 'column',
             minHeight: '100dvh',
             ml: isMobile ? 0 : (sidebarCollapsed ? 0 : '20vw'),
-            mr: !isMobile && assistantOpen ? `${PANEL_WIDTH}px` : 0,
+            mr: !isMobile && assistantOpen ? 'var(--assistant-panel-right, 0px)' : 0,
             transition: 'margin-left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), margin-right 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         >

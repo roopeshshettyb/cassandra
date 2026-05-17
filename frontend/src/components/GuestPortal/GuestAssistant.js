@@ -17,6 +17,32 @@ import constants from '../../constants.json';
 
 const GUEST_SUGGESTIONS = constants.CONCIERGE_SUGGESTIONS || [];
 
+function extractCardsFromToolCalls(toolCalls) {
+  if (!toolCalls?.length) return [];
+  const cards = [];
+  for (const tc of toolCalls) {
+    if (!tc.output) continue;
+    let parsed;
+    try { parsed = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output; } catch { continue; }
+    const items = Array.isArray(parsed) ? parsed : parsed?.stats ? parsed.stats : [];
+    for (const item of items) {
+      if (!item._card_type) continue;
+      if (item._card_type === 'request') {
+        const roomPart = item.roomNumber ? ` · Room ${item.roomNumber}` : '';
+        cards.push({ type: 'request', title: `${String(item.requestType ?? '').replace(/_/g, ' ')} — ${item.guestName ?? 'Guest'}`, subtitle: `${item.hotelName ?? ''}${roomPart}` || undefined, badge: item.urgency, route: `/requests/${item.id}`, meta: { status: item.status, urgency: item.urgency } });
+      } else if (item._card_type === 'booking') {
+        const checkIn = item.startTime ? new Date(item.startTime).toLocaleDateString() : '';
+        cards.push({ type: 'booking', title: item.guestName ?? `Room ${item.roomNumber}`, subtitle: `Room ${item.roomNumber} · ${checkIn}`, route: `/bookings/${item.id}`, meta: {} });
+      } else if (item._card_type === 'hotel') {
+        cards.push({ type: 'hotel', title: item.name, subtitle: item.address, route: `/hotels/${item.id}`, meta: {} });
+      } else if (item._card_type === 'stat') {
+        cards.push({ type: 'stat', title: String(item.value ?? ''), subtitle: item.label, meta: {} });
+      }
+    }
+  }
+  return cards;
+}
+
 const BOTTOM_NAV_H = '10dvh';
 const INPUT_BAR_H = '10dvh';
 
@@ -99,7 +125,7 @@ export default function GuestAssistant({ navigate, alertError }) {
     onReady: (dbMessages) => {
       if (dbMessages?.length) {
         const loaded = [];
-        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: extractCardsFromToolCalls(m.toolCalls), id: m.id, createdAt: m.createdAt });
         setMessages(loaded);
       }
     },
@@ -112,7 +138,7 @@ export default function GuestAssistant({ navigate, alertError }) {
     onChatsList: (chats) => { setChatHistory(chats); setShowHistory(true); },
     onChatSwitched: (chatId, msgs) => {
       const loaded = [];
-      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: extractCardsFromToolCalls(m.toolCalls), id: m.id, createdAt: m.createdAt });
       setMessages(loaded);
       setStreamingContent('');
       setShowHistory(false);

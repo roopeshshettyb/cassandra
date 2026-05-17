@@ -19,7 +19,12 @@ import { useSocketAllRounder } from './hooks/useSocketAllRounder';
 import AgentCardRenderer from './AgentCardRenderer';
 import constants from '../../constants.json';
 
-export const PANEL_WIDTH = 420;
+export const PANEL_WIDTH = 380;
+// On tablets (768-1024px), panel uses viewport-relative width to avoid cramping content
+const getPanelWidth = () => {
+  if (typeof window === 'undefined') return PANEL_WIDTH;
+  return window.innerWidth <= 1024 ? Math.min(PANEL_WIDTH, Math.floor(window.innerWidth * 0.42)) : PANEL_WIDTH;
+};
 
 const ROLE_SUGGESTIONS = constants.AI_ASSISTANT_ROLE_SUGGESTIONS || {};
 
@@ -114,6 +119,32 @@ function ThinkingBubble() {
   );
 }
 
+function extractCardsFromToolCalls(toolCalls) {
+  if (!toolCalls?.length) return [];
+  const cards = [];
+  for (const tc of toolCalls) {
+    if (!tc.output) continue;
+    let parsed;
+    try { parsed = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output; } catch { continue; }
+    const items = Array.isArray(parsed) ? parsed : parsed?.stats ? parsed.stats : [];
+    for (const item of items) {
+      if (!item._card_type) continue;
+      if (item._card_type === 'request') {
+        const roomPart = item.roomNumber ? ` · Room ${item.roomNumber}` : '';
+        cards.push({ type: 'request', title: `${String(item.requestType ?? '').replace(/_/g, ' ')} — ${item.guestName ?? 'Guest'}`, subtitle: `${item.hotelName ?? ''}${roomPart}` || undefined, badge: item.urgency, route: `/requests/${item.id}`, meta: { status: item.status, urgency: item.urgency } });
+      } else if (item._card_type === 'booking') {
+        const checkIn = item.startTime ? new Date(item.startTime).toLocaleDateString() : '';
+        cards.push({ type: 'booking', title: item.guestName ?? `Room ${item.roomNumber}`, subtitle: `Room ${item.roomNumber} · ${checkIn}`, route: `/bookings/${item.id}`, meta: { bookingId: item.id } });
+      } else if (item._card_type === 'hotel') {
+        cards.push({ type: 'hotel', title: item.name, subtitle: item.address, route: `/hotels/${item.id}`, meta: { hotelId: item.id } });
+      } else if (item._card_type === 'stat') {
+        cards.push({ type: 'stat', title: String(item.value ?? ''), subtitle: item.label, meta: {} });
+      }
+    }
+  }
+  return cards;
+}
+
 function buildMessageList(messages) {
   const result = [];
   let lastDateLabel = null;
@@ -146,7 +177,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
     onReady: (dbMessages) => {
       if (dbMessages?.length) {
         const loaded = [];
-        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: extractCardsFromToolCalls(m.toolCalls), id: m.id, createdAt: m.createdAt });
         setMessages(loaded);
       }
     },
@@ -159,7 +190,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
     onChatsList: (chats) => { setChatHistory(chats); setShowHistory(true); },
     onChatSwitched: (chatId, msgs) => {
       const loaded = [];
-      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: extractCardsFromToolCalls(m.toolCalls), id: m.id, createdAt: m.createdAt });
       setMessages(loaded);
       setStreamingContent('');
       setMode(loaded.length > 0 ? 'chat' : 'voice');
@@ -451,6 +482,7 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
 }
 
 export default function AllRounderWidget({ account, navigate, alertError, isMobile, open, onOpenChange }) {
+  const panelWidth = isMobile ? null : getPanelWidth();
   return (
     <>
       {/* Mobile backdrop */}
@@ -467,11 +499,11 @@ export default function AllRounderWidget({ account, navigate, alertError, isMobi
       {/* Panel */}
       <Box sx={{
         position: 'fixed', top: 0, right: 0, bottom: 0,
-        width: isMobile ? '100%' : PANEL_WIDTH,
+        width: isMobile ? '100%' : panelWidth,
         zIndex: 1600,
         borderLeft: `1px solid ${BORDER}`,
         boxShadow: '-8px 0 40px rgba(0,0,0,0.1)',
-        transform: open ? 'translateX(0)' : `translateX(${isMobile ? '100%' : `${PANEL_WIDTH}px`})`,
+        transform: open ? 'translateX(0)' : `translateX(${isMobile ? '100%' : `${panelWidth}px`})`,
         transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         display: 'flex', flexDirection: 'column',
       }}>
