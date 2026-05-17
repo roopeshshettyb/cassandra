@@ -60,18 +60,14 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     onError: (err) => alertError?.(err),
   });
 
-  // Show loader only on INITIAL voice connection — not on reconnects after backgrounding
-  const everConnectedRef = useRef(false);
-  if (isReady) everConnectedRef.current = true;
-
   useEffect(() => {
-    if (isConcierge && !isChatMode && !isReady && !everConnectedRef.current && isWithinStay && bookingWithinStay) {
+    if (isConcierge && !isChatMode && !isReady && isWithinStay && bookingWithinStay) {
       setLoading?.(true);
     } else {
       setLoading?.(false);
     }
     return () => { setLoading?.(false); };
-  }, [isConcierge, isChatMode, isReady, setLoading]);
+  }, [isConcierge, isChatMode, isReady, isWithinStay, bookingWithinStay, setLoading]);
 
   sendTextRef.current = sendText;
   startRecordingRef.current = startRecording;
