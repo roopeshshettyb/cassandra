@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(git merge *)",
-      "Bash(curl -s http://localhost:7676/requests/240 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjcsInV1aWQiOiJlbWFpbDpmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwiZW1haWwiOiJmbGFzaHBhY3RvbmVAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzc4MjU0MDY2LCJleHAiOjE3NzgzNDA0NjZ9.mUuKOAkGvPl1oVhmQIPKvjsK-Y5Aq5vof8vA_ji1nxs')",
       "Bash(node -e ' *)"
     ]
   }
