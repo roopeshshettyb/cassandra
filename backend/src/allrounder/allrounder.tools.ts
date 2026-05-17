@@ -258,6 +258,33 @@ export function createAllRounderTools(ctx: AllRounderToolContext, deps: AllRound
     {
       allowedRoles: { [AccountRole.GUEST]: true },
       tool: new DynamicStructuredTool({
+        name: 'get_hotel_info',
+        description: 'Get hotel information for one of the guest bookings — check-in/check-out times, WiFi password, pool hours, restaurant hours, amenities. First use get_my_bookings to find the hotel ID.',
+        schema: z.object({
+          hotelId: z.number().describe('Hotel ID from the booking'),
+        }),
+        func: async (args) => {
+          const hotel = await deps.hotelsService.findById(args.hotelId);
+          if (!hotel) return JSON.stringify({ error: 'Hotel not found' });
+          return JSON.stringify({
+            name: (hotel as any).name,
+            address: (hotel as any).address,
+            checkInTime: (hotel as any).checkInTime,
+            checkOutTime: (hotel as any).checkOutTime,
+            wifiPassword: (hotel as any).wifiPassword,
+            poolHours: (hotel as any).poolHours,
+            gymHours: (hotel as any).gymHours,
+            restaurantHours: (hotel as any).restaurantHours,
+            breakfastHours: (hotel as any).breakfastHours,
+            lunchHours: (hotel as any).lunchHours,
+            dinnerHours: (hotel as any).dinnerHours,
+          });
+        },
+      }),
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true },
+      tool: new DynamicStructuredTool({
         name: 'create_request',
         description: 'Create a service request for a guest booking. First use get_my_bookings to find the booking ID if not known.',
         schema: z.object({

@@ -156,7 +156,7 @@ export class AllRounderLlmService {
       appName,
       session.hotelContext,
       session.account.role,
-      null,
+      'en',
       isVoice,
     );
     const promptMessages = [...instructions, { role: 'user' as const, content: userMessage }];

@@ -64,6 +64,13 @@ export class AllRounderChatService {
     for (const msg of messages) {
       const label = msg.role === AllRounderMessageRole.USER ? 'User' : 'Assistant';
       ctx += `${label}: ${msg.content}\n\n`;
+      if (msg.toolCalls?.length) {
+        for (const tc of (msg.toolCalls as any[])) {
+          if (tc.output !== undefined) {
+            ctx += `[Tool result - ${tc.toolName}]: ${JSON.stringify(tc.output)}\n\n`;
+          }
+        }
+      }
     }
     return ctx;
   }
