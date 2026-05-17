@@ -185,7 +185,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           transition: 'right 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }}
       >
-        {renderTab()}
+        {/* Don't render concierge voice content until connected — Loader covers the blank */}
+        {(activeTab !== 'concierge' || isChatMode || isReady || !bookingWithinStay) && renderTab()}
         {!hideNav && <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />}
       </Box>
     );
