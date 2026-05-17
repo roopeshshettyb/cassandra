@@ -5,12 +5,16 @@ import { BaseMessage, HumanMessage, SystemMessage, AIMessage, AIMessageChunk, To
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { z } from 'zod';
 import OpenAI from 'openai';
-import { createAgentTools } from './langgraph.tools';
+import { createAgentTools, AllRounderDeps } from './langgraph.tools';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
+import { HotelsService } from '../hotels/hotels.service';
+import { CostsService } from '../costs/costs.service';
+import { Booking } from '../bookings/bookings.model';
+import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { ConstantsService } from '../common/constants/constants.service';
 
 export interface ExtractedBookingFields {
@@ -72,7 +76,14 @@ export class LangGraphService {
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
     private readonly constantsService: ConstantsService,
+    private readonly hotelsService: HotelsService,
+    private readonly costsService: CostsService,
+    @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
   ) {}
+
+  get allRounderDeps(): AllRounderDeps {
+    return { hotelsService: this.hotelsService, costsService: this.costsService, bookingsService: this.bookingsService, bookingsRepository: this.bookingsRepository };
+  }
 
   createModel(temperature = 0): ChatOpenAI {
     const llmConfig = this.constantsService.private.LLM;
@@ -209,7 +220,7 @@ export class LangGraphService {
     ctx: AgentToolContext,
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, ctx.scopedHotelIds !== undefined ? this.allRounderDeps : undefined);
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 

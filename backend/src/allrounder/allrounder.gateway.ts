@@ -3,15 +3,21 @@ import { Server } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { HotelsService } from '../hotels/hotels.service';
-import { SttFactoryService } from '../stt/stt-factory.service';
-import type { ISttSession } from '../stt/stt-session.interface';
-import { TtsFactoryService } from '../tts/tts-factory.service';
 import { AllRounderSession } from './allrounder-session.interface';
-import { AllRounderLlmService } from './allrounder-llm.service';
 import { AllRounderChatService } from './allrounder-chat.service';
+import { AllRounderMessageRole } from './allrounder-message.model';
 import { parseAllRounderHandshake, authenticateAllRounderAndInit } from './allrounder-auth.helper';
-import { ToolCallRecord } from '../langgraph/langgraph.service';
-import { AgentCard } from './allrounder-tool.context';
+import { LangGraphService, ToolCallRecord } from '../langgraph/langgraph.service';
+import { ChatContextService } from '../chat-context/chat-context.service';
+import { buildSystemInstructions } from '../chat/chat-prompt.builder';
+export interface AgentCard {
+  type: 'request' | 'booking' | 'stat' | 'hotel';
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  route?: string;
+  meta?: Record<string, unknown>;
+}
 
 @WebSocketGateway({ cors: true, namespace: '/allrounder' })
 @Injectable()
@@ -24,10 +30,9 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
   constructor(
     private readonly authService: AuthService,
     private readonly hotelsService: HotelsService,
-    private readonly sttFactory: SttFactoryService,
-    private readonly ttsFactory: TtsFactoryService,
-    private readonly allRounderLlmService: AllRounderLlmService,
     private readonly allRounderChatService: AllRounderChatService,
+    private readonly langGraphService: LangGraphService,
+    private readonly chatContextService: ChatContextService,
   ) {}
 
   async handleConnection(client: any) {
@@ -49,15 +54,9 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
 
   @SubscribeMessage('auth')
   async onAuth(client: any, payload: { token: string }) {
-    if (client.session) {
-      client.emit('error', { message: 'Already authenticated' });
-      return;
-    }
+    if (client.session) { client.emit('error', { message: 'Already authenticated' }); return; }
     const token = payload?.token;
-    if (!token) {
-      client.emit('error', { message: 'auth requires token' });
-      return;
-    }
+    if (!token) { client.emit('error', { message: 'auth requires token' }); return; }
     await authenticateAllRounderAndInit(
       client,
       token,
@@ -71,26 +70,59 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
   @SubscribeMessage('message')
   async onMessage(client: any, payload: { content: string }) {
     const session: AllRounderSession | undefined = client.session;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
+    if (!session) { client.emit('error', { message: 'Not authenticated' }); return; }
     const content = payload?.content?.trim();
-    if (!content) {
-      client.emit('error', { message: 'content is required' });
-      return;
-    }
+    if (!content) { client.emit('error', { message: 'content is required' }); return; }
 
     try {
-      await this.allRounderLlmService.streamUserMessage(session, content, {
-        mode: 'text',
-        onChunk: async (chunk: string) => {
+      const appName = 'Samantha';
+
+      // Sync history to Redis so buildSystemInstructions picks it up
+      const recentMessages = await this.allRounderChatService.getRecentMessages(session.chatId, 20);
+      const contextStr = this.allRounderChatService.buildContextString(recentMessages);
+      this.chatContextService.setContextString(session.chatId, contextStr);
+
+      const { instructions } = await buildSystemInstructions(
+        this.chatContextService,
+        session.chatId,
+        appName,
+        session.hotelContext,
+        session.account.role,
+        'en',
+        false,
+      );
+
+      const promptMessages = [...instructions, { role: 'user' as const, content }];
+
+      // AgentToolContext with scopedHotelIds signals LangGraphService to include AllRounder tools
+      const ctx = {
+        account: session.account,
+        bookingId: null as any,
+        chatId: session.chatId,
+        hotel: null,
+        booking: null,
+        scopedHotelIds: session.scopedHotelIds,
+        hotelContext: session.hotelContext,
+      };
+
+      let fullContent = '';
+      const toolCalls: ToolCallRecord[] = [];
+
+      for await (const chunk of this.langGraphService.stream({ messages: promptMessages }, ctx)) {
+        if (typeof chunk === 'string') {
+          fullContent += chunk;
           client.emit('stream_chunk', { content: chunk });
-        },
-        onEnd: async (result: { fullContent: string; toolCalls: ToolCallRecord[]; cards: AgentCard[] }) => {
-          client.emit('stream_end', { content: result.fullContent, toolCalls: result.toolCalls, cards: result.cards });
-        },
-      });
+        } else {
+          for (const tc of chunk.toolCalls) toolCalls.push(tc);
+        }
+      }
+
+      const cards = this.extractCards(toolCalls);
+      client.emit('stream_end', { content: fullContent, toolCalls, cards });
+
+      // Persist to DB
+      await this.allRounderChatService.saveMessage(session.chatId, AllRounderMessageRole.USER, content);
+      await this.allRounderChatService.saveMessage(session.chatId, AllRounderMessageRole.ASSISTANT, fullContent, toolCalls.length ? (toolCalls as any) : undefined);
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });
@@ -140,205 +172,32 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     }
   }
 
-  private flushCompletedSentencesToTts(
-    state: { sentenceBuffer: string; ttsQueue: Promise<void> },
-    client: any,
-    provider: { streamToClient: (client: any, text: string, options?: { emitEnd?: boolean }) => Promise<void> },
-  ): void {
-    const regex = /([.!?])\s+/g;
-    let match: RegExpExecArray | null;
-    let lastIndex = 0;
-    const parts: string[] = [];
-    while ((match = regex.exec(state.sentenceBuffer)) !== null) {
-      const endIndex = match.index + 1;
-      const sentence = state.sentenceBuffer.slice(lastIndex, endIndex).trim();
-      if (sentence.length > 0) parts.push(sentence);
-      lastIndex = regex.lastIndex;
-    }
-    if (parts.length === 0) return;
-
-    state.sentenceBuffer = state.sentenceBuffer.slice(lastIndex);
-    for (const sentence of parts) {
-      state.ttsQueue = state.ttsQueue.then(async () => {
-        await provider.streamToClient(client, sentence, { emitEnd: false });
-      });
-      client.emit('voice_text_chunk', { delta: sentence });
-    }
-  }
-
-  private createSttSession(client: any): ISttSession | null {
-    if (client.sttSession) {
-      client.sttSession.destroy();
-      client.sttSession = null;
-    }
-    if (client.voiceBusy) return null;
-
-    try {
-      const sttSession: ISttSession = this.sttFactory.getFactory().createSession();
-      client.sttSession = sttSession;
-      let lastFinalTranscript = '';
-
-      sttSession.onTranscript((text: string, isFinal?: boolean) => {
-        if (isFinal) lastFinalTranscript = text;
-      });
-
-      sttSession.onEndOfSpeech(() => {
-        sttSession.endInput();
-        if (client.sttSession === sttSession) client.sttSession = null;
-        sttSession.destroy();
-        client.emit('voice_turn_end');
-
-        const session: AllRounderSession | undefined = client.session;
-        const textToSpeak = lastFinalTranscript;
-
-        if (!session) {
-          client.emit('error', { message: 'Not authenticated' });
-          client.emit('voice_ready');
-          return;
-        }
-
-        if (!textToSpeak) {
-          client.emit('voice_ready');
-          return;
-        }
-
-        client.emit('voice_user_message', { text: textToSpeak });
-        client.voiceBusy = true;
-        const provider = this.ttsFactory.getProvider();
-        const state = { sentenceBuffer: '', ttsQueue: Promise.resolve() as Promise<void> };
-
-        this.allRounderLlmService
-          .streamUserMessage(session, textToSpeak, {
-            mode: 'voice',
-            onChunk: (chunk: string) => {
-              if (!chunk) return;
-              state.sentenceBuffer += chunk;
-              this.flushCompletedSentencesToTts(state, client, provider);
-            },
-            onEnd: async (result) => {
-              if (state.sentenceBuffer.trim().length > 0) {
-                await state.ttsQueue;
-                await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true });
-              } else {
-                await state.ttsQueue;
-                client.emit('voice_audio_end');
-              }
-              client.emit('voice_text_end', { text: result.fullContent, cards: result.cards });
-            },
-          })
-          .catch((err: any) => {
-            this.logger.error(err);
-            client.emit('error', { message: 'Voice response failed' });
-            client.emit('voice_ready');
-            client.voiceBusy = false;
-          });
-      });
-
-      return sttSession;
-    } catch (err: any) {
-      this.logger.error(err);
-      client.emit('error', { message: err?.message || 'STT session failed' });
-      return null;
-    }
-  }
-
-  @SubscribeMessage('voice_start')
-  onVoiceStart(client: any) {
-    const session: AllRounderSession | undefined = client.session;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-    if (!client.voiceBusy) {
-      this.createSttSession(client);
-    }
-    client.emit('voice_ready');
-  }
-
-  @SubscribeMessage('voice_client_chunk')
-  onVoiceClientChunk(client: any, payload: { audio?: string }) {
-    const session: AllRounderSession | undefined = client.session;
-    if (!session || client.voiceBusy) return;
-
-    let sttSession: ISttSession | undefined = client.sttSession;
-    if (!sttSession) {
-      sttSession = this.createSttSession(client) ?? undefined;
-      if (!sttSession) return;
-    }
-
-    const base64 = payload?.audio;
-    if (!base64 || typeof base64 !== 'string') return;
-    sttSession.writeAudio(Buffer.from(base64, 'base64'));
-  }
-
-  @SubscribeMessage('voice_send_text')
-  async onVoiceSendText(client: any, payload: { text: string }) {
-    const session: AllRounderSession | undefined = client.session;
-    if (!session) {
-      client.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-    const textToSpeak = payload?.text?.trim();
-    if (!textToSpeak || client.voiceBusy) return;
-
-    client.voiceBusy = true;
-    client.emit('voice_turn_end');
-    client.emit('voice_user_message', { text: textToSpeak });
-
-    const provider = this.ttsFactory.getProvider();
-    const state = { sentenceBuffer: '', ttsQueue: Promise.resolve() as Promise<void> };
-
-    this.allRounderLlmService
-      .streamUserMessage(session, textToSpeak, {
-        mode: 'voice',
-        onChunk: (chunk: string) => {
-          if (!chunk) return;
-          state.sentenceBuffer += chunk;
-          this.flushCompletedSentencesToTts(state, client, provider);
-        },
-        onEnd: async (result) => {
-          if (state.sentenceBuffer.trim().length > 0) {
-            await state.ttsQueue;
-            await provider.streamToClient(client, state.sentenceBuffer.trim(), { emitEnd: true });
-          } else {
-            await state.ttsQueue;
-            client.emit('voice_audio_end');
-          }
-          client.emit('voice_text_end', { text: result.fullContent, cards: result.cards });
-        },
-      })
-      .catch((err: any) => {
-        this.logger.error(err);
-        client.emit('error', { message: 'Voice response failed' });
-        client.voiceBusy = false;
-        client.emit('voice_ready');
-      });
-  }
-
-  @SubscribeMessage('voice_playback_done')
-  onPlaybackDone(client: any) {
-    client.voiceBusy = false;
-    client.emit('voice_ready');
-  }
-
-  @SubscribeMessage('voice_stop')
-  onVoiceStop(client: any) {
-    const sttSession: ISttSession | undefined = client.sttSession;
-    if (sttSession) {
-      sttSession.endInput();
-      sttSession.destroy();
-      client.sttSession = null;
-    }
-  }
-
   handleDisconnect(client: any) {
-    const sttSession: ISttSession | undefined = client.sttSession;
-    if (sttSession) {
-      sttSession.destroy();
-      client.sttSession = null;
+    client.session = undefined;
+  }
+
+  private extractCards(toolCalls: ToolCallRecord[]): AgentCard[] {
+    const cards: AgentCard[] = [];
+    for (const tc of toolCalls) {
+      if (!tc.output) continue;
+      let parsed: any;
+      try { parsed = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output; } catch { continue; }
+      const items: any[] = Array.isArray(parsed) ? parsed : parsed?.stats ? parsed.stats : [];
+      for (const item of items) {
+        if (!item._card_type) continue;
+        if (item._card_type === 'request') {
+          const roomPart = item.roomNumber ? ` · Room ${item.roomNumber}` : '';
+          cards.push({ type: 'request', title: `${String(item.requestType ?? '').replace(/_/g, ' ')} — ${item.guestName ?? 'Guest'}`, subtitle: `${item.hotelName ?? ''}${roomPart}` || undefined, badge: item.urgency, route: `/requests/${item.id}`, meta: { status: item.status, urgency: item.urgency } });
+        } else if (item._card_type === 'booking') {
+          const checkIn = item.startTime ? new Date(item.startTime).toLocaleDateString() : '';
+          cards.push({ type: 'booking', title: item.guestName ?? `Room ${item.roomNumber}`, subtitle: `Room ${item.roomNumber} · ${checkIn}`, route: `/bookings/${item.id}`, meta: { bookingId: item.id } });
+        } else if (item._card_type === 'hotel') {
+          cards.push({ type: 'hotel', title: item.name, subtitle: item.address, route: `/hotels/${item.id}`, meta: { hotelId: item.id } });
+        } else if (item._card_type === 'stat') {
+          cards.push({ type: 'stat', title: String(item.value ?? ''), subtitle: item.label, meta: {} });
+        }
+      }
     }
-    delete client.session;
-    delete client.sessionPending;
-    client.voiceBusy = false;
+    return cards;
   }
 }
