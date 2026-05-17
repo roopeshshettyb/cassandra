@@ -72,20 +72,33 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       transports: ['polling', 'websocket'],
       query: { token, bookingId: String(bookingId) },
       auth: { token },
-      reconnection: false,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 4000,
+      reconnectionAttempts: 10,
     });
 
     socketRef.current = socket;
     isReadyRef.current = false;
 
-    // If voice_ready doesn't arrive within 3s, destroy socket and retry
+    // Force immediate reconnect when user returns from another app/tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !socket.connected) {
+        socket.connect();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Only retry on initial connect — if voice_ready not received within 8s
+    // (longer than before since reconnection:true handles the ongoing case)
     const readyTimeout = setTimeout(() => {
       if (!isReadyRef.current) {
         socket.removeAllListeners();
         socket.disconnect();
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
         incRetry();
       }
-    }, 3000);
+    }, 8000);
 
     // Signal server that client finished playing audio.
     // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
@@ -186,6 +199,7 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
 
     return () => {
       clearTimeout(readyTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       cancelPlaybackTracking();
       cleanupAudio();
       socket.removeAllListeners();
