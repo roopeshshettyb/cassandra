@@ -5,6 +5,9 @@ import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import AddIcon from '@mui/icons-material/Add';
+import HistoryIcon from '@mui/icons-material/History';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BORDER, SHADOW, BRAND_GRADIENT, PRIMARY_CONTRAST, MUTED, NAVY, BG } from '../../theme';
@@ -83,6 +86,8 @@ export default function GuestAssistant({ navigate, alertError }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streamingContent, setStreamingContent] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -90,10 +95,12 @@ export default function GuestAssistant({ navigate, alertError }) {
     setMessages((prev) => [...prev, { role, content, cards, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }]);
   }, []);
 
-  const { isReady, isRecording, isProcessing, isSpeaking, isSending, sendMessage, startRecording, stopRecording } = useSocketAllRounder({
+  const { isReady, isRecording, isProcessing, isSpeaking, isSending, sendMessage, newChat, listChats, switchChat, startRecording, stopRecording } = useSocketAllRounder({
     onReady: (dbMessages) => {
       if (dbMessages?.length) {
-        setMessages(dbMessages.map((m) => ({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt })));
+        const loaded = [];
+        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+        setMessages(loaded);
       }
     },
     onStreamChunk: (chunk) => setStreamingContent((prev) => prev + chunk),
@@ -101,6 +108,15 @@ export default function GuestAssistant({ navigate, alertError }) {
     onUserMessage: (text) => addMessage('user', text),
     onVoiceTextEnd: ({ text, cards }) => addMessage('assistant', text, cards),
     onError: (err) => alertError?.(err),
+    onChatCreated: () => { setMessages([]); setStreamingContent(''); setShowHistory(false); },
+    onChatsList: (chats) => { setChatHistory(chats); setShowHistory(true); },
+    onChatSwitched: (chatId, msgs) => {
+      const loaded = [];
+      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: [], id: m.id, createdAt: m.createdAt });
+      setMessages(loaded);
+      setStreamingContent('');
+      setShowHistory(false);
+    },
   });
 
   useEffect(() => {
@@ -146,10 +162,45 @@ export default function GuestAssistant({ navigate, alertError }) {
             </Typography>
           </Box>
         </Box>
+        <IconButton size="small" onClick={() => listChats()} sx={{ color: MUTED }} title="Chat history">
+          <HistoryIcon fontSize="small" />
+        </IconButton>
+        <IconButton size="small" onClick={() => newChat()} sx={{ color: MUTED }} title="New chat">
+          <AddIcon fontSize="small" />
+        </IconButton>
       </Box>
 
+      {/* History panel */}
+      {showHistory && (
+        <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: BG, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1, borderBottom: `1px solid ${BORDER}` }}>
+            <IconButton size="small" onClick={() => setShowHistory(false)} sx={{ color: MUTED }}>
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: NAVY }}>Chat history</Typography>
+          </Box>
+          {chatHistory.length === 0 ? (
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pt: 4 }}>
+              <Typography sx={{ fontSize: 13, color: MUTED }}>No previous chats</Typography>
+            </Box>
+          ) : (
+            chatHistory.map((chat) => (
+              <Box key={chat.id} onClick={() => switchChat(chat.id)}
+                sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${BORDER}`, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s' }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 500, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {chat.preview}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: MUTED, mt: 0.25 }}>
+                  {new Date(chat.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Typography>
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+
       {/* Messages */}
-      <Box
+      {!showHistory && <Box
         ref={scrollRef}
         sx={{
           flex: 1,
@@ -215,7 +266,7 @@ export default function GuestAssistant({ navigate, alertError }) {
             </Box>
           </Box>
         )}
-      </Box>
+      </Box>}
 
       {/* Input bar — fixed above bottom nav */}
       <Box
