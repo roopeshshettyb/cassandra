@@ -17,8 +17,8 @@ import constants from '../../constants.json';
 
 const GUEST_SUGGESTIONS = ['I need room service', 'Housekeeping please', 'Book a taxi', 'What time is checkout?'];
 
-const BOTTOM_NAV_H = 64;
-const INPUT_BAR_H = 68;
+const BOTTOM_NAV_H = '10dvh';
+const INPUT_BAR_H = '10dvh';
 
 function ChatBubble({ message, navigate }) {
   const isUser = message.role === 'user';
@@ -138,10 +138,8 @@ export default function GuestAssistant({ navigate, alertError }) {
   }, [handleSend]);
 
   const showThinking = (isProcessing || isSending) && !streamingContent;
-  const totalBottomOffset = BOTTOM_NAV_H + INPUT_BAR_H;
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: BG, pb: `${totalBottomOffset}px` }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: BG, pb: `calc(${BOTTOM_NAV_H} + ${INPUT_BAR_H} + env(safe-area-inset-bottom, 0px))` }}>
       {/* Header */}
       <Box sx={{ px: 2, pt: 2, pb: 1.25, display: 'flex', alignItems: 'center', gap: 1.25 }}>
         <Box sx={{ width: 30, height: 30, borderRadius: 1.5, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(197,160,34,0.3)' }}>
@@ -273,6 +271,7 @@ export default function GuestAssistant({ navigate, alertError }) {
         sx={{
           position: 'fixed',
           bottom: BOTTOM_NAV_H,
+          // Uses dvh-based BOTTOM_NAV_H for responsive offset across all screen sizes
           left: 0,
           right: 0,
           px: 2,
