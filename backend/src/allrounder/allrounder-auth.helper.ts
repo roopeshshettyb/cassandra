@@ -1,6 +1,6 @@
 import { AllRounderSession } from './allrounder-session.interface';
 import { AccountRole } from '../common/constants/constants.service';
-import { AllRounderChatService } from './allrounder-chat.service';
+import { ChatService } from '../chat/chat.service';
 
 export function parseAllRounderHandshake(client: any): { token: string | null } {
   const auth: any = client.handshake?.auth;
@@ -14,7 +14,7 @@ export async function authenticateAllRounderAndInit(
   deps: {
     authService: { verifyToken: (token: string) => Promise<any> };
     hotelsService: { findAllForAccount: (account: any) => Promise<{ data: any[] }> };
-    allRounderChatService: AllRounderChatService;
+    chatService: ChatService;
   },
   onSuccess: (session: AllRounderSession, recentMessages: any[]) => Promise<void>,
 ): Promise<void> {
@@ -63,8 +63,8 @@ ${nameList.join('\n')}`;
 - For requests: call list_requests first with filters, show results as cards, then confirm before updating.
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
 
-    const chat = await deps.allRounderChatService.findOrCreateForAccount(account.id);
-    const recentMessages = await deps.allRounderChatService.getRecentMessages(chat.id, 50);
+    const chat = await deps.chatService.findOrCreateAllRounderChat(account.id);
+    const recentMessages = await deps.chatService.getAllRounderMessages(chat.id, 50);
 
     const session: AllRounderSession = { account, scopedHotelIds, chatId: chat.id, hotelContext };
     client.session = session;

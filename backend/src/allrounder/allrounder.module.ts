@@ -4,8 +4,8 @@ import { HotelsModule } from '../hotels/hotels.module';
 import { CommonModule } from '../common/common.module';
 import { ChatContextModule } from '../chat-context/chat-context.module';
 import { LangGraphModule } from '../langgraph/langgraph.module';
+import { ChatModule } from '../chat/chat.module';
 import { AllRounderGateway } from './allrounder.gateway';
-import { AllRounderChatService, AllRounderChatRepository, AllRounderMessageRepository } from './allrounder-chat.service';
 
 @Module({
   imports: [
@@ -14,12 +14,8 @@ import { AllRounderChatService, AllRounderChatRepository, AllRounderMessageRepos
     CommonModule,
     ChatContextModule,
     LangGraphModule,
+    forwardRef(() => ChatModule),
   ],
-  providers: [
-    AllRounderChatRepository,
-    AllRounderMessageRepository,
-    AllRounderChatService,
-    AllRounderGateway,
-  ],
+  providers: [AllRounderGateway],
 })
 export class AllRounderModule {}

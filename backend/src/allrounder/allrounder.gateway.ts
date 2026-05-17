@@ -4,11 +4,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { AllRounderSession } from './allrounder-session.interface';
-import { AllRounderChatService } from './allrounder-chat.service';
-import { AllRounderMessageRole } from './allrounder-message.model';
 import { parseAllRounderHandshake, authenticateAllRounderAndInit } from './allrounder-auth.helper';
 import { LangGraphService, ToolCallRecord } from '../langgraph/langgraph.service';
 import { ChatContextService } from '../chat-context/chat-context.service';
+import { ChatService } from '../chat/chat.service';
+import { MessageRole } from '../messages/message.model';
 import { buildSystemInstructions } from '../chat/chat-prompt.builder';
 export interface AgentCard {
   type: 'request' | 'booking' | 'stat' | 'hotel';
@@ -30,7 +30,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
   constructor(
     private readonly authService: AuthService,
     private readonly hotelsService: HotelsService,
-    private readonly allRounderChatService: AllRounderChatService,
+    private readonly chatService: ChatService,
     private readonly langGraphService: LangGraphService,
     private readonly chatContextService: ChatContextService,
   ) {}
@@ -41,7 +41,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
       await authenticateAllRounderAndInit(
         client,
         token,
-        { authService: this.authService, hotelsService: this.hotelsService, allRounderChatService: this.allRounderChatService },
+        { authService: this.authService, hotelsService: this.hotelsService, chatService: this.chatService },
         async (_session, recentMessages) => {
           client.emit('ready', { messages: recentMessages });
         },
@@ -60,7 +60,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     await authenticateAllRounderAndInit(
       client,
       token,
-      { authService: this.authService, hotelsService: this.hotelsService, allRounderChatService: this.allRounderChatService },
+      { authService: this.authService, hotelsService: this.hotelsService, chatService: this.chatService },
       async (_session, recentMessages) => {
         client.emit('ready', { messages: recentMessages });
       },
@@ -78,8 +78,8 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
       const appName = 'Samantha';
 
       // Sync history to Redis so buildSystemInstructions picks it up
-      const recentMessages = await this.allRounderChatService.getRecentMessages(session.chatId, 20);
-      const contextStr = this.allRounderChatService.buildContextString(recentMessages);
+      const recentMessages = await this.chatService.getAllRounderMessages(session.chatId, 20);
+      const contextStr = this.chatService.buildAllRounderContextString(recentMessages);
       this.chatContextService.setContextString(session.chatId, contextStr);
 
       const { instructions } = await buildSystemInstructions(
@@ -121,8 +121,8 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
       client.emit('stream_end', { content: fullContent, toolCalls, cards });
 
       // Persist to DB
-      await this.allRounderChatService.saveMessage(session.chatId, AllRounderMessageRole.USER, content);
-      await this.allRounderChatService.saveMessage(session.chatId, AllRounderMessageRole.ASSISTANT, fullContent, toolCalls.length ? (toolCalls as any) : undefined);
+      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.USER, content);
+      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? (toolCalls as any) : undefined);
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });
@@ -134,7 +134,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     const session: AllRounderSession | undefined = client.session;
     if (!session) { client.emit('error', { message: 'Not authenticated' }); return; }
     try {
-      const newChat = await this.allRounderChatService.createForAccount(session.account.id);
+      const newChat = await this.chatService.createAllRounderChat(session.account.id);
       session.chatId = newChat.id;
       client.emit('chat_created', { chatId: newChat.id });
     } catch (err: any) {
@@ -148,7 +148,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     const session: AllRounderSession | undefined = client.session;
     if (!session) { client.emit('error', { message: 'Not authenticated' }); return; }
     try {
-      const chats = await this.allRounderChatService.listForAccount(session.account.id);
+      const chats = await this.chatService.listAllRounderChats(session.account.id);
       client.emit('chats_list', { chats, activeChatId: session.chatId });
     } catch (err: any) {
       this.logger.error(err);
@@ -163,7 +163,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     try {
       const chatId = payload?.chatId;
       if (!chatId) { client.emit('error', { message: 'chatId required' }); return; }
-      const messages = await this.allRounderChatService.getRecentMessages(chatId, 50);
+      const messages = await this.chatService.getAllRounderMessages(chatId, 50);
       session.chatId = chatId;
       client.emit('chat_switched', { chatId, messages });
     } catch (err: any) {

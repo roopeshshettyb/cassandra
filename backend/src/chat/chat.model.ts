@@ -22,10 +22,18 @@ export class Chat extends Model<Chat> {
   @ForeignKey(() => Booking)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'booking_id',
   })
-  bookingId: number;
+  bookingId: number | null;
+
+  @Column({
+    type: DataType.STRING(50),
+    allowNull: false,
+    defaultValue: 'booking',
+    field: 'chat_type',
+  })
+  chatType: string;
 
   @BelongsTo(() => Account, { foreignKey: 'accountId', as: 'account' })
   account: Account;
