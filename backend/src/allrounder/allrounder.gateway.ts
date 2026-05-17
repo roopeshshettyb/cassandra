@@ -10,6 +10,7 @@ import { ChatContextService } from '../chat-context/chat-context.service';
 import { ChatService } from '../chat/chat.service';
 import { MessageRole } from '../messages/message.model';
 import { buildSystemInstructions } from '../chat/chat-prompt.builder';
+import { ConstantsService } from '../common/constants/constants.service';
 export interface AgentCard {
   type: 'request' | 'booking' | 'stat' | 'hotel';
   title: string;
@@ -33,6 +34,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     private readonly chatService: ChatService,
     private readonly langGraphService: LangGraphService,
     private readonly chatContextService: ChatContextService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   async handleConnection(client: any) {
@@ -75,7 +77,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     if (!content) { client.emit('error', { message: 'content is required' }); return; }
 
     try {
-      const appName = 'Samantha';
+      const appName = this.constantsService.public.APP_NAME;
 
       // Sync history to Redis so buildSystemInstructions picks it up
       const recentMessages = await this.chatService.getAllRounderMessages(session.chatId, 20);
@@ -97,7 +99,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
       // AgentToolContext with scopedHotelIds signals LangGraphService to include AllRounder tools
       const ctx = {
         account: session.account,
-        bookingId: null as any,
+        bookingId: null,
         chatId: session.chatId,
         hotel: null,
         booking: null,
@@ -122,7 +124,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
 
       // Persist to DB
       await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.USER, content);
-      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? (toolCalls as any) : undefined);
+      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? toolCalls : undefined);
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });
@@ -163,6 +165,11 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
     try {
       const chatId = payload?.chatId;
       if (!chatId) { client.emit('error', { message: 'chatId required' }); return; }
+      const chats = await this.chatService.listAllRounderChats(session.account.id);
+      if (!chats.find((c) => c.id === chatId)) {
+        client.emit('error', { message: 'Chat not found or no access' });
+        return;
+      }
       const messages = await this.chatService.getAllRounderMessages(chatId, 50);
       session.chatId = chatId;
       client.emit('chat_switched', { chatId, messages });

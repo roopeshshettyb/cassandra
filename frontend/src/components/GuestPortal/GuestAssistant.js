@@ -15,7 +15,7 @@ import { useSocketAllRounder } from '../AllRounder/hooks/useSocketAllRounder';
 import AgentCardRenderer from '../AllRounder/AgentCardRenderer';
 import constants from '../../constants.json';
 
-const GUEST_SUGGESTIONS = ['I need room service', 'Housekeeping please', 'Book a taxi', 'What time is checkout?'];
+const GUEST_SUGGESTIONS = constants.CONCIERGE_SUGGESTIONS || [];
 
 const BOTTOM_NAV_H = '10dvh';
 const INPUT_BAR_H = '10dvh';
@@ -35,7 +35,7 @@ function ChatBubble({ message, navigate }) {
             <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
           </Box>
           <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            {constants.AI_ASSISTANT_TITLE || 'Assistant'}
+            {constants.AI_ASSISTANT_TITLE}
           </Typography>
         </Box>
       )}
@@ -71,7 +71,7 @@ function ThinkingBubble() {
       <Box sx={{ width: 18, height: 18, borderRadius: 0.75, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 1, borderRadius: '4px 14px 14px 14px', border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: SHADOW }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 1, borderRadius: '4px 14px 14px 14px', border: `1px solid ${BORDER}`, bgcolor: 'background.paper', boxShadow: SHADOW }}>
         {[0, 1, 2].map((i) => (
           <motion.div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: MUTED }}
             animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
@@ -147,7 +147,7 @@ export default function GuestAssistant({ navigate, alertError }) {
         </Box>
         <Box sx={{ flex: 1 }}>
           <Typography sx={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
-            {constants.AI_ASSISTANT_TITLE || 'AI Assistant'}
+            {constants.AI_ASSISTANT_TITLE}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <motion.div
@@ -232,7 +232,7 @@ export default function GuestAssistant({ navigate, alertError }) {
                   sx={{
                     cursor: 'pointer',
                     fontSize: 11.5,
-                    bgcolor: '#fff',
+                    bgcolor: 'background.paper',
                     border: `1px solid ${BORDER}`,
                     '&:hover': { bgcolor: 'rgba(212,175,55,0.08)', borderColor: 'primary.main' },
                     transition: 'all 0.15s',
@@ -256,10 +256,10 @@ export default function GuestAssistant({ navigate, alertError }) {
                 <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
               </Box>
               <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                {constants.AI_ASSISTANT_TITLE || 'Assistant'}
+                {constants.AI_ASSISTANT_TITLE}
               </Typography>
             </Box>
-            <Box sx={{ px: 1.75, py: 1, borderRadius: '4px 14px 14px 14px', border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: SHADOW, fontSize: 13.5, lineHeight: 1.55, '& p': { m: 0 } }}>
+            <Box sx={{ px: 1.75, py: 1, borderRadius: '4px 14px 14px 14px', border: `1px solid ${BORDER}`, bgcolor: 'background.paper', boxShadow: SHADOW, fontSize: 13.5, lineHeight: 1.55, '& p': { m: 0 } }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent + ' ▍'}</ReactMarkdown>
             </Box>
           </Box>
@@ -276,7 +276,7 @@ export default function GuestAssistant({ navigate, alertError }) {
           right: 0,
           px: 2,
           py: 1.25,
-          bgcolor: '#fff',
+          bgcolor: 'background.paper',
           borderTop: `1px solid ${BORDER}`,
           display: 'flex',
           flexDirection: 'column',

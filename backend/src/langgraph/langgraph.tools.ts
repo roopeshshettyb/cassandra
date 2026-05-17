@@ -52,7 +52,8 @@ export function createAgentTools(
         const hotelId = bookingAny?.hotelId;
         const guestId = bookingAny?.guestId;
         const nowIso = new Date().toISOString();
-        const userNotes = (args.userNotes ?? []).map((text) => ({ text, addedAt: nowIso }));
+        const userNotes: { text: string; addedAt: string }[] = [];
+        for (const text of (args.userNotes ?? [])) userNotes.push({ text, addedAt: nowIso });
 
         const dto: CreateRequestDto = {
           hotelId,
@@ -211,7 +212,7 @@ export function createAgentTools(
         func: async () => {
           const result = await hotelsService.findAllForAccount(account);
           const hotels: any[] = [];
-          for (const h of result.data) hotels.push({ id: h.id, name: h.name, address: (h as any).address ?? null, _card_type: 'hotel' });
+          for (const h of result.data) { const hotel: any = h; hotels.push({ id: hotel.id, name: hotel.name, address: hotel.address ?? null, _card_type: 'hotel' }); }
           return JSON.stringify(hotels);
         },
       }),
@@ -256,13 +257,13 @@ export function createAgentTools(
         schema: z.object({ hotelId: z.number() }),
         func: async (args) => {
           const allHotels = await hotelsService.findAllForAccount(account);
-          const hotel = allHotels.data.find((h: any) => h.id === args.hotelId);
-          if (!hotel) return JSON.stringify({ error: 'Hotel not found or no access' });
+          const hotelRecord: any = allHotels.data.find((h: any) => h.id === args.hotelId);
+          if (!hotelRecord) return JSON.stringify({ error: 'Hotel not found or no access' });
           const requestResult = await requestsService.findAllForAccount(account);
           const hotelRequests = requestResult.data.filter((r: any) => Number(r.hotelId) === Number(args.hotelId));
           const today = new Date(); const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()); const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
           const todayBookings = await bookingsRepository.findAll({ where: { hotelId: args.hotelId, [Op.or]: [{ startTime: { [Op.between]: [todayStart, todayEnd] } }, { endTime: { [Op.between]: [todayStart, todayEnd] } }] }, attributes: ['id', 'startTime', 'endTime'] });
-          return JSON.stringify({ hotelName: (hotel as any).name, stats: [{ label: 'Pending Requests', value: hotelRequests.filter((r: any) => r.status === RequestStatus.PENDING).length, _card_type: 'stat' }, { label: 'High Priority', value: hotelRequests.filter((r: any) => r.urgency === RequestUrgency.HIGH && r.status !== RequestStatus.COMPLETED).length, _card_type: 'stat' }, { label: 'In Progress', value: hotelRequests.filter((r: any) => r.status === RequestStatus.IN_PROGRESS).length, _card_type: 'stat' }, { label: "Today's Check-ins", value: todayBookings.filter((b: any) => new Date(b.startTime) >= todayStart && new Date(b.startTime) < todayEnd).length, _card_type: 'stat' }, { label: "Today's Check-outs", value: todayBookings.filter((b: any) => new Date(b.endTime) >= todayStart && new Date(b.endTime) < todayEnd).length, _card_type: 'stat' }] });
+          return JSON.stringify({ hotelName: hotelRecord.name, stats: [{ label: 'Pending Requests', value: hotelRequests.filter((r: any) => r.status === RequestStatus.PENDING).length, _card_type: 'stat' }, { label: 'High Priority', value: hotelRequests.filter((r: any) => r.urgency === RequestUrgency.HIGH && r.status !== RequestStatus.COMPLETED).length, _card_type: 'stat' }, { label: 'In Progress', value: hotelRequests.filter((r: any) => r.status === RequestStatus.IN_PROGRESS).length, _card_type: 'stat' }, { label: "Today's Check-ins", value: todayBookings.filter((b: any) => new Date(b.startTime) >= todayStart && new Date(b.startTime) < todayEnd).length, _card_type: 'stat' }, { label: "Today's Check-outs", value: todayBookings.filter((b: any) => new Date(b.endTime) >= todayStart && new Date(b.endTime) < todayEnd).length, _card_type: 'stat' }] });
         },
       }),
     });
@@ -284,7 +285,7 @@ export function createAgentTools(
           else where.endTime = { [Op.between]: [todayStart, todayEnd] };
           const bookings = await bookingsRepository.findAll({ where, include: [{ model: Account, as: 'guest', attributes: ['id', 'name', 'email'] }], limit: 20 });
           const mapped: any[] = [];
-          for (const b of bookings) mapped.push({ id: b.id, roomNumber: b.roomNumber, startTime: b.startTime, endTime: b.endTime, guestName: (b as any).guest?.name ?? null, _card_type: 'booking' });
+          for (const b of bookings) { const bk: any = b; mapped.push({ id: bk.id, roomNumber: bk.roomNumber, startTime: bk.startTime, endTime: bk.endTime, guestName: bk.guest?.name ?? null, _card_type: 'booking' }); }
           return JSON.stringify(mapped);
         },
       }),
@@ -305,7 +306,7 @@ export function createAgentTools(
           if (args.guestName) { guestInclude.where = { name: { [Op.iLike]: `%${args.guestName}%` } }; guestInclude.required = true; }
           const bookings = await bookingsRepository.findAll({ where, include: [guestInclude], limit: 10 });
           const mapped: any[] = [];
-          for (const b of bookings) mapped.push({ id: b.id, roomNumber: b.roomNumber, startTime: b.startTime, endTime: b.endTime, guestName: (b as any).guest?.name ?? null, _card_type: 'booking' });
+          for (const b of bookings) { const bk: any = b; mapped.push({ id: bk.id, roomNumber: bk.roomNumber, startTime: bk.startTime, endTime: bk.endTime, guestName: bk.guest?.name ?? null, _card_type: 'booking' }); }
           return JSON.stringify(mapped);
         },
       }),
@@ -321,7 +322,8 @@ export function createAgentTools(
           const result = await requestsService.findAllForAccount(account);
           const req = result.data.find((r: any) => r.id === args.requestId);
           if (!req) return JSON.stringify({ error: 'Request not found or no access' });
-          return JSON.stringify({ id: req.id, requestType: req.requestType, status: req.status, urgency: req.urgency, userNotes: req.userNotes ?? [], staffNotes: req.staffNotes ?? [], guestName: (req as any).guest?.name ?? null, hotelName: (req as any).hotel?.name ?? null, roomNumber: (req as any).booking?.roomNumber ?? null, createdAt: req.createdAt, _card_type: 'request' });
+          const reqAny: any = req;
+          return JSON.stringify({ id: reqAny.id, requestType: reqAny.requestType, status: reqAny.status, urgency: reqAny.urgency, userNotes: reqAny.userNotes ?? [], staffNotes: reqAny.staffNotes ?? [], guestName: reqAny.guest?.name ?? null, hotelName: reqAny.hotel?.name ?? null, roomNumber: reqAny.booking?.roomNumber ?? null, createdAt: reqAny.createdAt, _card_type: 'request' });
         },
       }),
     });
@@ -334,7 +336,8 @@ export function createAgentTools(
         schema: z.object({ hotelId: z.number(), guestEmail: z.string(), startDate: z.string(), endDate: z.string(), roomNumber: z.string().optional(), guestName: z.string().optional() }),
         func: async (args) => {
           const result = await bSvc.createBooking({ hotelId: args.hotelId, guestEmail: args.guestEmail, startDate: args.startDate, endDate: args.endDate, roomNumber: args.roomNumber, guestName: args.guestName, sendInviteImmediately: true }, account);
-          return JSON.stringify({ success: result.success, message: result.message, bookingId: (result.data as any)?.id });
+          const data: any = result.data;
+          return JSON.stringify({ success: result.success, message: result.message, bookingId: data?.id });
         },
       }),
     });
@@ -346,8 +349,9 @@ export function createAgentTools(
         description: 'Update hotel configuration: check-in/out times, address, phone, WiFi, facility hours.',
         schema: z.object({ hotelId: z.number(), checkInTime: z.string().optional(), checkOutTime: z.string().optional(), address: z.string().optional(), phoneNumber: z.string().optional(), wifiPassword: z.string().optional(), poolHours: z.string().optional(), gymHours: z.string().optional(), restaurantHours: z.string().optional(), breakfastHours: z.string().optional(), lunchHours: z.string().optional(), dinnerHours: z.string().optional() }),
         func: async (args) => {
-          const { hotelId, ...updateDto } = args;
-          await hotelsService.updateHotel(hotelId, updateDto as any, account);
+          const { hotelId, ...updateDtoRaw } = args;
+          const dto: any = updateDtoRaw;
+          await hotelsService.updateHotel(hotelId, dto, account);
           return JSON.stringify({ success: true, message: 'Hotel updated' });
         },
       }),
@@ -375,7 +379,7 @@ export function createAgentTools(
         func: async () => {
           const bookings = await bookingsRepository.findAll({ where: { guestId: account.id }, include: [{ model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address'] }], order: [['startTime', 'DESC']], limit: 5 });
           const mapped: any[] = [];
-          for (const b of bookings) mapped.push({ id: b.id, roomNumber: b.roomNumber, startTime: b.startTime, endTime: b.endTime, hotelName: (b as any).hotel?.name ?? null, hotelId: b.hotelId, _card_type: 'booking' });
+          for (const b of bookings) { const bk: any = b; mapped.push({ id: bk.id, roomNumber: bk.roomNumber, startTime: bk.startTime, endTime: bk.endTime, hotelName: bk.hotel?.name ?? null, hotelId: bk.hotelId, _card_type: 'booking' }); }
           return JSON.stringify(mapped);
         },
       }),
@@ -388,13 +392,18 @@ export function createAgentTools(
         description: 'Get hotel information (check-in/out times, WiFi, pool hours, amenities) for one of the guest bookings.',
         schema: z.object({ hotelId: z.number() }),
         func: async (args) => {
-          const hotel = await hotelsService.findById(args.hotelId);
-          if (!hotel) return JSON.stringify({ error: 'Hotel not found' });
-          return JSON.stringify({ name: (hotel as any).name, address: (hotel as any).address, checkInTime: (hotel as any).checkInTime, checkOutTime: (hotel as any).checkOutTime, wifiPassword: (hotel as any).wifiPassword, poolHours: (hotel as any).poolHours, gymHours: (hotel as any).gymHours, restaurantHours: (hotel as any).restaurantHours, breakfastHours: (hotel as any).breakfastHours, lunchHours: (hotel as any).lunchHours, dinnerHours: (hotel as any).dinnerHours });
+          const hotelRaw = await hotelsService.findById(args.hotelId);
+          if (!hotelRaw) return JSON.stringify({ error: 'Hotel not found' });
+          const h: any = hotelRaw;
+          return JSON.stringify({ name: h.name, address: h.address, checkInTime: h.checkInTime, checkOutTime: h.checkOutTime, wifiPassword: h.wifiPassword, poolHours: h.poolHours, gymHours: h.gymHours, restaurantHours: h.restaurantHours, breakfastHours: h.breakfastHours, lunchHours: h.lunchHours, dinnerHours: h.dinnerHours });
         },
       }),
     });
   }
 
-  return toolDefs.filter(({ allowedRoles }) => !!allowedRoles[account.role]).map(({ tool }) => tool);
+  const allowed: DynamicStructuredTool[] = [];
+  for (const { allowedRoles, tool } of toolDefs) {
+    if (allowedRoles[account.role]) allowed.push(tool);
+  }
+  return allowed;
 }
