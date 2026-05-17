@@ -474,7 +474,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         flexDirection: 'column',
         px: 2.5,
         pt: { xs: 1, md: 0 },
-        pb: { xs: '80px', md: 2 },
+        pb: { xs: 'calc(10dvh + env(safe-area-inset-bottom, 0px))', md: 2 },
         overflow: 'hidden',
       }}
     >

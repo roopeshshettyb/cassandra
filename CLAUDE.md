@@ -23,6 +23,7 @@
 4. `MapComponent` should be used to render multiple items
 5. This is an SPA — the back button at top right should work
 6. All designs should be responsive
+12. Never use hardcoded pixel values for spacing/padding/margins that relate to layout dimensions (bottom nav height, header height, screen sections). Use `vh`, `dvh`, `svh`, `%`, or MUI spacing units (`1` = 8px relative). Hardcoded px is only acceptable for fixed UI elements (borders, icon sizes, border-radius). For bottom nav offset use `env(safe-area-inset-bottom)` + percentage/dvh.
 7. Buttons and action visibility should be as per permissions
 8. All styling should come from theme ONLY
 9. Run build and ensure no issues
