@@ -288,43 +288,45 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
               }}
               whileTap={{ scale: 0.94 }}
             >
-              <AnimatePresence mode="wait">
-                {isActive ? (
-                  <motion.div key="wave" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                    <WaveformBars />
-                  </motion.div>
-                ) : (
-                  <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                    <MicIcon sx={{ fontSize: 40, color: NAVY_CONTRAST }} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <Box sx={{ position: 'relative', width: 44, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <AnimatePresence mode="wait">
+                  {isActive ? (
+                    <motion.div key="wave" style={{ position: 'absolute' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                      <WaveformBars />
+                    </motion.div>
+                  ) : (
+                    <motion.div key="mic" style={{ position: 'absolute' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                      <MicIcon sx={{ fontSize: 40, color: NAVY_CONTRAST }} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Box>
             </motion.button>
             <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500 }}>
               {statusText}
             </Typography>
           </Box>
 
-          {/* Suggestion chips */}
-          <AnimatePresence>
-            {!isRecording && !isProcessing && !isSpeaking && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
-                <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-                  {suggestions.map((s) => (
-                    <Box
-                      key={s}
-                      component={motion.button}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleSend(s)}
-                      sx={{ flexShrink: 0, border: `1px solid ${BORDER}`, borderRadius: 5, px: 1.5, py: 0.75, cursor: 'pointer', fontSize: 12, fontWeight: 500, color: NAVY, bgcolor: 'background.paper', boxShadow: SHADOW, whiteSpace: 'nowrap' }}
-                    >
-                      {s}
-                    </Box>
-                  ))}
+          {/* Suggestion chips — always mounted, opacity-only to prevent layout shift */}
+          <Box sx={{
+            opacity: (!isRecording && !isProcessing && !isSpeaking) ? 1 : 0,
+            pointerEvents: (!isRecording && !isProcessing && !isSpeaking) ? 'auto' : 'none',
+            transition: 'opacity 0.2s',
+          }}>
+            <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
+              {suggestions.map((s) => (
+                <Box
+                  key={s}
+                  component={motion.button}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleSend(s)}
+                  sx={{ flexShrink: 0, border: `1px solid ${BORDER}`, borderRadius: 5, px: 1.5, py: 0.75, cursor: 'pointer', fontSize: 12, fontWeight: 500, color: NAVY, bgcolor: 'background.paper', boxShadow: SHADOW, whiteSpace: 'nowrap' }}
+                >
+                  {s}
                 </Box>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              ))}
+            </Box>
+          </Box>
 
           {/* Prefer to type */}
           <Box sx={{ textAlign: 'center', pt: 1 }}>
