@@ -43,8 +43,8 @@ function extractCardsFromToolCalls(toolCalls) {
   return cards;
 }
 
-const BOTTOM_NAV_H = '10dvh';
-const INPUT_BAR_H = '10dvh';
+const BOTTOM_NAV_H = '7.5dvh';
+const INPUT_BAR_H = '7dvh';
 
 function ChatBubble({ message, navigate }) {
   const isUser = message.role === 'user';
