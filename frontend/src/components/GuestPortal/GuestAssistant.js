@@ -162,10 +162,10 @@ export default function GuestAssistant({ navigate, alertError }) {
             </Typography>
           </Box>
         </Box>
-        <IconButton size="small" onClick={() => listChats()} sx={{ color: MUTED }} title="Chat history">
+        <IconButton size="small" onClick={() => listChats()} sx={{ color: NAVY, '&:hover': { color: 'primary.main' } }} title="Chat history">
           <HistoryIcon fontSize="small" />
         </IconButton>
-        <IconButton size="small" onClick={() => newChat()} sx={{ color: MUTED }} title="New chat">
+        <IconButton size="small" onClick={() => newChat()} sx={{ color: NAVY, '&:hover': { color: 'primary.main' } }} title="New chat">
           <AddIcon fontSize="small" />
         </IconButton>
       </Box>
