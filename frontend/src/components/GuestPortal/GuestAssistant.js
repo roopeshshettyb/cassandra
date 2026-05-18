@@ -114,6 +114,15 @@ export default function GuestAssistant({ navigate, alertError }) {
   const [streamingContent, setStreamingContent] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+
+  // Main back button closes history panel via popstate
+  useEffect(() => {
+    if (!showHistory) return;
+    window.history.pushState({ chatHistory: true }, '');
+    const onPop = () => setShowHistory(false);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [showHistory]);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -197,10 +206,7 @@ export default function GuestAssistant({ navigate, alertError }) {
       {/* History panel */}
       {showHistory && (
         <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: BG, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1, borderBottom: `1px solid ${BORDER}` }}>
-            <IconButton size="small" onClick={() => setShowHistory(false)} sx={{ color: MUTED }}>
-              <ArrowBackIcon fontSize="small" />
-            </IconButton>
+          <Box sx={{ px: 2, py: 1.25, borderBottom: `1px solid ${BORDER}` }}>
             <Typography sx={{ fontWeight: 600, fontSize: 14, color: NAVY }}>Chat history</Typography>
           </Box>
           {chatHistory.length === 0 ? (
