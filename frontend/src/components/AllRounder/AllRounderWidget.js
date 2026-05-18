@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import MicIcon from '@mui/icons-material/Mic';
-import StopIcon from '@mui/icons-material/Stop';
 import SendIcon from '@mui/icons-material/Send';
 import AddIcon from '@mui/icons-material/Add';
 import HistoryIcon from '@mui/icons-material/History';
@@ -289,38 +288,15 @@ function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
             )}
           </Box>
 
-          {/* Mic waveform in chat mode when recording */}
-          {isRecording && (
-            <Box sx={{ px: 2, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <motion.div key={i} style={{ flex: 1, height: 3, borderRadius: 99, background: '#DC2626' }}
-                  animate={{ scaleY: [0.3, 1.8, 0.3] }}
-                  transition={{ duration: 0.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.07 }} />
-              ))}
-              <Typography sx={{ fontSize: 10, color: '#DC2626', ml: 0.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Listening…</Typography>
-            </Box>
-          )}
-
           {/* Input */}
           <Box sx={{ px: 2, pt: 1.5, pb: `calc(12px + env(safe-area-inset-bottom, 0px))`, borderTop: `1px solid ${BORDER}`, bgcolor: 'background.paper', flexShrink: 0 }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-              {/* Mic toggle in chat */}
-              <Box sx={{ position: 'relative', flexShrink: 0 }}>
-                {isRecording && (
-                  <motion.div style={{ position: 'absolute', inset: -5, borderRadius: '50%', border: '1.5px solid rgba(220,38,38,0.3)', pointerEvents: 'none' }}
-                    animate={{ opacity: [0.7, 0], scale: [1, 1.6] }} transition={{ duration: 1.1, repeat: Infinity }} />
-                )}
-                <IconButton onClick={() => isRecording ? stopRecording() : startRecording()} disabled={!isReady} size="small"
-                  sx={{ width: 36, height: 36, borderRadius: '50%', background: isRecording ? 'rgba(220,38,38,0.08)' : 'transparent', border: `1.5px solid ${isRecording ? 'rgba(220,38,38,0.4)' : BORDER}`, color: isRecording ? 'error.main' : 'text.secondary', transition: 'all 0.2s' }}>
-                  {isRecording ? <StopIcon sx={{ fontSize: 16 }} /> : <MicIcon sx={{ fontSize: 16 }} />}
-                </IconButton>
-              </Box>
               <TextField
                 inputRef={inputRef} fullWidth multiline maxRows={3}
                 value={input} onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder={isRecording ? 'Listening…' : 'Ask anything…'}
-                disabled={!isReady || isRecording} size="small"
+                placeholder="Ask anything…"
+                disabled={!isReady} size="small"
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3, fontSize: 13, bgcolor: BG, '& fieldset': { borderColor: BORDER }, '&.Mui-focused fieldset': { borderColor: 'primary.main' } } }}
                 InputProps={{
                   endAdornment: (

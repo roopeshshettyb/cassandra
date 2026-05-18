@@ -14,7 +14,7 @@ import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, SHADOW_HOVER, NAVY_CONTRAST, HOVER_BG, BG } from '../../theme';
-import { ChatBubble, ThinkingBubble, useAutoScroll, mapDbMessages } from '../AllRounder/AllRounderChatComponents';
+import { ChatBubble, ThinkingBubble, WaveformBars, useAutoScroll, mapDbMessages } from '../AllRounder/AllRounderChatComponents';
 import constants from '../../constants.json';
 
 /** Return `count` items picked at random from `arr` (no repeats). */
@@ -31,32 +31,6 @@ dayjs.extend(relativeTime);
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
-// ── Waveform bars for listening state ──────────────────────────────────────
-function WaveformBars() {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: 28 }}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <motion.div
-          key={i}
-          style={{
-            width: 4,
-            height: 20,
-            borderRadius: 99,
-            background: NAVY_CONTRAST,
-            originY: 0.5,
-          }}
-          animate={{ scaleY: [0.4, 1.5, 0.4] }}
-          transition={{
-            duration: 0.6,
-            repeat: Infinity,
-            delay: i * 0.1,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-    </Box>
-  );
-}
 
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
