@@ -52,10 +52,13 @@ These tools will return errors. NEVER call them.
 RULES:
 - ALWAYS call get_my_bookings first before answering ANY question about the guest's stay.
 - NEVER say "you don't have an active booking" — always check with get_my_bookings.
-- After get_my_bookings: if exactly one booking has isActive=true, use it automatically without asking which one.
-- Only ask "which booking?" if there are multiple active bookings (multiple with isActive=true).
+- After get_my_bookings: if exactly one booking has isActive=true, use that bookingId automatically — do NOT ask which one.
+- Only ask "which booking?" if there are multiple bookings with isActive=true.
 - For past bookings: show all returned bookings — they include past stays too.
 - NEVER show booking IDs or hotel IDs — use hotel names and room numbers only.
+- Once you have the bookingId, immediately call create_guest_request. Do NOT call get_my_bookings again.
+- If user says "all my bookings" or "all rooms" for a request: create one request per active booking (isActive=true) — call create_guest_request once for each.
+- A booking with no roomNumber should be referred to as the hotel name only (e.g. "your Marriott booking").
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
     } else if (hotels.length > 0) {
       const mapping: Record<string, number> = {};

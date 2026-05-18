@@ -133,7 +133,8 @@ export function extractCardsFromToolCalls(toolCalls) {
         cards.push({ type: 'request', title: `${String(item.requestType ?? '').replace(/_/g, ' ')} — ${item.guestName ?? 'Guest'}`, subtitle: `${item.hotelName ?? ''}${roomPart}` || undefined, badge: item.urgency, route: `/requests/${item.id}`, meta: { status: item.status, urgency: item.urgency } });
       } else if (item._card_type === 'booking') {
         const checkIn = item.startTime ? new Date(item.startTime).toLocaleDateString() : '';
-        cards.push({ type: 'booking', title: item.guestName ?? `Room ${item.roomNumber}`, subtitle: `Room ${item.roomNumber} · ${checkIn}`, route: `/bookings/${item.id}`, meta: {} });
+        const roomLabel = item.roomNumber ? `Room ${item.roomNumber}` : 'No room assigned';
+        cards.push({ type: 'booking', title: item.guestName ?? roomLabel, subtitle: `${roomLabel} · ${checkIn}`, route: `/bookings/${item.id}`, meta: {} });
       } else if (item._card_type === 'hotel') {
         cards.push({ type: 'hotel', title: item.name, subtitle: item.address, route: `/hotels/${item.id}`, meta: {} });
       } else if (item._card_type === 'stat') {
