@@ -145,10 +145,12 @@ export function extractCardsFromToolCalls(toolCalls) {
   return cards;
 }
 
-// Auto-scroll helper: always scrolls to bottom on new messages
 export function useAutoScroll(scrollRef, deps) {
   React.useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const frame = requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
   }, deps); // eslint-disable-line
 }
 
