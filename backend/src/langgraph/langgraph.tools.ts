@@ -341,8 +341,8 @@ export function createAgentTools(
       allowedRoles: { [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'create_booking',
-        description: 'Create a new booking. Requires hotel ID, guest email, start and end dates (YYYY-MM-DD).',
-        schema: z.object({ hotelId: z.number(), guestEmail: z.string(), startDate: z.string(), endDate: z.string(), roomNumber: z.string().optional(), guestName: z.string().optional() }),
+        description: 'Create a new booking. Requires hotel ID, guest email, room number, start and end dates (YYYY-MM-DD). ALWAYS ask for room number before calling this — never omit it.',
+        schema: z.object({ hotelId: z.number(), guestEmail: z.string(), roomNumber: z.string().describe('Room number — required, always ask before calling'), startDate: z.string(), endDate: z.string(), guestName: z.string().optional() }),
         func: async (args) => {
           const result = await bSvc.createBooking({ hotelId: args.hotelId, guestEmail: args.guestEmail, startDate: args.startDate, endDate: args.endDate, roomNumber: args.roomNumber, guestName: args.guestName, sendInviteImmediately: true }, account);
           const data: any = result.data;
@@ -370,11 +370,21 @@ export function createAgentTools(
       allowedRoles: { [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'get_costs',
-        description: 'Get AI usage cost summary.',
+        description: 'Get AI usage cost summary grouped by guest name.',
         schema: z.object({}),
         func: async () => {
           const result = await costsService.aggregateCosts(account);
-          return JSON.stringify(result.data);
+          const entries: any[] = Array.isArray(result.data) ? result.data : Object.values(result.data as object);
+          const byGuest: Record<string, number> = {};
+          for (const e of entries) {
+            const name: string = e.guestName || 'Unknown';
+            byGuest[name] = (byGuest[name] || 0) + (e.totalCost || 0);
+          }
+          const summary: any[] = [];
+          for (const name of Object.keys(byGuest)) {
+            summary.push({ guestName: name, totalCost: Number(byGuest[name].toFixed(6)) });
+          }
+          return JSON.stringify(summary);
         },
       }),
     });
