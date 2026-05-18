@@ -75,7 +75,7 @@ export default function GuestAssistant({ navigate, alertError }) {
 
   const showThinking = (isProcessing || isSending) && !streamingContent;
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: BG, pb: `calc(${BOTTOM_NAV_H} + ${INPUT_BAR_H} + env(safe-area-inset-bottom, 0px))` }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: `calc(100dvh - ${BOTTOM_NAV_H})`, bgcolor: BG, pb: `calc(${INPUT_BAR_H} + env(safe-area-inset-bottom, 0px))` }}>
       {/* Header */}
       <Box sx={{ px: 2, pt: 2, pb: 1.25, display: 'flex', alignItems: 'center', gap: 1.25 }}>
         <Box sx={{ width: 30, height: 30, borderRadius: 1.5, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(197,160,34,0.3)' }}>
@@ -183,7 +183,7 @@ export default function GuestAssistant({ navigate, alertError }) {
         </AnimatePresence>
         {showThinking && <ThinkingBubble />}
         {streamingContent && (
-          <Box sx={{ alignSelf: 'flex-start', maxWidth: '84%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <Box sx={{ alignSelf: 'flex-start', maxWidth: '84%', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 18, height: 18, borderRadius: 0.75, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
@@ -211,7 +211,6 @@ export default function GuestAssistant({ navigate, alertError }) {
           py: 1.25,
           bgcolor: 'background.paper',
           borderTop: `1px solid ${BORDER}`,
-          display: 'flex',
           flexDirection: 'column',
           gap: isRecording ? 1 : 0,
           zIndex: 10,
