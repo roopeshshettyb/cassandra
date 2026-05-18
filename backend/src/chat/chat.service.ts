@@ -65,8 +65,7 @@ export class ChatService {
   }
 
   async getAllRounderMessages(chatId: number, limit = 50) {
-    const msgs = await this.messagesService.findRecentByChatId(chatId, limit);
-    return msgs.reverse();
+    return this.messagesService.findRecentByChatId(chatId, limit);
   }
 
   buildAllRounderContextString(messages: any[]): string {

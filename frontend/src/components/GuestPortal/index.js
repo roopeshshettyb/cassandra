@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import constants from '../../constants.json';
@@ -17,7 +17,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
   const isChatMode = searchParams.get('mode') === 'chat';
   const isConcierge = activeTab === 'concierge';
-  const hideNav = isConcierge && isChatMode;
+  const [assistantChatMode, setAssistantChatMode] = useState(false);
+  const hideNav = (isConcierge && isChatMode) || (activeTab === 'assistant' && assistantChatMode);
   const fullScreen = isConcierge || activeTab === 'assistant';
 
   const isWithinStay = account?.role !== GUEST ? true : !!booking?.isWithinStay;
@@ -187,7 +188,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
       >
         {/* Always-mounted assistant preserves chat state across tab switches */}
         <Box sx={{ display: activeTab === 'assistant' ? 'contents' : 'none' }}>
-          <GuestAssistant navigate={navigate} alertError={alertError} />
+          <GuestAssistant navigate={navigate} alertError={alertError} onModeChange={(m) => setAssistantChatMode(m === 'chat')} />
         </Box>
         {/* Don't render concierge voice content until connected — Loader covers the blank */}
         {activeTab !== 'assistant' && (activeTab !== 'concierge' || isChatMode || isReady || !bookingWithinStay) && renderTab()}
