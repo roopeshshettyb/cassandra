@@ -115,7 +115,7 @@ Which one do you mean?
     const chat = await deps.chatService.findOrCreateAllRounderChat(account.id);
     const recentMessages = await deps.chatService.getAllRounderMessages(chat.id, 50);
 
-    const session: AllRounderSession = { account, scopedHotelIds, chatId: chat.id, hotelContext };
+    const session: AllRounderSession = { account, scopedHotelIds, chatId: chat.id, hotelContext, languageCode: (chat as any).languageCode ?? null };
     client.session = session;
     delete client.sessionPending;
     await onSuccess(session, recentMessages);

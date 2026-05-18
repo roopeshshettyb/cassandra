@@ -91,7 +91,7 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
         appName,
         session.hotelContext,
         session.account.role,
-        'en',
+        session.languageCode,
         false,
       );
 
@@ -117,6 +117,13 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
           client.emit('stream_chunk', { content: chunk });
         } else {
           for (const tc of chunk.toolCalls) toolCalls.push(tc);
+        }
+      }
+
+      // Update session language if agent called set_chat_language
+      for (const tc of toolCalls) {
+        if (tc.toolName === 'set_chat_language' && tc.input?.languageCode) {
+          session.languageCode = String(tc.input.languageCode);
         }
       }
 
