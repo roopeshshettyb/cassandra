@@ -38,12 +38,24 @@ export async function authenticateAllRounderAndInit(
     }
 
     if (account.role === AccountRole.GUEST) {
-      hotelContext = `This is a GUEST account.
-- ALWAYS call get_my_bookings first to retrieve the guest's bookings before answering any question about stays, hotels, or room service.
-- NEVER say "you don't have an active booking" without calling get_my_bookings first.
-- To create a service request, call create_guest_request with the correct bookingId from get_my_bookings.
-- If guest has multiple bookings, ask which room/hotel they mean before creating a request.
-- NEVER show booking IDs or hotel IDs to the guest — use hotel names and room numbers only.
+      hotelContext = `This is a GUEST account with potentially multiple bookings.
+
+TOOLS TO USE:
+- get_my_bookings → retrieve all guest bookings (call this for ANY question about stays, hotels, rooms, or services)
+- create_guest_request → create a service request for a specific booking
+- get_hotel_info → get hotel details (check-in time, WiFi, amenities) for a booking's hotel
+
+TOOLS TO NEVER USE (they require a single active booking context which does not exist here):
+- get_booking, get_hotel, create_request, update_request, get_pending_requests, append_message, search_restaurant_menu
+These tools will return errors. NEVER call them.
+
+RULES:
+- ALWAYS call get_my_bookings first before answering ANY question about the guest's stay.
+- NEVER say "you don't have an active booking" — always check with get_my_bookings.
+- After get_my_bookings: if exactly one booking has isActive=true, use it automatically without asking which one.
+- Only ask "which booking?" if there are multiple active bookings (multiple with isActive=true).
+- For past bookings: show all returned bookings — they include past stays too.
+- NEVER show booking IDs or hotel IDs — use hotel names and room numbers only.
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
     } else if (hotels.length > 0) {
       const mapping: Record<string, number> = {};

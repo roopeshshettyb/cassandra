@@ -383,12 +383,17 @@ export function createAgentTools(
       allowedRoles: { [AccountRole.GUEST]: true },
       tool: new DynamicStructuredTool({
         name: 'get_my_bookings',
-        description: 'Get all bookings for the current guest.',
+        description: 'Get all bookings for the current guest. Each booking has isActive=true if the stay is currently ongoing.',
         schema: z.object({}),
         func: async () => {
           const bookings = await bookingsRepository.findAll({ where: { guestId: account.id }, include: [{ model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address'] }], order: [['startTime', 'DESC']], limit: 5 });
+          const now = new Date();
           const mapped: any[] = [];
-          for (const b of bookings) { const bk: any = b; mapped.push({ id: bk.id, roomNumber: bk.roomNumber, startTime: bk.startTime, endTime: bk.endTime, hotelName: bk.hotel?.name ?? null, hotelId: bk.hotelId, _card_type: 'booking' }); }
+          for (const b of bookings) {
+            const bk: any = b;
+            const isActive = bk.startTime && bk.endTime && now >= new Date(bk.startTime) && now <= new Date(bk.endTime);
+            mapped.push({ id: bk.id, roomNumber: bk.roomNumber, startTime: bk.startTime, endTime: bk.endTime, hotelName: bk.hotel?.name ?? null, hotelId: bk.hotelId, isActive: !!isActive, _card_type: 'booking' });
+          }
           return JSON.stringify(mapped);
         },
       }),

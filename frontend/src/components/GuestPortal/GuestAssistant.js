@@ -13,7 +13,7 @@ import { useSocketAllRounder } from '../AllRounder/hooks/useSocketAllRounder';
 import { ChatBubble, ThinkingBubble, useAutoScroll, mapDbMessages } from '../AllRounder/AllRounderChatComponents';
 import constants from '../../constants.json';
 
-const GUEST_SUGGESTIONS = constants.CONCIERGE_SUGGESTIONS || [];
+const GUEST_SUGGESTIONS = constants.CONCIERGE_SUGGESTIONS;
 
 const BOTTOM_NAV_H = '7.5dvh';
 

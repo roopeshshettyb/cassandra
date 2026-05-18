@@ -26,7 +26,7 @@ const getPanelWidth = () => {
   return window.innerWidth <= 1024 ? Math.min(PANEL_WIDTH, Math.floor(window.innerWidth * 0.42)) : PANEL_WIDTH;
 };
 
-const ROLE_SUGGESTIONS = constants.AI_ASSISTANT_ROLE_SUGGESTIONS || {};
+const ROLE_SUGGESTIONS = constants.AI_ASSISTANT_ROLE_SUGGESTIONS;
 
 
 function ChatPanel({ account, navigate, alertError, isMobile, onClose }) {
@@ -363,7 +363,7 @@ export default function AllRounderWidget({ account, navigate, alertError, isMobi
         zIndex: 1600,
         borderLeft: `1px solid ${BORDER}`,
         boxShadow: '-8px 0 40px rgba(0,0,0,0.1)',
-        transform: open ? 'translateX(0)' : `translateX(${isMobile ? '100%' : `${panelWidth}px`})`,
+        transform: open ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         display: 'flex', flexDirection: 'column',
       }}>
