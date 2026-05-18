@@ -76,7 +76,7 @@ export default function GuestAssistant({ navigate, alertError }) {
   return (
     <Box sx={{
       position: 'fixed',
-      top: 'calc(var(--app-header-height) + 2svh)',
+      top: 'var(--app-header-height)',
       left: 0,
       right: 0,
       bottom: BOTTOM_NAV_H,
