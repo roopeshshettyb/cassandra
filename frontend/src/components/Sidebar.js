@@ -288,7 +288,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                   // but MapComponent might pass them as props if it maps 'data' to 'Component'.
                   // Standard MapComponent usually iterates data and renders Component with item as 'data' prop.
                 />
-                {account && account.role !== 'guest' && onAssistantToggle && (
+                {account && onAssistantToggle && (
                   <>
                     <Divider />
                     <Box

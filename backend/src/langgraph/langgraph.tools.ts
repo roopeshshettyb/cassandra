@@ -22,6 +22,18 @@ export interface AllRounderDeps {
   bookingsRepository: typeof Booking;
 }
 
+function getTodayRange(): { todayStart: Date; todayEnd: Date } {
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  return { todayStart, todayEnd };
+}
+
+async function verifyHotelAccess(hotelsService: HotelsService, account: any, hotelId: number): Promise<any | null> {
+  const allHotels = await hotelsService.findAllForAccount(account);
+  return allHotels.data.find((h: any) => h.id === hotelId) || null;
+}
+
 export function createAgentTools(
   ctx: AgentToolContext,
   bookingsService: BookingsService,
@@ -256,12 +268,11 @@ export function createAgentTools(
         description: 'Get pending/high-priority/in-progress request counts and today check-ins/check-outs for a hotel.',
         schema: z.object({ hotelId: z.number() }),
         func: async (args) => {
-          const allHotels = await hotelsService.findAllForAccount(account);
-          const hotelRecord: any = allHotels.data.find((h: any) => h.id === args.hotelId);
+          const hotelRecord = await verifyHotelAccess(hotelsService, account, args.hotelId);
           if (!hotelRecord) return JSON.stringify({ error: 'Hotel not found or no access' });
           const requestResult = await requestsService.findAllForAccount(account);
           const hotelRequests = requestResult.data.filter((r: any) => Number(r.hotelId) === Number(args.hotelId));
-          const today = new Date(); const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()); const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+          const { todayStart, todayEnd } = getTodayRange();
           const todayBookings = await bookingsRepository.findAll({ where: { hotelId: args.hotelId, [Op.or]: [{ startTime: { [Op.between]: [todayStart, todayEnd] } }, { endTime: { [Op.between]: [todayStart, todayEnd] } }] }, attributes: ['id', 'startTime', 'endTime'] });
           return JSON.stringify({ hotelName: hotelRecord.name, stats: [{ label: 'Pending Requests', value: hotelRequests.filter((r: any) => r.status === RequestStatus.PENDING).length, _card_type: 'stat' }, { label: 'High Priority', value: hotelRequests.filter((r: any) => r.urgency === RequestUrgency.HIGH && r.status !== RequestStatus.COMPLETED).length, _card_type: 'stat' }, { label: 'In Progress', value: hotelRequests.filter((r: any) => r.status === RequestStatus.IN_PROGRESS).length, _card_type: 'stat' }, { label: "Today's Check-ins", value: todayBookings.filter((b: any) => new Date(b.startTime) >= todayStart && new Date(b.startTime) < todayEnd).length, _card_type: 'stat' }, { label: "Today's Check-outs", value: todayBookings.filter((b: any) => new Date(b.endTime) >= todayStart && new Date(b.endTime) < todayEnd).length, _card_type: 'stat' }] });
         },
@@ -275,9 +286,8 @@ export function createAgentTools(
         description: "Get bookings checking in or checking out today.",
         schema: z.object({ hotelId: z.number(), type: z.enum(['checkin', 'checkout', 'all']).optional() }),
         func: async (args) => {
-          const allHotels = await hotelsService.findAllForAccount(account);
-          if (!allHotels.data.find((h: any) => h.id === args.hotelId)) return JSON.stringify({ error: 'Hotel not found or no access' });
-          const today = new Date(); const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()); const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+          if (!await verifyHotelAccess(hotelsService, account, args.hotelId)) return JSON.stringify({ error: 'Hotel not found or no access' });
+          const { todayStart, todayEnd } = getTodayRange();
           const where: any = { hotelId: args.hotelId };
           if (!args.type || args.type === 'all') where[Op.or] = [{ startTime: { [Op.between]: [todayStart, todayEnd] } }, { endTime: { [Op.between]: [todayStart, todayEnd] } }];
           else if (args.type === 'checkin'
@@ -298,8 +308,7 @@ export function createAgentTools(
         description: 'Search bookings by room number or guest name.',
         schema: z.object({ hotelId: z.number(), roomNumber: z.string().optional(), guestName: z.string().optional() }),
         func: async (args) => {
-          const allHotels = await hotelsService.findAllForAccount(account);
-          if (!allHotels.data.find((h: any) => h.id === args.hotelId)) return JSON.stringify({ error: 'Hotel not found or no access' });
+          if (!await verifyHotelAccess(hotelsService, account, args.hotelId)) return JSON.stringify({ error: 'Hotel not found or no access' });
           const where: any = { hotelId: args.hotelId };
           if (args.roomNumber) where.roomNumber = args.roomNumber;
           const guestInclude: any = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
@@ -337,7 +346,7 @@ export function createAgentTools(
         func: async (args) => {
           const result = await bSvc.createBooking({ hotelId: args.hotelId, guestEmail: args.guestEmail, startDate: args.startDate, endDate: args.endDate, roomNumber: args.roomNumber, guestName: args.guestName, sendInviteImmediately: true }, account);
           const data: any = result.data;
-          return JSON.stringify({ success: result.success, message: result.message, bookingId: data?.id });
+          return JSON.stringify({ success: result.success, message: result.message, bookingId: data?.id, roomNumber: data?.roomNumber ?? null, hotelId: data?.hotelId ?? null, startTime: data?.startTime ?? null, endTime: data?.endTime ?? null });
         },
       }),
     });
@@ -381,6 +390,29 @@ export function createAgentTools(
           const mapped: any[] = [];
           for (const b of bookings) { const bk: any = b; mapped.push({ id: bk.id, roomNumber: bk.roomNumber, startTime: bk.startTime, endTime: bk.endTime, hotelName: bk.hotel?.name ?? null, hotelId: bk.hotelId, _card_type: 'booking' }); }
           return JSON.stringify(mapped);
+        },
+      }),
+    });
+
+    toolDefs.push({
+      allowedRoles: { [AccountRole.GUEST]: true },
+      tool: new DynamicStructuredTool({
+        name: 'create_guest_request',
+        description: 'Create a service request for a specific guest booking. Call get_my_bookings first to find booking IDs and room numbers. If guest has multiple bookings, ask which room number before calling this.',
+        schema: z.object({
+          bookingId: z.number().describe('Booking ID from get_my_bookings'),
+          requestType: z.nativeEnum(RequestType),
+          urgency: z.nativeEnum(RequestUrgency),
+          userNotes: z.array(z.string()).optional(),
+        }),
+        func: async (args) => {
+          const booking = await bookingsRepository.findOne({ where: { id: args.bookingId, guestId: account.id } });
+          if (!booking) return JSON.stringify({ error: 'Booking not found or does not belong to you' });
+          const nowIso = new Date().toISOString();
+          const userNotes: { text: string; addedAt: string }[] = [];
+          for (const text of (args.userNotes ?? [])) userNotes.push({ text, addedAt: nowIso });
+          const result = await requestsService.create({ hotelId: (booking as any).hotelId, guestId: account.id, bookingId: args.bookingId, requestType: args.requestType, urgency: args.urgency, userNotes }, account);
+          return JSON.stringify(result);
         },
       }),
     });

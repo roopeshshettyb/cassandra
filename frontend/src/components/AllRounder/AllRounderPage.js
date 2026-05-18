@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Box, Typography, TextField, IconButton, InputAdornment, Chip, Divider } from '@mui/material';
+import { useState, useRef, useCallback } from 'react';
+import { Box, Typography, TextField, IconButton, InputAdornment, Chip } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
@@ -8,10 +8,10 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BORDER, SHADOW, BRAND_GRADIENT, PRIMARY_CONTRAST, MUTED, NAVY, BG } from '../../theme';
+import { BORDER, SHADOW, BRAND_GRADIENT, PRIMARY_CONTRAST, MUTED, BG } from '../../theme';
 import { useSocketAllRounder } from './hooks/useSocketAllRounder';
-import AgentCardRenderer from './AgentCardRenderer';
 import constants from '../../constants.json';
+import { ChatBubble, ThinkingBubble, DateSeparator, buildMessageList, useAutoScroll } from './AllRounderChatComponents';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -27,98 +27,6 @@ const ROLE_SUGGESTIONS = {
   guest: ['I need room service', 'Request housekeeping', 'Book a taxi for me', "What's included in my stay?"],
 };
 
-function getDateLabel(date) {
-  if (!date) return null;
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return null;
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function DateSeparator({ label }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, my: 1 }}>
-      <Box sx={{ flex: 1, height: '1px', bgcolor: BORDER }} />
-      <Typography sx={{ fontSize: 10, color: MUTED, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-        {label}
-      </Typography>
-      <Box sx={{ flex: 1, height: '1px', bgcolor: BORDER }} />
-    </Box>
-  );
-}
-
-function ChatBubble({ message, navigate }) {
-  const isUser = message.role === 'user';
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18 }}
-      style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '78%', display: 'flex', flexDirection: 'column', gap: 8 }}
-    >
-      {!isUser && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Box sx={{ width: 20, height: 20, borderRadius: 1, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <SmartToyIcon sx={{ fontSize: 12, color: PRIMARY_CONTRAST }} />
-          </Box>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {constants.AI_ASSISTANT_TITLE || 'AI Assistant'}
-          </Typography>
-        </Box>
-      )}
-      <Box
-        sx={{
-          px: 2,
-          py: 1.25,
-          borderRadius: isUser ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
-          background: isUser ? BRAND_GRADIENT : 'background.paper',
-          border: isUser ? 'none' : `1px solid ${BORDER}`,
-          boxShadow: SHADOW,
-          color: isUser ? PRIMARY_CONTRAST : 'text.primary',
-          fontSize: 14,
-          lineHeight: 1.6,
-          '& p': { m: 0 },
-          '& ul, & ol': { m: 0, pl: 2 },
-          '& li': { mt: 0.4 },
-          '& a': { color: 'inherit' },
-          '& code': { fontFamily: 'monospace', fontSize: 12, bgcolor: 'action.hover', px: 0.5, borderRadius: 0.5 },
-          '& pre': { m: 0, p: 1, bgcolor: 'action.hover', borderRadius: 1, overflowX: 'auto' },
-          '& strong': { fontWeight: 700 },
-          '& h1, & h2, & h3': { mt: 1, mb: 0.5 },
-          '& table': { borderCollapse: 'collapse', width: '100%' },
-          '& th, & td': { border: `1px solid ${BORDER}`, px: 1, py: 0.5, fontSize: 13 },
-        }}
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
-      </Box>
-      {message.cards?.length > 0 && <AgentCardRenderer cards={message.cards} navigate={navigate} />}
-    </motion.div>
-  );
-}
-
-function ThinkingBubble() {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, alignSelf: 'flex-start' }}>
-      <Box sx={{ width: 20, height: 20, borderRadius: 1, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <SmartToyIcon sx={{ fontSize: 12, color: PRIMARY_CONTRAST }} />
-      </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.75, py: 1.25, borderRadius: '4px 16px 16px 16px', border: `1px solid ${BORDER}`, bgcolor: 'background.paper', boxShadow: SHADOW }}>
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            style={{ width: 6, height: 6, borderRadius: '50%', background: MUTED }}
-            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
-          />
-        ))}
-      </Box>
-    </Box>
-  );
-}
 
 function MicButton({ isRecording, isReady, isProcessing, isSpeaking, onClick }) {
   const active = isRecording || isProcessing || isSpeaking;
@@ -163,20 +71,6 @@ function MicButton({ isRecording, isReady, isProcessing, isSpeaking, onClick }) 
   );
 }
 
-function buildMessageList(messages) {
-  const result = [];
-  let lastDateLabel = null;
-
-  for (const msg of messages) {
-    const dateLabel = getDateLabel(msg.createdAt);
-    if (dateLabel && dateLabel !== lastDateLabel) {
-      result.push({ type: 'separator', label: dateLabel, key: `sep-${dateLabel}` });
-      lastDateLabel = dateLabel;
-    }
-    result.push({ type: 'message', msg, key: String(msg.id) });
-  }
-  return result;
-}
 
 export default function AllRounderPage({ account, navigate, alertError }) {
   const [messages, setMessages] = useState([]);
@@ -207,10 +101,7 @@ export default function AllRounderPage({ account, navigate, alertError }) {
     onError: (err) => alertError?.(err),
   });
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, streamingContent]);
+  useAutoScroll(scrollRef, [messages, streamingContent]);
 
   const handleSend = useCallback((text) => {
     const content = (text || input).trim();

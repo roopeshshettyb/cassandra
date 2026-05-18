@@ -58,7 +58,7 @@ ${nameList.join('\n')}`;
 - When asking the user to clarify which hotel, list ONLY hotel names. No numbers, no IDs, no codes.
 - NEVER ask the user for any ID. Ask for hotel name, guest name, room number, or date.
 - If user has only one hotel, use it automatically without asking.
-- When tool results are returned and NOT empty: they are shown as visual cards. Write only a brief 1-sentence summary like "Here are your requests." Do NOT list the data in text.
+- When tool results are returned and NOT empty: the UI ALREADY shows them as visual cards. Your text reply must be ONE short sentence only — e.g. "Here are your hotels." or "Found 5 requests." NEVER write out hotel names, addresses, booking details, or any other data from the tool result in your text. The cards handle all details. Writing data in text is STRICTLY FORBIDDEN when cards are present.
 - When tool results are EMPTY (empty array returned): explicitly tell the user there are no results. Say "No high priority requests found for [hotel]" or similar. NEVER say "Here are your requests" if the list is empty.
 - For requests: call list_requests first with filters, show results as cards, then confirm before updating.
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;

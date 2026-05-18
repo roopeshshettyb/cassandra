@@ -120,11 +120,20 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
       }
 
       const cards = this.extractCards(toolCalls);
-      client.emit('stream_end', { content: fullContent, toolCalls, cards });
+
+      // If cards present, replace verbose text with a brief summary — UI shows cards
+      let displayContent = fullContent;
+      if (cards.length > 0) {
+        const typeLabel = cards[0].type === 'hotel' ? 'hotels' : cards[0].type === 'request' ? 'requests' : cards[0].type === 'booking' ? 'bookings' : cards[0].type === 'stat' ? 'stats' : 'results';
+        displayContent = fullContent.trim().split(/[.!?]/)[0].trim() || `Here are your ${typeLabel}.`;
+        if (displayContent.length > 80) displayContent = `Here are your ${typeLabel}.`;
+      }
+
+      client.emit('stream_end', { content: displayContent, toolCalls, cards });
 
       // Persist to DB
       await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.USER, content);
-      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? toolCalls : undefined);
+      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, displayContent, toolCalls.length ? toolCalls : undefined);
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });

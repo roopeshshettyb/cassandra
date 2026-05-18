@@ -1,112 +1,22 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box, Typography, TextField, IconButton, InputAdornment, Chip } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import SendIcon from '@mui/icons-material/Send';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AddIcon from '@mui/icons-material/Add';
 import HistoryIcon from '@mui/icons-material/History';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { BORDER, SHADOW, BRAND_GRADIENT, PRIMARY_CONTRAST, MUTED, NAVY, BG } from '../../theme';
 import { useSocketAllRounder } from '../AllRounder/hooks/useSocketAllRounder';
-import AgentCardRenderer from '../AllRounder/AgentCardRenderer';
+import { ChatBubble, ThinkingBubble, useAutoScroll, mapDbMessages } from '../AllRounder/AllRounderChatComponents';
 import constants from '../../constants.json';
 
 const GUEST_SUGGESTIONS = constants.CONCIERGE_SUGGESTIONS || [];
 
-function extractCardsFromToolCalls(toolCalls) {
-  if (!toolCalls?.length) return [];
-  const cards = [];
-  for (const tc of toolCalls) {
-    if (!tc.output) continue;
-    let parsed;
-    try { parsed = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output; } catch { continue; }
-    const items = Array.isArray(parsed) ? parsed : parsed?.stats ? parsed.stats : [];
-    for (const item of items) {
-      if (!item._card_type) continue;
-      if (item._card_type === 'request') {
-        const roomPart = item.roomNumber ? ` · Room ${item.roomNumber}` : '';
-        cards.push({ type: 'request', title: `${String(item.requestType ?? '').replace(/_/g, ' ')} — ${item.guestName ?? 'Guest'}`, subtitle: `${item.hotelName ?? ''}${roomPart}` || undefined, badge: item.urgency, route: `/requests/${item.id}`, meta: { status: item.status, urgency: item.urgency } });
-      } else if (item._card_type === 'booking') {
-        const checkIn = item.startTime ? new Date(item.startTime).toLocaleDateString() : '';
-        cards.push({ type: 'booking', title: item.guestName ?? `Room ${item.roomNumber}`, subtitle: `Room ${item.roomNumber} · ${checkIn}`, route: `/bookings/${item.id}`, meta: {} });
-      } else if (item._card_type === 'hotel') {
-        cards.push({ type: 'hotel', title: item.name, subtitle: item.address, route: `/hotels/${item.id}`, meta: {} });
-      } else if (item._card_type === 'stat') {
-        cards.push({ type: 'stat', title: String(item.value ?? ''), subtitle: item.label, meta: {} });
-      }
-    }
-  }
-  return cards;
-}
-
 const BOTTOM_NAV_H = '7.5dvh';
 const INPUT_BAR_H = '7dvh';
-
-function ChatBubble({ message, navigate }) {
-  const isUser = message.role === 'user';
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18 }}
-      style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '84%', display: 'flex', flexDirection: 'column', gap: 6 }}
-    >
-      {!isUser && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 18, height: 18, borderRadius: 0.75, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
-          </Box>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: MUTED, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            {constants.AI_ASSISTANT_TITLE}
-          </Typography>
-        </Box>
-      )}
-      <Box
-        sx={{
-          px: 1.75,
-          py: 1,
-          borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-          background: isUser ? BRAND_GRADIENT : '#fff',
-          border: isUser ? 'none' : `1px solid ${BORDER}`,
-          boxShadow: SHADOW,
-          color: isUser ? PRIMARY_CONTRAST : 'text.primary',
-          fontSize: 13.5,
-          lineHeight: 1.55,
-          '& p': { m: 0 },
-          '& ul, & ol': { m: 0, pl: 2 },
-          '& li': { mt: 0.3 },
-          '& a': { color: 'inherit' },
-          '& code': { fontFamily: 'monospace', fontSize: 11.5 },
-          '& strong': { fontWeight: 700 },
-        }}
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
-      </Box>
-      {message.cards?.length > 0 && <AgentCardRenderer cards={message.cards} navigate={navigate} />}
-    </motion.div>
-  );
-}
-
-function ThinkingBubble() {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: 'flex-start' }}>
-      <Box sx={{ width: 18, height: 18, borderRadius: 0.75, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <SmartToyIcon sx={{ fontSize: 11, color: PRIMARY_CONTRAST }} />
-      </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 1, borderRadius: '4px 14px 14px 14px', border: `1px solid ${BORDER}`, bgcolor: 'background.paper', boxShadow: SHADOW }}>
-        {[0, 1, 2].map((i) => (
-          <motion.div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: MUTED }}
-            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }} />
-        ))}
-      </Box>
-    </Box>
-  );
-}
 
 export default function GuestAssistant({ navigate, alertError }) {
   const [messages, setMessages] = useState([]);
@@ -132,11 +42,7 @@ export default function GuestAssistant({ navigate, alertError }) {
 
   const { isReady, isRecording, isProcessing, isSpeaking, isSending, sendMessage, newChat, listChats, switchChat, startRecording, stopRecording } = useSocketAllRounder({
     onReady: (dbMessages) => {
-      if (dbMessages?.length) {
-        const loaded = [];
-        for (const m of dbMessages) loaded.push({ role: m.role, content: m.content, cards: extractCardsFromToolCalls(m.toolCalls), id: m.id, createdAt: m.createdAt });
-        setMessages(loaded);
-      }
+      if (dbMessages?.length) setMessages(mapDbMessages(dbMessages));
     },
     onStreamChunk: (chunk) => setStreamingContent((prev) => prev + chunk),
     onStreamEnd: ({ content, cards }) => { setStreamingContent(''); addMessage('assistant', content, cards); },
@@ -146,18 +52,13 @@ export default function GuestAssistant({ navigate, alertError }) {
     onChatCreated: () => { setMessages([]); setStreamingContent(''); setShowHistory(false); },
     onChatsList: (chats) => { setChatHistory(chats); setShowHistory(true); },
     onChatSwitched: (chatId, msgs) => {
-      const loaded = [];
-      for (const m of msgs) loaded.push({ role: m.role, content: m.content, cards: extractCardsFromToolCalls(m.toolCalls), id: m.id, createdAt: m.createdAt });
-      setMessages(loaded);
+      setMessages(mapDbMessages(msgs));
       setStreamingContent('');
       setShowHistory(false);
     },
   });
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, streamingContent]);
+  useAutoScroll(scrollRef, [messages, streamingContent]);
 
   const handleSend = useCallback((text) => {
     const content = (text || input).trim();
@@ -298,12 +199,12 @@ export default function GuestAssistant({ navigate, alertError }) {
         )}
       </Box>}
 
-      {/* Input bar — fixed above bottom nav */}
+      {/* Input bar — hidden on history screen */}
       <Box
         sx={{
+          display: showHistory ? 'none' : 'flex',
           position: 'fixed',
           bottom: BOTTOM_NAV_H,
-          // Uses dvh-based BOTTOM_NAV_H for responsive offset across all screen sizes
           left: 0,
           right: 0,
           px: 2,
