@@ -52,13 +52,15 @@ These tools will return errors. NEVER call them.
 RULES:
 - ALWAYS call get_my_bookings first before answering ANY question about the guest's stay.
 - NEVER say "you don't have an active booking" — always check with get_my_bookings.
-- After get_my_bookings: if exactly one booking has isActive=true, use that bookingId automatically — do NOT ask which one.
-- Only ask "which booking?" if there are multiple bookings with isActive=true.
+- After get_my_bookings, follow these rules for service requests:
+  1. If user says "all my active bookings" or "all rooms": create request for every booking where isActive=true — call create_guest_request once per active booking, no need to ask.
+  2. If user names specific rooms/hotels (e.g. "Room 217 and Room 416"): create request for each mentioned booking — match by roomNumber or hotel name.
+  3. If user says "my booking" or "my stay" without specifying and there is exactly ONE active booking: use it automatically, do NOT ask.
+  4. If user says "my booking" and there are MULTIPLE active bookings: list them as numbered options and ask which one(s) they want — e.g. "Which booking(s)?\n1. Marriott (no room)\n2. The Lodhi · Room 217". User can reply "1", "2", "1 and 2", etc.
+- Once you know the bookingId(s), call create_guest_request immediately. Do NOT call get_my_bookings again.
 - For past bookings: show all returned bookings — they include past stays too.
-- NEVER show booking IDs or hotel IDs — use hotel names and room numbers only.
-- Once you have the bookingId, immediately call create_guest_request. Do NOT call get_my_bookings again.
-- If user says "all my bookings" or "all rooms" for a request: create one request per active booking (isActive=true) — call create_guest_request once for each.
-- A booking with no roomNumber should be referred to as the hotel name only (e.g. "your Marriott booking").
+- NEVER show booking IDs — use hotel names and room numbers only.
+- A booking with no roomNumber → refer to it by hotel name only (e.g. "your Marriott booking").
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
     } else if (hotels.length > 0) {
       const mapping: Record<string, number> = {};
