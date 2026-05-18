@@ -36,8 +36,8 @@ export default function GuestAssistant({ navigate, alertError }) {
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
-  const addMessage = useCallback((role, content, cards = []) => {
-    setMessages((prev) => [...prev, { role, content, cards, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }]);
+  const addMessage = useCallback((role, content, cards = [], options = []) => {
+    setMessages((prev) => [...prev, { role, content, cards, options, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }]);
   }, []);
 
   const { isReady, isRecording, isProcessing, isSpeaking, isSending, sendMessage, newChat, listChats, switchChat, startRecording, stopRecording } = useSocketAllRounder({
@@ -45,7 +45,7 @@ export default function GuestAssistant({ navigate, alertError }) {
       if (dbMessages?.length) setMessages(mapDbMessages(dbMessages));
     },
     onStreamChunk: (chunk) => setStreamingContent((prev) => prev + chunk),
-    onStreamEnd: ({ content, cards }) => { setStreamingContent(''); addMessage('assistant', content, cards); },
+    onStreamEnd: ({ content, cards, options }) => { setStreamingContent(''); addMessage('assistant', content, cards, options); },
     onUserMessage: (text) => addMessage('user', text),
     onVoiceTextEnd: ({ text, cards }) => addMessage('assistant', text, cards),
     onError: (err) => alertError?.(err),
@@ -178,7 +178,7 @@ export default function GuestAssistant({ navigate, alertError }) {
 
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
-            <ChatBubble key={msg.id} message={msg} navigate={navigate} />
+            <ChatBubble key={msg.id} message={msg} navigate={navigate} onOptionSelect={handleSend} />
           ))}
         </AnimatePresence>
         {showThinking && <ThinkingBubble />}

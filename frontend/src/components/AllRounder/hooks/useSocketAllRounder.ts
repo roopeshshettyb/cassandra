@@ -17,7 +17,7 @@ interface UseSocketAllRounderProps {
   onReady?: (messages: any[]) => void;
   onUserMessage?: (text: string) => void;
   onStreamChunk?: (chunk: string) => void;
-  onStreamEnd?: (result: { content: string; cards: AgentCard[] }) => void;
+  onStreamEnd?: (result: { content: string; cards: AgentCard[]; options: string[] }) => void;
   onVoiceTextChunk?: (text: string) => void;
   onVoiceTextEnd?: (result: { text: string; cards: AgentCard[] }) => void;
   onError?: (error: string) => void;
@@ -176,7 +176,7 @@ export function useSocketAllRounder({
 
     socket.on('stream_end', (payload: any) => {
       setIsSending(false);
-      onStreamEndRef.current?.({ content: payload?.content || '', cards: payload?.cards || [] });
+      onStreamEndRef.current?.({ content: payload?.content || '', cards: payload?.cards || [], options: payload?.options || [] });
     });
 
     socket.on('voice_user_message', (payload: any) => {

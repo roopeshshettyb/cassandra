@@ -30,7 +30,7 @@ export function DateSeparator({ label }) {
   );
 }
 
-export function ChatBubble({ message, navigate }) {
+export function ChatBubble({ message, navigate, onOptionSelect }) {
   const isUser = message.role === 'user';
   return (
     <motion.div
@@ -63,6 +63,26 @@ export function ChatBubble({ message, navigate }) {
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
       </Box>
       {message.cards?.length > 0 && <AgentCardRenderer cards={message.cards} navigate={navigate} />}
+      {!isUser && message.options?.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.25 }}>
+          {message.options.map((opt, i) => (
+            <Box
+              key={i}
+              onClick={() => onOptionSelect?.(opt)}
+              sx={{
+                px: 1.5, py: 0.9, borderRadius: 2,
+                border: `1px solid ${BORDER}`,
+                cursor: 'pointer', fontSize: 12.5, color: 'text.primary',
+                bgcolor: 'background.paper', boxShadow: SHADOW,
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                transition: 'all 0.15s',
+              }}
+            >
+              {opt}
+            </Box>
+          ))}
+        </Box>
+      )}
     </motion.div>
   );
 }

@@ -41,8 +41,9 @@ export async function authenticateAllRounderAndInit(
       const mapping: Record<string, number> = {};
       const nameList: string[] = [];
       for (const h of hotels) {
-        mapping[h.name] = h.id;
-        nameList.push(`${h.name}${h.address ? ` (${h.address})` : ''}`);
+        const displayKey = h.address ? `${h.name} (${h.address})` : h.name;
+        mapping[displayKey] = h.id;
+        nameList.push(displayKey);
       }
       hotelContext = `INTERNAL HOTEL MAPPING (for tool calls only — NEVER show these numbers to the user):
 ${JSON.stringify(mapping)}
@@ -53,14 +54,29 @@ ${nameList.join('\n')}`;
       hotelContext = 'No hotels are currently assigned to this account.';
     }
 
-    hotelContext += `\n\nCRITICAL RULES:
-- NEVER show any hotel ID, request ID, booking ID, or any numeric database reference to the user — not in lists, not in sentences, not anywhere.
-- When asking the user to clarify which hotel, list ONLY hotel names. No numbers, no IDs, no codes.
+    hotelContext += `\n\n═══ MANDATORY HOTEL DISAMBIGUATION ═══
+BEFORE calling ANY tool that requires a hotelId: you MUST confirm the exact hotel.
+- If user gives a partial/ambiguous name (e.g. "radisson", "marriott"): scan the hotel list above, find ALL hotels whose name contains that word, STOP — do NOT call any tool yet.
+- If more than 15 hotels match: reply "There are many hotels matching that name. Could you type a more specific name or city?"
+- Otherwise reply in this EXACT format (one hotel per line, MANDATORY):
+I found N hotels matching "[word]":
+1. Hotel Name (Address)
+2. Hotel Name (Address)
+Which one do you mean?
+- OUTPUT FORMAT IS MANDATORY: one numbered item per line. NEVER comma-separated. NEVER "Please choose from: A, B, C".
+- NEVER silently pick one. NEVER call a tool when hotel is ambiguous.
+- Only call the tool AFTER the user picks a specific option from your numbered list.
+- If user has only one hotel total → use it automatically.
+- If user's message already matches exactly one hotel name in the list → use it automatically.
+- If user asks for stats without specifying a hotel and there are more than 5 hotels → ask "Which hotel would you like stats for?" (do NOT list all hotels — wait for them to type a name).
+
+═══ CRITICAL RULES ═══
+- NEVER show any hotel ID, request ID, booking ID, or any numeric database reference to the user.
 - NEVER ask the user for any ID. Ask for hotel name, guest name, room number, or date.
-- If user has only one hotel, use it automatically without asking.
-- When tool results are returned and NOT empty: the UI ALREADY shows them as visual cards. Your text reply must be ONE short sentence only — e.g. "Here are your hotels." or "Found 5 requests." NEVER write out hotel names, addresses, booking details, or any other data from the tool result in your text. The cards handle all details. Writing data in text is STRICTLY FORBIDDEN when cards are present.
-- When tool results are EMPTY (empty array returned): explicitly tell the user there are no results. Say "No high priority requests found for [hotel]" or similar. NEVER say "Here are your requests" if the list is empty.
-- For requests: call list_requests first with filters, show results as cards, then confirm before updating.
+- When tool results are NOT empty: UI shows visual cards. Your text = ONE short sentence only (e.g. "Here are the stats for [hotel name]."). NEVER list data in text when cards are present.
+- When tool results are EMPTY: tell user explicitly ("No pending requests found for [hotel]."). NEVER say "Here are your requests" when list is empty.
+- For requests: call list_requests first with filters, show cards, confirm before updating.
+- When user asks for "stats", "overview", "dashboard", "summary" → ALWAYS call get_hotel_stats, NOT list_requests.
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
 
     const chat = await deps.chatService.findOrCreateAllRounderChat(account.id);

@@ -265,7 +265,7 @@ export function createAgentTools(
       allowedRoles: { [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'get_hotel_stats',
-        description: 'Get pending/high-priority/in-progress request counts and today check-ins/check-outs for a hotel.',
+        description: 'Get hotel stats overview/dashboard: pending request count, high-priority count, in-progress count, today check-ins and check-outs. Use this when user asks for "stats", "overview", "dashboard", or "summary" of a hotel.',
         schema: z.object({ hotelId: z.number() }),
         func: async (args) => {
           const hotelRecord = await verifyHotelAccess(hotelsService, account, args.hotelId);

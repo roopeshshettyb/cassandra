@@ -11,6 +11,7 @@ import { ChatService } from '../chat/chat.service';
 import { MessageRole } from '../messages/message.model';
 import { buildSystemInstructions } from '../chat/chat-prompt.builder';
 import { ConstantsService } from '../common/constants/constants.service';
+
 export interface AgentCard {
   type: 'request' | 'booking' | 'stat' | 'hotel';
   title: string;
@@ -129,11 +130,12 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
         if (displayContent.length > 80) displayContent = `Here are your ${typeLabel}.`;
       }
 
-      client.emit('stream_end', { content: displayContent, toolCalls, cards });
+      const options = cards.length === 0 ? this.extractOptions(fullContent) : [];
+      client.emit('stream_end', { content: displayContent, toolCalls, cards, options });
 
       // Persist to DB
       await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.USER, content);
-      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, displayContent, toolCalls.length ? toolCalls : undefined);
+      await this.chatService.saveAllRounderMessage(session.chatId, MessageRole.ASSISTANT, fullContent, toolCalls.length ? toolCalls : undefined);
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });
@@ -190,6 +192,16 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
 
   handleDisconnect(client: any) {
     client.session = undefined;
+  }
+
+  private extractOptions(text: string): string[] {
+    const lines = text.split('\n');
+    const opts: string[] = [];
+    for (const line of lines) {
+      const m = line.match(/^\d+\.\s+(.+)$/);
+      if (m) opts.push(m[1].trim());
+    }
+    return opts.length >= 2 ? opts : [];
   }
 
   private extractCards(toolCalls: ToolCallRecord[]): AgentCard[] {
