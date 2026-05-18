@@ -37,7 +37,15 @@ export async function authenticateAllRounderAndInit(
       for (const h of hotels) scopedHotelIds.push(h.id);
     }
 
-    if (hotels.length > 0) {
+    if (account.role === AccountRole.GUEST) {
+      hotelContext = `This is a GUEST account.
+- ALWAYS call get_my_bookings first to retrieve the guest's bookings before answering any question about stays, hotels, or room service.
+- NEVER say "you don't have an active booking" without calling get_my_bookings first.
+- To create a service request, call create_guest_request with the correct bookingId from get_my_bookings.
+- If guest has multiple bookings, ask which room/hotel they mean before creating a request.
+- NEVER show booking IDs or hotel IDs to the guest — use hotel names and room numbers only.
+- "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
+    } else if (hotels.length > 0) {
       const mapping: Record<string, number> = {};
       const nameList: string[] = [];
       for (const h of hotels) {
@@ -49,12 +57,9 @@ export async function authenticateAllRounderAndInit(
 ${JSON.stringify(mapping)}
 
 Hotels this user can access (use these names when talking to user):
-${nameList.join('\n')}`;
-    } else {
-      hotelContext = 'No hotels are currently assigned to this account.';
-    }
+${nameList.join('\n')}
 
-    hotelContext += `\n\n═══ MANDATORY HOTEL DISAMBIGUATION ═══
+═══ MANDATORY HOTEL DISAMBIGUATION ═══
 BEFORE calling ANY tool that requires a hotelId: you MUST confirm the exact hotel.
 - If user gives a partial/ambiguous name (e.g. "radisson", "marriott"): scan the hotel list above, find ALL hotels whose name contains that word, STOP — do NOT call any tool yet.
 - If more than 15 hotels match: reply "There are many hotels matching that name. Could you type a more specific name or city?"
@@ -78,6 +83,9 @@ Which one do you mean?
 - For requests: call list_requests first with filters, show cards, confirm before updating.
 - When user asks for "stats", "overview", "dashboard", "summary" → ALWAYS call get_hotel_stats, NOT list_requests.
 - "Tea/drinks" = room_service. "Cleaning/towels" = house_keeping. "Laundry" = laundry. "Cab/taxi/transfer" = airport_transfer.`;
+    } else {
+      hotelContext = 'No hotels are currently assigned to this account.';
+    }
 
     const chat = await deps.chatService.findOrCreateAllRounderChat(account.id);
     const recentMessages = await deps.chatService.getAllRounderMessages(chat.id, 50);
