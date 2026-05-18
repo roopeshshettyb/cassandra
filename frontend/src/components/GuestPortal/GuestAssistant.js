@@ -16,7 +16,6 @@ import constants from '../../constants.json';
 const GUEST_SUGGESTIONS = constants.CONCIERGE_SUGGESTIONS || [];
 
 const BOTTOM_NAV_H = '7.5dvh';
-const INPUT_BAR_H = '7dvh';
 
 export default function GuestAssistant({ navigate, alertError }) {
   const [messages, setMessages] = useState([]);
@@ -75,7 +74,17 @@ export default function GuestAssistant({ navigate, alertError }) {
 
   const showThinking = (isProcessing || isSending) && !streamingContent;
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: `calc(100dvh - ${BOTTOM_NAV_H})`, bgcolor: BG, pb: `calc(${INPUT_BAR_H} + env(safe-area-inset-bottom, 0px))` }}>
+    <Box sx={{
+      position: 'fixed',
+      top: 'calc(var(--app-header-height) + 2svh)',
+      left: 0,
+      right: 0,
+      bottom: BOTTOM_NAV_H,
+      display: 'flex',
+      flexDirection: 'column',
+      bgcolor: BG,
+      zIndex: 1,
+    }}>
       {/* Header */}
       <Box sx={{ px: 2, pt: 2, pb: 1.25, display: 'flex', alignItems: 'center', gap: 1.25 }}>
         <Box sx={{ width: 30, height: 30, borderRadius: 1.5, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(197,160,34,0.3)' }}>
@@ -199,21 +208,17 @@ export default function GuestAssistant({ navigate, alertError }) {
         )}
       </Box>}
 
-      {/* Input bar — hidden on history screen */}
+      {/* Input bar */}
       <Box
         sx={{
           display: showHistory ? 'none' : 'flex',
-          position: 'fixed',
-          bottom: BOTTOM_NAV_H,
-          left: 0,
-          right: 0,
+          flexShrink: 0,
           px: 2,
           py: 1.25,
           bgcolor: 'background.paper',
           borderTop: `1px solid ${BORDER}`,
           flexDirection: 'column',
           gap: isRecording ? 1 : 0,
-          zIndex: 10,
         }}
       >
         {isRecording && (
