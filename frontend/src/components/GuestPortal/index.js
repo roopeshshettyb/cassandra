@@ -1,11 +1,10 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { Box } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import constants from '../../constants.json';
 import GuestHome from './GuestHome';
 import GuestConcierge from './GuestConcierge';
 import GuestRequests from './GuestRequests';
-import GuestAssistant from './GuestAssistant';
 import GuestBottomNav from './GuestBottomNav';
 import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 
@@ -17,9 +16,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
   const isChatMode = searchParams.get('mode') === 'chat';
   const isConcierge = activeTab === 'concierge';
-  const [assistantChatMode, setAssistantChatMode] = useState(false);
-  const hideNav = (isConcierge && isChatMode) || (activeTab === 'assistant' && assistantChatMode);
-  const fullScreen = isConcierge || activeTab === 'assistant';
+  const hideNav = isConcierge && isChatMode;
+  const fullScreen = isConcierge;
 
   const isWithinStay = account?.role !== GUEST ? true : !!booking?.isWithinStay;
 
@@ -186,12 +184,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
           transition: 'right 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }}
       >
-        {/* Always-mounted assistant preserves chat state across tab switches */}
-        <Box sx={{ display: activeTab === 'assistant' ? 'contents' : 'none' }}>
-          <GuestAssistant navigate={navigate} alertError={alertError} onModeChange={(m) => setAssistantChatMode(m === 'chat')} />
-        </Box>
         {/* Don't render concierge voice content until connected — Loader covers the blank */}
-        {activeTab !== 'assistant' && (activeTab !== 'concierge' || isChatMode || isReady || !bookingWithinStay) && renderTab()}
+        {(activeTab !== 'concierge' || isChatMode || isReady || !bookingWithinStay) && renderTab()}
         {!hideNav && <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />}
       </Box>
     );
@@ -199,11 +193,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
 
   return (
     <Box sx={{ position: 'relative', minHeight: '100dvh', bgcolor: 'background.default', pt: { xs: 'calc(var(--app-header-height) + 2svh)', md: '4svh' } }}>
-      {/* Always-mounted assistant preserves chat state across tab switches */}
-      <Box sx={{ display: activeTab === 'assistant' ? 'block' : 'none' }}>
-        <GuestAssistant navigate={navigate} alertError={alertError} />
-      </Box>
-      {activeTab !== 'assistant' && renderTab()}
+      {renderTab()}
       <GuestBottomNav activeTab={activeTab} onTabChange={setActiveTab} isMobile={isMobile} sidebarOpen={sidebarOpen} account={account} />
     </Box>
   );

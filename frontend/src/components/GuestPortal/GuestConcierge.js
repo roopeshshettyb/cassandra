@@ -13,7 +13,8 @@ import remarkGfm from 'remark-gfm';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, SHADOW_HOVER, NAVY_CONTRAST, HOVER_BG } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, SHADOW_HOVER, NAVY_CONTRAST, HOVER_BG, BG } from '../../theme';
+import { ChatBubble, ThinkingBubble, useAutoScroll, mapDbMessages } from '../AllRounder/AllRounderChatComponents';
 import constants from '../../constants.json';
 
 /** Return `count` items picked at random from `arr` (no repeats). */
@@ -57,49 +58,6 @@ function WaveformBars() {
   );
 }
 
-// ── Chat bubble renderer ───────────────────────────────────────────────────
-function ChatBubble({ message }) {
-  const isUser = message.role === 'user';
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        maxWidth: '75%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-      }}
-    >
-      <Box
-        sx={{
-          px: 2,
-          py: 1.1,
-          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-          background: isUser ? BRAND_GRADIENT : 'background.paper',
-          bgcolor: isUser ? undefined : 'background.paper',
-          border: isUser ? 'none' : `1px solid ${BORDER}`,
-          boxShadow: SHADOW,
-          color: isUser ? PRIMARY_CONTRAST : 'text.primary',
-          '& p': { m: 0 },
-          '& ul, & ol': { m: 0, pl: 2 },
-          '& li': { mt: 0.4 },
-          '& a': { color: 'inherit' },
-          '& code': { fontFamily: 'monospace', fontSize: 12 },
-        }}
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
-      </Box>
-      {message.createdAt && (
-        <Typography sx={{ fontSize: 10, color: MUTED, alignSelf: isUser ? 'flex-end' : 'flex-start', px: 0.5 }}>
-          {dayjs(message.createdAt).fromNow()}
-        </Typography>
-      )}
-    </motion.div>
-  );
-}
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
 function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt }) {
@@ -108,17 +66,13 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
   const [ready, setReady] = useState(false);
   const [sending, setSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  // Pick 8 random suggestions once on mount
   const [suggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 8));
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const initialPromptSentRef = useRef(false);
 
-  useEffect(() => {
-    const scrollEl = scrollRef.current;
-    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [messages, streamingContent]);
+  useAutoScroll(scrollRef, [messages, streamingContent]);
 
   useEffect(() => {
     if (!bookingId || !isWithinStay) return;
@@ -140,7 +94,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
     socket.on('ready', (payload) => {
       setReady(true);
       if (Array.isArray(payload?.messages)) {
-        setMessages(payload.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })));
+        setMessages(mapDbMessages(payload.messages));
       }
       if (initialPrompt && !initialPromptSentRef.current) {
         initialPromptSentRef.current = true;
@@ -156,7 +110,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
     socket.on('stream_end', (p) => {
       setStreamingContent('');
       if (p.content) {
-        setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
+        setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, cards: [], options: [], createdAt: new Date().toISOString() }]);
       }
       setSending(false);
       inputRef.current?.focus?.();
@@ -266,24 +220,8 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
         {messages.map((m) => (
           <ChatBubble key={m.id} message={m} />
         ))}
-        {streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
-        {!streamingContent && sending && (
-          <Box
-            sx={{
-              alignSelf: 'flex-start',
-              px: 2,
-              py: 1.25,
-              borderRadius: '18px 18px 18px 4px',
-              bgcolor: 'background.paper',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-            }}
-          >
-            <CircularProgress size={14} sx={{ color: 'primary.main' }} />
-            <Typography sx={{ fontSize: 13, color: MUTED }}>Thinking…</Typography>
-          </Box>
-        )}
+        {streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent, cards: [], options: [] }} />}
+        {!streamingContent && sending && <ThinkingBubble />}
       </Box>
 
       {/* Suggestion chips */}

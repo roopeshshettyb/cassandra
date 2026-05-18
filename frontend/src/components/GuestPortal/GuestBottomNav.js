@@ -5,14 +5,12 @@ import { motion } from 'framer-motion';
 import HomeIcon from '@mui/icons-material/Home';
 import MicIcon from '@mui/icons-material/Mic';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { BRAND_GRADIENT, BORDER, NAV_BG } from '../../theme';
 
 const tabs = [
   { id: 'home', icon: HomeIcon, label: 'Home' },
   { id: 'concierge', icon: MicIcon, label: 'Concierge' },
   { id: 'requests', icon: AccessTimeIcon, label: 'Requests' },
-  { id: 'assistant', icon: SmartToyIcon, label: 'Assistant' },
 ];
 
 export default function GuestBottomNav({ activeTab, onTabChange, isMobile, sidebarOpen, account }) {
