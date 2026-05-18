@@ -86,6 +86,20 @@ export class BookingsService {
     const startTime = this.parseDateTime(startDate, checkInTime);
     const endTime = this.parseDateTime(endDate, checkOutTime);
 
+    if (dto.roomNumber?.trim()) {
+      const roomConflict = await this.bookingsRepository.findOne({
+        where: {
+          hotelId: hotel.id,
+          roomNumber: dto.roomNumber.trim(),
+          startTime: { [Op.lt]: endTime },
+          endTime: { [Op.gt]: startTime },
+        },
+      });
+      if (roomConflict) {
+        throw new BadRequestException(`Room ${dto.roomNumber.trim()} is already booked for the selected dates`);
+      }
+    }
+
     const booking = await this.bookingsRepository.create({
       guestId: guest.id,
       hotelId: hotel.id,

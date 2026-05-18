@@ -79,7 +79,7 @@ export default function GuestAssistant({ navigate, alertError }) {
       top: 'var(--app-header-height)',
       left: 0,
       right: 0,
-      bottom: BOTTOM_NAV_H,
+      bottom: `calc(${BOTTOM_NAV_H} + env(safe-area-inset-bottom, 0px))`,
       display: 'flex',
       flexDirection: 'column',
       bgcolor: BG,

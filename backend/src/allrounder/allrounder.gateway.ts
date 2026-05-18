@@ -122,12 +122,15 @@ export class AllRounderGateway implements OnGatewayConnection, OnGatewayDisconne
 
       const cards = this.extractCards(toolCalls);
 
-      // If cards present and agent is NOT asking a question, replace verbose text with brief summary
+      // If cards present: keep full text only for short disambiguation questions (<200 chars with ?), clip everything else
       let displayContent = fullContent;
-      if (cards.length > 0 && !fullContent.includes('?')) {
-        const typeLabel = cards[0].type === 'hotel' ? 'hotels' : cards[0].type === 'request' ? 'requests' : cards[0].type === 'booking' ? 'bookings' : cards[0].type === 'stat' ? 'stats' : 'results';
-        displayContent = fullContent.trim().split(/[.!?]/)[0].trim() || `Here are your ${typeLabel}.`;
-        if (displayContent.length > 80) displayContent = `Here are your ${typeLabel}.`;
+      if (cards.length > 0) {
+        const isShortQuestion = fullContent.includes('?') && fullContent.trim().length < 200;
+        if (!isShortQuestion) {
+          const typeLabel = cards[0].type === 'hotel' ? 'hotels' : cards[0].type === 'request' ? 'requests' : cards[0].type === 'booking' ? 'bookings' : cards[0].type === 'stat' ? 'stats' : 'results';
+          displayContent = fullContent.trim().split(/[.!?]/)[0].trim() || `Here are your ${typeLabel}.`;
+          if (displayContent.length > 80) displayContent = `Here are your ${typeLabel}.`;
+        }
       }
 
       const options = cards.length === 0 ? this.extractOptions(fullContent) : [];
