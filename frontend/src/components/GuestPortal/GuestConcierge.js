@@ -88,10 +88,11 @@ function SuggestionStrip({ items, onSelect }) {
         sx={{
           display: 'flex',
           gap: 1,
-          overflowX: 'hidden',
+          overflowX: 'auto',
           overflowY: 'hidden',
           pb: 1,
           px: 0.5,
+          WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
         }}
@@ -178,7 +179,7 @@ function ChatBubble({ message }) {
 }
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
-export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt, suggestions }) {
+export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt, suggestions, showHeader = true }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
@@ -193,6 +194,8 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
   const historyToggleRef = useRef(null);
   const historyPanelRef = useRef(null);
   const initialPromptSentRef = useRef(false);
+  const shouldAutoScrollRef = useRef(true);
+  const scrollRafRef = useRef(null);
 
   useEffect(() => {
     if (!showHistory) return;
@@ -207,10 +210,32 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     return () => document.removeEventListener('pointerdown', onDocPointerDown);
   }, [showHistory]);
 
+  const scheduleAutoScroll = useCallback(() => {
+    if (!shouldAutoScrollRef.current || scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const scrollEl = scrollRef.current;
+      if (!scrollEl || !shouldAutoScrollRef.current) return;
+      scrollEl.scrollTop = scrollEl.scrollHeight;
+    });
+  }, []);
+
   useEffect(() => {
-    const scrollEl = scrollRef.current;
-    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [messages, streamingContent]);
+    scheduleAutoScroll();
+  }, [messages, streamingContent, scheduleAutoScroll]);
+
+  useEffect(() => () => {
+    if (scrollRafRef.current !== null) {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = null;
+    }
+  }, []);
+
+  const handleMessagesScroll = useCallback((event) => {
+    const target = event.currentTarget;
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom <= 24;
+  }, []);
 
   useEffect(() => {
     if (bookingId && !isWithinStay) return;
@@ -317,32 +342,31 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* Desktop Header */}
-      <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5, bgcolor: 'transparent', flexShrink: 0 }}>
-        <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
-          <SupportAgentIcon sx={{ fontSize: 24 }} />
-        </Avatar>
-        <Box>
-          <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
-          <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
+      {showHeader && (
+        <Box sx={{ px: { xs: 2, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: { xs: 1.5, md: 2 }, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'transparent', flexShrink: 0 }}>
+          <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
+            <SupportAgentIcon sx={{ fontSize: 24 }} />
+          </Avatar>
+          <Box>
+            <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
+            <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
+          </Box>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              ref={historyToggleRef}
+              size="small"
+              onClick={() => setShowHistory((prev) => !prev)}
+              title="Recent chats"
+              sx={{ color: showHistory ? 'primary.main' : MUTED }}
+            >
+              <HistoryIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+            <IconButton size="small" onClick={handleNewChat} disabled={!ready || sending} title="New chat">
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Box>
         </Box>
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton
-            ref={historyToggleRef}
-            size="small"
-            onClick={() => setShowHistory((prev) => !prev)}
-            title="Recent chats"
-            sx={{ color: showHistory ? 'primary.main' : MUTED }}
-          >
-            <HistoryIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-          <IconButton size="small" onClick={onSwitchToVoice} title="Switch to voice">
-            <MicIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={handleNewChat} disabled={!ready || sending} title="New chat">
-            <AddIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      </Box>
+      )}
 
       {showHistory && (
         <Box
@@ -403,6 +427,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       {/* Messages */}
       <Box
         ref={scrollRef}
+        onScroll={handleMessagesScroll}
         sx={{
           flex: 1,
           overflowY: 'auto',
@@ -413,7 +438,6 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
           flexDirection: 'column',
           gap: 2,
           bgcolor: 'transparent',
-          scrollBehavior: 'smooth',
           '&::-webkit-scrollbar': { display: 'none' },
           msOverflowStyle: 'none',
           scrollbarWidth: 'none',
@@ -616,10 +640,6 @@ export default function GuestConcierge({
       alertError?.('Voice is only available during your stay.');
       return;
     }
-    if (!isReady) {
-      alertError?.('Voice connection not ready yet.');
-      return;
-    }
     if (isRecording) {
       // User explicitly stops — break the continuous loop
       userStoppedRef.current = true;
@@ -642,7 +662,7 @@ export default function GuestConcierge({
       <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', minHeight: 0 }}>
         <Box sx={{ width: '100%', maxWidth: { md: 900 }, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: { xs: 'background.default', md: 'background.default' }, minHeight: 0, borderRadius: { md: 4 }, overflow: 'hidden', border: { md: `1px solid ${BORDER}` }, boxShadow: { md: '0 24px 48px rgba(0,0,0,0.06)' } }}>
           {/* Main Centered Text Chat Panel */}
-          <TextChatPanel bookingId={bookingIdOverride ?? booking?.id} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} suggestions={conciergeSuggestions} />
+          <TextChatPanel bookingId={bookingIdOverride ?? booking?.id} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} suggestions={conciergeSuggestions} showHeader={!booking} />
         </Box>
       </Box>
     );
