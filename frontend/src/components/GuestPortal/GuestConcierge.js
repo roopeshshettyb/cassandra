@@ -275,7 +275,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
         setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
       }
       setSending(false);
-      inputRef.current?.focus?.();
+      setTimeout(() => inputRef.current?.focus?.(), 0);
     });
     socket.on('error', (p) => {
       setStreamingContent('');
@@ -297,6 +297,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     setSending(true);
     setStreamingContent('');
     socketRef.current.emit('message', { content: text });
+    setTimeout(() => inputRef.current?.focus?.(), 0);
   }, [input, sending]);
 
   const handleOpenChat = useCallback((chatId) => {

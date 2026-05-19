@@ -37,9 +37,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatLlmService: ChatLlmService,
   ) {}
 
-  private async emitReadyAndHistory(client: any, session: ChatSession): Promise<void> {
-    const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
-    client.emit('ready', { chatId: session.chatId, messages });
+  private async emitChatHistory(client: any, session: ChatSession): Promise<void> {
     const chats = await this.chatService.listHistoryForSession(session.account, session.bookingId);
     const history: Array<{ id: number; createdAt: Date; chatType: string; bookingId: number | null; title: string }> = [];
     for (const chat of chats) {
@@ -53,6 +51,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
     client.emit('chat_history', { chats: history, currentChatId: session.chatId });
+  }
+
+  private async emitReadyAndHistory(client: any, session: ChatSession): Promise<void> {
+    const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
+    client.emit('ready', { chatId: session.chatId, messages });
+    await this.emitChatHistory(client, session);
   }
 
   private async maybeGenerateChatName(session: ChatSession): Promise<void> {
@@ -226,7 +230,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       });
       await this.maybeGenerateChatName(session);
-      await this.emitReadyAndHistory(client, session);
+      await this.emitChatHistory(client, session);
     } catch (err: any) {
       this.logger.error(err);
       client.emit('error', { message: err?.message || 'Message failed' });
