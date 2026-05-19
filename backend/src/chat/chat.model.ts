@@ -2,6 +2,11 @@ import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize
 import { Booking } from '../bookings/bookings.model';
 import { Account } from '../accounts/accounts.model';
 
+export enum ChatType {
+  GENERAL = 'general',
+  BOOKING = 'booking',
+}
+
 @Table({ tableName: 'chats' })
 export class Chat extends Model<Chat> {
   @Column({
@@ -22,16 +27,31 @@ export class Chat extends Model<Chat> {
   @ForeignKey(() => Booking)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'booking_id',
   })
-  bookingId: number;
+  bookingId: number | null;
 
   @BelongsTo(() => Account, { foreignKey: 'accountId', as: 'account' })
   account: Account;
 
   @BelongsTo(() => Booking, { foreignKey: 'bookingId', as: 'booking' })
   booking: Booking;
+
+  @Column({
+    type: DataType.ENUM(ChatType.GENERAL, ChatType.BOOKING),
+    allowNull: false,
+    defaultValue: ChatType.GENERAL,
+    field: 'chat_type',
+  })
+  chatType: ChatType;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'chat_name',
+  })
+  chatName: string | null;
 
   @Column({
     type: DataType.STRING,

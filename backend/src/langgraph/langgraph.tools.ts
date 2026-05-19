@@ -16,8 +16,17 @@ export function createAgentTools(
   restaurantService: RestaurantService,
   chatService: ChatService,
 ): DynamicStructuredTool[] {
-  const { account, bookingId, chatId, hotel, booking, languageCode } = ctx;
-  const bookingAny: any = booking;
+  const { account, chatId, languageCode } = ctx;
+  let currentBookingId: number | null = ctx.bookingId;
+  let currentHotel: Record<string, unknown> | null = ctx.hotel;
+  let currentBooking: Record<string, unknown> | null = ctx.booking;
+
+  const getMissingBookingContextPayload = () =>
+    JSON.stringify({
+      success: false,
+      message: 'Booking context missing',
+      data: null,
+    });
 
   type ToolDef = { allowedRoles: Partial<Record<AccountRole, boolean>>; tool: DynamicStructuredTool };
 
@@ -35,6 +44,10 @@ export function createAgentTools(
         data: z.record(z.string(), z.unknown()).optional(),
       }),
       func: async (args) => {
+        if (!currentBookingId || !currentBooking) {
+          return getMissingBookingContextPayload();
+        }
+        const bookingAny: any = currentBooking;
         const hotelId = bookingAny?.hotelId;
         const guestId = bookingAny?.guestId;
         const nowIso = new Date().toISOString();
@@ -43,7 +56,7 @@ export function createAgentTools(
         const dto: CreateRequestDto = {
           hotelId,
           guestId,
-          bookingId,
+          bookingId: currentBookingId,
           requestType: args.requestType,
           urgency: args.urgency,
           userNotes,
@@ -80,10 +93,81 @@ export function createAgentTools(
       description: 'Get all pending requests for the current booking (status is pending). Use this to summarize or act on outstanding requests.',
       schema: z.object({}),
       func: async () => {
-        const pending = await requestsService.findByBookingId(bookingId, account, RequestStatus.PENDING);
+        if (!currentBookingId) {
+          return getMissingBookingContextPayload();
+        }
+        const pending = await requestsService.findByBookingId(currentBookingId, account, RequestStatus.PENDING);
         return JSON.stringify(pending);
       },
     }),
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'get_recent_bookings',
+        description:
+          'Get recent bookings available to the current account. Use this when booking context is not set and you need to identify the booking from conversation.',
+        schema: z.object({}),
+        func: async () => {
+          const result = await bookingsService.findAllForAccount(account);
+          const rows: any[] = Array.isArray(result?.data) ? result.data : [];
+          const active: any[] = [];
+          const nowMs = Date.now();
+          for (const row of rows) {
+            const startRaw = row?.startTime;
+            const endRaw = row?.endTime;
+            if (!startRaw || !endRaw) {
+              continue;
+            }
+            const startMs = new Date(startRaw).getTime();
+            const endMs = new Date(endRaw).getTime();
+            if (isNaN(startMs) || isNaN(endMs)) {
+              continue;
+            }
+            if (startMs <= nowMs && endMs >= nowMs) {
+              active.push(row);
+            }
+            if (active.length >= 5) {
+              break;
+            }
+          }
+          return JSON.stringify({
+            success: true,
+            message: null,
+            data: active,
+          });
+        },
+      }),
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'set_booking_context',
+        description:
+          'Set booking context for this chat using a booking id that belongs to the current account. Use this after identifying which booking the user means.',
+        schema: z.object({
+          bookingId: z.number().describe('The booking id to set as current context for this chat'),
+        }),
+        func: async (args) => {
+          const bookingResult = await bookingsService.findByIdForAccount(args.bookingId, account);
+          const bookingData: any = bookingResult?.data ?? null;
+          await chatService.setBookingForChat(chatId, args.bookingId, account);
+          currentBookingId = args.bookingId;
+          currentBooking = bookingData;
+          currentHotel = bookingData?.hotel ?? null;
+          ctx.bookingId = currentBookingId;
+          ctx.booking = currentBooking;
+          ctx.hotel = currentHotel;
+          return JSON.stringify({
+            success: true,
+            message: 'Booking context updated',
+            data: {
+              bookingId: currentBookingId,
+              booking: currentBooking,
+            },
+          });
+        },
+      }),
     },
     {
       allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
@@ -114,7 +198,7 @@ export function createAgentTools(
       description: 'Get the current booking details (dates, hotel, etc.). Use this to answer guest questions about this booking.',
       schema: z.object({}),
       func: async () => {
-        return JSON.stringify(booking ?? { error: 'No booking in context' });
+        return JSON.stringify(currentBooking ?? { error: 'Booking context missing' });
       },
     }),
     },
@@ -126,7 +210,7 @@ export function createAgentTools(
         'Get the hotel information for the current booking (name, address, check-in/out times, amenities hours, wifi, etc.). Use this to answer guest questions about the hotel associated with this booking.',
       schema: z.object({}),
       func: async () => {
-        return JSON.stringify(hotel);
+        return JSON.stringify(currentHotel);
       },
     }),
     },
@@ -170,9 +254,10 @@ export function createAgentTools(
           .describe('Comma-separated search terms to filter by name or description (e.g. "vegetarian, pasta, gluten-free")'),
       }),
       func: async (args) => {
+        const bookingAny: any = currentBooking;
         const hotelId = bookingAny?.hotelId;
         if (!hotelId) {
-          return JSON.stringify({ error: 'No hotel in booking context' });
+          return JSON.stringify({ error: 'Booking context missing' });
         }
         const result = await restaurantService.searchMenuItems(hotelId, account, {
           booking: bookingAny ? { hotelId, guestId: bookingAny.guestId } : undefined,

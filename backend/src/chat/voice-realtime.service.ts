@@ -166,6 +166,14 @@ export class VoiceRealtimeService {
     return this.sessions.has(sessionId);
   }
 
+  getContext(sessionId: string): AgentToolContext | null {
+    const state = this.sessions.get(sessionId);
+    if (!state) {
+      return null;
+    }
+    return state.ctx;
+  }
+
   setUserTranscript(sessionId: string, text: string): void {
     const state = this.sessions.get(sessionId);
     if (!state) return;

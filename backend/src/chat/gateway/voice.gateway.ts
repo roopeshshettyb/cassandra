@@ -18,7 +18,7 @@ import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
-import { parseConnectionHandshake, authenticateBookingAndInit } from './gateway-auth.helper';
+import { parseConnectionHandshake, authenticateAndInit } from './gateway-auth.helper';
 
 export interface VoiceTurnStatistics {
   lastAudioAt: number;
@@ -64,40 +64,42 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: any) {
     const { token, bookingId } = parseConnectionHandshake(client);
-    if (token && bookingId !== undefined) {
-      await authenticateBookingAndInit(
-        client,
-        token,
-        bookingId,
-        {
-          authService: this.authService,
-          chatService: this.chatService,
-          bookingsService: this.bookingsService,
-          constantsService: this.constantsService,
-        },
-        async () => {
-          client.emit('voice_ready');
-        },
-      );
-    } else {
+    if (!token) {
       client.sessionPending = { token: null, bookingId: null };
-      client.emit('auth_required', { message: 'Send auth with token and bookingId' });
+      client.emit('auth_required', { message: 'Send auth with token' });
+      return;
     }
+
+    await authenticateAndInit(
+      client,
+      token,
+      bookingId,
+      {
+        authService: this.authService,
+        chatService: this.chatService,
+        bookingsService: this.bookingsService,
+        constantsService: this.constantsService,
+      },
+      async () => {
+        client.emit('voice_ready');
+      },
+    );
   }
 
   @SubscribeMessage('auth')
-  async onAuth(client: any, payload: { token: string; bookingId: number }) {
+  async onAuth(client: any, payload: { token: string; bookingId?: number | null }) {
     if (client.session) {
       client.emit('error', { message: 'Already authenticated' });
       return;
     }
     const token = payload?.token;
-    const bookingId = payload?.bookingId;
-    if (!token || !bookingId) {
-      client.emit('error', { message: 'auth requires token and bookingId' });
+    const bookingIdRaw = payload?.bookingId;
+    const bookingId = typeof bookingIdRaw === 'number' && bookingIdRaw > 0 ? bookingIdRaw : undefined;
+    if (!token) {
+      client.emit('error', { message: 'auth requires token' });
       return;
     }
-    await authenticateBookingAndInit(
+    await authenticateAndInit(
       client,
       token,
       bookingId,
@@ -554,6 +556,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (event._skipVoiceTextEnd) {
           break;
         }
+        const realtimeCtx = this.voiceRealtimeService.getContext(client.id);
+        if (realtimeCtx) {
+          session.bookingId = realtimeCtx.bookingId;
+          session.booking = realtimeCtx.booking;
+          session.hotel = realtimeCtx.hotel;
+          session.languageCode = realtimeCtx.languageCode ?? session.languageCode ?? null;
+        }
         const { userTranscript, assistantText, toolCalls, usage } = this.voiceRealtimeService.consumeTranscriptsAndTools(client.id);
 
         const ev: any = event;
@@ -632,6 +641,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         break;
       case 'AgentAudioDone': {
+        const deepgramCtx = this.deepgramVoiceAgentService.getContext(client.id);
+        if (deepgramCtx) {
+          session.bookingId = deepgramCtx.bookingId;
+          session.booking = deepgramCtx.booking;
+          session.hotel = deepgramCtx.hotel;
+          session.languageCode = deepgramCtx.languageCode ?? session.languageCode ?? null;
+        }
         const { userTranscript, assistantText, toolCalls } = this.deepgramVoiceAgentService.consumeTranscriptsAndTools(client.id);
         const cleanUser = userTranscript?.trim();
         const cleanAssistant = assistantText?.trim();

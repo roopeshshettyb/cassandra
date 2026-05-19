@@ -7,6 +7,8 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import HistoryIcon from '@mui/icons-material/History';
+import AddIcon from '@mui/icons-material/Add';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -29,6 +31,18 @@ const randomPick = (arr, count) => {
 dayjs.extend(relativeTime);
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+
+const formatHistoryTimestamp = (value) => {
+  try {
+    const parsed = dayjs(value);
+    if (!parsed.isValid()) {
+      return 'Chat';
+    }
+    return parsed.fromNow();
+  } catch {
+    return 'Chat';
+  }
+};
 
 // ── Waveform bars for listening state ──────────────────────────────────────
 function WaveformBars() {
@@ -53,6 +67,68 @@ function WaveformBars() {
           }}
         />
       ))}
+    </Box>
+  );
+}
+
+function SuggestionStrip({ items, onSelect }) {
+  const chipsScrollRef = useRef(null);
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <IconButton
+        size="small"
+        onClick={() => chipsScrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+        sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
+      >
+        <ChevronLeftIcon fontSize="small" />
+      </IconButton>
+
+      <Box
+        ref={chipsScrollRef}
+        sx={{
+          display: 'flex',
+          gap: 1,
+          overflowX: 'hidden',
+          overflowY: 'hidden',
+          pb: 1,
+          px: 0.5,
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {items.map((item) => (
+          <Box
+            key={item}
+            component={motion.button}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => onSelect(item)}
+            sx={{
+              flexShrink: 0,
+              border: `1px solid ${BORDER}`,
+              borderRadius: 5,
+              px: 1.5,
+              py: 0.75,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 500,
+              color: NAVY,
+              bgcolor: 'background.paper',
+              boxShadow: SHADOW,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {item}
+          </Box>
+        ))}
+      </Box>
+
+      <IconButton
+        size="small"
+        onClick={() => chipsScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+        sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
+      >
+        <ChevronRightIcon fontSize="small" />
+      </IconButton>
     </Box>
   );
 }
@@ -102,18 +178,34 @@ function ChatBubble({ message }) {
 }
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
-function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt }) {
+export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt, suggestions }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
   const [sending, setSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  // Pick 8 random suggestions once on mount
-  const [suggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 8));
+  const [chatList, setChatList] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const historyToggleRef = useRef(null);
+  const historyPanelRef = useRef(null);
   const initialPromptSentRef = useRef(false);
+
+  useEffect(() => {
+    if (!showHistory) return;
+    const onDocPointerDown = (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (historyToggleRef.current && historyToggleRef.current.contains(target)) return;
+      if (historyPanelRef.current && historyPanelRef.current.contains(target)) return;
+      setShowHistory(false);
+    };
+    document.addEventListener('pointerdown', onDocPointerDown);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown);
+  }, [showHistory]);
 
   useEffect(() => {
     const scrollEl = scrollRef.current;
@@ -121,16 +213,20 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
   }, [messages, streamingContent]);
 
   useEffect(() => {
-    if (!bookingId || !isWithinStay) return;
+    if (bookingId && !isWithinStay) return;
     const token = localStorage.getItem('token');
     if (!token) return;
     const url = getBackendUrl();
     if (!url) return;
+    const query = { token };
+    if (bookingId) {
+      query.bookingId = String(bookingId);
+    }
 
     const socket = io(`${url}/chat`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
-      query: { token, bookingId: String(bookingId) },
+      query,
       auth: { token },
       reconnection: true,
       reconnectionAttempts: 5,
@@ -139,8 +235,13 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
 
     socket.on('ready', (payload) => {
       setReady(true);
+      setCurrentChatId(payload?.chatId || null);
       if (Array.isArray(payload?.messages)) {
-        setMessages(payload.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })));
+        const nextMessages = [];
+        for (const m of payload.messages) {
+          nextMessages.push({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt });
+        }
+        setMessages(nextMessages);
       }
       if (initialPrompt && !initialPromptSentRef.current) {
         initialPromptSentRef.current = true;
@@ -151,7 +252,22 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
         setTimeout(() => inputRef.current?.focus?.(), 100);
       }
     });
-    socket.on('auth_required', () => socket.emit('auth', { token, bookingId }));
+    socket.on('chat_history', (payload) => {
+      const nextChats = [];
+      const rows = Array.isArray(payload?.chats) ? payload.chats : [];
+      for (const row of rows) {
+        nextChats.push({
+          id: row.id,
+          createdAt: row.createdAt,
+          chatType: row.chatType,
+          bookingId: row.bookingId ?? null,
+          title: row.title || 'New chat',
+        });
+      }
+      setChatList(nextChats);
+      setCurrentChatId(payload?.currentChatId ?? null);
+    });
+    socket.on('auth_required', () => socket.emit('auth', bookingId ? { token, bookingId } : { token }));
     socket.on('stream_chunk', (p) => setStreamingContent((prev) => prev + (p.content || '')));
     socket.on('stream_end', (p) => {
       setStreamingContent('');
@@ -183,8 +299,22 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
     socketRef.current.emit('message', { content: text });
   }, [input, sending]);
 
+  const handleOpenChat = useCallback((chatId) => {
+    if (!socketRef.current?.connected || !chatId) return;
+    setSending(false);
+    setStreamingContent('');
+    socketRef.current.emit('open_chat', { chatId });
+  }, []);
+
+  const handleNewChat = useCallback(() => {
+    if (!socketRef.current?.connected) return;
+    setSending(false);
+    setStreamingContent('');
+    socketRef.current.emit('new_chat');
+  }, []);
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* Desktop Header */}
       <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: `1px solid ${BORDER}`, display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5, bgcolor: 'transparent', flexShrink: 0 }}>
         <Avatar sx={{ width: 44, height: 44, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
@@ -194,7 +324,80 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
           <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
           <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
         </Box>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            ref={historyToggleRef}
+            size="small"
+            onClick={() => setShowHistory((prev) => !prev)}
+            title="Recent chats"
+            sx={{ color: showHistory ? 'primary.main' : MUTED }}
+          >
+            <HistoryIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton size="small" onClick={onSwitchToVoice} title="Switch to voice">
+            <MicIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={handleNewChat} disabled={!ready || sending} title="New chat">
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </Box>
       </Box>
+
+      {showHistory && (
+        <Box
+          ref={historyPanelRef}
+          sx={{
+            position: 'absolute',
+            top: { xs: 64, md: 78 },
+            left: { xs: 12, md: 16 },
+            right: { xs: 12, md: 16 },
+            px: 1.25,
+            py: 1,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 2,
+            backgroundColor: 'background.paper',
+            boxShadow: SHADOW_HOVER,
+            maxHeight: 180,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.8,
+            '&::-webkit-scrollbar': { width: 6 },
+            zIndex: 20,
+          }}
+        >
+          {(() => {
+            const items = [];
+            for (const chat of chatList) {
+              const isActive = chat.id === currentChatId;
+              items.push(
+                <Box
+                  key={chat.id}
+                  onClick={() => handleOpenChat(chat.id)}
+                  sx={{
+                    border: `1px solid ${isActive ? 'transparent' : BORDER}`,
+                    background: isActive ? BRAND_GRADIENT : 'background.paper',
+                    color: isActive ? PRIMARY_CONTRAST : 'text.primary',
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    px: 1.25,
+                    py: 0.85,
+                    boxShadow: SHADOW,
+                  }}
+                >
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2 }}>
+                    {chat.title}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10, mt: 0.3, opacity: isActive ? 0.9 : 0.7 }}>
+                    {formatHistoryTimestamp(chat.createdAt)}
+                  </Typography>
+                </Box>,
+              );
+            }
+            return items;
+          })()}
+        </Box>
+      )}
 
       {/* Messages */}
       <Box
@@ -223,7 +426,7 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
         
         {ready && messages.length <= 1 && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', py: { xs: 4, md: 8 }, px: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', py: { xs: 3, md: '4vh' }, px: 2 }}>
               <Box sx={{ position: 'relative', display: 'inline-block', mb: 4 }}>
                 <Box sx={{ position: 'absolute', top: -30, left: -30, right: -30, bottom: -30, background: BRAND_GRADIENT, filter: 'blur(40px)', opacity: 0.15, borderRadius: '50%' }} />
                 <Avatar sx={{ width: 80, height: 80, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: '0 12px 32px rgba(0,0,0,0.1)', position: 'relative', zIndex: 1, border: '2px solid rgba(255,255,255,0.8)' }}>
@@ -233,32 +436,9 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
               <Typography sx={{ fontWeight: 800, fontSize: { xs: 26, md: 32 }, mb: 1.5, color: NAVY }}>
                 Hi! I'm your AI Concierge.
               </Typography>
-              <Typography sx={{ fontSize: { xs: 14, md: 16 }, color: MUTED, maxWidth: 500, mx: 'auto', mb: 5, lineHeight: 1.6 }}>
+              <Typography sx={{ fontSize: { xs: 14, md: 16 }, color: MUTED, maxWidth: 500, mx: 'auto', mb: 2, lineHeight: 1.6 }}>
                 Experience {hotelName} effortlessly. I'm here 24/7 to manage your requests, provide local insights, and elevate your stay.
               </Typography>
-
-              <Box sx={{ width: '100%', maxWidth: 700, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                {['I need room service', 'Request extra towels', 'Get dining recommendations', 'Arrange a late checkout'].map((prompt, i) => (
-                  <motion.div key={i} whileHover={{ y: -4, boxShadow: SHADOW_HOVER }} transition={{ duration: 0.2 }}>
-                    <Box
-                      onClick={() => {
-                         if (!sending && socketRef.current?.connected) {
-                           setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: prompt, createdAt: new Date().toISOString() }]);
-                           setSending(true);
-                           setStreamingContent('');
-                           socketRef.current.emit('message', { content: prompt });
-                         }
-                      }}
-                      sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5, borderRadius: 3, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s', '&:hover': { borderColor: 'primary.main' } }}
-                    >
-                      <Box sx={{ p: 1, borderRadius: 2, bgcolor: HOVER_BG, color: 'primary.main', display: 'flex' }}>
-                         <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
-                      </Box>
-                      <Typography sx={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{prompt}</Typography>
-                    </Box>
-                  </motion.div>
-                ))}
-              </Box>
             </Box>
           </motion.div>
         )}
@@ -293,46 +473,20 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
             px: { xs: 2, md: 3 },
             pt: 1.5,
             pb: 0.5,
-            display: 'flex',
-            gap: 1,
-            overflowX: 'auto',
             flexShrink: 0,
-            '&::-webkit-scrollbar': { display: 'none' },
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none',
           }}
         >
-          {suggestions.map((suggestion) => (
-            <Box
-              key={suggestion}
-              component={motion.button}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                if (!sending && socketRef.current?.connected) {
-                  setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: suggestion, createdAt: new Date().toISOString() }]);
-                  setSending(true);
-                  setStreamingContent('');
-                  socketRef.current.emit('message', { content: suggestion });
-                }
-              }}
-              sx={{
-                flexShrink: 0,
-                border: `1px solid ${BORDER}`,
-                borderRadius: 5,
-                px: 1.5,
-                py: 0.75,
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 500,
-                color: NAVY,
-                bgcolor: 'background.paper',
-                boxShadow: SHADOW,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {suggestion}
-            </Box>
-          ))}
+          <SuggestionStrip
+            items={suggestions}
+            onSelect={(suggestion) => {
+              if (!sending && socketRef.current?.connected) {
+                setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: suggestion, createdAt: new Date().toISOString() }]);
+                setSending(true);
+                setStreamingContent('');
+                socketRef.current.emit('message', { content: suggestion });
+              }
+            }}
+          />
         </Box>
       )}
 
@@ -414,17 +568,47 @@ function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, h
 
 
 // ── Main GuestConcierge ────────────────────────────────────────────────────
-export default function GuestConcierge({ booking, alertError, isWithinStay, isMobile, logoUrl, isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText, hasInteractedRef, userStoppedRef }) {
+export default function GuestConcierge({
+  booking,
+  alertError,
+  isWithinStay,
+  isMobile,
+  logoUrl,
+  isReady,
+  isRecording,
+  isProcessing,
+  isSpeaking,
+  startRecording,
+  stopRecording,
+  sendText,
+  hasInteractedRef,
+  userStoppedRef,
+  mode,
+  onModeChange,
+  initialPrompt,
+  bookingIdOverride,
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const showChat = searchParams.get('mode') === 'chat';
+  const isModeControlled = typeof mode === 'string' && typeof onModeChange === 'function';
+  const showChat = isModeControlled ? mode === 'chat' : searchParams.get('mode') === 'chat';
 
-  const openChat = useCallback(() => setSearchParams({ tab: 'concierge', mode: 'chat' }), [setSearchParams]);
-  const openVoice = useCallback(() => setSearchParams({ tab: 'concierge' }), [setSearchParams]);
+  const openChat = useCallback(() => {
+    if (isModeControlled) {
+      onModeChange('chat');
+      return;
+    }
+    setSearchParams({ tab: 'concierge', mode: 'chat' });
+  }, [isModeControlled, onModeChange, setSearchParams]);
+  const openVoice = useCallback(() => {
+    if (isModeControlled) {
+      onModeChange('voice');
+      return;
+    }
+    setSearchParams({ tab: 'concierge' });
+  }, [isModeControlled, onModeChange, setSearchParams]);
 
   const hotelName = booking?.hotel?.name || 'Hotel';
-  const [voiceSuggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 4));
-
-  const chipsScrollRef = useRef(null);
+  const [conciergeSuggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 8));
 
   const handleMicTap = async () => {
     if (!isWithinStay) {
@@ -452,12 +636,12 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
   };
 
   if (showChat) {
-    const chatPrompt = searchParams.get('prompt') || '';
+    const chatPrompt = isModeControlled ? initialPrompt || '' : searchParams.get('prompt') || '';
     return (
       <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', minHeight: 0 }}>
         <Box sx={{ width: '100%', maxWidth: { md: 900 }, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: { xs: 'background.default', md: 'background.default' }, minHeight: 0, borderRadius: { md: 4 }, overflow: 'hidden', border: { md: `1px solid ${BORDER}` }, boxShadow: { md: '0 24px 48px rgba(0,0,0,0.06)' } }}>
           {/* Main Centered Text Chat Panel */}
-          <TextChatPanel bookingId={booking?.id} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} />
+          <TextChatPanel bookingId={bookingIdOverride ?? booking?.id} isWithinStay={isWithinStay} alertError={alertError} onSwitchToVoice={openVoice} hotelName={hotelName} initialPrompt={chatPrompt} suggestions={conciergeSuggestions} />
         </Box>
       </Box>
     );
@@ -473,7 +657,7 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
         display: 'flex',
         flexDirection: 'column',
         px: 2.5,
-        pt: { xs: 1, md: 0 },
+        pt: { xs: 2, md: '1.5vh' },
         pb: { xs: '68px', md: 2 },
       }}
     >
@@ -557,68 +741,14 @@ export default function GuestConcierge({ booking, alertError, isWithinStay, isMo
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.2 }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {/* Left arrow — desktop only */}
-                <IconButton
-                  size="small"
-                  onClick={() => chipsScrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
-                  sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
-                >
-                  <ChevronLeftIcon fontSize="small" />
-                </IconButton>
-
-                <Box
-                  ref={chipsScrollRef}
-                  sx={{
-                    display: 'flex',
-                    gap: 1,
-                    overflowX: 'auto',
-                    pb: 1,
-                    px: 0.5,
-                    '&::-webkit-scrollbar': { display: 'none' },
-                    msOverflowStyle: 'none',
-                    scrollbarWidth: 'none',
-                  }}
-                >
-                  {voiceSuggestions.map((prompt) => (
-                    <Box
-                      key={prompt}
-                      component={motion.button}
-                      onClick={() => {
-                        hasInteractedRef.current = true;
-                        userStoppedRef.current = false;
-                        sendText(prompt);
-                      }}
-                      whileTap={{ scale: 0.95 }}
-                      sx={{
-                        flexShrink: 0,
-                        border: `1px solid ${BORDER}`,
-                        borderRadius: 5,
-                        px: 1.75,
-                        py: 0.75,
-                        cursor: 'pointer',
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: NAVY,
-                        bgcolor: 'background.paper',
-                        boxShadow: SHADOW,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {prompt}
-                    </Box>
-                  ))}
-                </Box>
-
-                {/* Right arrow — desktop only */}
-                <IconButton
-                  size="small"
-                  onClick={() => chipsScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
-                  sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
-                >
-                  <ChevronRightIcon fontSize="small" />
-                </IconButton>
-              </Box>
+              <SuggestionStrip
+                items={conciergeSuggestions}
+                onSelect={(prompt) => {
+                  hasInteractedRef.current = true;
+                  userStoppedRef.current = false;
+                  sendText(prompt);
+                }}
+              />
             </motion.div>
           )}
         </AnimatePresence>
