@@ -139,7 +139,7 @@ function ChatBubble({ message }) {
   const isUser = message.role === 'user';
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       style={{
@@ -295,10 +295,10 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     socket.on('auth_required', () => socket.emit('auth', bookingId ? { token, bookingId } : { token }));
     socket.on('stream_chunk', (p) => setStreamingContent((prev) => prev + (p.content || '')));
     socket.on('stream_end', (p) => {
-      setStreamingContent('');
       if (p.content) {
         setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
       }
+      shouldAutoScrollRef.current = true;
       setSending(false);
       setTimeout(() => inputRef.current?.focus?.(), 0);
     });
@@ -471,7 +471,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
         {messages.map((m) => (
           <ChatBubble key={m.id} message={m} />
         ))}
-        {streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
+        {sending && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
         {!streamingContent && sending && (
           <Box
             sx={{
