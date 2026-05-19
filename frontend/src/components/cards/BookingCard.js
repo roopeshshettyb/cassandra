@@ -1,4 +1,6 @@
 import { Box, Typography } from '@mui/material';
+import { NAVY, MUTED, BORDER, BG } from '../../theme';
+import { ROW_SX, StatusChip } from './AppCards';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
@@ -162,3 +164,28 @@ const BookingCard = ({ data, navigate }) => {
 };
 
 export default BookingCard;
+
+/** Compact booking row for dashboard lists — MapComponent-compatible. */
+export function BookingRow({ data: b, navigate, now }) {
+  const ciDate = b.startTime ? new Date(b.startTime) : null;
+  const nights = ciDate && b.endTime ? Math.round((new Date(b.endTime) - ciDate) / 86400000) : null;
+  const stayStatus = b.status === 'cancelled' ? 'cancelled'
+    : (b.startTime && b.endTime && now >= new Date(b.startTime) && now <= new Date(b.endTime)) ? 'in_progress' : 'confirmed';
+  return (
+    <Box onClick={() => navigate(`/bookings/${b.id}`)} sx={{ ...ROW_SX, px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', gap: 1.75 }}>
+      {ciDate && (
+        <Box sx={{ width: 42, height: 46, borderRadius: 1.5, border: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, bgcolor: BG }}>
+          <Typography sx={{ fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: '0.06em' }}>{ciDate.toLocaleString('en-US', { month: 'short' }).toUpperCase()}</Typography>
+          <Typography sx={{ fontSize: 17, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{ciDate.getDate()}</Typography>
+        </Box>
+      )}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.guest?.name || '—'}</Typography>
+        <Typography sx={{ fontSize: 11.5, color: MUTED, mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {[b.hotel?.name || '—', nights && `${nights}n`, b.roomNumber && `Rm ${b.roomNumber}`].filter(Boolean).join(' · ')}
+        </Typography>
+      </Box>
+      <StatusChip status={stayStatus} />
+    </Box>
+  );
+}

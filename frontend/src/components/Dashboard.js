@@ -4,41 +4,18 @@ import { motion } from 'framer-motion';
 import EmailIcon from '@mui/icons-material/Email';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
-import {
-  StatCard, ListRow, TableRow, DateTileRow, ColumnLabel,
-  CardHeader, SectionHeader,
-  StatusChip, timeAgo,
-  LABEL_SX, CARD_SX,
-} from './cards/AppCards';
+import { StatCard, CardHeader, SectionHeader, StatusChip, ColumnLabel, LABEL_SX, CARD_SX } from './cards/AppCards';
+import { RequestRow, ActionItem } from './cards/RequestCard';
+import { BookingRow } from './cards/BookingCard';
+import { PropertyRow } from './cards/HotelCard';
 import {
   NAVY, NAVY_GRADIENT, NAVY_CONTRAST, MUTED, BORDER,
   BRAND_GRADIENT, PRIMARY_CONTRAST, TEXT_MUTED_LIGHT,
-  STATUS_WARNING, STATUS_ERROR, STATUS_ERROR_BG,
-  STATUS_SUCCESS,
+  STATUS_WARNING, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS,
 } from '../theme';
-import { REQUEST_TYPE_LABEL, REQUEST_STATUS, extractFirstNote } from '../constants/requestConfig';
 import constants from '../constants.json';
 
-// ── Module-level constants ──────────────────────────────────────────────────
-
-import RoomServiceIcon from '@mui/icons-material/RoomService';
-import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
-import LocalLaundryServiceIcon from '@mui/icons-material/LocalLaundryService';
-import AirportShuttleIcon from '@mui/icons-material/AirportShuttle';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import {
-  STATUS_WARNING_BG, STATUS_INFO_BG, STATUS_SUCCESS_BG,
-} from '../theme';
-
-const REQUEST_TYPE_CONFIG = {
-  room_service:     { Icon: RoomServiceIcon,        bg: STATUS_WARNING_BG, color: STATUS_WARNING },
-  house_keeping:    { Icon: CleaningServicesIcon,    bg: STATUS_INFO_BG,    color: STATUS_WARNING },
-  laundry:          { Icon: LocalLaundryServiceIcon, bg: STATUS_SUCCESS_BG, color: STATUS_SUCCESS },
-  airport_transfer: { Icon: AirportShuttleIcon,      bg: STATUS_INFO_BG,    color: STATUS_WARNING },
-};
-
 const URGENCY_ORDER = { high: 0, medium: 1, low: 2 };
-
 const PROPERTY_PULSE_COLS = ['Property', 'Active Guests', "Today's Arrivals", 'Open Requests'];
 
 function greeting() {
@@ -47,88 +24,6 @@ function greeting() {
   if (h < 17) return 'Good afternoon';
   return 'Good evening';
 }
-
-// Shorten "First Last" → "F. Last"
-function shortName(name) {
-  if (!name) return null;
-  const parts = name.split(' ').filter(Boolean);
-  return parts.map((p, i) => (i === 0 ? p[0] + '.' : p)).join(' ');
-}
-
-// ── Data mappers (domain → generic card shape) ──────────────────────────────
-
-function toStatCards(bookings, activeBookings, pendingRequests, completedRequests, isGuest) {
-  return isGuest ? [
-    { label: 'My Stays',    value: bookings.length,    accent: NAVY,          sub: 'Total bookings' },
-    { label: 'Active Stay', value: activeBookings,     accent: STATUS_WARNING, sub: 'Currently checked in' },
-    { label: 'My Requests', value: pendingRequests,    accent: STATUS_ERROR,   sub: 'Awaiting action' },
-    { label: 'Completed',   value: completedRequests,  accent: STATUS_SUCCESS, sub: 'Resolved' },
-  ] : [
-    { label: 'Total Bookings',   value: bookings.length,   accent: NAVY,          sub: 'All bookings' },
-    { label: 'Active Stays',     value: activeBookings,    accent: STATUS_WARNING, sub: 'Currently checked in' },
-    { label: 'Pending Requests', value: pendingRequests,   accent: STATUS_ERROR,   sub: 'Awaiting action' },
-    { label: 'Completed',        value: completedRequests, accent: STATUS_SUCCESS, sub: 'Resolved' },
-  ];
-}
-
-function toListRow(r) {
-  const cfg = REQUEST_TYPE_CONFIG[r.requestType] || {};
-  return {
-    icon:      cfg.Icon || HelpOutlineIcon,
-    iconBg:    cfg.bg,
-    iconColor: cfg.color,
-    title:     r.hotel?.name || '—',
-    subtitle:  extractFirstNote(r.userNotes) || (REQUEST_TYPE_LABEL[r.requestType] || String(r.requestType || '').replace(/_/g, ' ')) + (r.booking?.roomNumber ? ` · Rm ${r.booking.roomNumber}` : ''),
-    time:      r.createdAt,
-    via:       shortName(r.guest?.name),
-    route:     `/requests/${r.id}`,
-  };
-}
-
-function toRequestRow(r) {
-  return {
-    icon:      REQUEST_TYPE_CONFIG[r.requestType]?.Icon || HelpOutlineIcon,
-    iconBg:    'rgba(0,0,0,0.04)',
-    iconColor: MUTED,
-    title:     r.hotel?.name || '—',
-    subtitle:  REQUEST_TYPE_LABEL[r.requestType] || String(r.requestType || '').replace(/_/g, ' '),
-    right:     <StatusChip status={r.status} />,
-    time:      r.createdAt,
-    route:     `/requests/${r.id}`,
-  };
-}
-
-function toBookingRow(b, now) {
-  const ciDate = b.startTime ? new Date(b.startTime) : null;
-  const nights = ciDate && b.endTime ? Math.round((new Date(b.endTime) - ciDate) / 86400000) : null;
-  const stayStatus = b.status === 'cancelled' ? 'cancelled'
-    : (b.startTime && b.endTime && now >= new Date(b.startTime) && now <= new Date(b.endTime))
-      ? 'in_progress' : 'confirmed';
-  return {
-    ciDate,
-    title:    b.guest?.name || '—',
-    subtitle: [b.hotel?.name || '—', nights && `${nights}n`, b.roomNumber && `Rm ${b.roomNumber}`].filter(Boolean).join(' · '),
-    right:    <StatusChip status={stayStatus} />,
-    route:    `/bookings/${b.id}`,
-  };
-}
-
-function toTableRow(row) {
-  return {
-    avatar:  row.logoUrl,
-    name:    row.name,
-    badge:   row.open > 0 ? <Chip label={`${row.open} open req.`} size="small" sx={{ fontSize: 10, height: 18, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} /> : null,
-    columns: [
-      <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{row.active}</Typography>,
-      <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{row.arrivals}</Typography>,
-      row.open > 0
-        ? <Chip label={row.open} size="small" sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: row.open > 5 ? STATUS_ERROR_BG : 'rgba(197,160,34,0.12)', color: row.open > 5 ? STATUS_ERROR : STATUS_WARNING, border: 'none' }} />
-        : <Typography sx={{ fontSize: 13, color: MUTED }}>0</Typography>,
-    ],
-  };
-}
-
-// ── Dashboard ───────────────────────────────────────────────────────────────
 
 const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) => {
   const [bookings, setBookings] = useState([]);
@@ -161,6 +56,11 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
   const completedRequests = requests.filter((r) => r.status === 'completed').length;
   const urgentRequests    = requests.filter((r) => r.urgency === 'high' && r.status !== 'completed').length;
 
+  const isGuest   = account?.role === constants.ACCOUNT_ROLES.GUEST;
+  const canInvite = !!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role];
+  const firstName = account?.name?.split(' ')[0] || '';
+  const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
   // Property pulse
   const hotelMap = {};
   for (const b of bookings) {
@@ -175,19 +75,24 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
     hotelMap[r.hotelId].open += 1;
   }
 
-  // Map domain data → generic card shapes
-  const isGuest   = account?.role === constants.ACCOUNT_ROLES.GUEST;
-  const canInvite = !!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role];
-  const firstName = account?.name?.split(' ')[0] || '';
-  const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const propertyRows  = Object.values(hotelMap).sort((a, b) => b.open - a.open).slice(0, 6);
+  const actionQueue   = requests.filter((r) => r.status !== 'completed' && r.status !== 'cancelled').sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 3) - (URGENCY_ORDER[b.urgency] ?? 3)).slice(0, 4);
+  const recentReqs    = [...requests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+  const recentBooks   = [...bookings].sort((a, b) => new Date(b.startTime) - new Date(a.startTime)).slice(0, 5);
 
-  const kpis          = toStatCards(bookings, activeBookings, pendingRequests, completedRequests, isGuest);
-  const propertyRows  = Object.values(hotelMap).sort((a, b) => b.open - a.open).slice(0, 6).map(toTableRow);
-  const actionItems   = requests.filter((r) => r.status !== 'completed' && r.status !== 'cancelled').sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 3) - (URGENCY_ORDER[b.urgency] ?? 3)).slice(0, 4).map(toListRow);
-  const recentReqRows = [...requests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5).map(toRequestRow);
-  const recentBkRows  = [...bookings].sort((a, b) => new Date(b.startTime) - new Date(a.startTime)).slice(0, 5).map((b) => toBookingRow(b, now));
+  const kpis = isGuest ? [
+    { label: 'My Stays',    value: bookings.length,   accent: NAVY,          sub: 'Total bookings' },
+    { label: 'Active Stay', value: activeBookings,    accent: STATUS_WARNING, sub: 'Currently checked in' },
+    { label: 'My Requests', value: pendingRequests,   accent: STATUS_ERROR,   sub: 'Awaiting action' },
+    { label: 'Completed',   value: completedRequests, accent: STATUS_SUCCESS, sub: 'Resolved' },
+  ] : [
+    { label: 'Total Bookings',   value: bookings.length,   accent: NAVY,          sub: 'All bookings' },
+    { label: 'Active Stays',     value: activeBookings,    accent: STATUS_WARNING, sub: 'Currently checked in' },
+    { label: 'Pending Requests', value: pendingRequests,   accent: STATUS_ERROR,   sub: 'Awaiting action' },
+    { label: 'Completed',        value: completedRequests, accent: STATUS_SUCCESS, sub: 'Resolved' },
+  ];
 
-  // ── Guest view ────────────────────────────────────────────────────────────
+  // ── Guest view ──────────────────────────────────────────────────────────
   if (isGuest) {
     return (
       <Box sx={{ px: { xs: 1.5, sm: 2.5, md: 3 }, pb: 6, maxWidth: 900, mx: 'auto' }}>
@@ -204,13 +109,13 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
           <Grid item xs={12} sm={6} md={6}>
             <Box sx={CARD_SX}>
               <SectionHeader label="My Requests" title="Recent activity" onViewAll={() => navigate('/requests')} />
-              <MapComponent Component={ListRow} data={recentReqRows} showNoDataAvailable={false} navigate={navigate} />
+              <MapComponent Component={RequestRow} data={recentReqs} showNoDataAvailable={false} navigate={navigate} />
             </Box>
           </Grid>
           <Grid item xs={12} sm={6} md={6}>
             <Box sx={CARD_SX}>
               <SectionHeader label="My Bookings" title="Your stays" onViewAll={() => navigate('/bookings')} />
-              <MapComponent Component={DateTileRow} data={recentBkRows} showNoDataAvailable={false} navigate={navigate} />
+              <MapComponent Component={BookingRow} data={recentBooks} showNoDataAvailable={false} navigate={navigate} now={now} />
             </Box>
           </Grid>
         </Grid>
@@ -218,25 +123,23 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
     );
   }
 
-  // ── Admin / owner / staff view ────────────────────────────────────────────
+  // ── Admin / owner / staff view ──────────────────────────────────────────
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2.5, md: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
 
-      {/* Mobile hero card */}
+      {/* Mobile hero */}
       <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 2.5 }}>
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-          <Box sx={{ background: NAVY_GRADIENT, color: NAVY_CONTRAST, borderRadius: 3, p: { xs: '18px 18px 22px', sm: '22px 24px 26px' }, position: 'relative', overflow: 'hidden' }}>
+          <Box sx={{ background: NAVY_GRADIENT, color: NAVY_CONTRAST, borderRadius: 3, p: { xs: '18px 18px 22px', sm: '22px 24px 26px' }, overflow: 'hidden' }}>
             <Typography sx={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: TEXT_MUTED_LIGHT, mb: 1 }}>{dateLabel}</Typography>
-            <Typography sx={{ fontSize: { xs: 22, sm: 26 }, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
-              {greeting()},<br />{firstName}.
-            </Typography>
+            <Typography sx={{ fontSize: { xs: 22, sm: 26 }, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{greeting()},<br />{firstName}.</Typography>
             <Typography sx={{ fontSize: 11.5, opacity: 0.78, mt: 1, lineHeight: 1.5 }}>
               {bookings.length} bookings · {activeBookings} active
               {urgentRequests > 0 && <> · <Box component="span" sx={{ color: TEXT_MUTED_LIGHT, fontWeight: 700 }}>{urgentRequests} urgent</Box></>}
             </Typography>
             {canInvite && (
               <Button size="small" startIcon={<EmailIcon sx={{ fontSize: 12 }} />} onClick={handleSendPendingInvites}
-                sx={{ mt: 1.75, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, fontWeight: 800, fontSize: 12, textTransform: 'none', borderRadius: 2, boxShadow: 'none', '&:hover': { opacity: 0.9 } }}>
+                sx={{ mt: 1.75, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, fontWeight: 800, fontSize: 12, textTransform: 'none', borderRadius: 2, boxShadow: 'none' }}>
                 Fire pending invites
               </Button>
             )}
@@ -278,7 +181,7 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
             <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: '2fr 1fr 1fr 1fr', px: 2.5, py: 1, borderBottom: `1px solid ${BORDER}` }}>
               <MapComponent Component={ColumnLabel} data={PROPERTY_PULSE_COLS} showNoDataAvailable={false} />
             </Box>
-            <MapComponent Component={TableRow} data={propertyRows} showNoDataAvailable={false} />
+            <MapComponent Component={PropertyRow} data={propertyRows} showNoDataAvailable={false} />
             <Box sx={{ px: 2.5, py: 1.25, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography sx={{ fontSize: 12, color: MUTED }}>Properties needing attention</Typography>
               <Typography onClick={() => navigate('/hotels')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>View all →</Typography>
@@ -289,8 +192,8 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
         <Grid item xs={12} sm={12} md={4}>
           <Box sx={{ ...CARD_SX, height: '100%' }}>
             <CardHeader eyebrow="Action queue" eyebrowColor={STATUS_ERROR} title="Needs attention"
-              right={actionItems.length > 0 ? <Chip label={actionItems.length} size="small" sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} /> : null} />
-            <MapComponent Component={ListRow} data={actionItems} showNoDataAvailable={false} navigate={navigate} />
+              right={actionQueue.length > 0 ? <Chip label={actionQueue.length} size="small" sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} /> : null} />
+            <MapComponent Component={ActionItem} data={actionQueue} showNoDataAvailable={false} navigate={navigate} />
           </Box>
         </Grid>
       </Grid>
@@ -300,13 +203,13 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
         <Grid item xs={12} sm={6} md={6}>
           <Box sx={CARD_SX}>
             <SectionHeader label="Recent Requests" title="Last 24 hours" onViewAll={() => navigate('/requests')} />
-            <MapComponent Component={ListRow} data={recentReqRows} showNoDataAvailable={false} navigate={navigate} />
+            <MapComponent Component={RequestRow} data={recentReqs} showNoDataAvailable={false} navigate={navigate} />
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={6}>
           <Box sx={CARD_SX}>
             <SectionHeader label="Recent Bookings" title="Confirmed this week" onViewAll={() => navigate('/bookings')} />
-            <MapComponent Component={DateTileRow} data={recentBkRows} showNoDataAvailable={false} navigate={navigate} />
+            <MapComponent Component={BookingRow} data={recentBooks} showNoDataAvailable={false} navigate={navigate} now={now} />
           </Box>
         </Grid>
       </Grid>
