@@ -42,6 +42,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const history: Array<{ id: number; createdAt: Date; chatType: string; bookingId: number | null; title: string }> = [];
     for (const chat of chats) {
       const title = chat.chatName && chat.chatName.trim().length > 0 ? chat.chatName.trim() : 'New chat';
+      //push
       history.push({
         id: chat.id,
         createdAt: chat.createdAt,
