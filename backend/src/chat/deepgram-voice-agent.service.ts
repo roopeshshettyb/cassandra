@@ -151,6 +151,14 @@ export class DeepgramVoiceAgentService {
     state.ws.send(buffer);
   }
 
+  getContext(sessionId: string): AgentToolContext | null {
+    const state = this.sessions.get(sessionId);
+    if (!state) {
+      return null;
+    }
+    return state.ctx;
+  }
+
   closeSession(sessionId: string): void {
     const state = this.sessions.get(sessionId);
     if (!state) return;

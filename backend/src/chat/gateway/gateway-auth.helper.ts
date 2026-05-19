@@ -3,7 +3,10 @@ import { ensureWithinStayWindow } from './stay-window.guard';
 
 export interface GatewayAuthDeps {
   authService: { verifyToken: (token: string) => Promise<any> };
-  chatService: { findOrCreateForBooking: (bookingId: number, account: any) => Promise<any> };
+  chatService: {
+    findOrCreateForBooking: (bookingId: number, account: any) => Promise<any>;
+    findOrCreateGeneralForAccount: (account: any) => Promise<any>;
+  };
   bookingsService: { findByIdForAccount: (bookingId: number, account: any) => Promise<{ data: any }> };
   constantsService: { public: { ERROR_CHAT_ONLY_DURING_STAY: string } };
 }
@@ -20,13 +23,13 @@ export function parseConnectionHandshake(client: any): { token: string | null; b
 }
 
 /**
- * Authenticate client with token and bookingId, enforce stay window, attach session.
+ * Authenticate client with token and optional bookingId, enforce stay window when booking is present, attach session.
  * On success calls onSuccess(session). On failure emits error and disconnects.
  */
-export async function authenticateBookingAndInit(
+export async function authenticateAndInit(
   client: any,
   token: string,
-  bookingId: number,
+  bookingId: number | undefined,
   deps: GatewayAuthDeps,
   onSuccess: (session: ChatSession) => Promise<void>,
 ): Promise<void> {
@@ -38,16 +41,27 @@ export async function authenticateBookingAndInit(
       return;
     }
 
-    const chat = await deps.chatService.findOrCreateForBooking(bookingId, account);
-    const { data: booking } = await deps.bookingsService.findByIdForAccount(bookingId, account);
-    if (!ensureWithinStayWindow(client, booking.isWithinStay, deps.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
-      return;
+    let chat: any;
+    let sessionBookingId: number | null = null;
+    let booking: any = null;
+    let hotel: any = null;
+
+    if (typeof bookingId === 'number') {
+      chat = await deps.chatService.findOrCreateForBooking(bookingId, account);
+      const bookingResult = await deps.bookingsService.findByIdForAccount(bookingId, account);
+      booking = bookingResult?.data ?? null;
+      if (!ensureWithinStayWindow(client, booking.isWithinStay, deps.constantsService.public.ERROR_CHAT_ONLY_DURING_STAY)) {
+        return;
+      }
+      hotel = booking?.hotel || null;
+      sessionBookingId = bookingId;
+    } else {
+      chat = await deps.chatService.findOrCreateGeneralForAccount(account);
     }
 
-    const hotel = booking.hotel || null;
     const session: ChatSession = {
       account,
-      bookingId,
+      bookingId: sessionBookingId,
       chatId: chat.id,
       hotel,
       booking,

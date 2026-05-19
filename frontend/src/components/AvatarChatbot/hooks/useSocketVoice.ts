@@ -5,7 +5,7 @@ import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk } from '../utils/aud
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 interface UseSocketVoiceProps {
-  bookingId: number | string;
+  bookingId?: number | string | null;
   onReady?: () => void;
   onUserMessage?: (text: string) => void;
   onAssistantTextChunk?: (text: string) => void;
@@ -61,14 +61,17 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
   }, []);
 
   useEffect(() => {
-    if (!bookingId) return;
     const token = localStorage.getItem('token');
     if (!token) return;
+    const query: Record<string, string> = { token };
+    if (bookingId) {
+      query.bookingId = String(bookingId);
+    }
 
     const socket = io(`${BACKEND_URL}/voice`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
-      query: { token, bookingId: String(bookingId) },
+      query,
       auth: { token },
     });
 
@@ -167,6 +170,14 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
     // when the last sample will finish. Poll until currentTime passes that point.
     socket.on('voice_audio_end', () => {
       startPlaybackTracking(playbackTimeRef.current);
+    });
+
+    socket.on('auth_required', () => {
+      if (bookingId) {
+        socket.emit('auth', { token, bookingId });
+        return;
+      }
+      socket.emit('auth', { token });
     });
 
     return () => {

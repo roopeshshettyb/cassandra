@@ -27,6 +27,33 @@ export class ChatLlmService {
     private readonly costsService: CostsService,
   ) {}
 
+  private syncSessionBookingFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
+    for (let i = 0; i < toolCalls.length; i += 1) {
+      const call = toolCalls[i];
+      if (call.toolName !== 'set_booking_context') {
+        continue;
+      }
+      const outputRaw = call.output;
+      if (typeof outputRaw !== 'string') {
+        continue;
+      }
+      let parsed: any;
+      try {
+        parsed = JSON.parse(outputRaw);
+      } catch {
+        continue;
+      }
+      const data = parsed?.data;
+      const bookingId = data?.bookingId;
+      if (typeof bookingId !== 'number') {
+        continue;
+      }
+      session.bookingId = bookingId;
+      session.booking = data?.booking ?? null;
+      session.hotel = data?.booking?.hotel ?? null;
+    }
+  }
+
   async streamUserMessage(session: ChatSession, userMessage: string, options: StreamUserMessageOptions): Promise<void> {
     const chatId = session.chatId;
 
@@ -84,6 +111,8 @@ export class ChatLlmService {
     );
 
     await this.chatContextService.rebuildCache(chatId);
+
+    this.syncSessionBookingFromToolCalls(session, toolCalls);
 
     this.costsService.recordLlmCost({
       type: CostType.LLM_CHAT,

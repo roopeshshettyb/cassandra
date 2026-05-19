@@ -62,7 +62,7 @@ export class CostsService {
   async recordLlmCost(params: {
     type: CostType;
     usage: TokenUsage;
-    bookingId: number;
+    bookingId: number | null;
     hotelId: number | null;
     accountId: number;
     role: string;

@@ -48,6 +48,29 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
 };
 
+export const CONCIERGE_SUGGESTIONS: string[] = [
+  'I need room service',
+  'Request extra towels',
+  'Get dining recommendations',
+  'Arrange a late checkout',
+  'Book a taxi',
+  'Wake up call at 7am',
+  'Request extra pillows',
+  'Restaurant reservation tonight',
+  'Laundry pickup',
+  'Do not disturb please',
+  'Iron and ironing board',
+  'Swimming pool timings',
+  'Gym schedule',
+  'Spa appointment',
+  'Airport transfer',
+  'Local sightseeing tips',
+  'Is breakfast included?',
+  'Wi-Fi password please',
+  'Baby crib in my room',
+  'Ice bucket please',
+];
+
 const PLATFORM_DATA: any = {
   google: {
     label: 'Google',
@@ -255,6 +278,7 @@ export class ConstantsService {
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,
+      CONCIERGE_SUGGESTIONS,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
         ...PLATFORM_DATA,
