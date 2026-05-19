@@ -1,10 +1,10 @@
-import { Box, Typography } from '@mui/material';
+import { Avatar, Box, Chip, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR_BG, STATUS_ERROR, STATUS_WARNING_BG, STATUS_WARNING } from '../../theme';
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;
@@ -115,3 +115,29 @@ const HotelCard = ({ data, navigate }) => {
 };
 
 export default HotelCard;
+
+/** Property pulse row for dashboard — avatar, name, active/arrivals/open columns. MapComponent-compatible. */
+export function PropertyRow({ data: row }) {
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '2fr 1fr 1fr 1fr' }, px: 2.5, py: { xs: 1.25, md: 1.75 }, alignItems: 'center', borderBottom: `1px solid ${BORDER}`, gap: 1, '&:last-child': { borderBottom: 'none' } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+        <Avatar src={row.logoUrl || undefined} sx={{ width: 28, height: 28, fontSize: 12, fontWeight: 700, bgcolor: NAVY, flexShrink: 0 }}>
+          {!row.logoUrl && row.name?.[0]?.toUpperCase()}
+        </Avatar>
+        <Typography sx={{ fontSize: { xs: 13, md: 13.5 }, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</Typography>
+      </Box>
+      {/* Mobile badge */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' } }}>
+        {row.open > 0 && <Chip label={`${row.open} open req.`} size="small" sx={{ fontSize: 10, height: 18, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} />}
+      </Box>
+      {/* Desktop columns */}
+      <Typography sx={{ display: { xs: 'none', md: 'block' }, fontSize: 14, fontWeight: 700, color: NAVY }}>{row.active}</Typography>
+      <Typography sx={{ display: { xs: 'none', md: 'block' }, fontSize: 14, fontWeight: 700, color: NAVY }}>{row.arrivals}</Typography>
+      <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
+        {row.open > 0
+          ? <Chip label={row.open} size="small" sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: row.open > 5 ? STATUS_ERROR_BG : STATUS_WARNING_BG, color: row.open > 5 ? STATUS_ERROR : STATUS_WARNING, border: 'none' }} />
+          : <Typography sx={{ fontSize: 13, color: MUTED }}>0</Typography>}
+      </Box>
+    </Box>
+  );
+}
