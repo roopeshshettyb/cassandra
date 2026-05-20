@@ -48,6 +48,29 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
 };
 
+export const CONCIERGE_SUGGESTIONS: string[] = [
+  'I need room service',
+  'Request extra towels',
+  'Get dining recommendations',
+  'Arrange a late checkout',
+  'Book a taxi',
+  'Wake up call at 7am',
+  'Request extra pillows',
+  'Restaurant reservation tonight',
+  'Laundry pickup',
+  'Do not disturb please',
+  'Iron and ironing board',
+  'Swimming pool timings',
+  'Gym schedule',
+  'Spa appointment',
+  'Airport transfer',
+  'Local sightseeing tips',
+  'Is breakfast included?',
+  'Wi-Fi password please',
+  'Baby crib in my room',
+  'Ice bucket please',
+];
+
 const PLATFORM_DATA: any = {
   google: {
     label: 'Google',
@@ -255,6 +278,7 @@ export class ConstantsService {
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,
+      CONCIERGE_SUGGESTIONS,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
         ...PLATFORM_DATA,
@@ -340,6 +364,14 @@ export class ConstantsService {
       JWT_SECRET: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
       JWT_EXPIRY_DAYS: this.configService.get<number>('JWT_EXPIRY_DAYS', 7),
 
+      AGENT_REQUESTS_DEFAULT_LIMIT: 20,
+      AGENT_REQUESTS_MAX_LIMIT: 50,
+      AGENT_BOOKINGS_DEFAULT_LIMIT: 5,
+      AGENT_BOOKINGS_MAX_LIMIT: 50,
+      AGENT_BOOKINGS_ACTIVE_ONLY_DEFAULT: true,
+      AGENT_HOTELS_DEFAULT_LIMIT: 20,
+      AGENT_HOTELS_MAX_LIMIT: 50,
+
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
       GOOGLE_CALLBACK_URL: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
@@ -362,11 +394,11 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'google/gemini-2.5-flash',
+        TEXT_MODEL: 'google/gemini-3.1-flash-lite',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
-        TEXT_INPUT_PRICE_PER_1K: 0.00015,
-        TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
+        TEXT_INPUT_PRICE_PER_1K: 0.00025,
+        TEXT_OUTPUT_PRICE_PER_1K: 0.0015,
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
         STT_CONFIG: {
           // Common STT settings across providers

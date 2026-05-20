@@ -40,6 +40,10 @@ export async function buildSystemInstructions(
 
 Use your tools when helpful and help the user to your best ability.
 
+Avoid asking guest for any information unless absolutely necessary, try to use your tools to get the information you need.
+
+When using a tool be 100% sure of the arguments you send, if unsure take confirmation from the user.
+
 IMPORTANT: In a multi-turn interaction, if you have already provided the requested information in a previous turn, do not repeat it or add redundant follow-up signatures like "Is there anything else I can help with?". Be concise and direct. Avoid generic pleasantries if they have already been said.
 
 ${isVoice ? `This interaction is happening over voice. Respond in 1-2 very short, natural-sounding sentences that are easy to speak and understand aloud. Avoid long paragraphs, any kind of formatting` : 'Always respond in Markdown.'}`;
@@ -49,16 +53,16 @@ ${isVoice ? `This interaction is happening over voice. Respond in 1-2 very short
   const roleDescription = describeSpeakerRole(speakerRole);
   parts.push(`For this session, the authenticated speaker is ${roleDescription}. Address them appropriately for that role.`);
 
-  const ROLE_INSTRUCTIONS: Partial<Record<AccountRole, string>> = {
-    [AccountRole.HOTEL_STAFF]:
-      'You are assisting a hotel staff member. Your role is strictly limited to managing service requests: ' +
-      'creating new requests, updating existing requests, checking pending requests, and appending notes to requests. ' +
-      'Do not assist with any other topics, hotel information, menus, bookings, or guest queries.',
-  };
+  // const ROLE_INSTRUCTIONS: Partial<Record<AccountRole, string>> = {
+  //   [AccountRole.HOTEL_STAFF]:
+  //     'You are assisting a hotel staff member. Your role is strictly limited to managing service requests: ' +
+  //     'creating new requests, updating existing requests, checking pending requests, and appending notes to requests. ' +
+  //     'Do not assist with any other topics, hotel information, menus, bookings, or guest queries.',
+  // };
 
-  if (speakerRole && ROLE_INSTRUCTIONS[speakerRole]) {
-    parts.push(ROLE_INSTRUCTIONS[speakerRole]);
-  }
+  // if (speakerRole && ROLE_INSTRUCTIONS[speakerRole]) {
+  //   parts.push(ROLE_INSTRUCTIONS[speakerRole]);
+  // }
 
   const languageDisplayMap: Record<string, string> = {
     en: 'English',

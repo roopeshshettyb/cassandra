@@ -10,7 +10,7 @@ function ManageBrands({ loading, setLoading, account, navigate, alertError }) {
   const [brands, setBrands] = useState([]);
 
   useEffect(() => {
-    request({ endpoint: '/hotels/brands', method: 'GET', setLoading, setData: setBrands, defaultData: [], alertError });
+    request({ endpoint: '/hotels/brands', method: 'GET', setLoading, setData: setBrands, defaultData: [], alertError, delay: false });
   }, []);
 
   return (
