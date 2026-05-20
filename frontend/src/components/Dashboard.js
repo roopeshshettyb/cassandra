@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Button, Chip, Grid, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import EmailIcon from '@mui/icons-material/Email';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
-import { StatCard, CardHeader, SectionHeader, StatusChip, ColumnLabel, LABEL_SX, CARD_SX } from './cards/AppCards';
+import { StatCard, CardHeader, SectionHeader, ColumnLabel, LABEL_SX, CARD_SX } from './cards/AppCards';
 import { RequestRow, ActionItem } from './cards/RequestCard';
 import { BookingRow } from './cards/BookingCard';
 import { PropertyRow } from './cards/HotelCard';
@@ -32,23 +32,17 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
   };
 
   useEffect(() => {
-    const fetchAll = async (showLoader = false) => {
-      if (showLoader) setLoading(true);
-      await request({ endpoint: '/dashboard', method: 'GET', setData: setDashboard, alertError });
-      if (showLoader) setLoading(false);
-    };
-    fetchAll(true);
-    const onVisible = () => { if (!document.hidden) fetchAll(false); };
+    const fetchAll = () => request({ endpoint: '/dashboard', method: 'GET', setData: setDashboard, setLoading, alertError });
+    fetchAll();
+    const onVisible = () => { if (!document.hidden) fetchAll(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
+  if (!dashboard) return null;
+
   const now = new Date();
-  const stats        = dashboard?.stats        || { totalBookings: 0, activeBookings: 0, pendingRequests: 0, completedRequests: 0, urgentRequests: 0 };
-  const propertyRows = dashboard?.propertyRows || [];
-  const actionQueue  = dashboard?.actionQueue  || [];
-  const recentReqs   = dashboard?.recentRequests  || [];
-  const recentBooks  = dashboard?.recentBookings  || [];
+  const { stats, propertyRows, actionQueue, recentRequests: recentReqs, recentBookings: recentBooks } = dashboard;
 
   const isGuest   = account?.role === constants.ACCOUNT_ROLES.GUEST;
   const canInvite = !!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role];
@@ -156,7 +150,7 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
             <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: '2fr 1fr 1fr 1fr', px: 2.5, py: 1, borderBottom: `1px solid ${BORDER}` }}>
               <MapComponent Component={ColumnLabel} data={PROPERTY_PULSE_COLS} showNoDataAvailable={false} />
             </Box>
-            <MapComponent Component={PropertyRow} data={propertyRows} showNoDataAvailable={false} />
+            <MapComponent Component={PropertyRow} data={propertyRows} showNoDataAvailable={false} navigate={navigate} />
             <Box sx={{ px: 2.5, py: 1.25, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography sx={{ fontSize: 12, color: MUTED }}>Properties needing attention</Typography>
               <Typography onClick={() => navigate('/hotels')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>View all →</Typography>

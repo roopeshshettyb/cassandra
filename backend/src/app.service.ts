@@ -29,7 +29,7 @@ export class AppService {
 
     let totalBookings = 0;
     let activeBookings = 0;
-    const hotelMap: Record<number, { name: string; logoUrl: string | null; active: number; arrivals: number; open: number }> = {};
+    const hotelMap: Record<number, { id: number; name: string; logoUrl: string | null; active: number; arrivals: number; open: number }> = {};
     const recentBookings: any[] = [];
 
     for (const b of bookings) {
@@ -38,7 +38,7 @@ export class AppService {
       if (recentBookings.length < 5) recentBookings.push(b);
       if (!b.hotelId) continue;
       if (!hotelMap[b.hotelId]) {
-        hotelMap[b.hotelId] = { name: b.hotel?.name || '—', logoUrl: b.hotel?.logoUrl || null, active: 0, arrivals: 0, open: 0 };
+        hotelMap[b.hotelId] = { id: b.hotelId, name: b.hotel?.name || '—', logoUrl: b.hotel?.logoUrl || null, active: 0, arrivals: 0, open: 0 };
       }
       if (b.isWithinStay) hotelMap[b.hotelId].active++;
       if (b.startTime && new Date(b.startTime) >= todayStart && new Date(b.startTime) < todayEnd) {
@@ -58,7 +58,7 @@ export class AppService {
       if (r.urgency === RequestUrgency.HIGH && r.status !== RequestStatus.COMPLETED) urgentRequests++;
       if (r.hotelId && r.status !== RequestStatus.COMPLETED) {
         if (!hotelMap[r.hotelId]) {
-          hotelMap[r.hotelId] = { name: r.hotel?.name || '—', logoUrl: null, active: 0, arrivals: 0, open: 0 };
+          hotelMap[r.hotelId] = { id: r.hotelId, name: r.hotel?.name || '—', logoUrl: null, active: 0, arrivals: 0, open: 0 };
         }
         hotelMap[r.hotelId].open++;
       }
