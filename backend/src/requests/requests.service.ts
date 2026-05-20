@@ -61,7 +61,7 @@ export class RequestsService {
     const where = await this.getWhereForAccount(currentAccount);
 
     const findOptions: any = {
-      order: this.buildRequestOrder({ sortBy: 'createdAt', sortOrder: 'desc' }),
+      order: [['createdAt', 'DESC'], ['urgency', 'DESC']],
       include: [
         { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
         { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },

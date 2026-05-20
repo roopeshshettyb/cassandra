@@ -14,7 +14,7 @@ import { ConstantsService } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
@@ -36,6 +36,11 @@ export class BookingsService {
     @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  private isWithinStayAttr(): [any, string] {
+    const now = new Date().toISOString();
+    return [literal(`CASE WHEN "start_time" IS NOT NULL AND "end_time" IS NOT NULL AND '${now}' >= "start_time" AND '${now}' <= "end_time" THEN true ELSE false END`), 'isWithinStay'];
+  }
 
   private parseDateTime(dateStr: string, timeStr: string): Date {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -345,19 +350,16 @@ export class BookingsService {
     const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl', 'themeConfig'], include: [{ model: HotelBrand, as: 'brand' }] };
     const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
     const where = await this.getWhereForAccount(currentAccount);
-    const options: any = { include: [includeHotel, includeGuest], order: [['startTime', 'DESC']] };
+    const options: any = {
+      include: [includeHotel, includeGuest],
+      order: [['startTime', 'DESC']],
+      attributes: { include: [this.isWithinStayAttr()] },
+    };
     if (where) {
       options.where = where;
     }
     const bookings = await this.bookingsRepository.findAll(options);
-    const now = new Date();
-    const data: any[] = [];
-    for (const b of bookings) {
-      const plain: any = b.get({ plain: true });
-      plain.isWithinStay = !!plain.startTime && !!plain.endTime && now >= new Date(plain.startTime) && now <= new Date(plain.endTime);
-      data.push(plain);
-    }
-    return { success: true, message: null, data };
+    return { success: true, message: null, data: bookings };
   }
 
   async findForAccountWithOptions(currentAccount: Account, options?: BookingQueryOptions) {
@@ -449,6 +451,7 @@ export class BookingsService {
         [{ model: Request, as: 'requests' }, 'createdAt', 'DESC'],
         [{ model: Request, as: 'requests' }, 'urgency', 'DESC'],
       ],
+      attributes: { include: [this.isWithinStayAttr()] },
     });
 
     if (!booking) {
@@ -456,8 +459,6 @@ export class BookingsService {
     }
 
     const plain = booking.get({ plain: true }) as unknown as Record<string, unknown>;
-    const now = new Date();
-    plain.isWithinStay = now >= new Date(plain.startTime as Date) && now <= new Date(plain.endTime as Date);
 
     if (currentAccount.role === AccountRole.ADMIN || currentAccount.role === AccountRole.HOTEL_OWNER) {
       const costsResult = await this.costsService.findByBookingId(id);

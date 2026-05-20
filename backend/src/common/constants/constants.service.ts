@@ -278,7 +278,6 @@ export class ConstantsService {
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,
-      CONCIERGE_SUGGESTIONS,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
         ...PLATFORM_DATA,
