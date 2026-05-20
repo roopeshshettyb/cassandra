@@ -208,9 +208,11 @@ const AppContent = () => {
           if (error.code !== 'ERR_NETWORK') handleLogout();
         }
       }
-      setLoading(false);
     };
     fetchAccount();
+    if(pathname === '/') {
+      setLoading(false)
+    }
   }, []);
 
   // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
@@ -382,8 +384,8 @@ const AppContent = () => {
 
   const isAuthenticated = !!(account || token);
   const openGlobalConcierge = useCallback(() => {
+    setConciergeMode('voice');
     if (isMobile) {
-      setConciergeMode('chat');
       navigate('/chat');
       return;
     }

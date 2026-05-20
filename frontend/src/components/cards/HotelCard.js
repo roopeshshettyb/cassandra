@@ -117,9 +117,9 @@ const HotelCard = ({ data, navigate }) => {
 export default HotelCard;
 
 /** Property pulse row for dashboard — avatar, name, active/arrivals/open columns. MapComponent-compatible. */
-export function PropertyRow({ data: row }) {
+export function PropertyRow({ data: row, navigate }) {
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '2fr 1fr 1fr 1fr' }, px: 2.5, py: { xs: 1.25, md: 1.75 }, alignItems: 'center', borderBottom: `1px solid ${BORDER}`, gap: 1, '&:last-child': { borderBottom: 'none' } }}>
+    <Box onClick={() => navigate?.(`/hotels/${row.id}`)} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '2fr 1fr 1fr 1fr' }, px: 2.5, py: { xs: 1.25, md: 1.75 }, alignItems: 'center', borderBottom: `1px solid ${BORDER}`, gap: 1, '&:last-child': { borderBottom: 'none' }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
         <Avatar src={row.logoUrl || undefined} sx={{ width: 28, height: 28, fontSize: 12, fontWeight: 700, bgcolor: NAVY, flexShrink: 0 }}>
           {!row.logoUrl && row.name?.[0]?.toUpperCase()}
