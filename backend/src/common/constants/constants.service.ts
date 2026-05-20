@@ -369,11 +369,11 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'google/gemini-2.5-flash',
+        TEXT_MODEL: 'google/gemini-3.1-flash-lite',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
-        TEXT_INPUT_PRICE_PER_1K: 0.00015,
-        TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
+        TEXT_INPUT_PRICE_PER_1K: 0.00025,
+        TEXT_OUTPUT_PRICE_PER_1K: 0.0015,
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
         STT_CONFIG: {
           // Common STT settings across providers

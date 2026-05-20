@@ -106,7 +106,7 @@ export function createAgentTools(
       tool: new DynamicStructuredTool({
         name: 'get_recent_bookings',
         description:
-          'Get recent bookings available to the current account. Use this when booking context is not set and you need to identify the booking from conversation.',
+          'Get recent bookings available to the current account. Use this when booking context is not set and you need to identify the booking from conversation. If you get multiple bookings here, ask the user to confirm the booking they mean.',
         schema: z.object({}),
         func: async () => {
           const result = await bookingsService.findAllForAccount(account);
