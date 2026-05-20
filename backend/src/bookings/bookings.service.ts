@@ -349,7 +349,14 @@ export class BookingsService {
       options.where = where;
     }
     const bookings = await this.bookingsRepository.findAll(options);
-    return { success: true, message: null, data: bookings };
+    const now = new Date();
+    const data: any[] = [];
+    for (const b of bookings) {
+      const plain: any = b.get({ plain: true });
+      plain.isWithinStay = !!plain.startTime && !!plain.endTime && now >= new Date(plain.startTime) && now <= new Date(plain.endTime);
+      data.push(plain);
+    }
+    return { success: true, message: null, data };
   }
 
   async findByIdForAccount(id: number, currentAccount: Account) {
