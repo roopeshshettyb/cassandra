@@ -289,23 +289,7 @@ export class ConstantsService {
       NOTIFICATIONS_FETCHED: 'Notifications fetched',
       PREFERENCES_FETCHED: 'Preferences fetched',
       PREFERENCES_UPDATED: 'Preferences updated',
-      CONCIERGE_SUGGESTIONS: [
-        'I need room service',
-        'Request extra towels',
-        'Get dining recommendations',
-        'Arrange a late checkout',
-        'Book a spa treatment',
-        'I need a cab',
-        'Wake-up call please',
-        'What time is breakfast?',
-      ],
       AI_ASSISTANT_TITLE: 'AI Assistant',
-      AI_ASSISTANT_ROLE_SUGGESTIONS: {
-        guest: ['I need room service', 'Request extra towels', 'Arrange a late checkout', 'I need a cab'],
-        hotel_staff: ['Show pending requests', 'List today check-ins', 'High priority requests'],
-        hotel_owner: ['Hotel stats overview', 'Show pending requests', 'List my hotels'],
-        admin: ['Hotel stats overview', 'List my hotels', 'Show costs', 'High priority requests'],
-      },
     };
   }
 

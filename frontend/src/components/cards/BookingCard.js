@@ -1,14 +1,12 @@
 import { Box, Typography } from '@mui/material';
-import { NAVY, MUTED, BORDER, BG } from '../../theme';
-import { ROW_SX, StatusChip } from './AppCards';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-
-import { NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
+import { ROW_SX, StatusChip } from './AppCards';
 
 const getLuminance = (hex) => {
   const c = (hex || '').replace('#', '');
