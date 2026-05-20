@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { convertToOpenAITool } from '@langchain/core/utils/function_calling';
 import { AgentToolContext } from './langgraph-tools.context';
@@ -7,6 +7,8 @@ import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
+import { HotelsService } from '../hotels/hotels.service';
+import { ConstantsService } from '../common/constants/constants.service';
 
 export interface RealtimeToolDefinition {
   type: 'function';
@@ -22,6 +24,9 @@ export class RealtimeToolsService {
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
+    @Inject(forwardRef(() => HotelsService))
+    private readonly hotelsService: HotelsService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   /**
@@ -29,7 +34,7 @@ export class RealtimeToolsService {
    * OpenAI Realtime `session.tools`.
    */
   getToolsMetadata(ctx: AgentToolContext): RealtimeToolDefinition[] {
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
 
     return tools.map((tool: DynamicStructuredTool) => {
       const openaiTool = convertToOpenAITool(tool);
@@ -53,7 +58,7 @@ export class RealtimeToolsService {
    * text and voice paths.
    */
   async executeTool(ctx: AgentToolContext, name: string, args: Record<string, unknown>): Promise<unknown> {
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
     const tool = tools.find((t: DynamicStructuredTool) => t.name === name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);
