@@ -141,6 +141,7 @@ const AppContent = () => {
     sendText: conciergeSendText,
   } = useSocketVoice({
     bookingId: null,
+    setLoading,
     onError: (error) => alertError(error),
   });
 
@@ -314,7 +315,7 @@ const AppContent = () => {
 
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
-  const isBookingsRoute = pathname.startsWith('/bookings');
+  const isBookingDetailRoute = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isChatRoute = pathname === '/chat';
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
@@ -390,10 +391,10 @@ const AppContent = () => {
   }, [isMobile, navigate]);
 
   useEffect(() => {
-    if (isBookingsRoute && conciergeOpen) {
+    if (isBookingDetailRoute && conciergeOpen) {
       setConciergeOpen(false);
     }
-  }, [isBookingsRoute, conciergeOpen]);
+  }, [isBookingDetailRoute, conciergeOpen]);
 
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
@@ -468,7 +469,7 @@ const AppContent = () => {
             </Grid>
           </Box>
           <LoginPopup {...commonProps} />
-          {isAuthenticated && !isBookingsRoute && !isChatRoute && (
+          {isAuthenticated && !isBookingDetailRoute && !isChatRoute && (
             <>
               <Fab
                 ref={conciergeFabRef}

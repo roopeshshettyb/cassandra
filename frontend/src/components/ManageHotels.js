@@ -13,7 +13,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
   const [showAddForm, setShowAddForm] = useState(false);
 
   const fetchHotels = async () => {
-    await request({ endpoint: '/hotels', method: 'GET', setLoading, defaultData: [], alertError, setData: setHotels });
+    await request({ endpoint: '/hotels', method: 'GET', setLoading, defaultData: [], alertError, setData: setHotels, delay: false });
   };
 
   useEffect(() => {

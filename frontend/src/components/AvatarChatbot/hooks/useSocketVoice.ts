@@ -6,6 +6,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 interface UseSocketVoiceProps {
   bookingId?: number | string | null;
+  setLoading?: (loading: boolean) => void;
   onReady?: () => void;
   onUserMessage?: (text: string) => void;
   onAssistantTextChunk?: (text: string) => void;
@@ -13,7 +14,7 @@ interface UseSocketVoiceProps {
   onError?: (error: string) => void;
 }
 
-export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
+export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -23,6 +24,20 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
   const socketRef = useRef<Socket | null>(null);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
+  const setLoadingRef = useRef(setLoading);
+  setLoadingRef.current = setLoading;
+  const isConnectingRef = useRef(false);
+
+  const startConnectingLoading = useCallback(() => {
+    isConnectingRef.current = true;
+    setLoadingRef.current?.(true);
+  }, []);
+
+  const clearConnectingLoading = useCallback(() => {
+    if (!isConnectingRef.current) return;
+    isConnectingRef.current = false;
+    setLoadingRef.current?.(false);
+  }, []);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -63,6 +78,10 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
+
+    setIsReady(false);
+    startConnectingLoading();
+
     const query: Record<string, string> = { token };
     if (bookingId) {
       query.bookingId = String(bookingId);
@@ -112,8 +131,14 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       setIsRecording(false);
       setIsSpeaking(false);
       setIsProcessing(false);
+      clearConnectingLoading();
       cancelPlaybackTracking();
       cleanupAudio();
+    });
+
+    socket.on('connect_error', (err: any) => {
+      clearConnectingLoading();
+      onError?.(err?.message || 'Voice connection failed');
     });
 
     // Backend is ready / ready for the next turn
@@ -121,6 +146,7 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       setIsReady(true);
       setIsProcessing(false);
       setIsSpeaking(false);
+      clearConnectingLoading();
       cancelPlaybackTracking();
       onReadyRef.current?.();
     });
@@ -137,6 +163,7 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       setIsRecording(false);
       setIsSpeaking(false);
       setIsProcessing(false);
+      clearConnectingLoading();
       cleanupAudio();
     });
 
@@ -144,6 +171,7 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
       onError?.(err?.message || 'Voice socket error');
       setIsProcessing(false);
       setIsSpeaking(false);
+      clearConnectingLoading();
     });
 
     socket.on('voice_user_message', (payload: any) => {
@@ -181,12 +209,13 @@ export function useSocketVoice({ bookingId, onReady, onUserMessage, onAssistantT
     });
 
     return () => {
+      clearConnectingLoading();
       cancelPlaybackTracking();
       cleanupAudio();
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [bookingId, cleanupAudio, cancelPlaybackTracking]);
+  }, [bookingId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading]);
 
   const startRecording = async () => {
     if (isRecording) return;

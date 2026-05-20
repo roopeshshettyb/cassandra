@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, HOVER_BG } from '../theme';
 import constants from '../constants.json';
 
-function ManageCosts({ setLoading, account, alertError }) {
+function ManageCosts({ loading, setLoading, account, alertError }) {
   const [costs, setCosts] = useState([]);
 
   useEffect(() => {
     if (account && constants.PERMISSIONS.CAN_VIEW_COSTS[account.role]) {
-      request({ endpoint: '/costs/aggregate', method: 'GET', setLoading, setData: setCosts, defaultData: [], alertError });
+      request({ endpoint: '/costs/aggregate', method: 'GET', setLoading, setData: setCosts, defaultData: [], alertError, delay: false });
     }
   }, [account]);
 
@@ -66,7 +66,11 @@ function ManageCosts({ setLoading, account, alertError }) {
           <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: TEXT_MUTED_LIGHT }}>Cost</Typography>
         </Box>
 
-        {costs.length > 0 ? (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : costs.length > 0 ? (
           costs.map((row, i) => (
             <motion.div key={row.id || row.bookingId || i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}>
               <Box

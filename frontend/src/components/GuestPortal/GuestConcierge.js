@@ -562,15 +562,12 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
                   onClick={handleSend}
                   disabled={!ready || sending || !input.trim()}
                   size="small"
-                  sx={{ 
-                    width: { xs: 'auto', md: 40 },
-                    height: { xs: 'auto', md: 40 },
-                    background: { xs: 'none', md: (!input.trim() || sending) ? undefined : BRAND_GRADIENT },
-                    color: { xs: 'primary.main', md: (!input.trim() || sending) ? MUTED : PRIMARY_CONTRAST },
-                    borderRadius: { md: 2 },
-                    boxShadow: { md: (!input.trim() || sending) ? 'none' : SHADOW_BRAND },
-                    transition: 'all 0.2s',
-                    '&.Mui-disabled': { opacity: { xs: 0.5, md: 0.4 } } 
+                  sx={{
+                    background: 'none',
+                    color: (!input.trim() || sending) ? MUTED : 'primary.main',
+                    transition: 'color 0.2s',
+                    '&:hover': { background: 'none' },
+                    '&.Mui-disabled': { opacity: 0.5 },
                   }}
                 >
                   <SendIcon sx={{ fontSize: 18 }} />
@@ -618,12 +615,16 @@ export default function GuestConcierge({
   const showChat = isModeControlled ? mode === 'chat' : searchParams.get('mode') === 'chat';
 
   const openChat = useCallback(() => {
+    if (!isWithinStay) {
+      alertError?.(constants.ERROR_CHAT_ONLY_DURING_STAY);
+      return;
+    }
     if (isModeControlled) {
       onModeChange('chat');
       return;
     }
     setSearchParams({ tab: 'concierge', mode: 'chat' });
-  }, [isModeControlled, onModeChange, setSearchParams]);
+  }, [isWithinStay, alertError, isModeControlled, onModeChange, setSearchParams]);
   const openVoice = useCallback(() => {
     if (isModeControlled) {
       onModeChange('voice');
@@ -637,7 +638,7 @@ export default function GuestConcierge({
 
   const handleMicTap = async () => {
     if (!isWithinStay) {
-      alertError?.('Voice is only available during your stay.');
+      alertError?.(constants.ERROR_CHAT_ONLY_DURING_STAY);
       return;
     }
     if (isRecording) {
@@ -781,7 +782,7 @@ export default function GuestConcierge({
             style={{
               background: 'none',
               border: 'none',
-              cursor: 'pointer',
+              cursor: isWithinStay ? 'pointer' : 'not-allowed',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
@@ -789,8 +790,9 @@ export default function GuestConcierge({
               fontSize: 14,
               fontWeight: 500,
               padding: '8px 16px',
+              opacity: isWithinStay ? 1 : 0.5,
             }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={isWithinStay ? { scale: 0.97 } : undefined}
           >
             <ChatBubbleOutlineIcon sx={{ fontSize: 18, color: MUTED }} />
             Prefer to type?
