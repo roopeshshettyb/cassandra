@@ -18,7 +18,7 @@ export class DashboardService {
 
     const [{ data: bookings }, { data: requests }] = await Promise.all([
       this.bookingsService.findAllForAccount(account),
-      this.requestsService.findAllForAccount(account),
+      this.requestsService.findAllForAccount(account, { sortBy: 'urgency', sortOrder: 'desc' }),
     ]);
 
     let totalBookings = 0;
@@ -60,9 +60,6 @@ export class DashboardService {
       }
       if (recentRequests.length < 5) recentRequests.push(r);
     }
-
-    const URGENCY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    actionCandidates.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 3) - (URGENCY_ORDER[b.urgency] ?? 3));
 
     return {
       success: true,
