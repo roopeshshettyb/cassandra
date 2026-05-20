@@ -382,8 +382,8 @@ const AppContent = () => {
 
   const isAuthenticated = !!(account || token);
   const openGlobalConcierge = useCallback(() => {
+    setConciergeMode('voice');
     if (isMobile) {
-      setConciergeMode('chat');
       navigate('/chat');
       return;
     }
