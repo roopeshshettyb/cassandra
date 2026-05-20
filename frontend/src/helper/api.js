@@ -28,7 +28,7 @@ axiosInstance.interceptors.request.use(
   },
 );
 
-async function request({ endpoint, method = 'GET', data, token, headers = {}, setLoading, setData, defaultData = [], throw: shouldThrow = false, alertSuccess, alertError }) {
+async function request({ endpoint, method = 'GET', data, token, headers = {}, setLoading, setData, defaultData = [], throw: shouldThrow = false, alertSuccess, alertError, delay = true }) {
   const config = {
     method,
     url: endpoint,
@@ -49,12 +49,15 @@ async function request({ endpoint, method = 'GET', data, token, headers = {}, se
     }
   }
 
-  // Delay loading indicator by 500ms to prevent jittery behavior
   let loadingTimeout = null;
   if (setLoading) {
-    loadingTimeout = setTimeout(() => {
+    if (delay === false) {
       setLoading(true);
-    }, 700);
+    } else {
+      loadingTimeout = setTimeout(() => {
+        setLoading(true);
+      }, 700);
+    }
   }
 
   try {

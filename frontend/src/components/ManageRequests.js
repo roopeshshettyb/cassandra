@@ -18,6 +18,7 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
       setData: setRequests,
       defaultData: [],
       alertError,
+      delay: false,
     });
   }
 

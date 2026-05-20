@@ -11,6 +11,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
+import { HotelsService } from '../hotels/hotels.service';
 import { ConstantsService } from '../common/constants/constants.service';
 
 export interface ExtractedBookingFields {
@@ -71,6 +72,8 @@ export class LangGraphService {
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
+    @Inject(forwardRef(() => HotelsService))
+    private readonly hotelsService: HotelsService,
     private readonly constantsService: ConstantsService,
   ) {}
 
@@ -209,7 +212,7 @@ export class LangGraphService {
     ctx: AgentToolContext,
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 

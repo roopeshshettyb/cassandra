@@ -348,6 +348,14 @@ export class ConstantsService {
       JWT_SECRET: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
       JWT_EXPIRY_DAYS: this.configService.get<number>('JWT_EXPIRY_DAYS', 7),
 
+      AGENT_REQUESTS_DEFAULT_LIMIT: 20,
+      AGENT_REQUESTS_MAX_LIMIT: 50,
+      AGENT_BOOKINGS_DEFAULT_LIMIT: 5,
+      AGENT_BOOKINGS_MAX_LIMIT: 50,
+      AGENT_BOOKINGS_ACTIVE_ONLY_DEFAULT: true,
+      AGENT_HOTELS_DEFAULT_LIMIT: 20,
+      AGENT_HOTELS_MAX_LIMIT: 50,
+
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
       GOOGLE_CALLBACK_URL: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
@@ -370,11 +378,11 @@ export class ConstantsService {
 
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
-        TEXT_MODEL: 'google/gemini-2.5-flash',
+        TEXT_MODEL: 'google/gemini-3.1-flash-lite',
         PROVIDER: 'openai',
         CURRENCY: 'usd',
-        TEXT_INPUT_PRICE_PER_1K: 0.00015,
-        TEXT_OUTPUT_PRICE_PER_1K: 0.0006,
+        TEXT_INPUT_PRICE_PER_1K: 0.00025,
+        TEXT_OUTPUT_PRICE_PER_1K: 0.0015,
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
         STT_CONFIG: {
           // Common STT settings across providers
