@@ -14,7 +14,7 @@ import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
 import { MenuItem } from '../restaurant/restaurant.model';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 
 @Injectable()
 export class HotelsService {
@@ -79,6 +79,12 @@ export class HotelsService {
       where: hotelsWhere,
       include: [{ model: HotelBrand, as: 'brand' }],
       order: [[orderField, sortOrder]],
+      attributes: {
+        include: [
+          [literal(`(SELECT COUNT(*) FROM requests WHERE requests.hotel_id = "Hotel"."id" AND requests.status NOT IN ('completed', 'cancelled'))`), 'openRequestsCount'],
+          [literal(`(SELECT COUNT(*) FROM bookings WHERE bookings.hotel_id = "Hotel"."id" AND bookings.start_time <= NOW() AND bookings.end_time >= NOW())`), 'activeGuestsCount'],
+        ],
+      },
     };
 
     const agentLimits = this.constantsService.private;
@@ -87,7 +93,13 @@ export class HotelsService {
     }
 
     const data = await this.hotelsRepository.findAll(findOptions);
-    return { success: true, message: 'Hotels Fetched', data };
+
+    let totalOpenRequests = 0;
+    for (let i = 0; i < data.length; i++) {
+      totalOpenRequests += parseInt((data[i] as any).get('openRequestsCount') || 0, 10);
+    }
+
+    return { success: true, message: 'Hotels Fetched', data, meta: { totalOpenRequests } };
   }
 
   async findByIdForAccount(id: number, currentAccount: Account): Promise<Hotel> {

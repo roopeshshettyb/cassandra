@@ -1,111 +1,95 @@
 import { Avatar, Box, Chip, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { NAVY, NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR_BG, STATUS_ERROR, STATUS_WARNING_BG, STATUS_WARNING } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_LIGHT, NAVY_CONTRAST, STATUS_ERROR_BG, STATUS_ERROR, STATUS_WARNING_BG, STATUS_WARNING } from '../../theme';
+import { CARD_SX, ROW_SX, LABEL_SX } from './AppCards';
+
+const openCount = (hotel) => parseInt(hotel.openRequestsCount || 0, 10);
+const activeCount = (hotel) => parseInt(hotel.activeGuestsCount || 0, 10);
+
+const StatBox = ({ label, value, sub }) => (
+  <Box>
+    <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.25 }}>{label}</Typography>
+    <Typography sx={{ fontSize: 18, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{value}</Typography>
+    {sub && <Typography sx={{ fontSize: 10, color: MUTED, mt: 0.3 }}>{sub}</Typography>}
+  </Box>
+);
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;
   const primary = hotel.themeConfig?.primaryColor;
   const secondary = hotel.themeConfig?.secondaryColor;
-  const accent = primary || '#D4AF37';
+  const accent = primary || 'var(--app-primary)';
   const headerGradient = primary
     ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)`
     : NAVY_GRADIENT;
 
   return (
-    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }}>
-      <Box
-        onClick={() => hotel?.id && navigate?.(`/hotels/${hotel.id}`)}
-        sx={{
-          bgcolor: 'background.paper',
-          borderRadius: 3,
-          overflow: 'hidden',
-          border: `1px solid ${primary ? primary + '30' : BORDER}`,
-          boxShadow: primary ? `0 2px 12px ${primary}25` : SHADOW,
-          cursor: 'pointer',
-          '@media (hover: hover)': {
-            '&:hover': { boxShadow: primary ? `0 8px 28px ${primary}40` : SHADOW_HOVER },
-          },
-        }}
-      >
-        {/* Themed header */}
-        <Box sx={{ background: headerGradient, px: 2.5, pt: 2.5, pb: 2.25 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
-            {/* Logo tile */}
-            <Box sx={{
-              width: 52, height: 52, borderRadius: 2, flexShrink: 0,
-              overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.18)',
-              border: '2px solid rgba(255,255,255,0.35)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-            }}>
-              {hotel.logoUrl
-                ? <Box component="img" src={hotel.logoUrl} alt={hotel.name}
-                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : null}
-              <Box sx={{ display: hotel.logoUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography sx={{ fontWeight: 900, fontSize: 22, color: '#fff', lineHeight: 1 }}>
-                  {hotel.name?.[0]?.toUpperCase()}
-                </Typography>
-              </Box>
-            </Box>
-            {/* Name + rating */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{
-                fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1.35,
-                overflow: 'hidden', textOverflow: 'ellipsis',
-                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-              }}>
-                {hotel.name}
-              </Typography>
-              {hotel.rating && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mt: 0.5 }}>
-                  <StarRoundedIcon sx={{ fontSize: 13, color: '#FFD700' }} />
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
-                    {hotel.rating.toFixed(1)}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} style={{ width: '100%' }}>
+      <Box sx={{
+        ...CARD_SX,
+        border: `1px solid ${primary ? primary + '30' : BORDER}`,
+        boxShadow: primary ? `0 2px 12px ${primary}25` : SHADOW,
+        display: 'flex', flexDirection: 'column', height: '100%',
+        '@media (hover: hover)': {
+          '&:hover': { boxShadow: primary ? `0 8px 28px ${primary}40` : SHADOW_HOVER },
+        },
+      }}>
+        {/* Gradient header */}
+        <Box sx={{ background: headerGradient, px: 2.5, pt: 2, pb: 2.25, position: 'relative', overflow: 'hidden' }}>
+          {/* Watermark letter */}
+          <Typography sx={{
+            position: 'absolute', right: -4, bottom: -16,
+            fontSize: 100, fontWeight: 900, lineHeight: 1,
+            color: 'rgba(255,255,255,0.13)', userSelect: 'none', pointerEvents: 'none',
+          }}>
+            {hotel.name?.[0]?.toUpperCase()}
+          </Typography>
+
+          <Typography sx={{ ...LABEL_SX, fontSize: 9.5, color: TEXT_MUTED_LIGHT, mb: 0.75 }}>
+            {hotel.brand?.name || ' '}
+          </Typography>
+
+          <Typography sx={{
+            fontWeight: 800, fontSize: 17, color: NAVY_CONTRAST, lineHeight: 1.3,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            pr: 8,
+          }}>
+            {hotel.name}
+          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.75 }}>
+            <LocationOnIcon sx={{ fontSize: 11, color: TEXT_MUTED_LIGHT, flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 11, color: TEXT_MUTED_LIGHT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {hotel.address || 'No address'}
+            </Typography>
           </Box>
         </Box>
 
         {/* Body */}
-        <Box sx={{ px: 2.5, pt: 1.75, pb: 2 }}>
-          {/* Address */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mb: 1.75 }}>
-            <LocationOnIcon sx={{ fontSize: 13, color: MUTED, mt: 0.25, flexShrink: 0 }} />
-            {hotel.address
-              ? <Typography sx={{ fontSize: 12, color: MUTED, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                  {hotel.address}
-                </Typography>
-              : <Typography sx={{ fontSize: 12, color: TEXT_MUTED_DARK, fontStyle: 'italic', opacity: 0.55 }}>No address</Typography>
-            }
+        <Box sx={{ px: 2.5, pt: 2, pb: 1.75, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 1.75 }}>
+            <StatBox label="Check-in" value={hotel.checkInTime || '—'} sub="Time" />
+            <StatBox label="Open Req." value={openCount(hotel)} sub="Now" />
+            <StatBox label="Active" value={activeCount(hotel)} sub="Guests" />
           </Box>
 
-          {/* Check-in / Check-out badges */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 1.75 }}>
-            {[{ label: 'Check in', value: hotel.checkInTime }, { label: 'Check out', value: hotel.checkOutTime }].map(({ label, value }) => (
-              <Box key={label} sx={{
-                flex: 1, borderRadius: 2, p: 1.1, textAlign: 'center',
-                bgcolor: `${accent}12`, border: `1px solid ${accent}28`,
-              }}>
-                <Typography sx={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>{label}</Typography>
-                <Typography sx={{ fontSize: 15, fontWeight: 800, color: accent, lineHeight: 1.2, mt: 0.3 }}>{value || '—'}</Typography>
-              </Box>
-            ))}
-          </Box>
-
-          {/* Footer */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1, borderTop: `1px solid ${BORDER}` }}>
-            <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.5 }}>#{hotel.id}</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>Manage</Typography>
-              <ArrowForwardIosIcon sx={{ fontSize: 9, color: accent }} />
+          <Box sx={{ mt: 'auto', pt: 1.5, borderTop: `1px solid ${BORDER}` }}>
+            <Box
+              component="button"
+              onClick={() => hotel?.id && navigate?.(`/hotels/${hotel.id}`)}
+              sx={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
+                border: 'none', borderRadius: 2, py: 0.9,
+                background: NAVY_GRADIENT, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: NAVY_CONTRAST,
+                '&:hover': { opacity: 0.92 },
+              }}
+            >
+              Open
+              <ArrowForwardIosIcon sx={{ fontSize: 10 }} />
             </Box>
           </Box>
         </Box>
@@ -116,21 +100,48 @@ const HotelCard = ({ data, navigate }) => {
 
 export default HotelCard;
 
+/** Compact table row for ManageHotels table view. MapComponent-compatible. */
+export function HotelTableRow({ data: hotel, navigate }) {
+  const accent = hotel.themeConfig?.primaryColor || 'var(--app-primary)';
+  const open = openCount(hotel);
+  return (
+    <Box
+      onClick={() => navigate?.(`/hotels/${hotel.id}`)}
+      sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', px: 2.5, py: 1.75, alignItems: 'center', gap: 1 }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+        <Avatar src={hotel.logoUrl || undefined} sx={{ width: 36, height: 36, fontSize: 14, fontWeight: 700, bgcolor: accent, flexShrink: 0 }}>
+          {!hotel.logoUrl && hotel.name?.[0]?.toUpperCase()}
+        </Avatar>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hotel.name}</Typography>
+          <Typography sx={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hotel.address || '—'}</Typography>
+        </Box>
+        {open > 0 && <Chip label={`${open} open`} size="small" sx={{ fontSize: 10, height: 18, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none', flexShrink: 0 }} />}
+      </Box>
+      <Typography sx={{ fontSize: 13, color: MUTED }}>{hotel.brand?.name || '—'}</Typography>
+      <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{hotel.checkInTime || '—'} / {hotel.checkOutTime || '—'}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>Manage</Typography>
+        <ArrowForwardIosIcon sx={{ fontSize: 9, color: accent }} />
+      </Box>
+    </Box>
+  );
+}
+
 /** Property pulse row for dashboard — avatar, name, active/arrivals/open columns. MapComponent-compatible. */
 export function PropertyRow({ data: row, navigate }) {
   return (
-    <Box onClick={() => navigate?.(`/hotels/${row.id}`)} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '2fr 1fr 1fr 1fr' }, px: 2.5, py: { xs: 1.25, md: 1.75 }, alignItems: 'center', borderBottom: `1px solid ${BORDER}`, gap: 1, '&:last-child': { borderBottom: 'none' }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
+    <Box onClick={() => navigate?.(`/hotels/${row.id}`)} sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '2fr 1fr 1fr 1fr' }, px: 2.5, py: { xs: 1.25, md: 1.75 }, alignItems: 'center', gap: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
         <Avatar src={row.logoUrl || undefined} sx={{ width: 28, height: 28, fontSize: 12, fontWeight: 700, bgcolor: NAVY, flexShrink: 0 }}>
           {!row.logoUrl && row.name?.[0]?.toUpperCase()}
         </Avatar>
         <Typography sx={{ fontSize: { xs: 13, md: 13.5 }, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</Typography>
       </Box>
-      {/* Mobile badge */}
       <Box sx={{ display: { xs: 'flex', md: 'none' } }}>
         {row.open > 0 && <Chip label={`${row.open} open req.`} size="small" sx={{ fontSize: 10, height: 18, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} />}
       </Box>
-      {/* Desktop columns */}
       <Typography sx={{ display: { xs: 'none', md: 'block' }, fontSize: 14, fontWeight: 700, color: NAVY }}>{row.active}</Typography>
       <Typography sx={{ display: { xs: 'none', md: 'block' }, fontSize: 14, fontWeight: 700, color: NAVY }}>{row.arrivals}</Typography>
       <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
