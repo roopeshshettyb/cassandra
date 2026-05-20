@@ -195,6 +195,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
   const historyPanelRef = useRef(null);
   const initialPromptSentRef = useRef(false);
   const shouldAutoScrollRef = useRef(true);
+  const sendingRef = useRef(false);
   const scrollRafRef = useRef(null);
 
   useEffect(() => {
@@ -209,6 +210,18 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     document.addEventListener('pointerdown', onDocPointerDown);
     return () => document.removeEventListener('pointerdown', onDocPointerDown);
   }, [showHistory]);
+
+  const scrollToBottomNow = useCallback(() => {
+    shouldAutoScrollRef.current = true;
+    if (scrollRafRef.current !== null) {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = null;
+    }
+    const scrollEl = scrollRef.current;
+    if (scrollEl) {
+      scrollEl.scrollTop = scrollEl.scrollHeight;
+    }
+  }, []);
 
   const scheduleAutoScroll = useCallback(() => {
     if (!shouldAutoScrollRef.current || scrollRafRef.current !== null) return;
@@ -232,6 +245,10 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
   }, []);
 
   const handleMessagesScroll = useCallback((event) => {
+    if (sendingRef.current) {
+      shouldAutoScrollRef.current = true;
+      return;
+    }
     const target = event.currentTarget;
     const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
     shouldAutoScrollRef.current = distanceFromBottom <= 24;
@@ -270,6 +287,8 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       }
       if (initialPrompt && !initialPromptSentRef.current) {
         initialPromptSentRef.current = true;
+        shouldAutoScrollRef.current = true;
+        sendingRef.current = true;
         setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: initialPrompt, createdAt: new Date().toISOString() }]);
         setSending(true);
         socket.emit('message', { content: initialPrompt });
@@ -299,11 +318,13 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
         setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
       }
       shouldAutoScrollRef.current = true;
+      sendingRef.current = false;
       setSending(false);
       setTimeout(() => inputRef.current?.focus?.(), 0);
     });
     socket.on('error', (p) => {
       setStreamingContent('');
+      sendingRef.current = false;
       setSending(false);
       alertError?.(p?.message || 'Something went wrong');
     });
@@ -318,15 +339,20 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     const text = input.trim();
     if (!text || !socketRef.current?.connected || sending) return;
     setInput('');
+    inputRef.current?.blur?.();
+    shouldAutoScrollRef.current = true;
+    sendingRef.current = true;
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text, createdAt: new Date().toISOString() }]);
     setSending(true);
     setStreamingContent('');
     socketRef.current.emit('message', { content: text });
-    setTimeout(() => inputRef.current?.focus?.(), 0);
-  }, [input, sending]);
+    requestAnimationFrame(scrollToBottomNow);
+    setTimeout(scrollToBottomNow, 150);
+  }, [input, sending, scrollToBottomNow]);
 
   const handleOpenChat = useCallback((chatId) => {
     if (!socketRef.current?.connected || !chatId) return;
+    sendingRef.current = false;
     setSending(false);
     setStreamingContent('');
     socketRef.current.emit('open_chat', { chatId });
@@ -334,6 +360,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
 
   const handleNewChat = useCallback(() => {
     if (!socketRef.current?.connected) return;
+    sendingRef.current = false;
     setSending(false);
     setStreamingContent('');
     socketRef.current.emit('new_chat');
@@ -505,6 +532,8 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
             items={suggestions}
             onSelect={(suggestion) => {
               if (!sending && socketRef.current?.connected) {
+                shouldAutoScrollRef.current = true;
+                sendingRef.current = true;
                 setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: suggestion, createdAt: new Date().toISOString() }]);
                 setSending(true);
                 setStreamingContent('');
