@@ -208,7 +208,7 @@ const AppContent = () => {
           if (error.code !== 'ERR_NETWORK') handleLogout();
         }
       }
-      setLoading(false);
+      // setLoading(false);
     };
     fetchAccount();
   }, []);
