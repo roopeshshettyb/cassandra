@@ -400,7 +400,11 @@ const AppContent = () => {
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Sidebar {...commonProps} />
+        <Sidebar
+          {...commonProps}
+          onAskAI={openGlobalConcierge}
+          showAskAI={isAuthenticated && !isBookingDetailRoute && !isChatRoute}
+        />
         <Box
           sx={{
             display: isMobile && sidebarOpen ? 'none' : 'flex',
@@ -476,9 +480,10 @@ const AppContent = () => {
                 color="primary"
                 onClick={openGlobalConcierge}
                 sx={{
+                  display: { xs: 'none', md: 'flex' },
                   position: 'fixed',
-                  right: { xs: 16, md: 24 },
-                  bottom: { xs: 16, md: 24 },
+                  right: 24,
+                  bottom: 24,
                   zIndex: 1200,
                 }}
               >
