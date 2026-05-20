@@ -16,6 +16,7 @@ import ShippingDeliveryPolicy from './components/ShippingDeliveryPolicy';
 import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
 import GuestConcierge from './components/GuestPortal/GuestConcierge';
+import ChatPage from './components/ChatPage';
 import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
 import ManageBrands from './components/ManageBrands';
@@ -314,10 +315,12 @@ const AppContent = () => {
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
   const isBookingsRoute = pathname.startsWith('/bookings');
+  const isChatRoute = pathname === '/chat';
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
     pathname.startsWith('/requests/') ||
-    pathname.startsWith('/bookings/')
+    pathname.startsWith('/bookings/') ||
+    pathname === '/chat'
   );
   // Also suppress footer/padding for request detail on desktop
   const isRequestDetail = pathname.startsWith('/requests/') && pathname !== '/requests';
@@ -378,8 +381,13 @@ const AppContent = () => {
 
   const isAuthenticated = !!(account || token);
   const openGlobalConcierge = useCallback(() => {
+    if (isMobile) {
+      setConciergeMode('chat');
+      navigate('/chat');
+      return;
+    }
     setConciergeOpen((prev) => (prev ? false : true));
-  }, []);
+  }, [isMobile, navigate]);
 
   useEffect(() => {
     if (isBookingsRoute && conciergeOpen) {
@@ -405,6 +413,30 @@ const AppContent = () => {
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
+                <Route
+                  path="/chat"
+                  element={
+                    isAuthenticated ? (
+                      <ChatPage
+                        isMobile={isMobile}
+                        alertError={alertError}
+                        conciergeVoiceReady={conciergeVoiceReady}
+                        conciergeRecording={conciergeRecording}
+                        conciergeProcessing={conciergeProcessing}
+                        conciergeSpeaking={conciergeSpeaking}
+                        conciergeStartRecording={conciergeStartRecording}
+                        conciergeStopRecording={conciergeStopRecording}
+                        conciergeSendText={conciergeSendText}
+                        conciergeInteractedRef={conciergeInteractedRef}
+                        conciergeStoppedRef={conciergeStoppedRef}
+                        conciergeMode={conciergeMode}
+                        setConciergeMode={setConciergeMode}
+                      />
+                    ) : (
+                      <Navigate to="/404" replace />
+                    )
+                  }
+                />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
@@ -436,7 +468,7 @@ const AppContent = () => {
             </Grid>
           </Box>
           <LoginPopup {...commonProps} />
-          {isAuthenticated && !isBookingsRoute && (
+          {isAuthenticated && !isBookingsRoute && !isChatRoute && (
             <>
               <Fab
                 ref={conciergeFabRef}
@@ -505,7 +537,7 @@ const AppContent = () => {
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && !isChatRoute && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>
