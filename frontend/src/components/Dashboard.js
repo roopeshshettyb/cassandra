@@ -1,160 +1,187 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Button, Grid, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Button, Chip, Grid, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import EmailIcon from '@mui/icons-material/Email';
 import request from '../helper/api';
-import RequestCard from './cards/RequestCard';
-import BookingCard from './cards/BookingCard';
-import HotelIcon from '@mui/icons-material/Hotel';
-import PendingActionsIcon from '@mui/icons-material/PendingActions';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import BedtimeIcon from '@mui/icons-material/Bedtime';
-
-import { NAVY, MUTED, BORDER, SHADOW } from '../theme';
+import MapComponent from './MapComponent';
+import { StatCard, CardHeader, SectionHeader, ColumnLabel, LABEL_SX, CARD_SX } from './cards/AppCards';
+import { RequestRow, ActionItem } from './cards/RequestCard';
+import { BookingRow } from './cards/BookingCard';
+import { PropertyRow } from './cards/HotelCard';
+import {
+  NAVY, NAVY_GRADIENT, NAVY_CONTRAST, MUTED, BORDER,
+  BRAND_GRADIENT, PRIMARY_CONTRAST, TEXT_MUTED_LIGHT,
+  STATUS_WARNING, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS,
+} from '../theme';
 import constants from '../constants.json';
 
-const LABEL_SX = {
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  color: MUTED,
-  mb: 2,
-};
+const PROPERTY_PULSE_COLS = ['Property', 'Active Guests', "Today's Arrivals", 'Open Requests'];
 
-function StatCard({ icon: Icon, label, value, accent }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, p: 2.5, border: `1px solid ${BORDER}`, boxShadow: SHADOW }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon sx={{ fontSize: 20, color: '#fff' }} />
-          </Box>
-        </Box>
-        <Typography sx={{ fontSize: 28, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{value}</Typography>
-        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>{label}</Typography>
-      </Box>
-    </motion.div>
-  );
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
-const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading, BRAND_GRADIENT }) => {
-  const [bookings, setBookings] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [sendingInvites, setSendingInvites] = useState(false);
+const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) => {
+  const [dashboard, setDashboard] = useState(null);
 
   const handleSendPendingInvites = async () => {
-    setSendingInvites(true);
-    try {
-      const result = await request({
-        endpoint: '/bookings/send-pending-invites',
-        method: 'POST',
-        setLoading,
-        alertError,
-        throw: true,
-      });
-      if (result?.message) alertSuccess?.(result.message);
-    } finally {
-      setSendingInvites(false);
-    }
+    await request({ endpoint: '/bookings/send-pending-invites', method: 'POST', setLoading, alertError, alertSuccess });
   };
 
   useEffect(() => {
-    request({ endpoint: '/bookings', method: 'GET', setData: setBookings, defaultData: [], alertError });
-    request({ endpoint: '/requests', method: 'GET', setData: setRequests, defaultData: [], alertError });
+    const fetchAll = () => request({ endpoint: '/dashboard', method: 'GET', setData: setDashboard, setLoading, alertError });
+    fetchAll();
+    const onVisible = () => { if (!document.hidden) fetchAll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
-  const activeBookings = bookings.filter((b) => b.isWithinStay).length;
-  const pendingRequests = requests.filter((r) => r.status === 'pending').length;
-  const completedRequests = requests.filter((r) => r.status === 'completed').length;
+  if (!dashboard) return null;
 
-  const recentBookings = bookings.slice(0, 4);
-  const recentRequests = requests.slice(0, 4);
+  const now = new Date();
+  const { stats, propertyRows, actionQueue, recentRequests: recentReqs, recentBookings: recentBooks } = dashboard;
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  const isGuest   = account?.role === constants.ACCOUNT_ROLES.GUEST;
+  const canInvite = !!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role];
+  const firstName = account?.name?.split(' ')[0] || '';
+  const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
+  const kpis = isGuest ? [
+    { label: 'My Stays',    value: stats.totalBookings,    accent: NAVY,          sub: 'Total bookings' },
+    { label: 'Active Stay', value: stats.activeBookings,   accent: STATUS_WARNING, sub: 'Currently checked in' },
+    { label: 'My Requests', value: stats.pendingRequests,  accent: STATUS_ERROR,   sub: 'Awaiting action' },
+    { label: 'Completed',   value: stats.completedRequests, accent: STATUS_SUCCESS, sub: 'Resolved' },
+  ] : [
+    { label: 'Total Bookings',   value: stats.totalBookings,    accent: NAVY,          sub: 'All bookings' },
+    { label: 'Active Stays',     value: stats.activeBookings,   accent: STATUS_WARNING, sub: 'Currently checked in' },
+    { label: 'Pending Requests', value: stats.pendingRequests,  accent: STATUS_ERROR,   sub: 'Awaiting action' },
+    { label: 'Completed',        value: stats.completedRequests, accent: STATUS_SUCCESS, sub: 'Resolved' },
+  ];
+
+  // ── Guest view ──────────────────────────────────────────────────────────
+  if (isGuest) {
+    return (
+      <Box sx={{ px: { xs: 1.5, sm: 2.5, md: 3 }, pb: 6, maxWidth: 900, mx: 'auto' }}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <Typography sx={{ ...LABEL_SX, mb: 1 }}>{dateLabel}</Typography>
+          <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em', mb: 3 }}>
+            {greeting()}{firstName ? `, ${firstName}` : ''}.
+          </Typography>
+        </motion.div>
+        <Grid container spacing={{ xs: 1, sm: 1.5, md: 1.75 }} sx={{ mb: 3 }}>
+          <MapComponent Component={StatCard} data={kpis} showNoDataAvailable={false} />
+        </Grid>
+        <Grid container spacing={{ xs: 1.5, md: 2.5 }}>
+          <Grid item xs={12} sm={6} md={6}>
+            <Box sx={CARD_SX}>
+              <SectionHeader label="My Requests" title="Recent activity" onViewAll={() => navigate('/requests')} />
+              <MapComponent Component={RequestRow} data={recentReqs} showNoDataAvailable={false} navigate={navigate} />
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={6}>
+            <Box sx={CARD_SX}>
+              <SectionHeader label="My Bookings" title="Your stays" onViewAll={() => navigate('/bookings')} />
+              <MapComponent Component={BookingRow} data={recentBooks} showNoDataAvailable={false} navigate={navigate} now={now} />
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+    );
+  }
+
+  // ── Admin / owner / staff view ──────────────────────────────────────────
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY, mb: 0.5 }}>
-          {greeting()}
-          {account?.name ? `, ${account.name.split(' ')[0]}` : ''}
-        </Typography>
-        <Typography sx={{ fontSize: 13, color: MUTED, mb: 4 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Typography>
-        {!!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role] && (
-          <Button variant="outlined" startIcon={<EmailIcon />} onClick={handleSendPendingInvites} disabled={sendingInvites} sx={{ textTransform: 'none', fontWeight: 600, mb: 2 }}>
-            {sendingInvites ? 'Sending…' : 'Fire invite emails'}
+    <Box sx={{ px: { xs: 1.5, sm: 2.5, md: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
+
+      {/* Mobile hero */}
+      <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 2.5 }}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <Box sx={{ background: NAVY_GRADIENT, color: NAVY_CONTRAST, borderRadius: 3, p: { xs: '18px 18px 22px', sm: '22px 24px 26px' }, overflow: 'hidden' }}>
+            <Typography sx={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: TEXT_MUTED_LIGHT, mb: 1 }}>{dateLabel}</Typography>
+            <Typography sx={{ fontSize: { xs: 22, sm: 26 }, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{greeting()},<br />{firstName}.</Typography>
+            <Typography sx={{ fontSize: 11.5, opacity: 0.78, mt: 1, lineHeight: 1.5 }}>
+              {stats.totalBookings} bookings · {stats.activeBookings} active
+              {stats.urgentRequests > 0 && <> · <Box component="span" sx={{ color: TEXT_MUTED_LIGHT, fontWeight: 700 }}>{stats.urgentRequests} urgent</Box></>}
+            </Typography>
+            {canInvite && (
+              <Button size="small" startIcon={<EmailIcon sx={{ fontSize: 12 }} />} onClick={handleSendPendingInvites}
+                sx={{ mt: 1.75, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, fontWeight: 800, fontSize: 12, textTransform: 'none', borderRadius: 2, boxShadow: 'none' }}>
+                Fire pending invites
+              </Button>
+            )}
+          </Box>
+        </motion.div>
+      </Box>
+
+      {/* Desktop header */}
+      <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'flex-end', justifyContent: 'space-between', mb: 4, gap: 3 }}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <Typography sx={{ ...LABEL_SX, mb: 1.25 }}>{dateLabel}</Typography>
+          <Typography sx={{ fontSize: 32, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+            {greeting()}{firstName ? `, ${firstName}` : ''}.
+          </Typography>
+          <Typography sx={{ fontSize: 13.5, color: MUTED, mt: 1 }}>
+            {stats.totalBookings} bookings · {stats.activeBookings} active stays
+            {stats.urgentRequests > 0 && <> · <Box component="span" sx={{ color: STATUS_ERROR, fontWeight: 700 }}>{stats.urgentRequests} urgent</Box></>}
+          </Typography>
+        </motion.div>
+        {canInvite && (
+          <Button variant="contained" startIcon={<EmailIcon sx={{ fontSize: 14 }} />} onClick={handleSendPendingInvites}
+            sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12.5, borderRadius: 2, boxShadow: 'none', whiteSpace: 'nowrap' }}>
+            Fire pending invites
           </Button>
         )}
-      </motion.div>
+      </Box>
 
-      {/* Stats row */}
-      <Grid container spacing={2} sx={{ mb: 5 }}>
-        {[
-          { icon: HotelIcon, label: 'Total Bookings', value: bookings.length, accent: BRAND_GRADIENT },
-          { icon: BedtimeIcon, label: 'Active Now', value: activeBookings, accent: 'linear-gradient(135deg,#1B2340,#263462)' },
-          { icon: PendingActionsIcon, label: 'Pending Requests', value: pendingRequests, accent: 'linear-gradient(135deg,#C5A022,#B8860B)' },
-          { icon: CheckCircleOutlineIcon, label: 'Completed', value: completedRequests, accent: 'linear-gradient(135deg,#059669,#047857)' },
-        ].map((s, i) => (
-          <Grid item xs={6} md={3} key={s.label}>
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.35 }}>
-              <StatCard {...s} />
-            </motion.div>
-          </Grid>
-        ))}
+      {/* KPI strip */}
+      <Grid container spacing={{ xs: 1, sm: 1.5, md: 1.75 }} sx={{ mb: { xs: 2.5, md: 3.5 } }}>
+        <MapComponent Component={StatCard} data={kpis} showNoDataAvailable={false} />
       </Grid>
 
-      {/* Recent Requests */}
-      <Box sx={{ mb: 5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography sx={LABEL_SX}>Recent Requests</Typography>
-          <Typography onClick={() => navigate('/requests')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>
-            View all
-          </Typography>
-        </Box>
-        {recentRequests.length > 0 ? (
-          <Grid container spacing={2}>
-            {recentRequests.map((req, i) => (
-              <Grid item xs={12} sm={6} md={3} key={req.id}>
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
-                  <RequestCard data={req} navigate={navigate} account={account} />
-                </motion.div>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Typography sx={{ fontSize: 13, color: MUTED }}>No recent requests.</Typography>
-        )}
-      </Box>
+      {/* Property pulse + Action queue */}
+      <Grid container spacing={{ xs: 1.5, md: 2.5 }} sx={{ mb: { xs: 2, md: 3 } }}>
+        <Grid item xs={12} sm={12} md={8}>
+          <Box sx={CARD_SX}>
+            <CardHeader eyebrow="Live" eyebrowColor={STATUS_WARNING} title="Property pulse"
+              right={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}><Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#059669' }} /><Typography sx={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>Live</Typography></Box>} />
+            <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: '2fr 1fr 1fr 1fr', px: 2.5, py: 1, borderBottom: `1px solid ${BORDER}` }}>
+              <MapComponent Component={ColumnLabel} data={PROPERTY_PULSE_COLS} showNoDataAvailable={false} />
+            </Box>
+            <MapComponent Component={PropertyRow} data={propertyRows} showNoDataAvailable={false} navigate={navigate} />
+            <Box sx={{ px: 2.5, py: 1.25, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography sx={{ fontSize: 12, color: MUTED }}>Properties needing attention</Typography>
+              <Typography onClick={() => navigate('/hotels')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>View all →</Typography>
+            </Box>
+          </Box>
+        </Grid>
 
-      {/* Recent Bookings */}
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography sx={LABEL_SX}>Recent Bookings</Typography>
-          <Typography onClick={() => navigate('/bookings')} sx={{ fontSize: 12, fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}>
-            View all
-          </Typography>
-        </Box>
-        {recentBookings.length > 0 ? (
-          <Grid container spacing={2}>
-            {recentBookings.map((booking, i) => (
-              <Grid item xs={12} sm={6} md={3} key={booking.id}>
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.06 }}>
-                  <BookingCard data={booking} navigate={navigate} />
-                </motion.div>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Typography sx={{ fontSize: 13, color: MUTED }}>No recent bookings.</Typography>
-        )}
-      </Box>
+        <Grid item xs={12} sm={12} md={4}>
+          <Box sx={{ ...CARD_SX, height: '100%' }}>
+            <CardHeader eyebrow="Action queue" eyebrowColor={STATUS_ERROR} title="Needs attention"
+              right={actionQueue.length > 0 ? <Chip label={actionQueue.length} size="small" sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} /> : null} />
+            <MapComponent Component={ActionItem} data={actionQueue} showNoDataAvailable={false} navigate={navigate} />
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* Recent requests + bookings */}
+      <Grid container spacing={{ xs: 1.5, md: 2.5 }}>
+        <Grid item xs={12} sm={6} md={6}>
+          <Box sx={CARD_SX}>
+            <SectionHeader label="Recent Requests" title="Last 24 hours" onViewAll={() => navigate('/requests')} />
+            <MapComponent Component={RequestRow} data={recentReqs} showNoDataAvailable={false} navigate={navigate} />
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={6}>
+          <Box sx={CARD_SX}>
+            <SectionHeader label="Recent Bookings" title="Confirmed this week" onViewAll={() => navigate('/bookings')} />
+            <MapComponent Component={BookingRow} data={recentBooks} showNoDataAvailable={false} navigate={navigate} now={now} />
+          </Box>
+        </Grid>
+      </Grid>
     </Box>
   );
 };

@@ -57,11 +57,11 @@ export class RequestsService {
     throw new ForbiddenException();
   }
 
-  async findAllForAccount(currentAccount: Account) {
+  async findAllForAccount(currentAccount: Account, options?: Pick<RequestQueryOptions, 'sortBy' | 'sortOrder'>) {
     const where = await this.getWhereForAccount(currentAccount);
 
     const findOptions: any = {
-      order: this.buildRequestOrder({ sortBy: 'createdAt', sortOrder: 'desc' }),
+      order: this.buildRequestOrder(options),
       include: [
         { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
         { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
