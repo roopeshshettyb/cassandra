@@ -45,7 +45,7 @@ const BookingCard = ({ data, navigate }) => {
   const hasDoc = !!booking.reservationDocumentS3Key;
 
   return (
-    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }}>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} style={{ width: '100%' }}>
       <Box
         onClick={() => booking?.id && navigate?.(`/bookings/${booking.id}`)}
         sx={{
@@ -55,6 +55,7 @@ const BookingCard = ({ data, navigate }) => {
           border: `1px solid ${primary ? primary + '30' : BORDER}`,
           boxShadow: primary ? `0 2px 12px ${primary}25` : SHADOW,
           cursor: 'pointer',
+          display: 'flex', flexDirection: 'column', height: '100%',
           '@media (hover: hover)': {
             '&:hover': { boxShadow: primary ? `0 8px 28px ${primary}40` : SHADOW_HOVER },
           },
@@ -97,7 +98,7 @@ const BookingCard = ({ data, navigate }) => {
         </Box>
 
         {/* Body */}
-        <Box sx={{ px: 2.5, pt: 1.75, pb: 2 }}>
+        <Box sx={{ px: 2.5, pt: 1.75, pb: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
 
           {/* IN / OUT date badges + nights */}
           <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
@@ -148,7 +149,7 @@ const BookingCard = ({ data, navigate }) => {
           )}
 
           {/* Footer */}
-          <Box sx={{ pt: 1, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ pt: 1, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
             <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.5 }}>#{booking.id}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>View</Typography>

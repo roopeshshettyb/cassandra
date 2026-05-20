@@ -25,7 +25,7 @@ const RequestCard = ({ data, navigate, account }) => {
   const StatusIcon = st.icon;
 
   return (
-    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} style={{ width: '100%' }}>
       <Box
         onClick={() => req?.id && navigate?.(`/requests/${req.id}`)}
         sx={{
@@ -37,6 +37,7 @@ const RequestCard = ({ data, navigate, account }) => {
           cursor: 'pointer',
           position: 'relative',
           overflow: 'hidden',
+          height: '100%',
           '@media (hover: hover)': { '&:hover': { boxShadow: SHADOW_HOVER } },
         }}
       >
