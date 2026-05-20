@@ -29,6 +29,15 @@ const COMMON_NAV_ITEMS = [
     protectedNavItem: false,
   },
   {
+    key: 'Chat',
+    icon: Dashboard,
+    text: 'Chat',
+    link: '/chat',
+    variant: null,
+    protectedNavItem: true,
+    hidden: true,
+  },
+  {
     key: 'Notifications',
     icon: NotificationsIcon,
     text: 'Notifications',
@@ -125,7 +134,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     const showBadge = data.showBadge && unreadCount > 0;
     const isActive = currentNav === data.text;
 
-    if (!shouldShow) return null;
+    if (!shouldShow || data.hidden) return null;
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
