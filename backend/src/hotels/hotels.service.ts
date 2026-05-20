@@ -4,6 +4,7 @@ import { Hotel } from './hotels.model';
 import { HotelBrand } from './brands.model';
 import { HotelAccount } from './hotel-accounts.model';
 import { CreateHotelDto, UpdateHotelDto, GrantHotelAccessDto, AddHotelStaffDto } from './hotels.dto';
+import { HotelQueryOptions } from './hotels.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
@@ -13,6 +14,7 @@ import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
 import { MenuItem } from '../restaurant/restaurant.model';
+import { Op } from 'sequelize';
 
 @Injectable()
 export class HotelsService {
@@ -31,10 +33,25 @@ export class HotelsService {
     return this.hotelsRepository.create<Hotel>(createHotelDto);
   }
 
-  async findAllForAccount(currentAccount: Account): Promise<any> {
+  async findAllForAccount(currentAccount: Account, options?: HotelQueryOptions): Promise<any> {
     const hotelsWhere: any = {};
 
-    if (currentAccount.role !== AccountRole.ADMIN) {
+    if (currentAccount.role === AccountRole.GUEST) {
+      const guestBookings = await this.bookingsRepository.findAll({
+        where: { guestId: currentAccount.id },
+        attributes: ['hotelId'],
+      });
+      const hotelIds: number[] = [];
+      const seenHotelIds: Record<number, boolean> = {};
+      for (let i = 0; i < guestBookings.length; i++) {
+        const hotelId = guestBookings[i].hotelId;
+        if (!seenHotelIds[hotelId]) {
+          seenHotelIds[hotelId] = true;
+          hotelIds.push(hotelId);
+        }
+      }
+      hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
+    } else if (currentAccount.role !== AccountRole.ADMIN) {
       const hotelAccounts = await this.hotelAccountsRepository.findAll({
         where: { accountId: currentAccount.id },
       });
@@ -43,13 +60,33 @@ export class HotelsService {
         hotelIds.push(hotelAccounts[i].hotelId);
       }
 
-      // If no linked hotels, use an impossible condition to return an empty array
       hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
     }
-    const data = await this.hotelsRepository.findAll({
+
+    if (options?.keywords) {
+      const pattern = `%${options.keywords}%`;
+      hotelsWhere[Op.or] = [
+        { name: { [Op.iLike]: pattern } },
+        { address: { [Op.iLike]: pattern } },
+      ];
+    }
+
+    const sortBy = options?.sortBy ?? 'name';
+    const sortOrder = options?.sortOrder === 'desc' ? 'DESC' : 'ASC';
+    const orderField = sortBy === 'id' ? 'id' : 'name';
+
+    const findOptions: any = {
       where: hotelsWhere,
       include: [{ model: HotelBrand, as: 'brand' }],
-    });
+      order: [[orderField, sortOrder]],
+    };
+
+    const agentLimits = this.constantsService.private;
+    if (options?.limit != null) {
+      findOptions.limit = Math.min(Math.max(1, options.limit), agentLimits.AGENT_HOTELS_MAX_LIMIT);
+    }
+
+    const data = await this.hotelsRepository.findAll(findOptions);
     return { success: true, message: 'Hotels Fetched', data };
   }
 

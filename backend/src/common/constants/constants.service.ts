@@ -347,6 +347,14 @@ export class ConstantsService {
       JWT_SECRET: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
       JWT_EXPIRY_DAYS: this.configService.get<number>('JWT_EXPIRY_DAYS', 7),
 
+      AGENT_REQUESTS_DEFAULT_LIMIT: 20,
+      AGENT_REQUESTS_MAX_LIMIT: 50,
+      AGENT_BOOKINGS_DEFAULT_LIMIT: 5,
+      AGENT_BOOKINGS_MAX_LIMIT: 50,
+      AGENT_BOOKINGS_ACTIVE_ONLY_DEFAULT: true,
+      AGENT_HOTELS_DEFAULT_LIMIT: 20,
+      AGENT_HOTELS_MAX_LIMIT: 50,
+
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
       GOOGLE_CALLBACK_URL: this.configService.get<string>('GOOGLE_CALLBACK_URL'),

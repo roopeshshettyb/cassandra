@@ -4,7 +4,9 @@ import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { HotelsService } from '../hotels/hotels.service';
 import { ChatService } from '../chat/chat.service';
+import { ConstantsService } from '../common/constants/constants.service';
 import { RequestType, RequestUrgency, RequestStatus } from '../requests/requests.model';
 import { AccountRole } from '../common/constants/constants.service';
 import { CreateRequestDto } from '../requests/requests.dto';
@@ -15,6 +17,8 @@ export function createAgentTools(
   requestsService: RequestsService,
   restaurantService: RestaurantService,
   chatService: ChatService,
+  hotelsService: HotelsService,
+  constantsService: ConstantsService,
 ): DynamicStructuredTool[] {
   const { account, chatId, languageCode } = ctx;
   let currentBookingId: number | null = ctx.bookingId;
@@ -27,6 +31,11 @@ export function createAgentTools(
       message: 'Booking context missing',
       data: null,
     });
+
+  const isStaffOrOwnerOrAdmin =
+    account.role === AccountRole.ADMIN ||
+    account.role === AccountRole.HOTEL_OWNER ||
+    account.role === AccountRole.HOTEL_STAFF;
 
   type ToolDef = { allowedRoles: Partial<Record<AccountRole, boolean>>; tool: DynamicStructuredTool };
 
@@ -89,53 +98,89 @@ export function createAgentTools(
     {
       allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
-        name: 'get_pending_requests',
-      description: 'Get all pending requests for the current booking (status is pending). Use this to summarize or act on outstanding requests.',
-      schema: z.object({}),
-      func: async () => {
-        if (!currentBookingId) {
+        name: 'get_requests',
+        description:
+          'Get service requests with optional filters and sorting. Defaults to pending status. When booking context is set, returns requests for that booking. Hotel staff, owners, and admins can also query hotel-wide requests without booking context (optionally filter by hotelId). Guests require booking context.',
+        schema: z.object({
+          status: z.nativeEnum(RequestStatus).optional().describe('Filter by status; defaults to pending'),
+          requestType: z.nativeEnum(RequestType).optional().describe('Filter by request type'),
+          urgency: z.nativeEnum(RequestUrgency).optional().describe('Filter by urgency'),
+          hotelId: z.number().optional().describe('Filter by hotel id (staff/owner/admin without booking context)'),
+          sortBy: z.enum(['createdAt', 'updatedAt', 'urgency']).optional().describe('Sort field; defaults to createdAt'),
+          sortOrder: z.enum(['asc', 'desc']).optional().describe('Sort direction; defaults to desc'),
+          limit: z.number().optional().describe('Max results to return'),
+        }),
+        func: async (args) => {
+          const agentLimits = constantsService.private;
+          const queryOptions = {
+            status: args.status ?? RequestStatus.PENDING,
+            requestType: args.requestType,
+            urgency: args.urgency,
+            hotelId: args.hotelId,
+            sortBy: args.sortBy,
+            sortOrder: args.sortOrder,
+            limit: args.limit ?? agentLimits.AGENT_REQUESTS_DEFAULT_LIMIT,
+          };
+
+          if (account.role === AccountRole.GUEST) {
+            if (!currentBookingId) {
+              return getMissingBookingContextPayload();
+            }
+            const result = await requestsService.findForAccountWithOptions(account, {
+              ...queryOptions,
+              bookingId: currentBookingId,
+            });
+            return JSON.stringify(result);
+          }
+
+          if (currentBookingId) {
+            const result = await requestsService.findForAccountWithOptions(account, {
+              ...queryOptions,
+              bookingId: currentBookingId,
+            });
+            return JSON.stringify(result);
+          }
+
+          if (isStaffOrOwnerOrAdmin) {
+            const result = await requestsService.findForAccountWithOptions(account, queryOptions);
+            return JSON.stringify(result);
+          }
+
           return getMissingBookingContextPayload();
-        }
-        const pending = await requestsService.findByBookingId(currentBookingId, account, RequestStatus.PENDING);
-        return JSON.stringify(pending);
-      },
-    }),
+        },
+      }),
     },
     {
       allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
       tool: new DynamicStructuredTool({
         name: 'get_recent_bookings',
         description:
-          'Get recent bookings available to the current account. Use this when booking context is not set and you need to identify the booking from conversation. If you get multiple bookings here, ask the user to confirm the booking they mean.',
-        schema: z.object({}),
-        func: async () => {
-          const result = await bookingsService.findAllForAccount(account);
-          const rows: any[] = Array.isArray(result?.data) ? result.data : [];
-          const active: any[] = [];
-          const nowMs = Date.now();
-          for (const row of rows) {
-            const startRaw = row?.startTime;
-            const endRaw = row?.endTime;
-            if (!startRaw || !endRaw) {
-              continue;
-            }
-            const startMs = new Date(startRaw).getTime();
-            const endMs = new Date(endRaw).getTime();
-            if (isNaN(startMs) || isNaN(endMs)) {
-              continue;
-            }
-            if (startMs <= nowMs && endMs >= nowMs) {
-              active.push(row);
-            }
-            if (active.length >= 5) {
-              break;
-            }
-          }
-          return JSON.stringify({
-            success: true,
-            message: null,
-            data: active,
+          'Get bookings available to the current account with optional filters and sorting. Defaults to active stays only. Use when booking context is not set and you need to identify the booking from conversation. If you get multiple bookings, ask the user to confirm which one they mean.',
+        schema: z.object({
+          activeOnly: z.boolean().optional().describe('When true, only returns bookings where the stay is currently active'),
+          hotelId: z.number().optional().describe('Filter by hotel id'),
+          roomNumber: z.string().optional().describe('Filter by room number (partial match)'),
+          guestKeywords: z.string().optional().describe('Filter by guest name or email (partial match)'),
+          startAfter: z.string().optional().describe('ISO date — only bookings starting on or after this date'),
+          startBefore: z.string().optional().describe('ISO date — only bookings starting on or before this date'),
+          sortBy: z.enum(['startTime', 'endTime', 'id']).optional().describe('Sort field; defaults to startTime'),
+          sortOrder: z.enum(['asc', 'desc']).optional().describe('Sort direction; defaults to desc'),
+          limit: z.number().optional().describe('Max results to return'),
+        }),
+        func: async (args) => {
+          const agentLimits = constantsService.private;
+          const result = await bookingsService.findForAccountWithOptions(account, {
+            activeOnly: args.activeOnly ?? agentLimits.AGENT_BOOKINGS_ACTIVE_ONLY_DEFAULT,
+            hotelId: args.hotelId,
+            roomNumber: args.roomNumber,
+            guestKeywords: args.guestKeywords,
+            startAfter: args.startAfter,
+            startBefore: args.startBefore,
+            sortBy: args.sortBy,
+            sortOrder: args.sortOrder,
+            limit: args.limit ?? agentLimits.AGENT_BOOKINGS_DEFAULT_LIMIT,
           });
+          return JSON.stringify(result);
         },
       }),
     },
@@ -190,6 +235,30 @@ export function createAgentTools(
         return JSON.stringify(result);
       },
     }),
+    },
+    {
+      allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_STAFF]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'get_hotels',
+        description:
+          'List hotels accessible to the current account. For guests, returns hotels from their bookings. For staff and owners, returns linked properties. Use before set_booking_context or when answering multi-property questions.',
+        schema: z.object({
+          keywords: z.string().optional().describe('Search by hotel name or address (partial match)'),
+          sortBy: z.enum(['name', 'id']).optional().describe('Sort field; defaults to name'),
+          sortOrder: z.enum(['asc', 'desc']).optional().describe('Sort direction; defaults to asc'),
+          limit: z.number().optional().describe('Max results to return'),
+        }),
+        func: async (args) => {
+          const agentLimits = constantsService.private;
+          const result = await hotelsService.findAllForAccount(account, {
+            keywords: args.keywords,
+            sortBy: args.sortBy,
+            sortOrder: args.sortOrder,
+            limit: args.limit ?? agentLimits.AGENT_HOTELS_DEFAULT_LIMIT,
+          });
+          return JSON.stringify(result);
+        },
+      }),
     },
     {
       allowedRoles: { [AccountRole.GUEST]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },

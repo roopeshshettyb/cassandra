@@ -2,13 +2,15 @@ import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestEx
 import { REQUESTS_REPOSITORY } from './requests.repository';
 import { Request, RequestStatus } from './requests.model';
 import { CreateRequestDto, UpdateRequestDto } from './requests.dto';
+import { RequestQueryOptions } from './requests.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { Booking } from '../bookings/bookings.model';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Op } from 'sequelize';
+import { ConstantsService } from '../common/constants/constants.service';
+import { Op, literal } from 'sequelize';
 
 @Injectable()
 export class RequestsService {
@@ -17,6 +19,7 @@ export class RequestsService {
     @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
     private readonly hotelsService: HotelsService,
     private readonly notificationsService: NotificationsService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   private async getWhereForAccount(currentAccount: Account): Promise<{ [key: string]: any } | null> {
@@ -58,10 +61,7 @@ export class RequestsService {
     const where = await this.getWhereForAccount(currentAccount);
 
     const findOptions: any = {
-      order: [
-        ['createdAt', 'DESC'],
-        ['urgency', 'DESC'],
-      ],
+      order: this.buildRequestOrder({ sortBy: 'createdAt', sortOrder: 'desc' }),
       include: [
         { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
         { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
@@ -177,27 +177,81 @@ export class RequestsService {
     };
   }
 
-  async findByBookingId(bookingId: number, currentAccount: Account, status?: RequestStatus) {
+  private buildRequestOrder(options?: RequestQueryOptions): any[] {
+    const sortOrder = options?.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortBy = options?.sortBy ?? 'createdAt';
+    if (sortBy === 'urgency') {
+      return [[literal("CASE urgency WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 END"), sortOrder]];
+    }
+    if (sortBy === 'updatedAt') {
+      return [['updatedAt', sortOrder]];
+    }
+    return [['createdAt', sortOrder]];
+  }
+
+  private resolveRequestLimit(limit?: number): number | undefined {
+    const agentLimits = this.constantsService.private;
+    if (limit == null) {
+      return agentLimits.AGENT_REQUESTS_DEFAULT_LIMIT;
+    }
+    const capped = Math.min(Math.max(1, limit), agentLimits.AGENT_REQUESTS_MAX_LIMIT);
+    return capped;
+  }
+
+  async findForAccountWithOptions(currentAccount: Account, options?: RequestQueryOptions) {
     const whereForAccount = await this.getWhereForAccount(currentAccount);
-    const where: any = { bookingId };
+    const where: any = {};
     if (whereForAccount) {
       Object.assign(where, whereForAccount);
     }
-    if (status) {
-      where.status = status;
+
+    if (options?.bookingId != null) {
+      where.bookingId = options.bookingId;
     }
-    const requests = await this.requestsRepository.findAll({
+
+    if (options?.hotelId != null) {
+      await this.hotelsService.findByIdForAccount(options.hotelId, currentAccount);
+      where.hotelId = options.hotelId;
+    }
+
+    if (options?.status != null) {
+      where.status = options.status;
+    }
+
+    if (options?.requestType != null) {
+      where.requestType = options.requestType;
+    }
+
+    if (options?.urgency != null) {
+      where.urgency = options.urgency;
+    }
+
+    const findOptions: any = {
       where,
-      order: [
-        ['createdAt', 'DESC'],
-        ['urgency', 'DESC'],
+      order: this.buildRequestOrder(options),
+      include: [
+        { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
+        { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] },
+        { model: Booking, as: 'booking', attributes: ['id'] },
       ],
-    });
+    };
+
+    const resolvedLimit = this.resolveRequestLimit(options?.limit);
+    if (resolvedLimit != null) {
+      findOptions.limit = resolvedLimit;
+    }
+
+    const requests = await this.requestsRepository.findAll(findOptions);
+
     return {
       success: true,
       message: null,
       data: requests,
     };
+  }
+
+  async findByBookingId(bookingId: number, currentAccount: Account, options?: RequestQueryOptions) {
+    return this.findForAccountWithOptions(currentAccount, { ...options, bookingId });
   }
 
   async appendMessage(id: number, message: string, currentAccount: Account) {

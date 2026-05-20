@@ -2,6 +2,7 @@ import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestEx
 import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
 import { CreateBookingDto } from './bookings.dto';
+import { BookingQueryOptions } from './bookings.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
@@ -349,6 +350,77 @@ export class BookingsService {
       options.where = where;
     }
     const bookings = await this.bookingsRepository.findAll(options);
+    return { success: true, message: null, data: bookings };
+  }
+
+  async findForAccountWithOptions(currentAccount: Account, options?: BookingQueryOptions) {
+    const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl', 'themeConfig'], include: [{ model: HotelBrand, as: 'brand' }] };
+    const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
+    const whereForAccount = await this.getWhereForAccount(currentAccount);
+    const where: any = {};
+    if (whereForAccount) {
+      Object.assign(where, whereForAccount);
+    }
+
+    if (options?.hotelId != null) {
+      where.hotelId = options.hotelId;
+    }
+
+    if (options?.roomNumber) {
+      where.roomNumber = { [Op.iLike]: `%${options.roomNumber}%` };
+    }
+
+    const now = new Date();
+    if (options?.startAfter || options?.startBefore) {
+      const startTimeFilter: any = {};
+      if (options.startAfter) {
+        startTimeFilter[Op.gte] = new Date(options.startAfter);
+      }
+      if (options.startBefore) {
+        startTimeFilter[Op.lte] = new Date(options.startBefore);
+      }
+      if (options.activeOnly) {
+        if (startTimeFilter[Op.lte] == null || new Date(startTimeFilter[Op.lte]) > now) {
+          startTimeFilter[Op.lte] = now;
+        }
+        where.endTime = { [Op.gte]: now };
+      }
+      where.startTime = startTimeFilter;
+    } else if (options?.activeOnly) {
+      where.startTime = { [Op.lte]: now };
+      where.endTime = { [Op.gte]: now };
+    }
+
+    if (options?.guestKeywords) {
+      const pattern = `%${options.guestKeywords}%`;
+      where[Op.or] = [
+        { '$guest.name$': { [Op.iLike]: pattern } },
+        { '$guest.email$': { [Op.iLike]: pattern } },
+      ];
+    }
+
+    const sortBy = options?.sortBy ?? 'startTime';
+    const sortOrder = options?.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    let orderField = 'startTime';
+    if (sortBy === 'endTime') {
+      orderField = 'endTime';
+    } else if (sortBy === 'id') {
+      orderField = 'id';
+    }
+
+    const queryOptions: any = {
+      where,
+      include: [includeHotel, includeGuest],
+      order: [[orderField, sortOrder]],
+      subQuery: false,
+    };
+
+    const agentLimits = this.constantsService.private;
+    if (options?.limit != null) {
+      queryOptions.limit = Math.min(Math.max(1, options.limit), agentLimits.AGENT_BOOKINGS_MAX_LIMIT);
+    }
+
+    const bookings = await this.bookingsRepository.findAll(queryOptions);
     return { success: true, message: null, data: bookings };
   }
 
