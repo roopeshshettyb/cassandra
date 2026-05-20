@@ -38,8 +38,7 @@ export class BookingsService {
   ) {}
 
   private isWithinStayAttr(): [any, string] {
-    const now = new Date().toISOString();
-    return [literal(`CASE WHEN "start_time" IS NOT NULL AND "end_time" IS NOT NULL AND '${now}' >= "start_time" AND '${now}' <= "end_time" THEN true ELSE false END`), 'isWithinStay'];
+    return [literal(`CASE WHEN "start_time" IS NOT NULL AND "end_time" IS NOT NULL AND NOW() >= "start_time" AND NOW() <= "end_time" THEN true ELSE false END`), 'isWithinStay'];
   }
 
   private parseDateTime(dateStr: string, timeStr: string): Date {

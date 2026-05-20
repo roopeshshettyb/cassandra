@@ -26,7 +26,8 @@ export class DashboardService {
     const hotelMap: Record<number, { id: number; name: string; logoUrl: string | null; active: number; arrivals: number; open: number }> = {};
     const recentBookings: any[] = [];
 
-    for (const b of bookings as any[]) {
+    for (const raw of bookings as any[]) {
+      const b = raw.get ? raw.get({ plain: true }) : raw;
       totalBookings++;
       if (b.isWithinStay) activeBookings++;
       if (recentBookings.length < 5) recentBookings.push(b);
