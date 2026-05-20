@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
-import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers } from '@mui/icons-material';
+import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
@@ -27,6 +27,15 @@ const COMMON_NAV_ITEMS = [
     action: 'login', // Special action identifier
     variant: 'outlined',
     protectedNavItem: false,
+  },
+  {
+    key: 'Ask AI',
+    icon: SupportAgent,
+    text: 'Ask AI',
+    link: '/chat',
+    variant: null,
+    protectedNavItem: true,
+    hidden: true,
   },
   {
     key: 'Notifications',
@@ -75,7 +84,7 @@ const ROLE_SPECIFIC_ITEMS = {
   ],
 };
 
-const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount }) => {
+const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile, account, handleLogout, openLoginPopup, navigate, currentNav, setCurrentNav, smoothScrollToTop, loading, unreadCount, onAskAI, showAskAI }) => {
   const location = useLocation();
   const sidebarWidth = isMobile ? '100vw' : '20vw';
   const sidebarOffset = isMobile ? '-100vw' : '-20vw';
@@ -125,7 +134,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
     const showBadge = data.showBadge && unreadCount > 0;
     const isActive = currentNav === data.text;
 
-    if (!shouldShow) return null;
+    if (!shouldShow || data.hidden) return null;
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -172,33 +181,58 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: 1,
             px: 2,
             background: translucentBg,
             backdropFilter: 'blur(10px)',
             borderBottom: `1px solid ${BORDER}`,
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
             <IconButton
               onClick={() => setSidebarOpen(true)}
-              sx={{ color: 'text.primary', p: 0 }}
+              sx={{ color: 'text.primary', p: 0, width: 40, height: 40, flexShrink: 0 }}
             >
               <Menu />
             </IconButton>
             <Typography
               variant="h6"
+              noWrap
               sx={{
                 fontWeight: 700,
                 fontSize: '1rem',
+                lineHeight: '40px',
                 color: 'text.primary',
+                minWidth: 0,
               }}
             >
               {currentNav || 'Menu'}
             </Typography>
+            {showAskAI && (
+              <Button
+                size="small"
+                startIcon={<SupportAgent sx={{ fontSize: 18 }} />}
+                onClick={onAskAI}
+                sx={{
+                  height: 32,
+                  flexShrink: 0,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.8125rem',
+                  px: 1.25,
+                  minWidth: 'auto',
+                  borderRadius: 2,
+                  color: 'primary.main',
+                  bgcolor: 'action.hover',
+                }}
+              >
+                Ask AI
+              </Button>
+            )}
           </Box>
           <IconButton
             onClick={() => navigate(-1)}
-            sx={{ color: 'text.primary', p: 0 }}
+            sx={{ color: 'text.primary', p: 0, width: 40, height: 40, flexShrink: 0 }}
           >
             <ArrowBack />
           </IconButton>

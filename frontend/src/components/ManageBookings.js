@@ -41,10 +41,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [createValues, setCreateValues] = useState(initialCreateValues);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [uploadedReservationDocumentKey, setUploadedReservationDocumentKey] = useState(null);
-  const [dataLoading, setDataLoading] = useState(true);
 
   const fetchBookings = async () => {
-    await request({ endpoint: '/bookings', method: 'GET', setLoading: setDataLoading, setData: setBookings, defaultData: [], alertError });
+    await request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError, delay: false });
   };
 
   const fetchHotels = async () => {
@@ -263,7 +262,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
           enriched.push(themeConfig ? { ...b, hotel: { ...b.hotel, themeConfig } } : b);
         }
         return enriched;
-      })()} isLoading={dataLoading} navigate={navigate} />
+      })()} isLoading={loading} navigate={navigate} />
     </Box>
   );
 }

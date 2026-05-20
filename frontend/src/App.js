@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Grid, useMediaQuery, Box, Typography } from '@mui/material';
+import { CssBaseline, Grid, useMediaQuery, Box, Typography, Fab, ClickAwayListener } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './utils/dayjsConfig';
@@ -15,6 +15,8 @@ import TermsAndConditions from './components/TermsAndConditions';
 import ShippingDeliveryPolicy from './components/ShippingDeliveryPolicy';
 import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
+import GuestConcierge from './components/GuestPortal/GuestConcierge';
+import ChatPage from './components/ChatPage';
 import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
 import ManageBrands from './components/ManageBrands';
@@ -37,6 +39,8 @@ import InviteHandler from './components/InviteHandler';
 import { HotelThemeProvider, useHotelTheme } from './context/HotelThemeContext';
 import { BRAND_GRADIENT } from './theme/index';
 import { useNotifications } from './notifications/hooks/useNotifications';
+import { useSocketVoice } from './components/AvatarChatbot/hooks/useSocketVoice';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 
 // Default theme if not in constants
 const DEFAULT_THEME_DEFAULTS = {
@@ -89,6 +93,11 @@ const AppContent = () => {
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentNav, setCurrentNav] = useState('404');
+  const [conciergeOpen, setConciergeOpen] = useState(false);
+  const [conciergeMode, setConciergeMode] = useState('voice');
+  const conciergeFabRef = useRef(null);
+  const conciergeInteractedRef = useRef(false);
+  const conciergeStoppedRef = useRef(false);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -122,6 +131,19 @@ const AppContent = () => {
   };
 
   const token = localStorage.getItem('token');
+  const {
+    isReady: conciergeVoiceReady,
+    isRecording: conciergeRecording,
+    isProcessing: conciergeProcessing,
+    isSpeaking: conciergeSpeaking,
+    startRecording: conciergeStartRecording,
+    stopRecording: conciergeStopRecording,
+    sendText: conciergeSendText,
+  } = useSocketVoice({
+    bookingId: null,
+    setLoading,
+    onError: (error) => alertError(error),
+  });
 
   const {
     unreadCount,
@@ -293,10 +315,13 @@ const AppContent = () => {
 
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
+  const isBookingDetailRoute = pathname.startsWith('/bookings/') && pathname !== '/bookings';
+  const isChatRoute = pathname === '/chat';
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
     pathname.startsWith('/requests/') ||
-    pathname.startsWith('/bookings/')
+    pathname.startsWith('/bookings/') ||
+    pathname === '/chat'
   );
   // Also suppress footer/padding for request detail on desktop
   const isRequestDetail = pathname.startsWith('/requests/') && pathname !== '/requests';
@@ -356,12 +381,30 @@ const AppContent = () => {
   };
 
   const isAuthenticated = !!(account || token);
+  const openGlobalConcierge = useCallback(() => {
+    if (isMobile) {
+      setConciergeMode('chat');
+      navigate('/chat');
+      return;
+    }
+    setConciergeOpen((prev) => (prev ? false : true));
+  }, [isMobile, navigate]);
+
+  useEffect(() => {
+    if (isBookingDetailRoute && conciergeOpen) {
+      setConciergeOpen(false);
+    }
+  }, [isBookingDetailRoute, conciergeOpen]);
 
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Sidebar {...commonProps} />
+        <Sidebar
+          {...commonProps}
+          onAskAI={openGlobalConcierge}
+          showAskAI={isAuthenticated && !isBookingDetailRoute && !isChatRoute}
+        />
         <Box
           sx={{
             display: isMobile && sidebarOpen ? 'none' : 'flex',
@@ -375,6 +418,30 @@ const AppContent = () => {
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
+                <Route
+                  path="/chat"
+                  element={
+                    isAuthenticated ? (
+                      <ChatPage
+                        isMobile={isMobile}
+                        alertError={alertError}
+                        conciergeVoiceReady={conciergeVoiceReady}
+                        conciergeRecording={conciergeRecording}
+                        conciergeProcessing={conciergeProcessing}
+                        conciergeSpeaking={conciergeSpeaking}
+                        conciergeStartRecording={conciergeStartRecording}
+                        conciergeStopRecording={conciergeStopRecording}
+                        conciergeSendText={conciergeSendText}
+                        conciergeInteractedRef={conciergeInteractedRef}
+                        conciergeStoppedRef={conciergeStoppedRef}
+                        conciergeMode={conciergeMode}
+                        setConciergeMode={setConciergeMode}
+                      />
+                    ) : (
+                      <Navigate to="/404" replace />
+                    )
+                  }
+                />
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
@@ -406,11 +473,77 @@ const AppContent = () => {
             </Grid>
           </Box>
           <LoginPopup {...commonProps} />
+          {isAuthenticated && !isBookingDetailRoute && !isChatRoute && (
+            <>
+              <Fab
+                ref={conciergeFabRef}
+                color="primary"
+                onClick={openGlobalConcierge}
+                sx={{
+                  display: { xs: 'none', md: 'flex' },
+                  position: 'fixed',
+                  right: 24,
+                  bottom: 24,
+                  zIndex: 1200,
+                }}
+              >
+                <SupportAgentIcon />
+              </Fab>
+              {conciergeOpen && (
+                <ClickAwayListener
+                  onClickAway={(event) => {
+                    const target = event.target;
+                    if (conciergeFabRef.current && target instanceof Node && conciergeFabRef.current.contains(target)) {
+                      return;
+                    }
+                    setConciergeOpen(false);
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: 'fixed',
+                      right: { xs: 0, md: 24 },
+                      bottom: { xs: 0, md: '2vh' },
+                      width: { xs: '100vw', md: 420 },
+                      height: { xs: '100dvh', md: '90vh' },
+                      maxHeight: { md: '900px' },
+                      bgcolor: 'background.default',
+                      borderRadius: { xs: 0, md: 3 },
+                      border: { xs: 'none', md: '1px solid rgba(0,0,0,0.08)' },
+                      boxShadow: { xs: 'none', md: '0 20px 40px rgba(0,0,0,0.2)' },
+                      zIndex: 1300,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <GuestConcierge
+                      booking={null}
+                      bookingIdOverride={null}
+                      alertError={alertError}
+                      isWithinStay
+                      isMobile={isMobile}
+                      logoUrl={null}
+                      isReady={conciergeVoiceReady}
+                      isRecording={conciergeRecording}
+                      isProcessing={conciergeProcessing}
+                      isSpeaking={conciergeSpeaking}
+                      startRecording={conciergeStartRecording}
+                      stopRecording={conciergeStopRecording}
+                      sendText={conciergeSendText}
+                      hasInteractedRef={conciergeInteractedRef}
+                      userStoppedRef={conciergeStoppedRef}
+                      mode={conciergeMode}
+                      onModeChange={setConciergeMode}
+                    />
+                  </Box>
+                </ClickAwayListener>
+              )}
+            </>
+          )}
           {loading && <Loader isMobile={isMobile} />}
           <Grid style={{ padding: '10px' }}>
             <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           </Grid>
-          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && !isChatRoute && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>

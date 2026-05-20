@@ -11,7 +11,7 @@ import { useSocketVoice } from '../AvatarChatbot/hooks/useSocketVoice';
 export default function GuestPortal({ booking, account, isMobile, alertError, alertSuccess, setLoading, navigate, sidebarOpen }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const logoUrl = booking?.hotel?.logoUrl || null;
-  const { HOTEL_STAFF, HOTEL_OWNER, GUEST } = constants.ACCOUNT_ROLES;
+  const { HOTEL_STAFF, HOTEL_OWNER } = constants.ACCOUNT_ROLES;
   const isNonGuest = account?.role === HOTEL_STAFF || account?.role === HOTEL_OWNER;
   const activeTab = searchParams.get('tab') || (isNonGuest ? 'requests' : 'home');
   const isChatMode = searchParams.get('mode') === 'chat';
@@ -19,7 +19,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   const hideNav = isConcierge && isChatMode;
   const fullScreen = isConcierge;
 
-  const isWithinStay = account?.role !== GUEST ? true : !!booking?.isWithinStay;
+  // Booking portal: voice/chat availability follows the booking stay window for all roles.
+  const isWithinStay = !!booking?.isWithinStay;
 
   // ── Voice socket pre-warm ─────────────────────────────────────────────────
   // Keep socket alive across tabs so suggestions from Home tab respond instantly.
@@ -35,6 +36,8 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     promptRef.current = searchParams.get('prompt') || '';
   }
 
+  const voiceBookingId = isWithinStay && !isChatMode ? booking?.id : null;
+
   const handleVoiceReady = useCallback(() => {
     if (promptRef.current && !promptSentRef.current) {
       promptSentRef.current = true;
@@ -49,11 +52,9 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     }
   }, [setSearchParams, isWithinStay, activeTab]);
 
-  // Only pre-warm for guests within their stay (non-guests never see concierge)
-  const voiceBookingId = (!isNonGuest && isWithinStay && !isChatMode) ? booking?.id : null;
-
   const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
     bookingId: voiceBookingId,
+    setLoading,
     onReady: handleVoiceReady,
     onError: (err) => alertError?.(err),
   });
@@ -96,9 +97,15 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
   if (!booking) return null;
 
   const voiceProps = {
-    isReady, isRecording, isProcessing, isSpeaking,
-    startRecording, stopRecording, sendText,
-    hasInteractedRef, userStoppedRef,
+    isReady,
+    isRecording,
+    isProcessing,
+    isSpeaking,
+    startRecording,
+    stopRecording,
+    sendText,
+    hasInteractedRef,
+    userStoppedRef,
   };
 
   const renderTab = () => {
