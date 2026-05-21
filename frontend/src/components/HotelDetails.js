@@ -388,12 +388,12 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                   <Box sx={{ gridColumn: { sm: 'span 2' } }}>
                     <FormField label="Property name">
-                      <TextField fullWidth size="small" value={editValues.name} onChange={handleInputChange('name')} placeholder="e.g. The Grand Oberoi" sx={inputSx} />
+                      <TextField fullWidth size="small" value={editValues.name} onChange={handleInputChange('name')} placeholder="Ex. Grand Oberoi Mumbai" sx={inputSx} />
                     </FormField>
                   </Box>
                   <Box sx={{ gridColumn: { sm: 'span 2' } }}>
                     <FormField label="Address">
-                      <TextField fullWidth size="small" value={editValues.address} onChange={handleInputChange('address')} placeholder="e.g. 123 Marine Drive, Mumbai 400001" sx={inputSx} />
+                      <TextField fullWidth size="small" value={editValues.address} onChange={handleInputChange('address')} placeholder="Ex. 123 Marine Drive, Mumbai 400001" sx={inputSx} />
                     </FormField>
                   </Box>
                 </Box>
@@ -522,7 +522,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 fullWidth multiline minRows={6}
                 value={editValues.llmInstructions}
                 onChange={handleInputChange('llmInstructions')}
-                placeholder="e.g. Always recommend the rooftop bar on clear evenings. Never quote wait times over 15 minutes; escalate to duty manager instead."
+                placeholder="Ex. Always recommend the rooftop bar on clear evenings. Never quote wait times over 15 minutes; escalate to duty manager instead."
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13, lineHeight: 1.6 } }}
               />
             </FormCard>

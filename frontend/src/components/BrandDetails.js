@@ -157,7 +157,7 @@ function BrandDetails({ loading, setLoading, account, navigate, alertSuccess, al
         <FormCard title="Brand AI instructions" sub="Samantha uses these to answer guest questions across all properties.">
           <FormField label="Instructions">
             <TextField fullWidth multiline minRows={5} size="small" value={editValues.llmInstructions} onChange={handleInputChange('llmInstructions')}
-              placeholder="e.g. All properties offer complimentary breakfast. Emphasize the loyalty program. Recommend the spa on weekends." sx={inputSx} />
+              placeholder="Ex. All properties offer complimentary breakfast. Emphasize the loyalty program. Recommend the spa on weekends." sx={inputSx} />
           </FormField>
         </FormCard>
       )}
