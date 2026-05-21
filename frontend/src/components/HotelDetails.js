@@ -4,7 +4,7 @@ import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogAct
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, PersonAdd, ChevronRight, DeleteForever, MenuBook,
+  DeleteOutline, LocationOn, PlayArrow, PersonAdd, DeleteForever, MenuBook,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -13,7 +13,8 @@ import { useHotelTheme } from '../context/HotelThemeContext';
 import constants from '../constants.json';
 import { generateAndPlayTone } from '../utils/audioToneGenerator';
 import { getNotificationTone, createAudioFromBlob } from '../utils/notificationToneCache';
-import { CARD_SX, ROW_SX, LABEL_SX, FormCard, FormField, HoursRow, HOURS_FIELDS, inputSx } from './cards/AppCards';
+import { CARD_SX, ROW_SX, LABEL_SX, FormCard, FormField, inputSx } from './cards/AppCards';
+import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar, HoursTab, AiTab, BasicThemePicker, buildThemePayload } from './DetailShell';
 import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, BRAND_GRADIENT, MUTED, BORDER, BG, SHADOW, TEXT_MUTED_LIGHT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ const TABS = [
   { key: 'staff',     label: 'Staff',         Icon: PeopleOutline },
   { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
 ];
+
+const HOTEL_THEME_KEYS = ['primaryColor', 'secondaryColor', 'primaryHoverColor', 'navyColor', 'navyLightColor', 'fontFamily', 'backgroundDefault', 'backgroundPaper'];
 
 const COLOR_PRESETS = [
   { p: '#7C2D2D', s: '#3A1414', name: 'Crimson' },
@@ -178,20 +181,8 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
   const handleSave = async (e) => {
     e?.preventDefault?.();
-    const payload = { ...editValues };
-    const themeObj = {};
-    if (editValues.primaryColor?.trim()) themeObj.primaryColor = editValues.primaryColor.trim();
-    if (editValues.secondaryColor?.trim()) themeObj.secondaryColor = editValues.secondaryColor.trim();
-    if (editValues.primaryHoverColor?.trim()) themeObj.primaryHoverColor = editValues.primaryHoverColor.trim();
-    if (editValues.navyColor?.trim()) themeObj.navyColor = editValues.navyColor.trim();
-    if (editValues.navyLightColor?.trim()) themeObj.navyLightColor = editValues.navyLightColor.trim();
-    if (editValues.fontFamily?.trim()) themeObj.fontFamily = editValues.fontFamily.trim();
-    if (editValues.backgroundDefault?.trim()) themeObj.backgroundDefault = editValues.backgroundDefault.trim();
-    if (editValues.backgroundPaper?.trim()) themeObj.backgroundPaper = editValues.backgroundPaper.trim();
-    payload.themeConfig = Object.keys(themeObj).length ? themeObj : null;
-    delete payload.primaryColor; delete payload.secondaryColor; delete payload.primaryHoverColor;
-    delete payload.navyColor; delete payload.navyLightColor; delete payload.fontFamily;
-    delete payload.backgroundDefault; delete payload.backgroundPaper;
+    const { themeConfig, payload } = buildThemePayload(editValues, HOTEL_THEME_KEYS);
+    payload.themeConfig = themeConfig;
     const updated = await request({ endpoint: `/hotels/${id}`, method: 'PATCH', data: payload, setLoading, alertSuccess, alertError });
     if (updated) {
       setHotel(updated);
@@ -303,78 +294,27 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pb: 12, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Breadcrumb */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 2, flexWrap: 'wrap' }}>
-          {[
-            { label: 'Hotels', onClick: () => navigate('/hotels') },
-            hotel.brand && { label: hotel.brand.name, onClick: () => navigate(`/brands/${hotel.brand.id}`) },
-            { label: hotel.name },
-            { label: 'Edit', color: 'primary.main' },
-          ].filter(Boolean).map((item, i, arr) => (
-            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography
-                onClick={item.onClick}
-                sx={{ fontSize: 12, fontWeight: 700, color: item.color || (item.onClick ? MUTED : NAVY), cursor: item.onClick ? 'pointer' : 'default', '&:hover': item.onClick ? { color: NAVY } : {} }}
-              >
-                {item.label}
-              </Typography>
-              {i < arr.length - 1 && <ChevronRight sx={{ fontSize: 13, color: MUTED }} />}
-            </Box>
-          ))}
-        </Box>
+        <DetailBreadcrumb items={[
+          { label: 'Hotels', onClick: () => navigate('/hotels') },
+          hotel.brand && { label: hotel.brand.name, onClick: () => navigate(`/brands/${hotel.brand.id}`) },
+          { label: hotel.name },
+          { label: 'Edit', color: 'primary.main' },
+        ]} />
 
-        {/* Hero */}
-        <Box sx={{ borderRadius: 3, overflow: 'hidden', background: headerGradient, color: NAVY_CONTRAST, p: '20px 24px', position: 'relative', mb: 2.5 }}>
-          <Typography sx={{ position: 'absolute', right: -20, top: -40, fontSize: 220, fontWeight: 900, color: 'rgba(255,255,255,0.07)', lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
-            {hotel.name?.[0]}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <Box sx={{ width: 68, height: 68, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-              {hotel.logoUrl
-                ? <Box component="img" src={hotel.logoUrl} alt={hotel.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <Typography sx={{ fontSize: 30, fontWeight: 900, color: NAVY_CONTRAST }}>{hotel.name?.[0]}</Typography>}
+        <DetailHero
+          name={hotel.name}
+          gradient={headerGradient}
+          eyebrow={hotel.brand?.name || 'Independent'}
+          logoUrl={hotel.logoUrl}
+          meta={hotel.address && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <LocationOn sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
+              <Typography sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }}>{hotel.address}</Typography>
             </Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: 10, fontWeight: 700, color: TEXT_MUTED_LIGHT, textTransform: 'uppercase', letterSpacing: '0.15em', mb: 0.5 }}>
-                {hotel.brand?.name || 'Independent'}
-              </Typography>
-              <Typography sx={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{hotel.name}</Typography>
-              <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
-                {hotel.address && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <LocationOn sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
-                    <Typography sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }}>{hotel.address}</Typography>
-                  </Box>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
+          )}
+        />
 
-        {/* Tabs */}
-        <Box sx={{ display: 'flex', gap: 0.5, borderBottom: `1px solid ${BORDER}`, mb: 3, overflowX: 'auto', overflowY: 'hidden', pb: 0 }}>
-          {TABS.map(({ key, label, Icon }) => {
-            const active = key === tab;
-            const danger = key === 'danger';
-            return (
-              <Box
-                key={key}
-                component="button"
-                onClick={() => setTab(key)}
-                sx={{
-                  px: 2, py: 1.5, border: 'none', bgcolor: 'transparent', cursor: 'pointer',
-                  fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
-                  display: 'inline-flex', alignItems: 'center', gap: 0.75, mb: '-1px',
-                  color: active ? (danger ? '#DC2626' : NAVY) : MUTED,
-                  borderBottom: `2px solid ${active ? (danger ? '#DC2626' : 'var(--app-primary)') : 'transparent'}`,
-                }}
-              >
-                <Icon sx={{ fontSize: 13 }} />
-                {label}
-              </Box>
-            );
-          })}
-        </Box>
+        <DetailTabBar tabs={TABS} active={tab} onChange={setTab} />
       </motion.div>
 
       {/* Body */}
@@ -475,57 +415,30 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
           )}
 
           {/* Hours & Wi-Fi */}
-          {tab === 'hours' && (
-            <FormCard title="Operating hours" sub="Used by the AI concierge to answer guest questions accurately.">
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25 }}>
-                <MapComponent Component={HoursRow} data={HOURS_FIELDS} editValues={editValues} handleInputChange={handleInputChange} onDirty={() => setIsDirty(true)} accent={accent} showNoDataAvailable={false} />
+          {tab === 'hours' && <HoursTab editValues={editValues} handleInputChange={handleInputChange} accent={accent} />}
+
+          {/* Theme */}
+          {tab === 'theme' && (
+            <FormCard title="Brand colors" sub="Used in guest-facing pages, emails, and the portal.">
+              <BasicThemePicker editValues={editValues} handleInputChange={handleInputChange} />
+              <Typography sx={{ ...LABEL_SX, fontSize: 10, mt: 2.5, mb: 1.25 }}>Or pick a preset</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1 }}>
+                {COLOR_PRESETS.map(p => (
+                  <Box key={p.name} component="button"
+                    onClick={() => { handleInputChange('primaryColor')({ target: { value: p.p } }); handleInputChange('secondaryColor')({ target: { value: p.s } }); }}
+                    sx={{ background: `linear-gradient(135deg, ${p.p}, ${p.s})`, border: editValues.primaryColor === p.p ? `2px solid ${NAVY}` : '2px solid transparent', borderRadius: 1.5, height: 56, cursor: 'pointer', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'flex-end', p: 1 }}>
+                    {p.name}
+                  </Box>
+                ))}
               </Box>
             </FormCard>
           )}
 
-          {/* Theme */}
-          {tab === 'theme' && (
-            <>
-              <FormCard title="Brand colors" sub="Used in guest-facing pages, emails, and the portal.">
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
-                  {[{ key: 'primaryColor', label: 'Primary' }, { key: 'secondaryColor', label: 'Secondary' }].map(({ key, label }) => (
-                    <FormField key={key} label={label}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '6px 6px 6px 14px', borderRadius: 1.5, border: `1px solid ${BORDER}`, bgcolor: 'background.paper' }}>
-                        <Typography sx={{ flex: 1, fontSize: 13, fontFamily: 'monospace', color: NAVY }}>{editValues[key] || '—'}</Typography>
-                        <Box component="input" type="color" value={editValues[key] || '#1B2340'} onChange={handleInputChange(key)}
-                          sx={{ width: 38, height: 38, border: 'none', borderRadius: 1, cursor: 'pointer', p: 0, bgcolor: 'transparent' }} />
-                      </Box>
-                    </FormField>
-                  ))}
-                </Box>
-                <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 1.25 }}>Or pick a preset</Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1 }}>
-                  {COLOR_PRESETS.map(p => (
-                    <Box
-                      key={p.name}
-                      component="button"
-                      onClick={() => { handleInputChange('primaryColor')({ target: { value: p.p } }); handleInputChange('secondaryColor')({ target: { value: p.s } }); }}
-                      sx={{ background: `linear-gradient(135deg, ${p.p}, ${p.s})`, border: editValues.primaryColor === p.p ? `2px solid ${NAVY}` : '2px solid transparent', borderRadius: 1.5, height: 56, cursor: 'pointer', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'flex-end', p: 1 }}
-                    >
-                      {p.name}
-                    </Box>
-                  ))}
-                </Box>
-              </FormCard>
-            </>
-          )}
-
           {/* Concierge AI */}
           {tab === 'ai' && (
-            <FormCard title="Concierge instructions" sub="Property-specific instructions added to the AI system prompt.">
-              <TextField
-                fullWidth multiline minRows={6}
-                value={editValues.llmInstructions}
-                onChange={handleInputChange('llmInstructions')}
-                placeholder="Ex. Always recommend the rooftop bar on clear evenings. Never quote wait times over 15 minutes; escalate to duty manager instead."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13, lineHeight: 1.6 } }}
-              />
-            </FormCard>
+            <AiTab editValues={editValues} handleInputChange={handleInputChange}
+              sub="Property-specific instructions added to the AI system prompt."
+              placeholder="Ex. Always recommend the rooftop bar on clear evenings. Never quote wait times over 15 minutes; escalate to duty manager instead." />
           )}
 
           {/* Restaurant */}
@@ -594,27 +507,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       </Box>
 
 
-      {/* Sticky save bar */}
-      {isDirty && canEdit && (
-        <Box sx={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: NAVY_GRADIENT, borderRadius: 99, px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', zIndex: 100, whiteSpace: 'nowrap' }}>
-          <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: 'var(--app-primary)', flexShrink: 0 }} />
-          <Typography sx={{ fontSize: 12, fontWeight: 700, color: NAVY_CONTRAST, mr: 0.5 }}>Unsaved changes</Typography>
-          <Box
-            component="button"
-            onClick={fetchHotel}
-            sx={{ border: '1px solid rgba(255,255,255,0.25)', bgcolor: 'transparent', color: NAVY_CONTRAST, px: 1.5, py: 0.6, borderRadius: 99, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-          >
-            Discard
-          </Box>
-          <Box
-            component="button"
-            onClick={handleSave}
-            sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 1.75, py: 0.6, borderRadius: 99, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-          >
-            Save
-          </Box>
-        </Box>
-      )}
+      {isDirty && canEdit && <UnsavedChangesBar onDiscard={fetchHotel} onSave={handleSave} />}
 
       {/* Delete dialog */}
       <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
