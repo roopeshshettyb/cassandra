@@ -17,7 +17,7 @@ const BrandCard = ({ data, navigate }) => {
   const hotelCount = brand.hotels?.length ?? 0;
 
   return (
-    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }}>
+    <motion.div whileTap={{ scale: 0.98 }} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} style={{ width: '100%' }}>
       <Box
         onClick={() => brand?.id && navigate?.(`/brands/${brand.id}`)}
         sx={{
@@ -27,6 +27,7 @@ const BrandCard = ({ data, navigate }) => {
           border: `1px solid ${primary ? primary + '30' : BORDER}`,
           boxShadow: primary ? `0 2px 12px ${primary}25` : SHADOW,
           cursor: 'pointer',
+          display: 'flex', flexDirection: 'column', height: '100%',
           '@media (hover: hover)': {
             '&:hover': { boxShadow: primary ? `0 8px 28px ${primary}40` : SHADOW_HOVER },
           },
@@ -61,7 +62,7 @@ const BrandCard = ({ data, navigate }) => {
           </Box>
         </Box>
 
-        <Box sx={{ px: 2.5, pt: 1.75, pb: 2 }}>
+        <Box sx={{ px: 2.5, pt: 1.75, pb: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ display: 'flex', gap: 1, mb: 1.75 }}>
             {[{ label: 'Check in', value: brand.checkInTime }, { label: 'Check out', value: brand.checkOutTime }].map(({ label, value }) => (
               <Box key={label} sx={{ flex: 1, borderRadius: 2, p: 1.1, textAlign: 'center', bgcolor: `${accent}12`, border: `1px solid ${accent}28` }}>
@@ -71,7 +72,7 @@ const BrandCard = ({ data, navigate }) => {
             ))}
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1, borderTop: `1px solid ${BORDER}` }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1, borderTop: `1px solid ${BORDER}`, mt: 'auto' }}>
             <Typography sx={{ fontSize: 10, color: TEXT_MUTED_DARK, fontFamily: 'monospace', opacity: 0.5 }}>#{brand.id}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>Manage</Typography>

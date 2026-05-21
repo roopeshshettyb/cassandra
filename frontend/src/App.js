@@ -339,15 +339,15 @@ const AppContent = () => {
     { path: '/shipping-delivery-policy', component: ShippingDeliveryPolicy, isProtected: false },
     { path: '/contact', component: ContactUs, isProtected: false },
     { path: '/rooms', component: Rooms, isProtected: true },
-    { path: '/hotels', component: ManageHotels, isProtected: true },
-    { path: '/hotels/:id', component: HotelDetails, isProtected: true },
-    { path: '/brands', component: ManageBrands, isProtected: true },
-    { path: '/brands/:id', component: BrandDetails, isProtected: true },
+    { path: '/hotels', component: ManageHotels, isProtected: true, guestRestricted: true },
+    { path: '/hotels/:id', component: HotelDetails, isProtected: true, guestRestricted: true },
+    { path: '/brands', component: ManageBrands, isProtected: true, guestRestricted: true },
+    { path: '/brands/:id', component: BrandDetails, isProtected: true, guestRestricted: true },
     { path: '/bookings', component: ManageBookings, isProtected: true },
     { path: '/bookings/:id', component: BookingDetails, isProtected: true },
     { path: '/requests', component: ManageRequests, isProtected: true },
     { path: '/requests/:id', component: RequestDetails, isProtected: true },
-    { path: '/costs', component: ManageCosts, isProtected: true },
+    { path: '/costs', component: ManageCosts, isProtected: true, guestRestricted: true },
   ];
 
   const smoothScrollToTop = () => {
@@ -447,7 +447,11 @@ const AppContent = () => {
                 {routes.map((route) => {
                   const Component = route.component;
                   const element = <Component {...commonProps} />;
-                  const guardedElement = route.isProtected && !isAuthenticated ? <Navigate to="/404" replace /> : element;
+                  const isGuest = account?.role === constants.ACCOUNT_ROLES.GUEST;
+                  const guardedElement =
+                    route.isProtected && !isAuthenticated ? <Navigate to="/404" replace /> :
+                    route.guestRestricted && isGuest ? <Navigate to="/404" replace /> :
+                    element;
                   return <Route key={route.path} path={route.path} element={guardedElement} />;
                 })}
                 <Route

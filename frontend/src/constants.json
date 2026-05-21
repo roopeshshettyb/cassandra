@@ -114,5 +114,43 @@
       "Show costs",
       "High priority requests"
     ]
-  }
+  },
+  "MENU_CATEGORIES": [
+    {
+      "value": "appetizer",
+      "label": "Appetizer"
+    },
+    {
+      "value": "main_course",
+      "label": "Main Course"
+    },
+    {
+      "value": "dessert",
+      "label": "Dessert"
+    },
+    {
+      "value": "beverage",
+      "label": "Beverage"
+    },
+    {
+      "value": "side",
+      "label": "Side"
+    },
+    {
+      "value": "breakfast",
+      "label": "Breakfast"
+    },
+    {
+      "value": "lunch",
+      "label": "Lunch"
+    },
+    {
+      "value": "dinner",
+      "label": "Dinner"
+    },
+    {
+      "value": "snacks",
+      "label": "Snacks"
+    }
+  ]
 }
