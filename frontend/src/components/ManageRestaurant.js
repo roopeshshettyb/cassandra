@@ -3,7 +3,7 @@ import { Box, Typography, TextField, Checkbox, FormControlLabel, Dialog, DialogA
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
-import { CARD_SX, ROW_SX, LABEL_SX } from './cards/AppCards';
+import { CARD_SX, ROW_SX, ColumnLabel } from './cards/AppCards';
 import { NAVY, MUTED, BORDER, BG, BRAND_GRADIENT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
 import constants from '../constants.json';
 
@@ -47,9 +47,6 @@ const MenuItemRow = ({ data: item, onEdit, onDelete, canManage }) => {
 const TABLE_COLS = ['Name', 'Category', 'Price', 'Description', 'Available Time', ''];
 const TABLE_GRID = '1.5fr 1fr 90px 1.5fr 1fr 120px';
 
-const ColHeader = ({ data: h }) => (
-  <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>{h}</Typography>
-);
 
 function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess, alertError }) {
   const canManage = !!constants.PERMISSIONS.CAN_MANAGE_RESTAURANT_MENU[account?.role];
@@ -128,7 +125,7 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: TABLE_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
-          <MapComponent Component={ColHeader} data={TABLE_COLS} showNoDataAvailable={false} />
+          <MapComponent Component={ColumnLabel} data={TABLE_COLS} showNoDataAvailable={false} />
         </Box>
         <MapComponent Component={MenuItemRow} data={items} isLoading={loading} onEdit={openEdit} onDelete={item => { setDeleteTarget(item); setShowDelete(true); }} canManage={canManage} />
       </Box>

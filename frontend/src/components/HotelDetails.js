@@ -413,7 +413,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         </Box>
 
         {/* Tabs */}
-        <Box sx={{ display: 'flex', gap: 0.5, borderBottom: `1px solid ${BORDER}`, mb: 3, overflowX: 'auto', pb: 0 }}>
+        <Box sx={{ display: 'flex', gap: 0.5, borderBottom: `1px solid ${BORDER}`, mb: 3, overflowX: 'auto', overflowY: 'hidden', pb: 0 }}>
           {TABS.map(({ key, label, Icon }) => {
             const active = key === tab;
             const danger = key === 'danger';
