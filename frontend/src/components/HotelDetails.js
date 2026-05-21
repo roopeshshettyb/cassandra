@@ -2,30 +2,12 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button } from '@mui/material';
 import { motion } from 'framer-motion';
-import HotelOutlinedIcon from '@mui/icons-material/HotelOutlined';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import LoginIcon from '@mui/icons-material/Login';
-import LogoutIcon from '@mui/icons-material/Logout';
-import FreeBreakfastIcon from '@mui/icons-material/FreeBreakfast';
-import LunchDiningIcon from '@mui/icons-material/LunchDining';
-import DinnerDiningIcon from '@mui/icons-material/DinnerDining';
-import LocalCafeIcon from '@mui/icons-material/LocalCafe';
-import PoolIcon from '@mui/icons-material/Pool';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
-import RestaurantIcon from '@mui/icons-material/Restaurant';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import RoomServiceIcon from '@mui/icons-material/RoomService';
-import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
-import WifiIcon from '@mui/icons-material/Wifi';
+import {
+  HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
+  DeleteOutline, LocationOn, PlayArrow, PersonAdd, ChevronRight, DeleteForever,
+  Login, Logout, FreeBreakfast, LunchDining, DinnerDining, LocalCafe,
+  Pool, FitnessCenter, Restaurant, MenuBook, RoomService, CleaningServices, Wifi,
+} from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import ManageRestaurant from './ManageRestaurant';
@@ -39,13 +21,13 @@ import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, BRAND_GRADIENT, MUTED, BORDER, BG, 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'identity',  label: 'Identity',      Icon: HotelOutlinedIcon },
-  { key: 'hours',     label: 'Hours & Wi-Fi', Icon: AccessTimeIcon },
-  { key: 'theme',     label: 'Theme',         Icon: PaletteOutlinedIcon },
-  { key: 'ai',        label: 'Concierge AI',  Icon: AutoAwesomeIcon },
-  { key: 'restaurant', label: 'Restaurant',    Icon: MenuBookIcon },
-  { key: 'staff',     label: 'Staff',         Icon: PeopleOutlineIcon },
-  { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutlineIcon },
+  { key: 'identity',  label: 'Identity',      Icon: HotelOutlined },
+  { key: 'hours',     label: 'Hours & Wi-Fi', Icon: AccessTime },
+  { key: 'theme',     label: 'Theme',         Icon: PaletteOutlined },
+  { key: 'ai',        label: 'Concierge AI',  Icon: AutoAwesome },
+  { key: 'restaurant', label: 'Restaurant',    Icon: MenuBook },
+  { key: 'staff',     label: 'Staff',         Icon: PeopleOutline },
+  { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
 ];
 
 const COLOR_PRESETS = [
@@ -58,18 +40,18 @@ const COLOR_PRESETS = [
 ];
 
 const HOURS_FIELDS = [
-  { key: 'checkInTime',       label: 'Check-in',        type: 'time', Icon: LoginIcon },
-  { key: 'checkOutTime',      label: 'Check-out',       type: 'time', Icon: LogoutIcon },
-  { key: 'breakfastHours',    label: 'Breakfast',                      Icon: FreeBreakfastIcon },
-  { key: 'lunchHours',        label: 'Lunch',                          Icon: LunchDiningIcon },
-  { key: 'dinnerHours',       label: 'Dinner',                         Icon: DinnerDiningIcon },
-  { key: 'snacksHours',       label: 'All-day snacks',                 Icon: LocalCafeIcon },
-  { key: 'poolHours',         label: 'Pool',                           Icon: PoolIcon },
-  { key: 'gymHours',          label: 'Gym',                            Icon: FitnessCenterIcon },
-  { key: 'restaurantHours',   label: 'Restaurant',                     Icon: RestaurantIcon },
-  { key: 'roomServiceHours',  label: 'Room service',                   Icon: RoomServiceIcon },
-  { key: 'houseKeepingHours', label: 'Housekeeping',                   Icon: CleaningServicesIcon },
-  { key: 'wifiPassword',      label: 'Wi-Fi password',                 Icon: WifiIcon },
+  { key: 'checkInTime',       label: 'Check-in',        type: 'time', Icon: Login },
+  { key: 'checkOutTime',      label: 'Check-out',       type: 'time', Icon: Logout },
+  { key: 'breakfastHours',    label: 'Breakfast',                      Icon: FreeBreakfast },
+  { key: 'lunchHours',        label: 'Lunch',                          Icon: LunchDining },
+  { key: 'dinnerHours',       label: 'Dinner',                         Icon: DinnerDining },
+  { key: 'snacksHours',       label: 'All-day snacks',                 Icon: LocalCafe },
+  { key: 'poolHours',         label: 'Pool',                           Icon: Pool },
+  { key: 'gymHours',          label: 'Gym',                            Icon: FitnessCenter },
+  { key: 'restaurantHours',   label: 'Restaurant',                     Icon: Restaurant },
+  { key: 'roomServiceHours',  label: 'Room service',                   Icon: RoomService },
+  { key: 'houseKeepingHours', label: 'Housekeeping',                   Icon: CleaningServices },
+  { key: 'wifiPassword',      label: 'Wi-Fi password',                 Icon: Wifi },
 ];
 
 // ── Local sub-components ───────────────────────────────────────────────────
@@ -100,7 +82,7 @@ const FormField = ({ label, hint, children }) => (
 );
 
 const HoursRow = ({ data: f, editValues, handleInputChange, onDirty, accent }) => {
-  const Icon = f.Icon || AccessTimeIcon;
+  const Icon = f.Icon || AccessTime;
   return (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '10px 14px', borderRadius: 1.5, border: `1px solid ${BORDER}`, bgcolor: BG }}>
     <Box sx={{ width: 30, height: 30, borderRadius: 1, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -169,7 +151,7 @@ const MiniPreview = ({ hotel, editValues }) => {
                 {['Order dining', 'Housekeeping', 'Ask concierge'].map((t, i) => (
                   <Box key={t} sx={{ px: 1.25, py: 0.75, borderRadius: 1, bgcolor: i === 2 ? primary : BG, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography sx={{ fontSize: 9, fontWeight: 700, color: i === 2 ? '#fff' : NAVY }}>{t}</Typography>
-                    <ChevronRightIcon sx={{ fontSize: 10, color: i === 2 ? '#fff' : MUTED }} />
+                    <ChevronRight sx={{ fontSize: 10, color: i === 2 ? '#fff' : MUTED }} />
                   </Box>
                 ))}
               </Box>
@@ -397,7 +379,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
               >
                 {item.label}
               </Typography>
-              {i < arr.length - 1 && <ChevronRightIcon sx={{ fontSize: 13, color: MUTED }} />}
+              {i < arr.length - 1 && <ChevronRight sx={{ fontSize: 13, color: MUTED }} />}
             </Box>
           ))}
         </Box>
@@ -421,7 +403,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
               <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
                 {hotel.address && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <LocationOnIcon sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
+                    <LocationOn sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
                     <Typography sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }}>{hotel.address}</Typography>
                   </Box>
                 )}
@@ -518,7 +500,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                     disabled={tonePlaying}
                     sx={{ width: 40, height: 40, borderRadius: '50%', background: BRAND_GRADIENT, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                   >
-                    {tonePlaying ? <CircularProgress size={16} sx={{ color: '#000' }} /> : <PlayArrowIcon sx={{ fontSize: 18, color: 'var(--app-primary-contrast)' }} />}
+                    {tonePlaying ? <CircularProgress size={16} sx={{ color: '#000' }} /> : <PlayArrow sx={{ fontSize: 18, color: 'var(--app-primary-contrast)' }} />}
                   </Box>
                   <Box sx={{ flex: 1 }}>
                     <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>
@@ -623,7 +605,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   onClick={() => {}}
                   sx={{ border: 'none', background: NAVY_GRADIENT, color: NAVY_CONTRAST, px: 1.5, py: 0.75, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
                 >
-                  <PersonAddIcon sx={{ fontSize: 13 }} /> Invite
+                  <PersonAdd sx={{ fontSize: 13 }} /> Invite
                 </Box>
               }
             >
@@ -661,7 +643,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                       onClick={() => setShowDeleteConfirm(true)}
                       sx={{ border: 'none', bgcolor: '#DC2626', color: '#fff', px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}
                     >
-                      <DeleteForeverIcon sx={{ fontSize: 14 }} /> Delete forever
+                      <DeleteForever sx={{ fontSize: 14 }} /> Delete forever
                     </Box>
                   </Box>
                 )}
