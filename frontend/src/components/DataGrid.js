@@ -22,7 +22,7 @@ const item = {
 
 // Wrapper to make MapComponent render Grid items
 const GridItemWrapper = ({ data: rowData, index, gridItemProps, CardComponent, ...rest }) => (
-  <Grid item {...gridItemProps} component={motion.div} variants={item}>
+  <Grid item {...gridItemProps} component={motion.div} variants={item} sx={{ display: 'flex' }}>
     <CardComponent data={rowData} {...rest} />
   </Grid>
 );
@@ -37,7 +37,7 @@ function DataGrid({ CardComponent, data, isLoading, showNoDataAvailable = true, 
   }
 
   return (
-    <MotionGrid container spacing={3} variants={container} initial="hidden" animate="show">
+    <MotionGrid container spacing={3} alignItems="stretch" variants={container} initial="hidden" animate="show">
       <MapComponent Component={GridItemWrapper} data={data} isLoading={isLoading} showNoDataAvailable={showNoDataAvailable} gridItemProps={gridItemProps} CardComponent={CardComponent} {...props} />
     </MotionGrid>
   );
