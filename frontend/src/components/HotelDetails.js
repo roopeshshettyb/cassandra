@@ -4,9 +4,7 @@ import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogAct
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, PersonAdd, ChevronRight, DeleteForever,
-  Login, Logout, FreeBreakfast, LunchDining, DinnerDining, LocalCafe,
-  Pool, FitnessCenter, Restaurant, MenuBook, RoomService, CleaningServices, Wifi,
+  DeleteOutline, LocationOn, PlayArrow, PersonAdd, ChevronRight, DeleteForever, MenuBook,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -15,7 +13,7 @@ import { useHotelTheme } from '../context/HotelThemeContext';
 import constants from '../constants.json';
 import { generateAndPlayTone } from '../utils/audioToneGenerator';
 import { getNotificationTone, createAudioFromBlob } from '../utils/notificationToneCache';
-import { CARD_SX, ROW_SX, LABEL_SX } from './cards/AppCards';
+import { CARD_SX, ROW_SX, LABEL_SX, FormCard, FormField, HoursRow, HOURS_FIELDS, inputSx } from './cards/AppCards';
 import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, BRAND_GRADIENT, MUTED, BORDER, BG, SHADOW, TEXT_MUTED_LIGHT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -39,69 +37,10 @@ const COLOR_PRESETS = [
   { p: '#3A4A2E', s: '#1F2918', name: 'Forest' },
 ];
 
-const HOURS_FIELDS = [
-  { key: 'checkInTime',       label: 'Check-in',        type: 'time', Icon: Login },
-  { key: 'checkOutTime',      label: 'Check-out',       type: 'time', Icon: Logout },
-  { key: 'breakfastHours',    label: 'Breakfast',                      Icon: FreeBreakfast },
-  { key: 'lunchHours',        label: 'Lunch',                          Icon: LunchDining },
-  { key: 'dinnerHours',       label: 'Dinner',                         Icon: DinnerDining },
-  { key: 'snacksHours',       label: 'All-day snacks',                 Icon: LocalCafe },
-  { key: 'poolHours',         label: 'Pool',                           Icon: Pool },
-  { key: 'gymHours',          label: 'Gym',                            Icon: FitnessCenter },
-  { key: 'restaurantHours',   label: 'Restaurant',                     Icon: Restaurant },
-  { key: 'roomServiceHours',  label: 'Room service',                   Icon: RoomService },
-  { key: 'houseKeepingHours', label: 'Housekeeping',                   Icon: CleaningServices },
-  { key: 'wifiPassword',      label: 'Wi-Fi password',                 Icon: Wifi },
-];
 
 // ── Local sub-components ───────────────────────────────────────────────────
 
-const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13 } };
 
-const FormCard = ({ title, sub, action, children }) => (
-  <Box sx={{ ...CARD_SX, p: 2.5, mb: 2 }}>
-    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.5 }}>
-      <Box>
-        <Typography sx={{ fontSize: 14, fontWeight: 800, color: NAVY }}>{title}</Typography>
-        {sub && <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>{sub}</Typography>}
-      </Box>
-      {action}
-    </Box>
-    {children}
-  </Box>
-);
-
-const FormField = ({ label, hint, children }) => (
-  <Box>
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-      <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>{label}</Typography>
-      {hint && <Typography sx={{ fontSize: 10, color: MUTED }}>{hint}</Typography>}
-    </Box>
-    {children}
-  </Box>
-);
-
-const HoursRow = ({ data: f, editValues, handleInputChange, onDirty, accent }) => {
-  const Icon = f.Icon || AccessTime;
-  return (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '10px 14px', borderRadius: 1.5, border: `1px solid ${BORDER}`, bgcolor: BG }}>
-    <Box sx={{ width: 30, height: 30, borderRadius: 1, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Icon sx={{ fontSize: 13, color: accent || 'var(--app-primary)' }} />
-    </Box>
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.25 }}>{f.label}</Typography>
-      <TextField
-        variant="standard"
-        type={f.type || 'text'}
-        value={editValues[f.key] || ''}
-        onChange={e => { handleInputChange(f.key)(e); onDirty?.(f.key); }}
-        InputProps={{ disableUnderline: true }}
-        sx={{ '& input': { fontSize: 13, fontWeight: 700, p: 0, fontFamily: 'ui-monospace, monospace', color: NAVY } }}
-      />
-    </Box>
-  </Box>
-  );
-};
 
 const StaffRow = ({ data: s, canManage, onRevoke }) => {
   const initials = s.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?';
@@ -449,12 +388,12 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                   <Box sx={{ gridColumn: { sm: 'span 2' } }}>
                     <FormField label="Property name">
-                      <TextField fullWidth size="small" value={editValues.name} onChange={handleInputChange('name')} sx={inputSx} />
+                      <TextField fullWidth size="small" value={editValues.name} onChange={handleInputChange('name')} placeholder="e.g. The Grand Oberoi" sx={inputSx} />
                     </FormField>
                   </Box>
                   <Box sx={{ gridColumn: { sm: 'span 2' } }}>
                     <FormField label="Address">
-                      <TextField fullWidth size="small" value={editValues.address} onChange={handleInputChange('address')} sx={inputSx} />
+                      <TextField fullWidth size="small" value={editValues.address} onChange={handleInputChange('address')} placeholder="e.g. 123 Marine Drive, Mumbai 400001" sx={inputSx} />
                     </FormField>
                   </Box>
                 </Box>
