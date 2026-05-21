@@ -4,9 +4,13 @@
  * Domain-specific rows live in their own card files (RequestCard, BookingCard, HotelCard).
  */
 import React, { useEffect } from 'react';
-import { Box, Chip, Grid, Typography } from '@mui/material';
+import { Box, Chip, Grid, Typography, TextField, InputAdornment } from '@mui/material';
+import {
+  Search, AccessTime, Login, Logout, FreeBreakfast, LunchDining, DinnerDining,
+  LocalCafe, Pool, FitnessCenter, Restaurant, RoomService, CleaningServices, Wifi,
+} from '@mui/icons-material';
 import { motion, animate, useMotionValue, useTransform } from 'framer-motion';
-import { NAVY, MUTED, BORDER, SHADOW, HOVER_BG } from '../../theme';
+import { NAVY, MUTED, BORDER, SHADOW, HOVER_BG, BG } from '../../theme';
 import { REQUEST_STATUS } from '../../constants/requestConfig';
 
 // ── Style constants ─────────────────────────────────────────────────────────
@@ -115,4 +119,109 @@ export function StatCard({ data: k, index }) {
 /** Column header label for table headers. data = string. */
 export function ColumnLabel({ data: h }) {
   return <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>{h}</Typography>;
+}
+
+/** Stat box — label, large value, optional sub-label. Used in HotelCard and BrandCard. */
+export function StatBox({ label, value, sub }) {
+  return (
+    <Box>
+      <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.25 }}>{label}</Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{value}</Typography>
+      {sub && <Typography sx={{ fontSize: 10, color: MUTED, mt: 0.3 }}>{sub}</Typography>}
+    </Box>
+  );
+}
+
+/** Shared input style for outlined text fields. */
+export const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13 } };
+
+/** Operating hours field config — shared between HotelDetails and BrandDetails. */
+export const HOURS_FIELDS = [
+  { key: 'checkInTime',       label: 'Check-in',        type: 'time', Icon: Login,            placeholder: 'Ex. 15:00' },
+  { key: 'checkOutTime',      label: 'Check-out',       type: 'time', Icon: Logout,           placeholder: 'Ex. 12:00' },
+  { key: 'breakfastHours',    label: 'Breakfast',                      Icon: FreeBreakfast,    placeholder: 'Ex. 07:00 – 10:30' },
+  { key: 'lunchHours',        label: 'Lunch',                          Icon: LunchDining,      placeholder: 'Ex. 12:00 – 14:30' },
+  { key: 'dinnerHours',       label: 'Dinner',                         Icon: DinnerDining,     placeholder: 'Ex. 19:00 – 22:30' },
+  { key: 'snacksHours',       label: 'All-day snacks',                 Icon: LocalCafe,        placeholder: 'Ex. 10:00 – 22:00' },
+  { key: 'poolHours',         label: 'Pool',                           Icon: Pool,             placeholder: 'Ex. 06:00 – 22:00' },
+  { key: 'gymHours',          label: 'Gym',                            Icon: FitnessCenter,    placeholder: 'Ex. 06:00 – 23:00' },
+  { key: 'restaurantHours',   label: 'Restaurant',                     Icon: Restaurant,       placeholder: 'Ex. 07:00 – 23:00' },
+  { key: 'roomServiceHours',  label: 'Room service',                   Icon: RoomService,      placeholder: 'Ex. 24 hours' },
+  { key: 'houseKeepingHours', label: 'Housekeeping',                   Icon: CleaningServices, placeholder: 'Ex. 08:00 – 20:00' },
+  { key: 'wifiPassword',      label: 'Wi-Fi password',                 Icon: Wifi,             placeholder: 'Ex. Hotel@2024' },
+];
+
+/** Editable hours row — icon + label + inline text field. MapComponent-compatible. */
+export function HoursRow({ data: f, editValues, handleInputChange, onDirty, accent }) {
+  const Icon = f.Icon || AccessTime;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '10px 14px', borderRadius: 1.5, border: `1px solid ${BORDER}`, bgcolor: BG }}>
+      <Box sx={{ width: 30, height: 30, borderRadius: 1, bgcolor: 'background.paper', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon sx={{ fontSize: 13, color: accent || 'var(--app-primary)' }} />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.25 }}>{f.label}</Typography>
+        <TextField variant="standard" type={f.type || 'text'} value={editValues[f.key] || ''} placeholder={f.placeholder}
+          onChange={e => { handleInputChange(f.key)(e); onDirty?.(f.key); }}
+          InputProps={{ disableUnderline: true }}
+          sx={{ '& input': { fontSize: 13, fontWeight: 700, p: 0, fontFamily: 'ui-monospace, monospace', color: NAVY } }} />
+      </Box>
+    </Box>
+  );
+}
+
+/** Form section card — title, optional subtitle, optional right action. */
+export function FormCard({ title, sub, action, children }) {
+  return (
+    <Box sx={{ ...CARD_SX, p: 2.5, mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.5 }}>
+        <Box>
+          <Typography sx={{ fontSize: 14, fontWeight: 800, color: NAVY }}>{title}</Typography>
+          {sub && <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>{sub}</Typography>}
+        </Box>
+        {action}
+      </Box>
+      {children}
+    </Box>
+  );
+}
+
+/** Form field row — label + optional hint + children input. */
+export function FormField({ label, hint, children }) {
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+        <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>{label}</Typography>
+        {hint && <Typography sx={{ fontSize: 10, color: MUTED }}>{hint}</Typography>}
+      </Box>
+      {children}
+    </Box>
+  );
+}
+
+/** Page-level header — eyebrow + bold title + optional right slot. */
+export function PageHeader({ eyebrow = 'Management', title, right }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Typography sx={{ ...LABEL_SX, color: 'primary.main', mb: 0.5 }}>{eyebrow}</Typography>
+        <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>{title}</Typography>
+      </Box>
+      {right}
+    </Box>
+  );
+}
+
+/** Reusable search input with leading icon. */
+export function SearchBar({ value, onChange, placeholder = 'Search…', sx }) {
+  return (
+    <TextField
+      size="small"
+      placeholder={placeholder}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 16, color: MUTED }} /></InputAdornment> }}
+      sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: 2.5, fontSize: 13 }, ...sx }}
+    />
+  );
 }

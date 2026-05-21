@@ -1,99 +1,111 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Grid,
-  TableCell,
-  TableRow,
-  TextField,
-  Typography,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
+import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button } from '@mui/material';
 import { motion } from 'framer-motion';
+import {
+  HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
+  DeleteOutline, LocationOn, PlayArrow, PersonAdd, DeleteForever, MenuBook,
+} from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
-import DataTable from './DataTable';
-import HotelInfoCard from './HotelInfoCard';
 import ManageRestaurant from './ManageRestaurant';
 import { useHotelTheme } from '../context/HotelThemeContext';
 import constants from '../constants.json';
 import { generateAndPlayTone } from '../utils/audioToneGenerator';
 import { getNotificationTone, createAudioFromBlob } from '../utils/notificationToneCache';
+import { CARD_SX, ROW_SX, LABEL_SX, FormCard, FormField, inputSx } from './cards/AppCards';
+import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar, HoursTab, AiTab, BasicThemePicker, buildThemePayload } from './DetailShell';
+import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, BRAND_GRADIENT, MUTED, BORDER, BG, SHADOW, TEXT_MUTED_LIGHT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
 
-const MotionBox = motion(Box);
+// ── Constants ──────────────────────────────────────────────────────────────
 
-const hoursFieldConfigs = [
-  { key: 'checkInTime', label: 'Check-in Time', type: 'time' },
-  { key: 'checkOutTime', label: 'Check-out Time', type: 'time' },
-  { key: 'poolHours', label: 'Pool Hours' },
-  { key: 'gymHours', label: 'Gym Hours' },
-  { key: 'restaurantHours', label: 'Restaurant Hours' },
-  { key: 'wifiPassword', label: 'Wi-Fi Password' },
-  { key: 'breakfastHours', label: 'Breakfast Hours' },
-  { key: 'lunchHours', label: 'Lunch Hours' },
-  { key: 'dinnerHours', label: 'Dinner Hours' },
-  { key: 'snacksHours', label: 'Snacks Hours' },
-  { key: 'houseKeepingHours', label: 'House Keeping Hours' },
-  { key: 'roomServiceHours', label: 'Room Service Hours' },
+const TABS = [
+  { key: 'identity',  label: 'Identity',      Icon: HotelOutlined },
+  { key: 'hours',     label: 'Hours & Wi-Fi', Icon: AccessTime },
+  { key: 'theme',     label: 'Theme',         Icon: PaletteOutlined },
+  { key: 'ai',        label: 'Concierge AI',  Icon: AutoAwesome },
+  { key: 'restaurant', label: 'Restaurant',    Icon: MenuBook },
+  { key: 'staff',     label: 'Staff',         Icon: PeopleOutline },
+  { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
 ];
 
-const HoursEditField = ({ data, editValues, handleInputChange }) => {
+const HOTEL_THEME_KEYS = ['primaryColor', 'secondaryColor', 'primaryHoverColor', 'navyColor', 'navyLightColor', 'fontFamily', 'backgroundDefault', 'backgroundPaper'];
+
+const COLOR_PRESETS = [
+  { p: '#7C2D2D', s: '#3A1414', name: 'Crimson' },
+  { p: '#1F4E5F', s: '#0F2A35', name: 'Coastal' },
+  { p: '#6B5B95', s: '#2D2849', name: 'Vesper' },
+  { p: '#A23E48', s: '#5B1F26', name: 'Rose' },
+  { p: '#1B2340', s: '#263462', name: 'Navy' },
+  { p: '#3A4A2E', s: '#1F2918', name: 'Forest' },
+];
+
+
+// ── Local sub-components ───────────────────────────────────────────────────
+
+
+
+const StaffRow = ({ data: s, canManage, onRevoke }) => {
+  const initials = s.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?';
   return (
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label={data.label}
-        type={data.type || 'text'}
-        value={editValues[data.key] || ''}
-        onChange={handleInputChange(data.key)}
-        inputProps={data.type === 'time' ? { step: 60 } : undefined}
-      />
-    </Grid>
+    <Box sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: '40px 1fr 80px', alignItems: 'center', px: 2, py: 1.5, gap: 1.5 }}>
+      <Avatar sx={{ width: 34, height: 34, fontSize: 12, fontWeight: 800, background: NAVY_GRADIENT }}>{initials}</Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name || '—'}</Typography>
+        <Typography sx={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email || '—'}</Typography>
+      </Box>
+      {canManage && (
+        <Box
+          component="button"
+          onClick={e => { e.stopPropagation(); onRevoke?.(s.id); }}
+          sx={{ border: `1px solid ${STATUS_ERROR_BG}`, bgcolor: 'transparent', color: STATUS_ERROR, borderRadius: 1, px: 1.25, py: 0.5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+        >
+          Revoke
+        </Box>
+      )}
+    </Box>
   );
 };
 
-const StaffRow = ({ data, CAN_MANAGE_STAFF, onRevoke }) => {
-  const staff = data;
-  const handleRevoke = (e) => {
-    e.stopPropagation();
-    if (onRevoke && staff.id) onRevoke(staff.id);
-  };
+const MiniPreview = ({ hotel, editValues }) => {
+  const primary = editValues.primaryColor || hotel?.themeConfig?.primaryColor || '#1B2340';
+  const secondary = editValues.secondaryColor || hotel?.themeConfig?.secondaryColor || '#263462';
   return (
-    <TableRow>
-      <TableCell>
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {staff.name || '-'}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {staff.email || '-'}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        {CAN_MANAGE_STAFF && (
-          <Button size="small" color="secondary" variant="outlined" onClick={handleRevoke}>
-            Revoke
-          </Button>
-        )}
-      </TableCell>
-    </TableRow>
+    <Box sx={{ ...CARD_SX, overflow: 'hidden', position: 'sticky', top: 88 }}>
+      <Box sx={{ px: 2, py: 1.25, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>Live preview</Typography>
+      </Box>
+      <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'center', bgcolor: BG }}>
+        <Box sx={{ width: 180, height: 340, borderRadius: '20px', background: '#111', p: '4px', boxShadow: '0 16px 40px rgba(0,0,0,0.2)' }}>
+          <Box sx={{ width: '100%', height: '100%', borderRadius: '17px', overflow: 'hidden', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ height: 88, background: `linear-gradient(135deg, ${primary}, ${secondary})`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography sx={{ position: 'absolute', right: -4, top: -12, fontSize: 96, fontWeight: 900, color: 'rgba(255,255,255,0.1)', lineHeight: 1, userSelect: 'none' }}>
+                {hotel?.name?.[0]}
+              </Typography>
+              <Box sx={{ width: 34, height: 34, borderRadius: 1.5, bgcolor: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>{hotel?.name?.[0]}</Typography>
+              </Box>
+            </Box>
+            <Box sx={{ p: 1.5 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 800, color: NAVY }}>{hotel?.name}</Typography>
+              <Typography sx={{ fontSize: 8.5, color: MUTED, mt: 0.25 }}>Welcome back</Typography>
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                {['Order dining', 'Housekeeping', 'Ask concierge'].map((t, i) => (
+                  <Box key={t} sx={{ px: 1.25, py: 0.75, borderRadius: 1, bgcolor: i === 2 ? primary : BG, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ fontSize: 9, fontWeight: 700, color: i === 2 ? '#fff' : NAVY }}>{t}</Typography>
+                    <ChevronRight sx={{ fontSize: 10, color: i === 2 ? '#fff' : MUTED }} />
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   );
 };
+
+// ── Main component ─────────────────────────────────────────────────────────
 
 function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, alertError, isLoading, isMobile }) {
   const { id } = useParams();
@@ -101,845 +113,414 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [hotel, setHotel] = useState(null);
   const [staff, setStaff] = useState([]);
   const [newStaffEmail, setNewStaffEmail] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [showDeleteHotelConfirm, setShowDeleteHotelConfirm] = useState(false);
+  const [tab, setTab] = useState('identity');
+  const [isDirty, setIsDirty] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const logoInputRef = useRef(null);
   const toneInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
-  const [logoUploadError, setLogoUploadError] = useState(null);
   const [toneUploadFile, setToneUploadFile] = useState(null);
   const [toneUploadLoading, setToneUploadLoading] = useState(false);
-  const [toneUploadError, setToneUploadError] = useState(null);
   const [tonePlaying, setTonePlaying] = useState(false);
   const [editValues, setEditValues] = useState({
-    name: '',
-    address: '',
-    checkInTime: '',
-    checkOutTime: '',
-    poolHours: '',
-    gymHours: '',
-    restaurantHours: '',
-    wifiPassword: '',
-    breakfastHours: '',
-    lunchHours: '',
-    dinnerHours: '',
-    snacksHours: '',
-    houseKeepingHours: '',
-    roomServiceHours: '',
-    llmInstructions: '',
-    primaryColor: '',
-    secondaryColor: '',
-    primaryHoverColor: '',
-    navyColor: '',
-    navyLightColor: '',
-    fontFamily: '',
-    backgroundDefault: '',
-    backgroundPaper: '',
-    notificationTone: 'gentle_chime',
+    name: '', address: '', checkInTime: '', checkOutTime: '',
+    poolHours: '', gymHours: '', restaurantHours: '', wifiPassword: '',
+    breakfastHours: '', lunchHours: '', dinnerHours: '', snacksHours: '',
+    houseKeepingHours: '', roomServiceHours: '', llmInstructions: '',
+    primaryColor: '', secondaryColor: '', primaryHoverColor: '',
+    navyColor: '', navyLightColor: '', fontFamily: '',
+    backgroundDefault: '', backgroundPaper: '', notificationTone: 'gentle_chime',
   });
 
-  const fetchHotel = async () => {
-    const data = await request({
-      endpoint: `/hotels/${id}`,
-      method: 'GET',
-      setLoading,
-      defaultData: null,
-      alertError,
-    });
+  const accent = editValues.primaryColor || hotel?.themeConfig?.primaryColor || 'var(--app-primary)';
 
+  const fetchHotel = async () => {
+    const data = await request({ endpoint: `/hotels/${id}`, method: 'GET', setLoading, defaultData: null, alertError });
     if (data) {
       setHotel(data);
       setThemeConfig(data.themeConfig || null);
       setEditValues({
-        name: data.name || '',
-        address: data.address || '',
-        checkInTime: data.checkInTime || '',
-        checkOutTime: data.checkOutTime || '',
-        poolHours: data.poolHours || '',
-        gymHours: data.gymHours || '',
-        restaurantHours: data.restaurantHours || '',
-        wifiPassword: data.wifiPassword || '',
-        breakfastHours: data.breakfastHours || '',
-        lunchHours: data.lunchHours || '',
-        dinnerHours: data.dinnerHours || '',
-        snacksHours: data.snacksHours || '',
-        houseKeepingHours: data.houseKeepingHours || '',
-        roomServiceHours: data.roomServiceHours || '',
-        llmInstructions: data.llmInstructions || '',
-        notificationTone: data.notificationTone || 'gentle_chime',
-        primaryColor: data.themeConfig?.primaryColor || '',
-        secondaryColor: data.themeConfig?.secondaryColor || '',
-        primaryHoverColor: data.themeConfig?.primaryHoverColor || '',
-        navyColor: data.themeConfig?.navyColor || '',
-        navyLightColor: data.themeConfig?.navyLightColor || '',
-        fontFamily: data.themeConfig?.fontFamily || '',
-        backgroundDefault: data.themeConfig?.backgroundDefault || '',
-        backgroundPaper: data.themeConfig?.backgroundPaper || '',
+        name: data.name || '', address: data.address || '',
+        checkInTime: data.checkInTime || '', checkOutTime: data.checkOutTime || '',
+        poolHours: data.poolHours || '', gymHours: data.gymHours || '',
+        restaurantHours: data.restaurantHours || '', wifiPassword: data.wifiPassword || '',
+        breakfastHours: data.breakfastHours || '', lunchHours: data.lunchHours || '',
+        dinnerHours: data.dinnerHours || '', snacksHours: data.snacksHours || '',
+        houseKeepingHours: data.houseKeepingHours || '', roomServiceHours: data.roomServiceHours || '',
+        llmInstructions: data.llmInstructions || '', notificationTone: data.notificationTone || 'gentle_chime',
+        primaryColor: data.themeConfig?.primaryColor || '', secondaryColor: data.themeConfig?.secondaryColor || '',
+        primaryHoverColor: data.themeConfig?.primaryHoverColor || '', navyColor: data.themeConfig?.navyColor || '',
+        navyLightColor: data.themeConfig?.navyLightColor || '', fontFamily: data.themeConfig?.fontFamily || '',
+        backgroundDefault: data.themeConfig?.backgroundDefault || '', backgroundPaper: data.themeConfig?.backgroundPaper || '',
       });
+      setIsDirty(false);
     }
   };
 
-  const CAN_MANAGE_STAFF = account && !!constants.PERMISSIONS.CAN_MANAGE_STAFF[account.role];
+  const canEdit = !!constants.PERMISSIONS.CAN_EDIT_HOTEL[account?.role];
+  const canManageStaff = !!constants.PERMISSIONS.CAN_MANAGE_STAFF[account?.role];
+  const canDelete = !!constants.PERMISSIONS.CAN_DELETE_HOTEL[account?.role];
 
-  const fetchStaff = async () => {
-    if (!id || !CAN_MANAGE_STAFF) return;
-    await request({
-      endpoint: `/hotels/${id}/staff`,
-      method: 'GET',
-      setLoading: setLoading,
-      setData: setStaff,
-      defaultData: [],
-      alertError,
-    });
+  const fetchStaff = () => {
+    if (!id || !canManageStaff) return;
+    request({ endpoint: `/hotels/${id}/staff`, method: 'GET', setLoading, setData: setStaff, defaultData: [], alertError });
   };
 
   useEffect(() => {
     if (id) fetchHotel();
-    if (CAN_MANAGE_STAFF) fetchStaff();
+    if (canManageStaff) fetchStaff();
   }, [id]);
 
-  useEffect(() => {
-    return () => setThemeConfig(null);
-  }, [setThemeConfig]);
-
-  const canEdit = account && !!constants.PERMISSIONS.CAN_EDIT_HOTEL[account.role];
-  const CAN_DELETE_HOTEL = account && !!constants.PERMISSIONS.CAN_DELETE_HOTEL[account.role];
-
-  const handleAddStaff = async (e) => {
-    e.preventDefault();
-    const email = (newStaffEmail || '').trim();
-    if (!email) {
-      alertError && alertError('Email is required');
-      return;
-    }
-    const result = await request({
-      endpoint: `/hotels/${id}/staff`,
-      method: 'POST',
-      data: { email },
-      setLoading,
-      alertSuccess,
-      alertError,
-    });
-    if (result && result.success) {
-      setNewStaffEmail('');
-      fetchStaff();
-    }
-  };
-
-  const handleRevokeStaff = async (accountId) => {
-    const ok = await request({
-      endpoint: `/hotels/${id}/staff/${accountId}`,
-      method: 'DELETE',
-      setLoading,
-      alertSuccess,
-      alertError,
-    });
-    if (ok && ok.success) {
-      fetchStaff();
-    }
-  };
+  useEffect(() => { return () => setThemeConfig(null); }, [setThemeConfig]);
 
   const handleInputChange = (field) => (event) => {
-    setEditValues((prev) => ({
-      ...prev,
-      [field]: event.target.value,
-    }));
+    setEditValues(prev => ({ ...prev, [field]: event.target.value }));
+    setIsDirty(true);
   };
 
-  const handleSave = async (event) => {
-    event.preventDefault();
-    const payload = { ...editValues };
-    const themeObj = {};
-    if (editValues.primaryColor?.trim()) themeObj.primaryColor = editValues.primaryColor.trim();
-    if (editValues.secondaryColor?.trim()) themeObj.secondaryColor = editValues.secondaryColor.trim();
-    if (editValues.primaryHoverColor?.trim()) themeObj.primaryHoverColor = editValues.primaryHoverColor.trim();
-    if (editValues.navyColor?.trim()) themeObj.navyColor = editValues.navyColor.trim();
-    if (editValues.navyLightColor?.trim()) themeObj.navyLightColor = editValues.navyLightColor.trim();
-    if (editValues.fontFamily?.trim()) themeObj.fontFamily = editValues.fontFamily.trim();
-    if (editValues.backgroundDefault?.trim()) themeObj.backgroundDefault = editValues.backgroundDefault.trim();
-    if (editValues.backgroundPaper?.trim()) themeObj.backgroundPaper = editValues.backgroundPaper.trim();
-    payload.themeConfig = Object.keys(themeObj).length ? themeObj : null;
-    delete payload.primaryColor;
-    delete payload.secondaryColor;
-    delete payload.primaryHoverColor;
-    delete payload.navyColor;
-    delete payload.navyLightColor;
-    delete payload.fontFamily;
-    delete payload.backgroundDefault;
-    delete payload.backgroundPaper;
-
+  const handleSave = async (e) => {
+    e?.preventDefault?.();
+    const { themeConfig, payload } = buildThemePayload(editValues, HOTEL_THEME_KEYS);
+    payload.themeConfig = themeConfig;
     const updated = await request({ endpoint: `/hotels/${id}`, method: 'PATCH', data: payload, setLoading, alertSuccess, alertError });
     if (updated) {
       setHotel(updated);
       setThemeConfig(updated.themeConfig || null);
-      setIsEditing(false);
+      setIsDirty(false);
     }
   };
 
-  const handleDeleteHotelClick = () => setShowDeleteHotelConfirm(true);
-  const handleDeleteHotelCancel = () => setShowDeleteHotelConfirm(false);
+  const handleAddStaff = async (e) => {
+    e.preventDefault();
+    const email = (newStaffEmail || '').trim();
+    if (!email) { alertError?.('Email is required'); return; }
+    const result = await request({ endpoint: `/hotels/${id}/staff`, method: 'POST', data: { email }, setLoading, alertSuccess, alertError });
+    if (result?.success) { setNewStaffEmail(''); fetchStaff(); }
+  };
 
-  const handleDeleteHotelConfirm = async () => {
-    setShowDeleteHotelConfirm(false);
-    if (!id) return;
-    const result = await request({
-      endpoint: `/hotels/${id}`,
-      method: 'DELETE',
-      setLoading,
-      alertSuccess,
-      alertError,
-    });
-    if (result && result.success) {
-      navigate('/hotels');
-    }
+  const handleRevokeStaff = async (accountId) => {
+    const ok = await request({ endpoint: `/hotels/${id}/staff/${accountId}`, method: 'DELETE', setLoading, alertSuccess, alertError });
+    if (ok?.success) fetchStaff();
   };
 
   const handleLogoFileSelect = (event) => {
     const file = event.target.files?.[0];
-    setLogoUploadError(null);
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setLogoUploadError('Only image files are allowed');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setLogoUploadError('File size must not exceed 5MB');
-      return;
-    }
+    if (!file.type.startsWith('image/')) { alertError?.('Only image files are allowed'); return; }
+    if (file.size > 5 * 1024 * 1024) { alertError?.('File size must not exceed 5MB'); return; }
     setLogoUploadFile(file);
   };
 
   const handleLogoUpload = async () => {
     if (!logoUploadFile || !id) return;
     setLogoUploadLoading(true);
-    setLogoUploadError(null);
-
     try {
-      const presignedRes = await request({
-        endpoint: `/hotels/${id}/logo/presigned-url`,
-        method: 'POST',
-        data: { fileName: logoUploadFile.name, fileSize: logoUploadFile.size, contentType: logoUploadFile.type },
-        throw: true,
-      });
+      const presignedRes = await request({ endpoint: `/hotels/${id}/logo/presigned-url`, method: 'POST', data: { fileName: logoUploadFile.name, fileSize: logoUploadFile.size, contentType: logoUploadFile.type }, throw: true });
       const { presignedUrl, s3Url } = presignedRes?.data || {};
-
-      const s3Response = await fetch(presignedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': logoUploadFile.type },
-        body: logoUploadFile,
-      });
-      if (!s3Response.ok) throw new Error(`S3 upload failed (${s3Response.status})`);
-
-      const result = await request({
-        endpoint: `/hotels/${id}/logo`,
-        method: 'PATCH',
-        data: { s3Url },
-        throw: true,
-      });
-      if (result.success) {
-        alertSuccess('Logo uploaded successfully!');
-        setLogoUploadFile(null);
-        setHotel((prev) => ({ ...prev, logoUrl: result.data?.logoUrl }));
-      }
-    } catch (error) {
-      setLogoUploadError(error.message || 'Failed to upload logo');
-      alertError(`Logo upload failed: ${error.message}`);
-    } finally {
-      setLogoUploadLoading(false);
-    }
+      const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': logoUploadFile.type }, body: logoUploadFile });
+      if (!s3Resp.ok) throw new Error(`S3 upload failed (${s3Resp.status})`);
+      const result = await request({ endpoint: `/hotels/${id}/logo`, method: 'PATCH', data: { s3Url }, throw: true });
+      if (result.success) { alertSuccess?.('Logo uploaded'); setLogoUploadFile(null); setHotel(prev => ({ ...prev, logoUrl: result.data?.logoUrl })); }
+    } catch (err) { alertError?.(`Logo upload failed: ${err.message}`); }
+    finally { setLogoUploadLoading(false); }
   };
 
   const handleToneFileSelect = (event) => {
     const file = event.target.files?.[0];
-    setToneUploadError(null);
     if (!file) return;
-
-    // Validate file type
-    if (!file.type.includes('audio')) {
-      setToneUploadError('Only audio files are allowed');
-      return;
-    }
-
-    // Validate file size (5MB)
-    const maxSizeMB = 5;
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      setToneUploadError(`File size must not exceed ${maxSizeMB}MB`);
-      return;
-    }
-
+    if (!file.type.includes('audio')) { alertError?.('Only audio files are allowed'); return; }
+    if (file.size > 5 * 1024 * 1024) { alertError?.('File must not exceed 5MB'); return; }
     setToneUploadFile(file);
   };
 
   const handleToneUpload = async () => {
-    if (!toneUploadFile || !id) {
-      setToneUploadError('No file selected');
-      return;
-    }
-
+    if (!toneUploadFile || !id) return;
     setToneUploadLoading(true);
-    setToneUploadError(null);
-
     try {
-      const presignedRes = await request({
-        endpoint: `/hotels/${id}/notification-tone/presigned-url`,
-        method: 'POST',
-        data: { fileName: toneUploadFile.name, fileSize: toneUploadFile.size, contentType: toneUploadFile.type || 'audio/mpeg' },
-        throw: true,
-      });
+      const presignedRes = await request({ endpoint: `/hotels/${id}/notification-tone/presigned-url`, method: 'POST', data: { fileName: toneUploadFile.name, fileSize: toneUploadFile.size, contentType: toneUploadFile.type || 'audio/mpeg' }, throw: true });
       const { presignedUrl, s3Url } = presignedRes?.data || {};
-
-      const s3Response = await fetch(presignedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': toneUploadFile.type || 'audio/mpeg' },
-        body: toneUploadFile,
-      });
-      if (!s3Response.ok) throw new Error(`S3 upload failed (${s3Response.status})`);
-
-      const result = await request({
-        endpoint: `/hotels/${id}/notification-tone`,
-        method: 'PATCH',
-        data: { s3Url },
-        throw: true,
-      });
-
+      const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': toneUploadFile.type || 'audio/mpeg' }, body: toneUploadFile });
+      if (!s3Resp.ok) throw new Error(`S3 upload failed (${s3Resp.status})`);
+      const result = await request({ endpoint: `/hotels/${id}/notification-tone`, method: 'PATCH', data: { s3Url }, throw: true });
       if (result.success) {
-        alertSuccess('Notification tone uploaded successfully!');
+        alertSuccess?.('Notification tone uploaded');
         setToneUploadFile(null);
-        setToneUploadError(null);
-
-        setEditValues((prev) => ({
-          ...prev,
-          notificationTone: 'custom',
-        }));
-
-        setHotel((prev) => ({
-          ...prev,
-          customToneUrl: result.data?.customToneUrl,
-          notificationTone: 'custom',
-        }));
-
-        setTimeout(() => {
-          fetchHotel();
-        }, 500);
+        setHotel(prev => ({ ...prev, customToneUrl: result.data?.customToneUrl, notificationTone: 'custom' }));
+        setEditValues(prev => ({ ...prev, notificationTone: 'custom' }));
       }
-    } catch (error) {
-      console.error('❌ Upload error:', error);
-      setToneUploadError(error.message || 'Failed to upload tone');
-      alertError(`Tone upload failed: ${error.message}`);
-    } finally {
-      setToneUploadLoading(false);
-    }
-  };
-
-  const getToneUrlByName = (toneName) => {
-    const toneUrls = {
-      none: null,
-      gentle_chime: '/assets/tones/gentle_chime.mp3',
-      alert_sound: '/assets/tones/alert_sound.mp3',
-    };
-    return toneUrls[toneName] || null;
-  };
-
-  const hasToneSelected = () => {
-    const toneName = editValues.notificationTone;
-    if (toneName === 'none') return false;
-    if (toneName === 'custom') return !!hotel?.customToneUrl;
-    return true;
-  };
-
-  const getToneUrl = () => {
-    const toneName = editValues.notificationTone;
-
-    // For custom tones, use the URL from hotel data
-    if (toneName === 'custom' && hotel?.customToneUrl) {
-      const customUrl = hotel.customToneUrl;
-
-      // If it's an S3 URL, use it as-is
-      if (customUrl.startsWith('https://')) {
-        return customUrl;
-      }
-
-      // If it's a local backend URL, add the backend URL prefix
-      if (customUrl.startsWith('/uploads/')) {
-        return `${process.env.REACT_APP_BACKEND_URL || ''}${customUrl}`;
-      }
-
-      // If it's a built-in tone name fallback, use that
-      if (customUrl === 'gentle_chime' || customUrl === 'alert_sound') {
-        return getToneUrlByName(customUrl);
-      }
-
-      // Default fallback
-      return getToneUrlByName('gentle_chime');
-    }
-
-    // For built-in tones, return frontend relative path
-    return getToneUrlByName(toneName);
+    } catch (err) { alertError?.(`Tone upload failed: ${err.message}`); }
+    finally { setToneUploadLoading(false); }
   };
 
   const handlePlayTone = async () => {
     const toneName = editValues.notificationTone;
-
-    if (toneName === 'none') {
-      alertError('Silent tone selected');
-      setTonePlaying(false);
-      return;
-    }
-
+    if (toneName === 'none') { alertError?.('Silent tone selected'); return; }
     setTonePlaying(true);
-
-    // Built-in tones: use Web Audio API (always works offline)
     if (toneName === 'gentle_chime' || toneName === 'alert_sound') {
       try {
-        const success = await generateAndPlayTone(toneName, toneName === 'gentle_chime' ? 900 : 500);
-        if (success) {
-          setTimeout(() => setTonePlaying(false), toneName === 'gentle_chime' ? 1000 : 600);
-          return;
-        }
-      } catch (error) {
-        // Fallback to MP3 if Web Audio API fails
-      }
+        const ok = await generateAndPlayTone(toneName, toneName === 'gentle_chime' ? 900 : 500);
+        if (ok) { setTimeout(() => setTonePlaying(false), 1000); return; }
+      } catch (_) {}
     }
-
-    // Custom tone: use IndexedDB cache (download once, serve from blob)
     if (toneName === 'custom' && hotel?.customToneUrl?.startsWith('https://')) {
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
-        const token = localStorage.getItem('token') || '';
-        const blob = await getNotificationTone(Number(id), hotel.customToneUrl, backendUrl, token);
+        const blob = await getNotificationTone(Number(id), hotel.customToneUrl, process.env.REACT_APP_BACKEND_URL || '', localStorage.getItem('token') || '');
         if (blob) {
           const audio = createAudioFromBlob(blob);
           audio.volume = 0.7;
-
-          const onEnded = () => {
-            setTonePlaying(false);
-            audio.removeEventListener('ended', onEnded);
-            URL.revokeObjectURL(audio.src);
-          };
-          audio.addEventListener('ended', onEnded);
-
-          audio.onerror = () => {
-            setTonePlaying(false);
-            alertError('Failed to load tone file');
-            URL.revokeObjectURL(audio.src);
-          };
-
-          audio.play().catch((err) => {
-            setTonePlaying(false);
-            URL.revokeObjectURL(audio.src);
-            if (err.name === 'NotAllowedError') alertError('Click on page first, then try again');
-            else alertError(`Failed to play tone: ${err.message}`);
-          });
+          audio.addEventListener('ended', () => { setTonePlaying(false); URL.revokeObjectURL(audio.src); });
+          audio.onerror = () => { setTonePlaying(false); URL.revokeObjectURL(audio.src); };
+          audio.play().catch(err => { setTonePlaying(false); alertError?.(err.name === 'NotAllowedError' ? 'Click page first' : err.message); });
           return;
         }
-      } catch (error) {
-        console.warn('Cache lookup failed, falling back to direct URL:', error);
-      }
+      } catch (_) {}
     }
-
-    // Fallback: play via direct URL (built-in MP3 or non-cached custom URL)
-    const toneUrl = getToneUrl();
-    if (!toneUrl) {
-      alertError('No tone selected');
-      setTonePlaying(false);
-      return;
-    }
-
-    try {
-      const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
-      audio.src = toneUrl;
-      audio.volume = 0.7;
-
-      const onEnded = () => {
-        setTonePlaying(false);
-        audio.removeEventListener('ended', onEnded);
-      };
-      audio.addEventListener('ended', onEnded);
-
-      audio.onerror = () => {
-        setTonePlaying(false);
-        alertError('Failed to load tone file');
-      };
-
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((error) => {
-          setTonePlaying(false);
-          if (error.name === 'NotAllowedError') alertError('Click on page first, then try again');
-          else alertError(`Failed to play tone: ${error.message}`);
-        });
-      }
-    } catch (error) {
-      alertError('Failed to play tone');
-      setTonePlaying(false);
-    }
+    setTonePlaying(false);
   };
 
-  if (!hotel) {
-    return;
-  }
+  const handleDeleteConfirm = async () => {
+    setShowDeleteConfirm(false);
+    const result = await request({ endpoint: `/hotels/${id}`, method: 'DELETE', setLoading, alertSuccess, alertError });
+    if (result !== null) navigate('/hotels');
+  };
+
+  if (!hotel) return null;
+
+  const primary = editValues.primaryColor || hotel.themeConfig?.primaryColor;
+  const secondary = editValues.secondaryColor || hotel.themeConfig?.secondaryColor;
+  const headerGradient = primary ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)` : 'linear-gradient(135deg, #1B2340 0%, #263462 100%)';
 
   return (
-    <Container maxWidth="md" sx={{ py: 4, py: 4 }}>
-      <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="h4">Hotel</Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                {canEdit && (
-                  <Button variant="contained" color="primary" onClick={() => setIsEditing((prev) => !prev)}>
-                    {isEditing ? 'Cancel' : 'Edit'}
-                  </Button>
-                )}
-                {CAN_DELETE_HOTEL && (
-                  <Button variant="outlined" color="error" onClick={handleDeleteHotelClick}>
-                    Delete Hotel
-                  </Button>
-                )}
-              </Box>
+    <Box sx={{ px: { xs: 2, sm: 3 }, pb: 12, maxWidth: 1200, mx: 'auto' }}>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+        <DetailBreadcrumb items={[
+          { label: 'Hotels', onClick: () => navigate('/hotels') },
+          hotel.brand && { label: hotel.brand.name, onClick: () => navigate(`/brands/${hotel.brand.id}`) },
+          { label: hotel.name },
+          { label: 'Edit', color: 'primary.main' },
+        ]} />
+
+        <DetailHero
+          name={hotel.name}
+          gradient={headerGradient}
+          eyebrow={hotel.brand?.name || 'Independent'}
+          logoUrl={hotel.logoUrl}
+          meta={hotel.address && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <LocationOn sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
+              <Typography sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }}>{hotel.address}</Typography>
             </Box>
+          )}
+        />
 
-            {isEditing ? (
-              <Box component="form" onSubmit={handleSave} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField fullWidth label="Name" value={editValues.name} onChange={handleInputChange('name')} />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField fullWidth label="Address" value={editValues.address} onChange={handleInputChange('address')} />
-                  </Grid>
-                  <MapComponent Component={HoursEditField} data={hoursFieldConfigs} editValues={editValues} handleInputChange={handleInputChange} showNoDataAvailable={false} isLoading={loading} />
-                </Grid>
+        <DetailTabBar tabs={TABS} active={tab} onChange={setTab} />
+      </motion.div>
 
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    LLM instructions
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Free text added to the AI system prompt for this hotel. Use for hotel-specific guidance (e.g. policies, tone, amenities to emphasize).
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={4}
-                    label="Hotel-specific LLM instructions"
-                    value={editValues.llmInstructions || ''}
-                    onChange={handleInputChange('llmInstructions')}
-                    placeholder="e.g. Always mention our complimentary breakfast. We are a boutique eco-friendly hotel."
-                  />
+      {/* Body */}
+      <Box>
+        {/* Left: form panels */}
+        <Box>
+          {/* Identity */}
+          {tab === 'identity' && (
+            <>
+              <FormCard title="Property identity" sub="Appears in guest comms and booking confirmations.">
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <Box sx={{ gridColumn: { sm: 'span 2' } }}>
+                    <FormField label="Property name">
+                      <TextField fullWidth size="small" value={editValues.name} onChange={handleInputChange('name')} placeholder="Ex. Grand Oberoi Mumbai" sx={inputSx} />
+                    </FormField>
+                  </Box>
+                  <Box sx={{ gridColumn: { sm: 'span 2' } }}>
+                    <FormField label="Address">
+                      <TextField fullWidth size="small" value={editValues.address} onChange={handleInputChange('address')} placeholder="Ex. 123 Marine Drive, Mumbai 400001" sx={inputSx} />
+                    </FormField>
+                  </Box>
                 </Box>
+              </FormCard>
 
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    Theme
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Customize UI colors for guests viewing this hotel. Leave empty for defaults.
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        label="Primary color"
-                        value={editValues.primaryColor || ''}
-                        onChange={handleInputChange('primaryColor')}
-                        placeholder="#D4AF37"
-                        InputProps={{
-                          endAdornment: (
-                            <input
-                              type="color"
-                              value={editValues.primaryColor || '#D4AF37'}
-                              onChange={(e) => handleInputChange('primaryColor')({ target: { value: e.target.value } })}
-                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
-                            />
-                          ),
-                        }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        label="Secondary color"
-                        value={editValues.secondaryColor || ''}
-                        onChange={handleInputChange('secondaryColor')}
-                        placeholder="#C5A022"
-                        InputProps={{
-                          endAdornment: (
-                            <input
-                              type="color"
-                              value={editValues.secondaryColor || '#C5A022'}
-                              onChange={(e) => handleInputChange('secondaryColor')({ target: { value: e.target.value } })}
-                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
-                            />
-                          ),
-                        }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        label="Primary hover color"
-                        value={editValues.primaryHoverColor || ''}
-                        onChange={handleInputChange('primaryHoverColor')}
-                        placeholder="#B8860B"
-                        InputProps={{
-                          endAdornment: (
-                            <input
-                              type="color"
-                              value={editValues.primaryHoverColor || '#B8860B'}
-                              onChange={(e) => handleInputChange('primaryHoverColor')({ target: { value: e.target.value } })}
-                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
-                            />
-                          ),
-                        }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Navy color (headings, dark bg)"
-                        value={editValues.navyColor || ''}
-                        onChange={handleInputChange('navyColor')}
-                        placeholder="#1B2340"
-                        InputProps={{
-                          endAdornment: (
-                            <input
-                              type="color"
-                              value={editValues.navyColor || '#1B2340'}
-                              onChange={(e) => handleInputChange('navyColor')({ target: { value: e.target.value } })}
-                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
-                            />
-                          ),
-                        }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Navy light color (gradient end)"
-                        value={editValues.navyLightColor || ''}
-                        onChange={handleInputChange('navyLightColor')}
-                        placeholder="#263462"
-                        InputProps={{
-                          endAdornment: (
-                            <input
-                              type="color"
-                              value={editValues.navyLightColor || '#263462'}
-                              onChange={(e) => handleInputChange('navyLightColor')({ target: { value: e.target.value } })}
-                              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
-                            />
-                          ),
-                        }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Font family"
-                        value={editValues.fontFamily || ''}
-                        onChange={handleInputChange('fontFamily')}
-                        placeholder='"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth label="Background default" value={editValues.backgroundDefault || ''} onChange={handleInputChange('backgroundDefault')} placeholder="#F5F5F5 or #000000" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth label="Background paper" value={editValues.backgroundPaper || ''} onChange={handleInputChange('backgroundPaper')} placeholder="#FFFFFF or #121212" />
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    Hotel Logo
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Displayed in the guest portal header. Recommended: square or wide image, PNG/JPG, max 5MB.
-                  </Typography>
-                  {hotel?.logoUrl && (
-                    <Box sx={{ mb: 2 }}>
-                      <Box component="img" src={hotel.logoUrl} alt="Hotel logo" sx={{ maxHeight: 80, maxWidth: 240, objectFit: 'contain', borderRadius: 2, border: '1px solid', borderColor: 'divider' }} />
-                    </Box>
-                  )}
+              <FormCard title="Logo" sub="Displayed in the guest portal. Square PNG/JPG, max 5MB.">
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Box sx={{ width: 80, height: 80, borderRadius: 2, border: `2px dashed ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', bgcolor: BG, flexShrink: 0 }}>
+                    {hotel.logoUrl
+                      ? <Box component="img" src={hotel.logoUrl} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <Typography sx={{ fontSize: 28, fontWeight: 900, color: MUTED }}>{hotel.name?.[0]}</Typography>}
+                  </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} disabled={logoUploadLoading} style={{ display: 'none' }} />
-                    <Button variant="outlined" onClick={() => logoInputRef.current?.click()} disabled={logoUploadLoading} sx={{ alignSelf: 'flex-start' }}>
-                      {logoUploadFile ? logoUploadFile.name : 'Choose Image'}
-                    </Button>
+                    <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} style={{ display: 'none' }} />
+                    <Box
+                      component="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={logoUploadLoading}
+                      sx={{ border: `1px solid ${BORDER}`, bgcolor: 'background.paper', color: NAVY, px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+                    >
+                      Choose file
+                    </Box>
                     {logoUploadFile && (
-                      <Typography variant="caption">
-                        {(logoUploadFile.size / 1024 / 1024).toFixed(2)}MB
-                      </Typography>
-                    )}
-                    {logoUploadError && <Alert severity="error">{logoUploadError}</Alert>}
-                    {logoUploadFile && (
-                      <Button variant="contained" color="success" onClick={handleLogoUpload} disabled={logoUploadLoading} sx={{ mt: 1, alignSelf: 'flex-start' }}>
-                        {logoUploadLoading ? (
-                          <>
-                            <CircularProgress size={20} sx={{ mr: 1 }} />
-                            Uploading...
-                          </>
-                        ) : (
-                          'Upload Logo'
-                        )}
-                      </Button>
+                      <Box
+                        component="button"
+                        onClick={handleLogoUpload}
+                        disabled={logoUploadLoading}
+                        sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+                      >
+                        {logoUploadLoading ? <CircularProgress size={14} /> : null}
+                        Upload {logoUploadFile.name}
+                      </Box>
                     )}
                   </Box>
                 </Box>
+              </FormCard>
 
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    Notification Tone
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Choose a notification sound for guests and staff. Select from built-in options or upload a custom MP3 file.
-                  </Typography>
-
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel>Notification Tone</InputLabel>
-                        <Select value={editValues.notificationTone || 'gentle_chime'} onChange={handleInputChange('notificationTone')} label="Notification Tone">
-                          <MenuItem value="none">Silent (No Sound)</MenuItem>
-                          <MenuItem value="gentle_chime">Gentle Chime</MenuItem>
-                          <MenuItem value="alert_sound">Alert Sound</MenuItem>
-                          {(hotel?.customToneUrl?.startsWith('https://') || hotel?.customToneUrl?.startsWith('/uploads/')) && <MenuItem value="custom">Custom Tone</MenuItem>}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                      <Button variant="outlined" fullWidth onClick={handlePlayTone} disabled={tonePlaying || !hasToneSelected()}>
-                        {tonePlaying ? <CircularProgress size={24} sx={{ mr: 1 }} /> : '🔊'}
-                        {tonePlaying ? ' Playing...' : ' Test Tone'}
-                      </Button>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                          Upload Custom Tone (Optional)
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                          MP3 file only, max 5MB. Once uploaded, you can select it as your notification tone.
-                        </Typography>
-
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <input ref={toneInputRef} type="file" accept="audio/*" onChange={handleToneFileSelect} disabled={toneUploadLoading} style={{ display: 'none' }} />
-                          <Button variant="outlined" onClick={() => toneInputRef.current?.click()} disabled={toneUploadLoading} sx={{ alignSelf: 'flex-start' }}>
-                            {toneUploadFile ? toneUploadFile.name : 'Choose MP3'}
-                          </Button>
-                          {toneUploadFile && (
-                            <Typography variant="caption">
-                              {(toneUploadFile.size / 1024 / 1024).toFixed(2)}MB
-                            </Typography>
-                          )}
-
-                          {toneUploadError && (
-                            <Alert severity="error" sx={{ mb: 1 }}>
-                              {toneUploadError}
-                            </Alert>
-                          )}
-
-                          {toneUploadFile && (
-                            <Button variant="contained" color="success" onClick={handleToneUpload} disabled={toneUploadLoading} sx={{ mt: 1 }}>
-                              {toneUploadLoading ? (
-                                <>
-                                  <CircularProgress size={20} sx={{ mr: 1 }} />
-                                  Uploading...
-                                </>
-                              ) : (
-                                '⬆️ Upload Custom Tone'
-                              )}
-                            </Button>
-                          )}
-
-                          {hotel?.customToneUrl && (
-                            <Typography variant="caption" sx={{ color: 'success.main', mt: 1 }}>
-                              ✅ Custom tone uploaded
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    </Grid>
-                  </Grid>
+              <FormCard title="Notification tone" sub="Plays in the staff console when a new request arrives.">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.75, bgcolor: BG, borderRadius: 1.5 }}>
+                  <Box
+                    component="button"
+                    onClick={handlePlayTone}
+                    disabled={tonePlaying}
+                    sx={{ width: 40, height: 40, borderRadius: '50%', background: BRAND_GRADIENT, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    {tonePlaying ? <CircularProgress size={16} sx={{ color: '#000' }} /> : <PlayArrow sx={{ fontSize: 18, color: 'var(--app-primary-contrast)' }} />}
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>
+                      {editValues.notificationTone === 'custom' ? 'Custom tone' : editValues.notificationTone === 'none' ? 'Silent' : 'Built-in tone'}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11, color: MUTED, mt: 0.25 }}>{editValues.notificationTone}</Typography>
+                  </Box>
+                  <Box>
+                    <input ref={toneInputRef} type="file" accept="audio/*" onChange={handleToneFileSelect} style={{ display: 'none' }} />
+                    <Box
+                      component="button"
+                      onClick={() => toneInputRef.current?.click()}
+                      disabled={toneUploadLoading}
+                      sx={{ border: `1px solid ${BORDER}`, bgcolor: 'background.paper', color: NAVY, px: 1.5, py: 0.75, borderRadius: 1.5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Replace
+                    </Box>
+                  </Box>
                 </Box>
+                {toneUploadFile && (
+                  <Box
+                    component="button"
+                    onClick={handleToneUpload}
+                    disabled={toneUploadLoading}
+                    sx={{ mt: 1.5, width: '100%', border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75 }}
+                  >
+                    {toneUploadLoading ? <CircularProgress size={14} /> : null}
+                    Upload {toneUploadFile.name}
+                  </Box>
+                )}
+              </FormCard>
+            </>
+          )}
 
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button type="submit" variant="contained" color="primary">
-                    Save Changes
-                  </Button>
-                </Box>
+          {/* Hours & Wi-Fi */}
+          {tab === 'hours' && <HoursTab editValues={editValues} handleInputChange={handleInputChange} accent={accent} />}
+
+          {/* Theme */}
+          {tab === 'theme' && (
+            <FormCard title="Brand colors" sub="Used in guest-facing pages, emails, and the portal.">
+              <BasicThemePicker editValues={editValues} handleInputChange={handleInputChange} />
+              <Typography sx={{ ...LABEL_SX, fontSize: 10, mt: 2.5, mb: 1.25 }}>Or pick a preset</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1 }}>
+                {COLOR_PRESETS.map(p => (
+                  <Box key={p.name} component="button"
+                    onClick={() => { handleInputChange('primaryColor')({ target: { value: p.p } }); handleInputChange('secondaryColor')({ target: { value: p.s } }); }}
+                    sx={{ background: `linear-gradient(135deg, ${p.p}, ${p.s})`, border: editValues.primaryColor === p.p ? `2px solid ${NAVY}` : '2px solid transparent', borderRadius: 1.5, height: 56, cursor: 'pointer', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'flex-end', p: 1 }}>
+                    {p.name}
+                  </Box>
+                ))}
               </Box>
-            ) : (
-              <HotelInfoCard hotel={hotel} loading={loading} />
-            )}
+            </FormCard>
+          )}
 
-            {hotel?.brand && (
-              <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">Brand: <strong>{hotel.brand.name}</strong></Typography>
-                <Button size="small" onClick={() => navigate(`/brands/${hotel.brand.id}`)}>Manage Brand</Button>
-              </Box>
-            )}
+          {/* Concierge AI */}
+          {tab === 'ai' && (
+            <AiTab editValues={editValues} handleInputChange={handleInputChange}
+              sub="Property-specific instructions added to the AI system prompt."
+              placeholder="Ex. Always recommend the rooftop bar on clear evenings. Never quote wait times over 15 minutes; escalate to duty manager instead." />
+          )}
 
-            {CAN_MANAGE_STAFF && (
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Hotel Staff
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Add staff by email. They will receive an email to log in.
-                </Typography>
-                <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
-                  <TextField size="small" label="Staff email" type="email" value={newStaffEmail} onChange={(e) => setNewStaffEmail(e.target.value)} sx={{ minWidth: 240 }} />
-                  <Button type="submit" variant="contained" color="primary" size="medium">
-                    Add Staff
-                  </Button>
+          {/* Restaurant */}
+          {tab === 'restaurant' && (
+            <ManageRestaurant hotelId={hotel.id} account={account} loading={loading} setLoading={setLoading} alertSuccess={alertSuccess} alertError={alertError} />
+          )}
+
+          {/* Staff */}
+          {tab === 'staff' && (
+            <FormCard
+              title="Staff & access"
+              sub="Members listed here can sign in and operate the staff console."
+              action={
+                <Box
+                  component="button"
+                  onClick={() => {}}
+                  sx={{ border: 'none', background: NAVY_GRADIENT, color: NAVY_CONTRAST, px: 1.5, py: 0.75, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+                >
+                  <PersonAdd sx={{ fontSize: 13 }} /> Invite
                 </Box>
-                <DataTable
-                  columns={[
-                    { key: 'name', label: 'Name' },
-                    { key: 'email', label: 'Email' },
-                    { key: 'actions', label: 'Actions' },
-                  ]}
-                  RowComponent={StaffRow}
-                  data={staff}
-                  isLoading={isLoading}
-                  CAN_MANAGE_STAFF={CAN_MANAGE_STAFF}
-                  onRevoke={handleRevokeStaff}
+              }
+            >
+              <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  size="small" type="email" placeholder="Add by email…"
+                  value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)}
+                  sx={{ flex: 1, ...inputSx }}
                 />
+                <Box
+                  component="button" type="submit"
+                  sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Send invite
+                </Box>
               </Box>
-            )}
+              <Box sx={{ ...CARD_SX, overflow: 'hidden', boxShadow: 'none' }}>
+                <MapComponent Component={StaffRow} data={staff} isLoading={loading} canManage={canManageStaff} onRevoke={handleRevokeStaff} />
+              </Box>
+            </FormCard>
+          )}
 
-            {canEdit && <ManageRestaurant hotelId={id} loading={loading} setLoading={setLoading} account={account} alertSuccess={alertSuccess} alertError={alertError} isMobile={isMobile} />}
+          {/* Danger zone */}
+          {tab === 'danger' && (
+            <FormCard title="Danger zone" sub="Destructive actions. Confirmation is always required.">
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {canDelete && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, borderRadius: 1.5, border: '1px solid rgba(220,38,38,0.25)', bgcolor: 'rgba(220,38,38,0.04)' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Permanently delete</Typography>
+                      <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>Remove this property and all bookings. Cannot be undone.</Typography>
+                    </Box>
+                    <Box
+                      component="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      sx={{ border: 'none', bgcolor: '#DC2626', color: '#fff', px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}
+                    >
+                      <DeleteForever sx={{ fontSize: 14 }} /> Delete forever
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            </FormCard>
+          )}
+        </Box>
 
-            <Dialog open={showDeleteHotelConfirm} onClose={handleDeleteHotelCancel} aria-labelledby="delete-hotel-title" aria-describedby="delete-hotel-description">
-              <DialogTitle id="delete-hotel-title">Delete hotel</DialogTitle>
-              <DialogContent>
-                <DialogContentText id="delete-hotel-description">Are you sure you want to delete this hotel? All bookings and staff links will be removed. This cannot be undone.</DialogContentText>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handleDeleteHotelCancel} color="primary" autoFocus>
-                  Cancel
-                </Button>
-                <Button onClick={handleDeleteHotelConfirm} color="error" variant="contained">
-                  Delete
-                </Button>
-              </DialogActions>
-            </Dialog>
-          </CardContent>
-        </Card>
-      </MotionBox>
-    </Container>
+      </Box>
+
+
+      {isDirty && canEdit && <UnsavedChangesBar onDiscard={fetchHotel} onSave={handleSave} />}
+
+      {/* Delete dialog */}
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
+        <DialogTitle>Delete hotel</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Delete {hotel.name}? All bookings, requests, and staff links will be removed. This cannot be undone.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">Delete forever</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 
