@@ -14,6 +14,7 @@ import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
 import { MenuItem } from '../restaurant/restaurant.model';
+import { Request } from '../requests/requests.model';
 import { Op, literal } from 'sequelize';
 
 @Injectable()
@@ -149,6 +150,7 @@ export class HotelsService {
     if (!hotel) {
       throw new NotFoundException();
     }
+    await Request.destroy({ where: { hotelId: id } });
     await this.bookingsRepository.destroy({ where: { hotelId: id } });
     await this.hotelAccountsRepository.destroy({ where: { hotelId: id } });
     await MenuItem.destroy({ where: { hotelId: id } });

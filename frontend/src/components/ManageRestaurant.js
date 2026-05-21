@@ -1,379 +1,179 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Button,
-  Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  FormControlLabel,
-  MenuItem as MuiMenuItem,
-  TableCell,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Typography, TextField, Checkbox, FormControlLabel, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem as MuiMenuItem } from '@mui/material';
 import { motion } from 'framer-motion';
-import DataTable from './DataTable';
 import request from '../helper/api';
+import MapComponent from './MapComponent';
+import { CARD_SX, ROW_SX, LABEL_SX } from './cards/AppCards';
+import { NAVY, MUTED, BORDER, BG, BRAND_GRADIENT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
+import constants from '../constants.json';
 
-const MotionBox = motion(Box);
+const CATEGORIES = constants.MENU_CATEGORIES;
 
-const CATEGORIES = [
-  { value: 'appetizer', label: 'Appetizer' },
-  { value: 'main_course', label: 'Main Course' },
-  { value: 'dessert', label: 'Dessert' },
-  { value: 'beverage', label: 'Beverage' },
-  { value: 'side', label: 'Side' },
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
-  { value: 'snacks', label: 'Snacks' },
-];
+const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13 } };
 
-const MenuItemRow = ({ data, onEdit, onDelete }) => {
-  const item = data;
-  const descTruncated = item.description ? (item.description.length > 40 ? `${item.description.slice(0, 40)}...` : item.description) : '-';
-  const availableTime = [item.availableStartTime, item.availableEndTime].filter(Boolean).join(' - ') || '-';
-  const categoryLabel = CATEGORIES.find((c) => c.value === item.category)?.label || item.category;
+const defaultForm = {
+  name: '', description: '', price: '', category: '',
+  availableStartTime: '', availableEndTime: '',
+  isAvailable: true, dietaryTags: '', imageUrl: '', sortOrder: 0,
+};
 
-  const handleEdit = (e) => {
-    e.stopPropagation();
-    if (onEdit && item.id) onEdit(item);
-  };
-
-  const handleDelete = (e) => {
-    e.stopPropagation();
-    if (onDelete && item.id) onDelete(item);
-  };
-
+const MenuItemRow = ({ data: item, onEdit, onDelete, canManage }) => {
+  const cat = CATEGORIES.find(c => c.value === item.category)?.label || item.category;
   return (
-    <TableRow>
-      <TableCell>
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {item.name || '-'}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {categoryLabel}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {item.price != null ? `₹${Number(item.price).toFixed(2)}` : '-'}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 180 }} noWrap>
-          {descTruncated}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {availableTime}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" color="text.secondary">
-          {item.isAvailable ? 'Yes' : 'No'}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Button size="small" color="primary" variant="outlined" onClick={handleEdit} sx={{ mr: 1 }}>
-          Edit
-        </Button>
-        <Button size="small" color="error" variant="outlined" onClick={handleDelete}>
-          Delete
-        </Button>
-      </TableCell>
-    </TableRow>
+    <Box sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: TABLE_GRID, px: 2.5, py: 1.5, alignItems: 'center', gap: 1 }}>
+      <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name || '—'}</Typography>
+      <Typography sx={{ fontSize: 12, color: MUTED }}>{cat || '—'}</Typography>
+      <Typography sx={{ fontSize: 12, color: NAVY, fontWeight: 600 }}>{item.price != null ? `₹${Number(item.price).toFixed(2)}` : '—'}</Typography>
+      <Typography sx={{ fontSize: 12, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description || '—'}</Typography>
+      <Typography sx={{ fontSize: 12, color: MUTED }}>
+        {[item.availableStartTime, item.availableEndTime].filter(Boolean).join(' – ') || '—'}
+      </Typography>
+      {canManage && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box component="button" onClick={e => { e.stopPropagation(); onEdit?.(item); }}
+            sx={{ border: `1px solid ${BORDER}`, bgcolor: 'transparent', color: NAVY, px: 1.5, py: 0.5, borderRadius: 1, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            Edit
+          </Box>
+          <Box component="button" onClick={e => { e.stopPropagation(); onDelete?.(item); }}
+            sx={{ border: `1px solid ${STATUS_ERROR_BG}`, bgcolor: 'transparent', color: STATUS_ERROR, px: 1.5, py: 0.5, borderRadius: 1, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            Delete
+          </Box>
+        </Box>
+      )}
+    </Box>
   );
 };
 
-const defaultFormValues = {
-  name: '',
-  description: '',
-  price: '',
-  category: '',
-  availableStartTime: '',
-  availableEndTime: '',
-  isAvailable: true,
-  dietaryTags: '',
-  imageUrl: '',
-  sortOrder: 0,
-};
+const TABLE_COLS = ['Name', 'Category', 'Price', 'Description', 'Available Time', ''];
+const TABLE_GRID = '1.5fr 1fr 90px 1.5fr 1fr 120px';
 
-function ManageRestaurant({ hotelId, loading, setLoading, account, alertSuccess, alertError, isMobile }) {
+const ColHeader = ({ data: h }) => (
+  <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>{h}</Typography>
+);
+
+function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess, alertError }) {
+  const canManage = !!constants.PERMISSIONS.CAN_MANAGE_RESTAURANT_MENU[account?.role];
   const [items, setItems] = useState([]);
-  const [showFormDialog, setShowFormDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [formValues, setFormValues] = useState(defaultFormValues);
+  const [form, setForm] = useState(defaultForm);
 
-  const fetchItems = async () => {
-    if (!hotelId) return;
-    await request({
-      endpoint: `/restaurant/menu-items?hotelId=${hotelId}`,
-      method: 'GET',
-      setLoading,
-      setData: setItems,
-      defaultData: [],
-      alertError,
-    });
-  };
+  const fetchItems = () => request({
+    endpoint: `/restaurant/menu-items?hotelId=${hotelId}`,
+    method: 'GET', setLoading, setData: setItems, defaultData: [], alertError,
+  });
 
-  useEffect(() => {
-    if (hotelId) {
-      fetchItems();
-    }
-  }, [hotelId]);
+  useEffect(() => { if (hotelId) fetchItems(); }, [hotelId]);
 
-  const handleInputChange = (field) => (event) => {
-    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    setFormValues((prev) => ({ ...prev, [field]: value }));
-  };
+  const handleChange = field => e => setForm(prev => ({ ...prev, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
-  const openAddDialog = () => {
-    setEditingItem(null);
-    setFormValues(defaultFormValues);
-    setShowFormDialog(true);
-  };
-
-  const openEditDialog = (item) => {
+  const openAdd = () => { setEditingItem(null); setForm(defaultForm); setShowForm(true); };
+  const openEdit = item => {
     setEditingItem(item);
-    setFormValues({
-      name: item.name || '',
-      description: item.description || '',
-      price: item.price ?? '',
-      category: item.category || '',
-      availableStartTime: item.availableStartTime || '',
-      availableEndTime: item.availableEndTime || '',
-      isAvailable: item.isAvailable !== false,
+    setForm({
+      name: item.name || '', description: item.description || '', price: item.price ?? '',
+      category: item.category || '', availableStartTime: item.availableStartTime || '',
+      availableEndTime: item.availableEndTime || '', isAvailable: item.isAvailable !== false,
       dietaryTags: Array.isArray(item.dietaryTags) ? item.dietaryTags.join(', ') : '',
-      imageUrl: item.imageUrl || '',
-      sortOrder: item.sortOrder ?? 0,
+      imageUrl: item.imageUrl || '', sortOrder: item.sortOrder ?? 0,
     });
-    setShowFormDialog(true);
+    setShowForm(true);
   };
 
-  const closeFormDialog = () => {
-    setShowFormDialog(false);
-    setEditingItem(null);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
-    const { name, description, price, category, availableStartTime, availableEndTime, isAvailable, dietaryTags, imageUrl, sortOrder } = formValues;
-    if (!name || !price || !category) {
-      alertError && alertError('Name, price and category are required');
-      return;
-    }
-    const priceNum = parseFloat(price);
-    if (isNaN(priceNum) || priceNum < 0) {
-      alertError && alertError('Price must be a valid non-negative number');
-      return;
-    }
-    const tags = dietaryTags
-      ? dietaryTags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : [];
+    if (!form.name || !form.price || !form.category) { alertError?.('Name, price and category required'); return; }
+    const priceNum = parseFloat(form.price);
+    if (isNaN(priceNum) || priceNum < 0) { alertError?.('Invalid price'); return; }
 
-    setSaving(true);
-    try {
-      if (editingItem) {
-        const result = await request({
-          endpoint: `/restaurant/menu-items/${editingItem.id}`,
-          method: 'PATCH',
-          data: {
-            name,
-            description: description || undefined,
-            price: priceNum,
-            category,
-            availableStartTime: availableStartTime || undefined,
-            availableEndTime: availableEndTime || undefined,
-            isAvailable,
-            dietaryTags: tags,
-            imageUrl: imageUrl || undefined,
-            sortOrder: parseInt(sortOrder, 10) || 0,
-          },
-          setLoading,
-          alertSuccess,
-          alertError,
-        });
-        if (result && result.success) {
-          closeFormDialog();
-          fetchItems();
-        }
-      } else {
-        const result = await request({
-          endpoint: '/restaurant/menu-items',
-          method: 'POST',
-          data: {
-            hotelId: Number(hotelId),
-            name,
-            description: description || undefined,
-            price: priceNum,
-            category,
-            availableStartTime: availableStartTime || undefined,
-            availableEndTime: availableEndTime || undefined,
-            isAvailable,
-            dietaryTags: tags,
-            imageUrl: imageUrl || undefined,
-            sortOrder: parseInt(sortOrder, 10) || 0,
-          },
-          setLoading,
-          alertSuccess,
-          alertError,
-        });
-        if (result && result.success) {
-          closeFormDialog();
-          fetchItems();
-        }
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
+    const payload = {
+      name: form.name, description: form.description || undefined, price: priceNum,
+      category: form.category, availableStartTime: form.availableStartTime || undefined,
+      availableEndTime: form.availableEndTime || undefined, isAvailable: form.isAvailable,
+      dietaryTags: form.dietaryTags ? form.dietaryTags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      imageUrl: form.imageUrl || undefined, sortOrder: parseInt(form.sortOrder, 10) || 0,
+    };
 
-  const openDeleteDialog = (item) => {
-    setDeleteTarget(item);
-    setShowDeleteDialog(true);
-  };
-
-  const closeDeleteDialog = () => {
-    setShowDeleteDialog(false);
-    setDeleteTarget(null);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    const result = await request({
-      endpoint: `/restaurant/menu-items/${deleteTarget.id}`,
-      method: 'DELETE',
-      setLoading,
-      alertSuccess,
-      alertError,
+    const res = await request({
+      endpoint: editingItem ? `/restaurant/menu-items/${editingItem.id}` : '/restaurant/menu-items',
+      method: editingItem ? 'PATCH' : 'POST',
+      data: editingItem ? payload : { hotelId: Number(hotelId), ...payload },
+      setLoading, alertSuccess, alertError,
     });
-    if (result && result.success) {
-      closeDeleteDialog();
-      fetchItems();
-    }
+    if (res?.success) { setShowForm(false); fetchItems(); }
   };
 
-  const menuColumns = [
-    { key: 'name', label: 'Name' },
-    { key: 'category', label: 'Category' },
-    { key: 'price', label: 'Price' },
-    { key: 'description', label: 'Description' },
-    { key: 'availableTime', label: 'Available Time' },
-    { key: 'isAvailable', label: 'Available' },
-    { key: 'actions', label: 'Actions' },
-  ];
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const res = await request({ endpoint: `/restaurant/menu-items/${deleteTarget.id}`, method: 'DELETE', setLoading, alertSuccess, alertError });
+    if (res?.success) { setShowDelete(false); setDeleteTarget(null); fetchItems(); }
+  };
 
   return (
-    <Box sx={{ mt: 4 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Restaurant Menu
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Manage menu items for this hotel. Add, edit or remove items.
-      </Typography>
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+      <Box sx={{ ...CARD_SX, mb: 2 }}>
+        <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography sx={{ fontSize: 14, fontWeight: 800, color: NAVY }}>Restaurant menu</Typography>
+            <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>Add, edit or remove menu items for this hotel.</Typography>
+          </Box>
+          {canManage && (
+            <Box component="button" onClick={openAdd}
+              sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, py: 0.9, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+              + Add item
+            </Box>
+          )}
+        </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-        <Button variant="contained" color="primary" onClick={openAddDialog}>
-          Add Item
-        </Button>
+        <Box sx={{ display: 'grid', gridTemplateColumns: TABLE_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+          <MapComponent Component={ColHeader} data={TABLE_COLS} showNoDataAvailable={false} />
+        </Box>
+        <MapComponent Component={MenuItemRow} data={items} isLoading={loading} onEdit={openEdit} onDelete={item => { setDeleteTarget(item); setShowDelete(true); }} canManage={canManage} />
       </Box>
 
-      <DataTable columns={menuColumns} RowComponent={MenuItemRow} data={items} isLoading={loading} onEdit={openEditDialog} onDelete={openDeleteDialog} />
-
-      <Dialog open={showFormDialog} onClose={closeFormDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{editingItem ? 'Edit Menu Item' : 'Add Menu Item'}</DialogTitle>
+      {/* Add / Edit dialog */}
+      <Dialog open={showForm} onClose={() => setShowForm(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>{editingItem ? 'Edit item' : 'Add item'}</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField fullWidth label="Name" value={formValues.name} onChange={handleInputChange('name')} required />
-              <TextField fullWidth label="Description" multiline rows={2} value={formValues.description} onChange={handleInputChange('description')} />
-              <TextField fullWidth label="Price" type="number" inputProps={{ min: 0, step: 0.01 }} value={formValues.price} onChange={handleInputChange('price')} required />
-              <TextField
-                fullWidth
-                select
-                label="Category"
-                value={formValues.category}
-                onChange={handleInputChange('category')}
-                required
-                SelectProps={{ displayEmpty: true, renderValue: (v) => CATEGORIES.find((c) => c.value === v)?.label || 'Select category', MenuProps: { sx: { zIndex: 1400 } } }}
-                InputLabelProps={{ shrink: true }}
-              >
-                {CATEGORIES.map((c) => (
-                  <MuiMenuItem key={c.value} value={c.value}>
-                    {c.label}
-                  </MuiMenuItem>
-                ))}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField fullWidth size="small" label="Name" value={form.name} onChange={handleChange('name')} required sx={inputSx} />
+              <TextField fullWidth size="small" label="Description" multiline rows={2} value={form.description} onChange={handleChange('description')} sx={inputSx} />
+              <TextField fullWidth size="small" label="Price" type="number" inputProps={{ min: 0, step: 0.01 }} value={form.price} onChange={handleChange('price')} required sx={inputSx} />
+              <TextField fullWidth size="small" select label="Category" value={form.category} onChange={handleChange('category')} required sx={inputSx}>
+                {CATEGORIES.map(c => <MuiMenuItem key={c.value} value={c.value}>{c.label}</MuiMenuItem>)}
               </TextField>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Available Start Time"
-                  type="time"
-                  value={formValues.availableStartTime}
-                  onChange={handleInputChange('availableStartTime')}
-                  inputProps={{ step: 60 }}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <TextField
-                  fullWidth
-                  label="Available End Time"
-                  type="time"
-                  value={formValues.availableEndTime}
-                  onChange={handleInputChange('availableEndTime')}
-                  inputProps={{ step: 60 }}
-                  InputLabelProps={{ shrink: true }}
-                />
+                <TextField fullWidth size="small" label="Available from" type="time" value={form.availableStartTime} onChange={handleChange('availableStartTime')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+                <TextField fullWidth size="small" label="Available until" type="time" value={form.availableEndTime} onChange={handleChange('availableEndTime')} InputLabelProps={{ shrink: true }} sx={inputSx} />
               </Box>
-              <FormControlLabel control={<Checkbox checked={formValues.isAvailable} onChange={handleInputChange('isAvailable')} />} label="Available" />
-              <TextField
-                fullWidth
-                label="Dietary Tags (comma-separated)"
-                value={formValues.dietaryTags}
-                onChange={handleInputChange('dietaryTags')}
-                placeholder="e.g. vegetarian, vegan, gluten-free"
-              />
-              <TextField fullWidth label="Image URL" value={formValues.imageUrl} onChange={handleInputChange('imageUrl')} />
-              <TextField fullWidth label="Sort Order" type="number" inputProps={{ min: 0 }} value={formValues.sortOrder} onChange={handleInputChange('sortOrder')} />
+              <FormControlLabel control={<Checkbox checked={form.isAvailable} onChange={handleChange('isAvailable')} />} label="Available" />
+              <TextField fullWidth size="small" label="Dietary tags (comma-separated)" value={form.dietaryTags} onChange={handleChange('dietaryTags')} sx={inputSx} />
+              <TextField fullWidth size="small" label="Image URL" value={form.imageUrl} onChange={handleChange('imageUrl')} sx={inputSx} />
+              <TextField fullWidth size="small" label="Sort order" type="number" inputProps={{ min: 0 }} value={form.sortOrder} onChange={handleChange('sortOrder')} sx={inputSx} />
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={closeFormDialog}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary" disabled={saving}>
-              {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Add Item'}
-            </Button>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button type="submit" variant="contained">{editingItem ? 'Save changes' : 'Add item'}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
-      <Dialog open={showDeleteDialog} onClose={closeDeleteDialog}>
+      {/* Delete confirm */}
+      <Dialog open={showDelete} onClose={() => setShowDelete(false)}>
         <DialogTitle>Delete menu item</DialogTitle>
         <DialogContent>
-          <DialogContentText>Are you sure you want to delete &quot;{deleteTarget?.name}&quot;? This cannot be undone.</DialogContentText>
+          <DialogContentText>Delete &quot;{deleteTarget?.name}&quot;? Cannot be undone.</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDeleteDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmDelete} color="error" variant="contained">
-            Delete
-          </Button>
+          <Button onClick={() => setShowDelete(false)}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">Delete</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </motion.div>
   );
 }
 
