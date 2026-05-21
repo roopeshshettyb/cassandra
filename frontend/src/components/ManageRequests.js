@@ -6,6 +6,7 @@ import DataGrid from './DataGrid';
 import RequestCard from './cards/RequestCard';
 
 import { NAVY } from '../theme';
+import { PageHeader } from './cards/AppCards';
 
 function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, account }) {
   const [requests, setRequests] = useState([]);
@@ -39,10 +40,7 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ mb: 2.5, display: { xs: 'none', sm: 'block' } }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
-          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Requests</Typography>
-        </Box>
+        <PageHeader title="Requests" />
       </motion.div>
       <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
     </Box>

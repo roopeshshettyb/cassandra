@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, TextField, IconButton, InputAdornment } from '@mui/material';
-import GridViewIcon from '@mui/icons-material/GridView';
-import TableRowsIcon from '@mui/icons-material/TableRows';
-import SearchIcon from '@mui/icons-material/Search';
+import { Box, Typography, IconButton } from '@mui/material';
+import { GridView, TableRows } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
 import MapComponent from './MapComponent';
 import HotelCard, { HotelTableRow } from './cards/HotelCard';
-import { ColumnLabel, CARD_SX } from './cards/AppCards';
+import { ColumnLabel, CARD_SX, PageHeader, SearchBar } from './cards/AppCards';
 import { BRAND_GRADIENT, NAVY, BORDER, SHADOW, MUTED, PRIMARY_CONTRAST, BG } from '../theme';
+
 import constants from '../constants.json';
 import AddHotelOnboarding from './AddHotelOnboarding';
 
@@ -40,22 +39,12 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: { xs: 'flex-end', sm: 'space-between' }, mb: 3, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
-            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Hotels</Typography>
-          </Box>
-          {CAN_ADD_HOTEL && (
-            <motion.button
-              onClick={() => setShowAddForm(true)}
-              whileTap={{ scale: 0.97 }}
-              style={{ background: BRAND_GRADIENT, border: 'none', borderRadius: 10, padding: '10px 22px', color: PRIMARY_CONTRAST, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: SHADOW }}
-            >
-              + Add Hotel
-            </motion.button>
-          )}
-        </Box>
+        <PageHeader title="Hotels" right={CAN_ADD_HOTEL && (
+          <motion.button onClick={() => setShowAddForm(true)} whileTap={{ scale: 0.97 }}
+            style={{ background: BRAND_GRADIENT, border: 'none', borderRadius: 10, padding: '10px 22px', color: PRIMARY_CONTRAST, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: SHADOW }}>
+            + Add Hotel
+          </motion.button>
+        )} />
 
         {/* KPI Strip */}
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
@@ -72,20 +61,13 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
 
         {/* Filter rail */}
         <Box sx={{ display: 'flex', gap: 1.5, mb: 3, alignItems: 'center' }}>
-          <TextField
-            size="small"
-            placeholder="Search by name or address…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: MUTED }} /></InputAdornment> }}
-            sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: 2.5, fontSize: 13 } }}
-          />
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by name or address…" />
           <Box sx={{ display: 'flex', gap: 0.5, bgcolor: BG, borderRadius: 2, p: 0.5, flexShrink: 0 }}>
             <IconButton size="small" onClick={() => setView('gallery')} sx={{ borderRadius: 1.5, bgcolor: view === 'gallery' ? 'background.paper' : 'transparent', boxShadow: view === 'gallery' ? SHADOW : 'none' }}>
-              <GridViewIcon sx={{ fontSize: 18, color: view === 'gallery' ? NAVY : MUTED }} />
+              <GridView sx={{ fontSize: 18, color: view === 'gallery' ? NAVY : MUTED }} />
             </IconButton>
             <IconButton size="small" onClick={() => setView('table')} sx={{ borderRadius: 1.5, bgcolor: view === 'table' ? 'background.paper' : 'transparent', boxShadow: view === 'table' ? SHADOW : 'none' }}>
-              <TableRowsIcon sx={{ fontSize: 18, color: view === 'table' ? NAVY : MUTED }} />
+              <TableRows sx={{ fontSize: 18, color: view === 'table' ? NAVY : MUTED }} />
             </IconButton>
           </Box>
         </Box>

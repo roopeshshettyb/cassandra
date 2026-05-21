@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import request from '../helper/api';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, HOVER_BG } from '../theme';
+import { PageHeader } from './cards/AppCards';
 import constants from '../constants.json';
 
 function ManageCosts({ loading, setLoading, account, alertError }) {
@@ -34,11 +35,8 @@ function ManageCosts({ loading, setLoading, account, alertError }) {
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '4vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ mb: 2.5, display: { xs: 'none', sm: 'block' } }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Analytics</Typography>
-          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Costs</Typography>
-          <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>Aggregated AI usage costs per booking</Typography>
-        </Box>
+        <PageHeader eyebrow="Analytics" title="Costs" />
+        <Typography sx={{ fontSize: 13, color: MUTED, mt: -1.5, mb: 2.5, display: { xs: 'none', sm: 'block' } }}>Aggregated AI usage costs per booking</Typography>
       </motion.div>
 
       {/* Table card */}

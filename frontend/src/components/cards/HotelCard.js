@@ -4,18 +4,10 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
 import { NAVY, NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, TEXT_MUTED_LIGHT, NAVY_CONTRAST, STATUS_ERROR_BG, STATUS_ERROR, STATUS_WARNING_BG, STATUS_WARNING } from '../../theme';
-import { CARD_SX, ROW_SX, LABEL_SX } from './AppCards';
+import { CARD_SX, ROW_SX, LABEL_SX, StatBox } from './AppCards';
 
 const openCount = (hotel) => parseInt(hotel.openRequestsCount || 0, 10);
 const activeCount = (hotel) => parseInt(hotel.activeGuestsCount || 0, 10);
-
-const StatBox = ({ label, value, sub }) => (
-  <Box>
-    <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.25 }}>{label}</Typography>
-    <Typography sx={{ fontSize: 18, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{value}</Typography>
-    {sub && <Typography sx={{ fontSize: 10, color: MUTED, mt: 0.3 }}>{sub}</Typography>}
-  </Box>
-);
 
 const HotelCard = ({ data, navigate }) => {
   const hotel = data;

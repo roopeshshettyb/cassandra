@@ -5,7 +5,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
-
+import { PageHeader } from './cards/AppCards';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
 import constants from '../constants.json';
 
@@ -153,12 +153,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: { xs: 'flex-end', sm: 'space-between' }, mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Management</Typography>
-            <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Bookings</Typography>
-          </Box>
-          {CAN_CREATE_BOOKING && (
+        <PageHeader title="Bookings" right={CAN_CREATE_BOOKING && (
             <motion.button
               onClick={() => setShowCreateDialog(true)}
               whileTap={{ scale: 0.97 }}
@@ -176,8 +171,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
             >
               + New Booking
             </motion.button>
-          )}
-        </Box>
+          )} />
       </motion.div>
 
       <Dialog

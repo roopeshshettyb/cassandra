@@ -6,6 +6,7 @@ import MapComponent from './MapComponent';
 import request from '../helper/api';
 
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, STATUS_INFO, STATUS_INFO_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG, TEXT_MUTED_DARK } from '../theme';
+import { PageHeader } from './cards/AppCards';
 
 const typeColors = {
   DEAL_UPDATE: { color: STATUS_INFO, bg: STATUS_INFO_BG },
@@ -180,11 +181,7 @@ function Notifications({ notifications = [], notificationsLoading: loading = fal
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pb: 6, maxWidth: 800, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <Box sx={{ mb: 4 }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'primary.main', mb: 0.5 }}>Inbox</Typography>
-          <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>Notifications</Typography>
-          {notifications.length > 0 && <Typography sx={{ fontSize: 13, color: MUTED, mt: 0.5 }}>{notifications.filter((n) => !n.read).length} unread</Typography>}
-        </Box>
+        <PageHeader eyebrow="Inbox" title="Notifications" />
       </motion.div>
 
       <PreferencesSection setLoading={setLoading} />
