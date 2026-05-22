@@ -93,7 +93,7 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
       query,
       auth: { token },
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });

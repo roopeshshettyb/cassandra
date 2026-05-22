@@ -271,7 +271,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       query,
       auth: { token },
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });
