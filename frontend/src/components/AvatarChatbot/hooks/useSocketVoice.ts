@@ -92,6 +92,10 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
       transports: ['websocket', 'polling'],
       query,
       auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     socketRef.current = socket;
@@ -208,7 +212,15 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
       socket.emit('auth', { token });
     });
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !socket.connected) {
+        socket.connect();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearConnectingLoading();
       cancelPlaybackTracking();
       cleanupAudio();

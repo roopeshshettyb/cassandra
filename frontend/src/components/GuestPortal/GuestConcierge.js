@@ -272,6 +272,8 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       auth: { token },
       reconnection: true,
       reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
     socketRef.current = socket;
 
@@ -329,7 +331,15 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       alertError?.(p?.message || 'Something went wrong');
     });
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !socket.connected) {
+        socket.connect();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       socket.removeAllListeners();
       socket.disconnect();
     };
