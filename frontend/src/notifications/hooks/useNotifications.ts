@@ -163,7 +163,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5,
     });
 
     socket.on('notification', (data: any) => {
@@ -197,8 +197,12 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       console.error('[NOTIFICATIONS] WebSocket connect error:', err.message);
     });
 
-
-
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !socket.connected) {
+        socket.connect();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
 
     socketRef.current = socket;
@@ -225,6 +229,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
 
     return () => {
       document.removeEventListener('click', unlockAudioContext);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       socket.disconnect();
       socketRef.current = null;
     };
