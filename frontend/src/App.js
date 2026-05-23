@@ -32,7 +32,7 @@ import logger from './services/logger.service';
 import LoginPopup from './components/LoginPopup';
 import Loader from './components/Loader';
 import { Analytics } from '@vercel/analytics/react';
-import Home from './components/Home';
+import Landing from './components/Landing';
 import constants from './constants.json';
 import Dashboard from './components/Dashboard';
 import InviteHandler from './components/InviteHandler';
@@ -317,6 +317,8 @@ const AppContent = () => {
 
   const isMobile = useMediaQuery('(max-width:768px)');
   const isLandingPage = pathname === '/';
+  const isAuthenticated = !!(account || token);
+  const showLandingChrome = isLandingPage && !isAuthenticated;
   const isBookingDetailRoute = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isChatRoute = pathname === '/chat';
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
@@ -382,7 +384,6 @@ const AppContent = () => {
     markNotificationAsRead: markAsRead,
   };
 
-  const isAuthenticated = !!(account || token);
   const openGlobalConcierge = useCallback(() => {
     setConciergeMode('voice');
     if (isMobile) {
@@ -402,24 +403,26 @@ const AppContent = () => {
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Sidebar
-          {...commonProps}
-          onAskAI={openGlobalConcierge}
-          showAskAI={isAuthenticated && !isBookingDetailRoute && !isChatRoute}
-        />
+        {!showLandingChrome && (
+          <Sidebar
+            {...commonProps}
+            onAskAI={openGlobalConcierge}
+            showAskAI={isAuthenticated && !isBookingDetailRoute && !isChatRoute}
+          />
+        )}
         <Box
           sx={{
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '100dvh',
-            ml: isMobile ? 0 : '20vw',
+            ml: (isMobile || showLandingChrome) ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: (isGuestPortal || isFullScreenMobile || isRequestDetail) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
+            <Grid sx={{ paddingTop: (showLandingChrome || isGuestPortal || isFullScreenMobile || isRequestDetail) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
               <ScrollToTop />
               <Routes>
-                <Route path="/" element={<Home openLoginPopup={openLoginPopup} navigate={navigate} isMobile={isMobile} account={account} />} />
+                <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Landing openLoginPopup={openLoginPopup} />} />
                 <Route
                   path="/chat"
                   element={
