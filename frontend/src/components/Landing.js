@@ -85,6 +85,34 @@ export default function Landing({ openLoginPopup }) {
     return () => { document.body.style.overflow = prev; };
   }, [menuOpen]);
 
+  // Load Calendly widget assets once
+  useEffect(() => {
+    if (!document.getElementById('calendly-css')) {
+      const link = document.createElement('link');
+      link.id = 'calendly-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://assets.calendly.com/assets/external/widget.css';
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById('calendly-js')) {
+      const script = document.createElement('script');
+      script.id = 'calendly-js';
+      script.src = 'https://assets.calendly.com/assets/external/widget.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const openCalendly = (e) => {
+    e?.preventDefault?.();
+    setMenuOpen(false);
+    if (window.Calendly?.initPopupWidget) {
+      window.Calendly.initPopupWidget({ url: 'https://calendly.com/roopesh-flashpact/samantha-demo' });
+    } else {
+      window.open('https://calendly.com/roopesh-flashpact/samantha-demo', '_blank', 'noopener');
+    }
+  };
+
   // hero phrase rotation — synchronized word-slot handoff per original design
   useEffect(() => {
     const WORD_ANIM = 950;
@@ -237,11 +265,11 @@ export default function Landing({ openLoginPopup }) {
             <a href="#features">Features</a>
             <a href="#how">How it works</a>
             <a href="#videoSection">Watch demo</a>
-            <a href="#customers">Customers</a>
+            {/* <a href="#customers">Customers</a> */}
           </div>
           <div className="nav-actions">
             <a className="l-btn l-btn-ghost desktop-only" href="#signin" onClick={handleSignIn}>Sign in</a>
-            <a className="l-btn l-btn-primary desktop-only" href="#demo">Book a demo <span className="arr">→</span></a>
+            <a className="l-btn l-btn-primary desktop-only" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
             <button
               className="hamburger"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -259,10 +287,10 @@ export default function Landing({ openLoginPopup }) {
           <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
           <a href="#how" onClick={() => setMenuOpen(false)}>How it works</a>
           <a href="#videoSection" onClick={() => setMenuOpen(false)}>Watch demo</a>
-          <a href="#customers" onClick={() => setMenuOpen(false)}>Customers</a>
+          {/* <a href="#customers" onClick={() => setMenuOpen(false)}>Customers</a> */}
           <div className="mobile-menu-cta">
             <a className="l-btn l-btn-ghost" href="#signin" onClick={(e) => { handleSignIn(e); setMenuOpen(false); }}>Sign in</a>
-            <a className="l-btn l-btn-primary" href="#demo" onClick={() => setMenuOpen(false)}>Book a demo <span className="arr">→</span></a>
+            <a className="l-btn l-btn-primary" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
           </div>
         </div>
       </div>
@@ -288,12 +316,13 @@ export default function Landing({ openLoginPopup }) {
               <h2>The voice AI built for <em>hospitality.</em></h2>
               <p>Samantha picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your house, every hour of the night.</p>
               <div className="ctas">
-                <a className="l-btn l-btn-white" href="#demo">Book a demo <span className="arr">→</span></a>
+                <a className="l-btn l-btn-white" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
                 <a className="l-btn l-btn-glass" href="#voice">Hear her speak</a>
               </div>
             </div>
           </div>
 
+          {/* Hotel customer marquee — commented out until we have real customers
           <div className="hero-marquee">
             <div className="track" ref={trackRef}>
               <div className="hl serif"><span className="wm">A</span><span className="nm">Athenaeum</span></div>
@@ -358,6 +387,7 @@ export default function Landing({ openLoginPopup }) {
               </div>
             </div>
           </div>
+          */}
         </div>
       </section>
 
@@ -469,6 +499,7 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </section>
 
+      {/* Stats section — commented out until we have real usage data
       <section style={{ paddingTop: 0 }}>
         <div className="l-container">
           <div className="split">
@@ -488,13 +519,14 @@ export default function Landing({ openLoginPopup }) {
           </div>
         </div>
       </section>
+      */}
 
       <section id="how">
         <div className="l-container">
           <div className="split">
             <div className="split-head">
               <div className="eb">How it works</div>
-              <h2>Live in <em>nine days,</em> not a quarter.</h2>
+              <h2>Live in <em>hours,</em> not days.</h2>
               <p>No replatforming, no custom middleware. Samantha reads your existing systems and learns your house&apos;s manners.</p>
             </div>
             <div className="split-body">
@@ -518,6 +550,7 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </section>
 
+      {/* Customer testimonial — commented out until we have real customers
       <section className="quote" id="customers">
         <div className="l-container">
           <div className="split">
@@ -540,13 +573,14 @@ export default function Landing({ openLoginPopup }) {
           </div>
         </div>
       </section>
+      */}
 
       <section className="final" id="demo">
         <div className="l-container reveal">
           <h2>Hear her on a <em>real call.</em></h2>
           <p>Twenty minutes is enough to know whether Samantha belongs on your line.</p>
           <div className="ctas">
-            <a className="l-btn l-btn-primary" href="#book">Book a demo <span className="arr">→</span></a>
+            <a className="l-btn l-btn-primary" href="#book" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
             <a className="l-btn l-btn-outline" href="#call">Or call her now: +44 20 4538 1188</a>
           </div>
         </div>
@@ -562,7 +596,6 @@ export default function Landing({ openLoginPopup }) {
             <div className="links-foot">
               <a href="#features">Features</a>
               <a href="#how">How it works</a>
-              <a href="#customers">Customers</a>
               <a href="#contact">Contact</a>
               <a href="/privacy-policy">Privacy</a>
               <a href="/terms-conditions">Terms</a>
