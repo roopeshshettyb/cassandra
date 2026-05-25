@@ -67,18 +67,38 @@ export default function Landing({ openLoginPopup }) {
   const [activePhrase, setActivePhrase] = useState(0);
   const [exitingPhrase, setExitingPhrase] = useState(null);
 
-  // hero phrase rotation
+  // hero phrase rotation — synchronized word-slot handoff per original design
   useEffect(() => {
+    const WORD_ANIM = 950;
+    const STRIDE = 120;
+    const NUM_WORDS = 5;
     const HOLD = 4500;
-    const id = setInterval(() => {
-      setActivePhrase((prev) => {
-        const nxt = (prev + 1) % HERO_PHRASES.length;
-        setExitingPhrase(prev);
-        setTimeout(() => setExitingPhrase((cur) => (cur === prev ? null : cur)), 1500);
-        return nxt;
-      });
-    }, HOLD);
-    return () => clearInterval(id);
+    const TOTAL_EXIT = (NUM_WORDS - 1) * STRIDE + WORD_ANIM + 50;
+    const activeRef = { current: 0 };
+    const timeouts = [];
+
+    const tick = () => {
+      const cur = activeRef.current;
+      const nxt = (cur + 1) % HERO_PHRASES.length;
+      // Step 1: cur drops active, picks up exiting (mutually exclusive states)
+      setActivePhrase(-1);
+      setExitingPhrase(cur);
+      // Step 2: after first word of cur finishes exiting, activate nxt — same word-slot enters
+      timeouts.push(setTimeout(() => {
+        setActivePhrase(nxt);
+        activeRef.current = nxt;
+      }, WORD_ANIM));
+      // Step 3: after last exit completes, clear exiting
+      timeouts.push(setTimeout(() => {
+        setExitingPhrase(null);
+      }, TOTAL_EXIT));
+    };
+
+    const id = setInterval(tick, HOLD);
+    return () => {
+      clearInterval(id);
+      timeouts.forEach((t) => clearTimeout(t));
+    };
   }, []);
 
   // marquee duplicate for seamless loop
