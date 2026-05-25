@@ -229,10 +229,11 @@ body.landing-active::-webkit-scrollbar { width: 0; height: 0; display: none; }
   letter-spacing: -0.03em;
   font-weight: 700;
   color: #fff;
-  max-width: 8ch;
+  max-width: 11ch;
   position: relative;
   min-height: 3.6em;
 }
+.landing-root .hero h1 .line { white-space: nowrap; }
 .landing-root .hero h1 em {
   font-style: italic;
   font-family: var(--l-serif);
