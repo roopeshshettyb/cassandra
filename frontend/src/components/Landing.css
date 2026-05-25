@@ -36,9 +36,9 @@
 .landing-root button { font: inherit; cursor: pointer; background: none; border: none; color: inherit; }
 .landing-root img, .landing-root video, .landing-root iframe { display: block; max-width: 100%; }
 
-.landing-root .l-container { max-width: 1160px; margin: 0 auto; padding: 0 32px; position: relative; }
+.landing-root .l-container { max-width: 1160px; margin: 0 auto; padding: 0 2.5vw; position: relative; }
 .landing-root .l-container.narrow { max-width: 900px; }
-@media (max-width: 720px) { .landing-root .l-container { padding: 0 22px; } }
+@media (max-width: 720px) { .landing-root .l-container { padding: 0 5vw; } }
 
 /* NAV — floating pill */
 .landing-root nav.l-top {
@@ -215,7 +215,7 @@
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-radius: 18px;
-  padding: 32px 32px 30px;
+  padding: clamp(20px, 2.4vw, 32px) clamp(20px, 2.4vw, 32px) clamp(18px, 2.2vw, 30px);
   max-width: 440px;
   margin-top: 0;
   box-shadow: 0 20px 60px -20px rgba(0,0,0,0.4);
@@ -710,6 +710,69 @@
 .landing-root footer.l-footer .links-foot { display: flex; gap: 24px; }
 .landing-root footer.l-footer .links-foot a { font-size: 13px; color: var(--l-ink-2); transition: color .2s; }
 .landing-root footer.l-footer .links-foot a:hover { color: var(--l-navy); }
+
+/* TABLET (≤1024px) */
+@media (max-width: 1024px) {
+  .landing-root .hero-top { grid-template-columns: 1.2fr 1fr; gap: 3vw; }
+  .landing-root .hero-block { padding: 22px 24px 22px; }
+  .landing-root .split { gap: 5vw; }
+  .landing-root section { padding: 6svh 0; }
+  .landing-root .final { padding: 10svh 0; }
+  .landing-root .statement { padding: 8svh 0 4svh; }
+  .landing-root .logobar { padding: 6svh 0; }
+}
+
+/* MOBILE (≤720px) */
+@media (max-width: 720px) {
+  .landing-root nav.l-top { top: 1svh; padding: 0 3vw; }
+  .landing-root nav.l-top .nav-inner { padding: 8px 8px 8px 14px; gap: 8px; }
+  .landing-root .nav-actions .l-btn { padding: 7px 12px; font-size: 12px; }
+  .landing-root .brand .name { font-size: 14px; }
+
+  .landing-root .hero { padding-top: 10svh; min-height: auto; }
+  .landing-root .hero-top { padding: 4svh 0 3svh; gap: 4svh; }
+  .landing-root .hero-block { max-width: 100%; padding: 22px 22px 20px; border-radius: 14px; }
+  .landing-root .hero-block h2 { font-size: clamp(24px, 7vw, 32px); }
+  .landing-root .hero-block p { font-size: 14px; }
+  .landing-root .hero h1 { min-height: auto; }
+  .landing-root .hero h1 .phrase { position: relative; }
+  .landing-root .hero h1 .phrase:not(.active) { display: none; }
+
+  .landing-root .hero-marquee { padding: 4svh 0 5svh; }
+  .landing-root .hero-marquee .track { gap: 9vw; }
+
+  .landing-root .video-wrap { margin: 6svh auto 0; padding: 0 5vw; }
+  .landing-root .l-video { border-radius: 14px; }
+  .landing-root .l-video .poster { padding: 5vw; }
+  .landing-root .l-video .poster .play-btn { width: 56px; height: 56px; }
+
+  .landing-root .statement { padding: 7svh 0 3svh; }
+  .landing-root .statement .why { margin-bottom: 4svh; font-size: 11.5px; }
+  .landing-root .statement .flower { width: 90px; height: 90px; top: 2%; right: 4%; }
+
+  .landing-root section { padding: 5svh 0; }
+  .landing-root .split { gap: 4svh; }
+  .landing-root .split .split-head h2 { max-width: 100%; font-size: clamp(28px, 7.5vw, 38px); }
+
+  .landing-root .feature { padding: 22px; border-radius: 14px; }
+  .landing-root .feature h3 { font-size: 20px; }
+
+  .landing-root .stats { padding: 28px 20px; gap: 18px; border-radius: 14px; }
+
+  .landing-root .step .num { font-size: 44px; }
+  .landing-root .step h3 { font-size: 20px; }
+
+  .landing-root .quote .qmark { font-size: 72px; margin-bottom: 16px; }
+
+  .landing-root .final { padding: 9svh 0; }
+  .landing-root .final p { font-size: 15px; }
+  .landing-root .final .ctas { flex-direction: column; align-items: stretch; }
+  .landing-root .final .ctas .l-btn { justify-content: center; }
+
+  .landing-root footer.l-footer { padding: 5svh 0 3svh; }
+  .landing-root footer.l-footer .row { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .landing-root footer.l-footer .links-foot { flex-wrap: wrap; gap: 14px; }
+}
 
 /* REVEAL */
 .landing-root .reveal { opacity: 1; }

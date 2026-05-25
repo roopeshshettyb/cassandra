@@ -66,6 +66,16 @@ export default function Landing({ openLoginPopup }) {
   const [playing, setPlaying] = useState(false);
   const [activePhrase, setActivePhrase] = useState(0);
   const [exitingPhrase, setExitingPhrase] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener ? mq.addEventListener('change', handler) : mq.addListener(handler);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener('change', handler) : mq.removeListener(handler);
+    };
+  }, []);
 
   // hero phrase rotation — synchronized word-slot handoff per original design
   useEffect(() => {
@@ -228,7 +238,7 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </nav>
 
-      <section className="hero" id="top" style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/landing-hero-bg.png)` }}>
+      <section className="hero" id="top" style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}>
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">
