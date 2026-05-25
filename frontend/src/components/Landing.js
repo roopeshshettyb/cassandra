@@ -85,6 +85,11 @@ export default function Landing({ openLoginPopup }) {
     return () => { document.body.style.overflow = prev; };
   }, [menuOpen]);
 
+  useEffect(() => {
+    document.body.classList.add('landing-active');
+    return () => document.body.classList.remove('landing-active');
+  }, []);
+
   // Load Calendly widget assets once
   useEffect(() => {
     if (!document.getElementById('calendly-css')) {
