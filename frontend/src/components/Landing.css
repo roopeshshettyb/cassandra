@@ -29,6 +29,9 @@
   overflow-x: hidden;
   min-height: 100dvh;
 }
+body.landing-active { scrollbar-width: none; -ms-overflow-style: none; }
+body.landing-active::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 .landing-root * { box-sizing: border-box; margin: 0; padding: 0; }
 .landing-root h1, .landing-root h2, .landing-root h3, .landing-root p, .landing-root blockquote, .landing-root figure { margin: 0; padding: 0; }
 .landing-root ::selection { background: var(--l-gold); color: var(--l-navy); }
