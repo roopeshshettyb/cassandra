@@ -115,8 +115,7 @@
 .landing-root .hero {
   position: relative;
   min-height: 100vh;
-  background: #060914;
-  background-image: url('/landing-hero-bg.png');
+  background-color: #060914;
   background-size: cover;
   background-position: center right;
   background-repeat: no-repeat;

@@ -208,7 +208,7 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </nav>
 
-      <section className="hero" id="top">
+      <section className="hero" id="top" style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/landing-hero-bg.png)` }}>
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">
