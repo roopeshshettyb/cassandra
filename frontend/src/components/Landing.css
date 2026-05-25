@@ -26,9 +26,9 @@
   -webkit-font-smoothing: antialiased;
   line-height: 1.55;
   font-size: 16px;
-  overflow-x: hidden;
   min-height: 100dvh;
 }
+body.landing-active { overflow-x: hidden; }
 body.landing-active { scrollbar-width: none; -ms-overflow-style: none; }
 body.landing-active::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
