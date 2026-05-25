@@ -32,28 +32,23 @@ const STATEMENT_PARTS = [
 function HeroPhrase({ words, em, idx }) {
   const stride = 0.12;
   let i = 0;
+  const renderLine = (line, li, keyPrefix) => (
+    <span className="line" key={`${keyPrefix}-${idx}-${li}`}>
+      {line.map((w, wi) => {
+        const wd = `${(i++ * stride).toFixed(2)}s`;
+        return (
+          <Fragment key={`${keyPrefix}w-${idx}-${li}-${wi}`}>
+            {wi > 0 && ' '}
+            <span className="word" style={{ '--wd': wd }}>{w}</span>
+          </Fragment>
+        );
+      })}
+    </span>
+  );
   return (
     <>
-      {words.map((line, li) => (
-        <span className="line" key={`l-${idx}-${li}`}>
-          {line.map((w) => {
-            const wd = `${(i++ * stride).toFixed(2)}s`;
-            return <span className="word" style={{ '--wd': wd }} key={`w-${idx}-${li}-${w}`}>{w} </span>;
-          })}
-        </span>
-      ))}
-      {em && (
-        <em>
-          {em.map((line, li) => (
-            <span className="line" key={`el-${idx}-${li}`}>
-              {line.map((w) => {
-                const wd = `${(i++ * stride).toFixed(2)}s`;
-                return <span className="word" style={{ '--wd': wd }} key={`ew-${idx}-${li}-${w}`}>{w} </span>;
-              })}
-            </span>
-          ))}
-        </em>
-      )}
+      {words.map((line, li) => renderLine(line, li, 'l'))}
+      {em && <em>{em.map((line, li) => renderLine(line, li, 'el'))}</em>}
     </>
   );
 }
