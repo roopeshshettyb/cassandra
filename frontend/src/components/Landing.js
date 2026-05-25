@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import './Landing.css';
 
 const HERO_PHRASES = [
@@ -67,6 +67,7 @@ export default function Landing({ openLoginPopup }) {
   const [activePhrase, setActivePhrase] = useState(0);
   const [exitingPhrase, setExitingPhrase] = useState(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 720px)');
@@ -76,6 +77,13 @@ export default function Landing({ openLoginPopup }) {
       mq.removeEventListener ? mq.removeEventListener('change', handler) : mq.removeListener(handler);
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [menuOpen]);
 
   // hero phrase rotation — synchronized word-slot handoff per original design
   useEffect(() => {
@@ -219,9 +227,9 @@ export default function Landing({ openLoginPopup }) {
 
   return (
     <div className="landing-root" ref={rootRef}>
-      <nav className="l-top" ref={navRef}>
+      <nav className={`l-top${menuOpen ? ' menu-open' : ''}`} ref={navRef}>
         <div className="nav-inner">
-          <a className="brand" href="#top">
+          <a className="brand" href="#top" onClick={() => setMenuOpen(false)}>
             <span className="mark">S</span>
             <span className="name">Samantha</span>
           </a>
@@ -232,11 +240,32 @@ export default function Landing({ openLoginPopup }) {
             <a href="#customers">Customers</a>
           </div>
           <div className="nav-actions">
-            <a className="l-btn l-btn-ghost" href="#signin" onClick={handleSignIn}>Sign in</a>
-            <a className="l-btn l-btn-primary" href="#demo">Book a demo <span className="arr">→</span></a>
+            <a className="l-btn l-btn-ghost desktop-only" href="#signin" onClick={handleSignIn}>Sign in</a>
+            <a className="l-btn l-btn-primary desktop-only" href="#demo">Book a demo <span className="arr">→</span></a>
+            <button
+              className="hamburger"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <span /><span /><span />
+            </button>
           </div>
         </div>
       </nav>
+
+      <div className={`mobile-menu${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
+        <div className="mobile-menu-inner">
+          <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
+          <a href="#how" onClick={() => setMenuOpen(false)}>How it works</a>
+          <a href="#videoSection" onClick={() => setMenuOpen(false)}>Watch demo</a>
+          <a href="#customers" onClick={() => setMenuOpen(false)}>Customers</a>
+          <div className="mobile-menu-cta">
+            <a className="l-btn l-btn-ghost" href="#signin" onClick={(e) => { handleSignIn(e); setMenuOpen(false); }}>Sign in</a>
+            <a className="l-btn l-btn-primary" href="#demo" onClick={() => setMenuOpen(false)}>Book a demo <span className="arr">→</span></a>
+          </div>
+        </div>
+      </div>
 
       <section className="hero" id="top" style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}>
         <div className="l-container">
@@ -364,18 +393,16 @@ export default function Landing({ openLoginPopup }) {
         <div className="l-container">
           <div className="why"><span className="braces">{'{ '}</span>Why Samantha<span className="braces">{' }'}</span></div>
           <h2>
-            {STATEMENT_PARTS.map((p, i) => {
-              if (p.type === 'hl') {
-                return (
-                  <span className="stm-hl" key={`s-${i}`}>
-                    <span className="stm-word">{p.text}</span>
-                  </span>
-                );
-              }
-              return (
-                <span className="stm-word" key={`s-${i}`}>{p.text} </span>
-              );
-            })}
+            {STATEMENT_PARTS.map((p, i) => (
+              <Fragment key={`s-${i}`}>
+                {i > 0 && ' '}
+                {p.type === 'hl' ? (
+                  <span className="stm-hl"><span className="stm-word">{p.text}</span></span>
+                ) : (
+                  <span className="stm-word">{p.text}</span>
+                )}
+              </Fragment>
+            ))}
           </h2>
           <div className="stm-caption">A voice agent built for hospitality</div>
 
