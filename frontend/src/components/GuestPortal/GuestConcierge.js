@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Avatar, Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import MicIcon from '@mui/icons-material/Mic';
@@ -631,6 +631,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
 // ── Main GuestConcierge ────────────────────────────────────────────────────
 export default function GuestConcierge({
   booking,
+  accountRole,
   alertError,
   isWithinStay,
   isMobile,
@@ -673,7 +674,19 @@ export default function GuestConcierge({
   }, [isModeControlled, onModeChange, setSearchParams]);
 
   const hotelName = booking?.hotel?.name || 'Hotel';
-  const [conciergeSuggestions] = useState(() => randomPick(constants.CONCIERGE_SUGGESTIONS, 8));
+  const conciergeSuggestions = useMemo(() => {
+    const roleSuggestionMap = constants.AI_ASSISTANT_ROLE_SUGGESTIONS;
+    const normalizedRole = typeof accountRole === 'string' ? accountRole : '';
+    const roleSuggestions = roleSuggestionMap?.[normalizedRole];
+    const guestSuggestions = roleSuggestionMap?.guest;
+    if (Array.isArray(roleSuggestions) && roleSuggestions.length > 0) {
+      return randomPick(roleSuggestions, 8);
+    }
+    if (Array.isArray(guestSuggestions) && guestSuggestions.length > 0) {
+      return randomPick(guestSuggestions, 8);
+    }
+    return [];
+  }, [accountRole]);
 
   const handleMicTap = async () => {
     if (!isWithinStay) {

@@ -3,7 +3,7 @@ import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
 import { Notification, NotificationType } from './notifications.model';
 import { NotificationsGateway } from './notifications.gateway';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, NotificationTone } from '../common/constants/constants.service';
+import { ConstantsService, HotelMemberStatus, NotificationTone } from '../common/constants/constants.service';
 import { Request } from '../requests/requests.model';
 import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
@@ -239,7 +239,7 @@ export class NotificationFactory {
   private async getHotelStaffAccountIds(hotelId: number): Promise<number[]> {
     try {
       const hotelAccounts = await this.hotelAccountRepository.findAll({
-        where: { hotelId },
+        where: { hotelId, status: HotelMemberStatus.ACTIVE },
         attributes: ['accountId'],
         include: [{
           model: Account,

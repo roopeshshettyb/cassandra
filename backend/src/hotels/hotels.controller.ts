@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { HotelsService } from './hotels.service';
-import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, UpdateBrandDto, UpdateHotelDto } from './hotels.dto';
+import { AddHotelStaffDto, CreateHotelDto, GrantHotelAccessDto, ImportHotelMembersCsvDto, UpdateBrandDto, UpdateHotelDto, UpdateHotelStaffStatusDto } from './hotels.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
@@ -68,7 +68,7 @@ export class HotelsController {
     const staff = await this.hotelsService.listStaffForHotel(Number(id), account);
     return {
       success: true,
-      message: null,
+      message: 'Members fetched',
       data: staff,
     };
   }
@@ -78,8 +78,23 @@ export class HotelsController {
     const staff = await this.hotelsService.addStaffByEmail(Number(id), body, account);
     return {
       success: true,
-      message: 'Staff access granted',
+      message: 'Member invite sent',
       data: staff,
+    };
+  }
+
+  @Patch(':id/staff/:accountId/status')
+  async updateStaffStatus(
+    @Param('id') id: string,
+    @Param('accountId') accountId: string,
+    @Body(ValidationPipe) body: UpdateHotelStaffStatusDto,
+    @CurrentAccount() account: Account,
+  ) {
+    const data = await this.hotelsService.updateStaffMemberStatus(Number(id), Number(accountId), body, account);
+    return {
+      success: true,
+      message: 'Member status updated',
+      data,
     };
   }
 
@@ -88,8 +103,29 @@ export class HotelsController {
     await this.hotelsService.revokeStaffAccess(Number(id), Number(accountId), account);
     return {
       success: true,
-      message: 'Access revoked',
+      message: 'Member status updated',
       data: null,
+    };
+  }
+
+  @Post(':id/staff/import')
+  async importStaffCsv(@Param('id') id: string, @Body(ValidationPipe) body: ImportHotelMembersCsvDto, @CurrentAccount() account: Account) {
+    const data = await this.hotelsService.importMembersCsv(Number(id), body, account);
+    return {
+      success: true,
+      message: 'Members imported',
+      data,
+    };
+  }
+
+  @Get(':id/staff/sample-csv')
+  async getMembersSampleCsv(@Param('id') id: string, @CurrentAccount() account: Account) {
+    await this.hotelsService.listStaffForHotel(Number(id), account);
+    const sample = this.hotelsService.getMembersSampleCsv();
+    return {
+      success: true,
+      message: null,
+      data: sample,
     };
   }
 

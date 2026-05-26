@@ -29,8 +29,8 @@ export class SampleService {
     return this.sampleRepository.update(updateSampleDto, { where: { id }, returning: true });
   }
 
-  async deleteById(id: number): Promise<number> {
-    return this.sampleRepository.destroy({ where: { id } });
+  async deleteById(id: number, force = false): Promise<number> {
+    return this.sampleRepository.destroy({ where: { id }, force });
   }
 
   async upsert(data: Partial<Sample>): Promise<[Sample, boolean]> {

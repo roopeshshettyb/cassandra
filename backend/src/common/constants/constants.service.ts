@@ -30,11 +30,50 @@ export enum AccountRole {
   HOTEL_STAFF = 'hotel_staff',
 }
 
+export enum HotelMemberRole {
+  HOTEL_OWNER = AccountRole.HOTEL_OWNER,
+  HOTEL_STAFF = AccountRole.HOTEL_STAFF,
+}
+
+export enum HotelMemberStatus {
+  PENDING = 'pending',
+  ACTIVE = 'active',
+  DISABLED = 'disabled',
+}
+
+export const HOTEL_MEMBER_INVITE_TYPE_STAFF = 'staff';
+
 export const ACCOUNT_ROLES = {
   ADMIN: AccountRole.ADMIN,
   HOTEL_OWNER: AccountRole.HOTEL_OWNER,
   GUEST: AccountRole.GUEST,
   HOTEL_STAFF: AccountRole.HOTEL_STAFF,
+} as const;
+
+export const HOTEL_MEMBER_ROLES = {
+  hotel_owner: {
+    key: HotelMemberRole.HOTEL_OWNER,
+    label: 'Hotel Owner',
+  },
+  hotel_staff: {
+    key: HotelMemberRole.HOTEL_STAFF,
+    label: 'Hotel Staff',
+  },
+} as const;
+
+export const HOTEL_MEMBER_STATUSES = {
+  pending: {
+    key: HotelMemberStatus.PENDING,
+    label: 'Pending',
+  },
+  active: {
+    key: HotelMemberStatus.ACTIVE,
+    label: 'Active',
+  },
+  disabled: {
+    key: HotelMemberStatus.DISABLED,
+    label: 'Disabled',
+  },
 } as const;
 
 export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> = {
@@ -47,29 +86,6 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_SEND_INVITES:           { [AccountRole.ADMIN]: true },
   CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
 };
-
-export const CONCIERGE_SUGGESTIONS: string[] = [
-  'I need room service',
-  'Request extra towels',
-  'Get dining recommendations',
-  'Arrange a late checkout',
-  'Book a taxi',
-  'Wake up call at 7am',
-  'Request extra pillows',
-  'Restaurant reservation tonight',
-  'Laundry pickup',
-  'Do not disturb please',
-  'Iron and ironing board',
-  'Swimming pool timings',
-  'Gym schedule',
-  'Spa appointment',
-  'Airport transfer',
-  'Local sightseeing tips',
-  'Is breakfast included?',
-  'Wi-Fi password please',
-  'Baby crib in my room',
-  'Ice bucket please',
-];
 
 const PLATFORM_DATA: any = {
   google: {
@@ -277,6 +293,8 @@ export class ConstantsService {
       LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
 
       ACCOUNT_ROLES,
+      HOTEL_MEMBER_ROLES,
+      HOTEL_MEMBER_STATUSES,
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,
@@ -290,23 +308,51 @@ export class ConstantsService {
       NOTIFICATIONS_FETCHED: 'Notifications fetched',
       PREFERENCES_FETCHED: 'Preferences fetched',
       PREFERENCES_UPDATED: 'Preferences updated',
-      CONCIERGE_SUGGESTIONS: [
-        'I need room service',
-        'Request extra towels',
-        'Get dining recommendations',
-        'Arrange a late checkout',
-        'Book a spa treatment',
-        'I need a cab',
-        'Wake-up call please',
-        'What time is breakfast?',
-      ],
       AI_ASSISTANT_TITLE: 'AI Assistant',
       AI_ASSISTANT_ROLE_SUGGESTIONS: {
-        guest: ['I need room service', 'Request extra towels', 'Arrange a late checkout', 'I need a cab'],
-        hotel_staff: ['Show pending requests', 'List today check-ins', 'High priority requests'],
-        hotel_owner: ['Hotel stats overview', 'Show pending requests', 'List my hotels'],
-        admin: ['Hotel stats overview', 'List my hotels', 'Show costs', 'High priority requests'],
+        guest: ['I need room service', 'Request extra towels', 'Arrange a late checkout', 'I need a cab', 'Wake-up call please', 'What time is breakfast?'],
+        hotel_staff: ['Show pending requests', 'List today check-ins', 'High priority requests', 'Show unresolved complaints', 'List late check-outs', 'Show room service queue'],
+        hotel_owner: ['Hotel stats overview', 'Show pending requests', 'List my hotels', "Show today's occupancy", 'Show unresolved complaints', 'Show revenue snapshot'],
+        admin: ['Hotel stats overview', 'List my hotels', 'Show costs', 'High priority requests', "Show today's occupancy", 'Show unresolved complaints', 'Show platform health'],
       },
+      MENU_CATEGORIES: [
+    {
+      "value": "appetizer",
+      "label": "Appetizer"
+    },
+    {
+      "value": "main_course",
+      "label": "Main Course"
+    },
+    {
+      "value": "dessert",
+      "label": "Dessert"
+    },
+    {
+      "value": "beverage",
+      "label": "Beverage"
+    },
+    {
+      "value": "side",
+      "label": "Side"
+    },
+    {
+      "value": "breakfast",
+      "label": "Breakfast"
+    },
+    {
+      "value": "lunch",
+      "label": "Lunch"
+    },
+    {
+      "value": "dinner",
+      "label": "Dinner"
+    },
+    {
+      "value": "snacks",
+      "label": "Snacks"
+    }
+  ]
     };
   }
 

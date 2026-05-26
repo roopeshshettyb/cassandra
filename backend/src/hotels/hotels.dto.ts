@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf, IsEnum } from 'class-validator';
+import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Matches, ValidateIf, IsEnum, IsIn } from 'class-validator';
 // IsBoolean used by UpdateBrandDto
-import { NotificationTone } from '../common/constants/constants.service';
+import { HotelMemberStatus, NotificationTone } from '../common/constants/constants.service';
+import { AccountRole } from '../accounts/accounts.model';
 
 const HH_MM_REGEX = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -277,4 +278,21 @@ export class AddHotelStaffDto {
   @IsString()
   @ApiProperty({ required: false })
   readonly name?: string;
+
+  @IsIn([AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER])
+  @ApiProperty({ enum: [AccountRole.HOTEL_STAFF, AccountRole.HOTEL_OWNER] })
+  readonly role: AccountRole;
+}
+
+export class UpdateHotelStaffStatusDto {
+  @IsEnum(HotelMemberStatus)
+  @ApiProperty({ enum: HotelMemberStatus })
+  readonly status: HotelMemberStatus;
+}
+
+export class ImportHotelMembersCsvDto {
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty()
+  readonly csvContent: string;
 }

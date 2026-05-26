@@ -49,8 +49,8 @@ export class AccountsService {
     return updatedAccounts[0];
   }
 
-  async delete(filter: any): Promise<number> {
-    return this.accountsRepository.destroy({ where: filter });
+  async delete(filter: any, force = false): Promise<number> {
+    return this.accountsRepository.destroy({ where: filter, force });
   }
 
   async upsert(data: Partial<Account>): Promise<[Account, boolean]> {

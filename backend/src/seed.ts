@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
 import { Account } from './accounts/accounts.model';
-import { AccountRole } from './common/constants/constants.service';
+import { AccountRole, HotelMemberStatus } from './common/constants/constants.service';
 import { Hotel } from './hotels/hotels.model';
 import { HotelBrand } from './hotels/brands.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
@@ -14,6 +14,15 @@ const nodeEnv = process.env.NODE_ENV;
 const envFile = nodeEnv === 'prod' ? 'prod.env' : 'dev.env';
 dotenv.config({ path: path.resolve(__dirname, `../${envFile}`) });
 
+async function restoreIfSoftDeleted(instance: any) {
+  if (!instance) {
+    return;
+  }
+  if (instance.getDataValue('deletedAt')) {
+    await instance.restore();
+  }
+}
+
 async function seed() {
   const sequelize = new Sequelize({
     dialect: 'postgres',
@@ -24,7 +33,7 @@ async function seed() {
     database: process.env.DB_NAME,
     logging: false,
     models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat],
-    define: { underscored: true, timestamps: true },
+    define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
       : undefined,
@@ -43,7 +52,8 @@ async function seed() {
   ];
   const accounts: Account[] = [];
   for (const row of accountData) {
-    const [acc] = await Account.findOrCreate({ where: { email: row.email }, defaults: row as any });
+    const [acc] = await Account.findOrCreate({ where: { email: row.email }, defaults: row as any, paranoid: false });
+    await restoreIfSoftDeleted(acc);
     accounts.push(acc);
   }
 
@@ -87,7 +97,8 @@ async function seed() {
   ];
   const brands: Record<string, HotelBrand> = {};
   for (const row of brandData) {
-    const [b] = await HotelBrand.findOrCreate({ where: { name: row.name }, defaults: row as any });
+    const [b] = await HotelBrand.findOrCreate({ where: { name: row.name }, defaults: row as any, paranoid: false });
+    await restoreIfSoftDeleted(b);
     brands[row.name] = b;
   }
 
@@ -179,7 +190,8 @@ async function seed() {
   ];
   const hotels: Hotel[] = [];
   for (const row of hotelData) {
-    const [h] = await Hotel.findOrCreate({ where: { name: row.name }, defaults: row as any });
+    const [h] = await Hotel.findOrCreate({ where: { name: row.name }, defaults: row as any, paranoid: false });
+    await restoreIfSoftDeleted(h);
     if (row.hotelBrandId && !h.hotelBrandId) {
       await Hotel.update({ hotelBrandId: row.hotelBrandId, themeConfig: row.themeConfig }, { where: { id: h.id } });
     }
@@ -188,16 +200,29 @@ async function seed() {
 
   // ── Hotel Accounts ───────────────────────────────────────────────────────────
   const hotelAccountLinks = [
-    { hotelIdx: 0, accountIdx: 1 },
-    { hotelIdx: 0, accountIdx: 2 },
-    { hotelIdx: 1, accountIdx: 1 },
-    { hotelIdx: 2, accountIdx: 1 },
+    { hotelIdx: 0, accountIdx: 1, role: AccountRole.HOTEL_OWNER, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 0, accountIdx: 2, role: AccountRole.HOTEL_STAFF, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 1, accountIdx: 1, role: AccountRole.HOTEL_OWNER, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 2, accountIdx: 1, role: AccountRole.HOTEL_OWNER, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 2, accountIdx: 2, role: AccountRole.HOTEL_STAFF, status: HotelMemberStatus.PENDING },
   ];
   for (const link of hotelAccountLinks) {
-    await HotelAccount.findOrCreate({
+    const [hotelAccount] = await HotelAccount.findOrCreate({
       where: { hotelId: hotels[link.hotelIdx].id, accountId: accounts[link.accountIdx].id },
-      defaults: { hotelId: hotels[link.hotelIdx].id, accountId: accounts[link.accountIdx].id } as any,
+      defaults: {
+        hotelId: hotels[link.hotelIdx].id,
+        accountId: accounts[link.accountIdx].id,
+        role: link.role,
+        status: link.status,
+      },
+      paranoid: false,
     });
+    await restoreIfSoftDeleted(hotelAccount);
+    if (hotelAccount.role !== link.role || hotelAccount.status !== link.status) {
+      hotelAccount.role = link.role;
+      hotelAccount.status = link.status;
+      await hotelAccount.save();
+    }
   }
 
   // ── Bookings ─────────────────────────────────────────────────────────────────
@@ -215,7 +240,9 @@ async function seed() {
     const [b] = await Booking.findOrCreate({
       where: { guestId: row.guestId, hotelId: row.hotelId, startTime: row.startTime } as any,
       defaults: row as any,
+      paranoid: false,
     });
+    await restoreIfSoftDeleted(b);
     bookings.push(b);
   }
 
@@ -259,10 +286,12 @@ async function seed() {
     },
   ];
   for (const row of requestData) {
-    await Request.findOrCreate({
+    const [request] = await Request.findOrCreate({
       where: { hotelId: row.hotelId, guestId: row.guestId, bookingId: row.bookingId, requestType: row.requestType } as any,
       defaults: row as any,
+      paranoid: false,
     });
+    await restoreIfSoftDeleted(request);
   }
 
   console.log('Seed completed.');

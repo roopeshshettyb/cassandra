@@ -72,6 +72,15 @@ function ScrollToTop() {
   return null;
 }
 
+const NO_LOADING_PATHS = {
+  '/': true,
+  '/privacy-policy': true,
+  '/fees-refund-policy': true,
+  '/terms-conditions': true,
+  '/shipping-delivery-policy': true,
+  '/contact': true,
+};
+
 const getContrastText = (hexcolor) => {
   if (!hexcolor || typeof hexcolor !== 'string') return '#000000';
   const hex = hexcolor.replace('#', '');
@@ -91,7 +100,7 @@ const AppContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [account, setAccount] = useState(null);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!NO_LOADING_PATHS[window.location.pathname]);
   const [currentNav, setCurrentNav] = useState('404');
   const [conciergeOpen, setConciergeOpen] = useState(false);
   const [conciergeMode, setConciergeMode] = useState('voice');
@@ -209,7 +218,7 @@ const AppContent = () => {
         }
       }
     };
-    fetchAccount().finally(() => setLoading(false));
+    fetchAccount();
   }, []);
 
   // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
@@ -426,6 +435,7 @@ const AppContent = () => {
                     isAuthenticated ? (
                       <ChatPage
                         isMobile={isMobile}
+                        accountRole={account?.role}
                         alertError={alertError}
                         conciergeVoiceReady={conciergeVoiceReady}
                         conciergeRecording={conciergeRecording}
@@ -523,6 +533,7 @@ const AppContent = () => {
                   >
                     <GuestConcierge
                       booking={null}
+                      accountRole={account?.role}
                       bookingIdOverride={null}
                       alertError={alertError}
                       isWithinStay

@@ -5,4 +5,6 @@ module.exports = {
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.test.json' }] },
   testEnvironment: 'node',
   testTimeout: 120000, // 2 min per test — OTP retry loops need headroom
+  detectOpenHandles: true,
+  forceExit: true,
 };
