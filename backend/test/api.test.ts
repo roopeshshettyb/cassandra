@@ -30,8 +30,10 @@ import { BookingsService } from '../src/bookings/bookings.service';
 import { HotelsService } from '../src/hotels/hotels.service';
 import { RestaurantService } from '../src/restaurant/restaurant.service';
 import { EmailService } from '../src/oauth/email/email.service';
-import { ConstantsService } from '../src/common/constants/constants.service';
+import { AuthService } from '../src/auth/auth.service';
+import { ConstantsService, HotelMemberStatus } from '../src/common/constants/constants.service';
 import { AccountRole, Account } from '../src/accounts/accounts.model';
+import { HotelAccount } from '../src/hotels/hotel-accounts.model';
 
 dotenv.config({ path: path.join(__dirname, '../dev.env') });
 
@@ -69,6 +71,7 @@ let bookingsService: BookingsService;
 let hotelsService: HotelsService;
 let restaurantService: RestaurantService;
 let emailService: EmailService;
+let authService: AuthService;
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 function authHeaders(token?: string) {
@@ -126,6 +129,7 @@ beforeAll(async () => {
   hotelsService = moduleRef.get(HotelsService);
   restaurantService = moduleRef.get(RestaurantService);
   emailService    = moduleRef.get(EmailService);
+  authService = moduleRef.get(AuthService);
   const constantsService = moduleRef.get(ConstantsService);
   state.BASE_URL = `http://localhost:${constantsService.private.BACKEND_PORT}`;
 
@@ -288,12 +292,21 @@ describe('Hotels', () => {
 });
 
 describe('Hotel Staff Management', () => {
-  it('GET /hotels/:id/staff (hotel_owner) → returns staff list containing test staff', async () => {
+  it('GET /hotels/:id/staff (hotel_owner) → returns members with role and status', async () => {
     const res = await http.get(`/hotels/${state.testHotelId}/staff`, state.ownerToken);
     expect(res.status).toBe(200);
     const staff: any[] = res.data?.data ?? res.data;
     expect(Array.isArray(staff)).toBe(true);
-    expect(staff.some((s: any) => s.id === state.staffAccountId || s.accountId === state.staffAccountId)).toBe(true);
+    let foundStaff = false;
+    for (let i = 0; i < staff.length; i++) {
+      const member = staff[i];
+      if (member.id === state.staffAccountId) {
+        foundStaff = true;
+      }
+      expect(member.role).toBeDefined();
+      expect(member.status).toBeDefined();
+    }
+    expect(foundStaff).toBe(true);
   });
 
   it('GET /hotels/:id/staff (admin) → returns staff list', async () => {
@@ -306,24 +319,85 @@ describe('Hotel Staff Management', () => {
     await expectStatus(403, () => http.get(`/hotels/${state.testHotelId}/staff`, state.guestToken));
   });
 
-  it('POST /hotels/:id/staff (hotel_owner) → adds a new staff member', async () => {
+  it('POST /hotels/:id/staff (hotel_owner) → adds a new member with selected role and pending status', async () => {
     const extraEmail = `${TAG}_extrastaff@cassandratest.local`;
-    await http.post(`/hotels/${state.testHotelId}/staff`, { email: extraEmail }, state.ownerToken).catch(() => {});
+    const addRes = await http.post(
+      `/hotels/${state.testHotelId}/staff`,
+      { email: extraEmail, role: 'hotel_owner' },
+      state.ownerToken,
+    );
+    expect(addRes.status).toBe(201);
+    expect(addRes.data?.data?.role).toBe('hotel_owner');
+    expect(addRes.data?.data?.status).toBe('pending');
     const created = await accountsService.findOne({ where: { email: extraEmail } });
     if (created) {
       await accountsService.delete({ email: extraEmail }, true).catch(() => {});
     }
   });
 
-  it('DELETE /hotels/:id/staff/:accountId (hotel_owner) → revokes staff access', async () => {
+  it('PATCH /hotels/:id/staff/:accountId/status (hotel_owner) → disables and re-activates member', async () => {
     const tempEmail = `${TAG}_tempstaff@cassandratest.local`;
-    await http.post(`/hotels/${state.testHotelId}/staff`, { email: tempEmail }, state.ownerToken).catch(() => {});
+    await http.post(
+      `/hotels/${state.testHotelId}/staff`,
+      { email: tempEmail, role: 'hotel_staff' },
+      state.ownerToken,
+    ).catch(() => {});
     const tempAcc = await accountsService.findOne({ where: { email: tempEmail } });
     if (tempAcc) {
-      const res = await http.delete(`/hotels/${state.testHotelId}/staff/${tempAcc.id}`, state.ownerToken);
-      expect(res.status).toBe(200);
+      const disableRes = await http.patch(
+        `/hotels/${state.testHotelId}/staff/${tempAcc.id}/status`,
+        { status: 'disabled' },
+        state.ownerToken,
+      );
+      expect(disableRes.status).toBe(200);
+      expect(disableRes.data?.data?.status).toBe('disabled');
+      const enableRes = await http.patch(
+        `/hotels/${state.testHotelId}/staff/${tempAcc.id}/status`,
+        { status: 'active' },
+        state.ownerToken,
+      );
+      expect(enableRes.status).toBe(200);
+      expect(enableRes.data?.data?.status).toBe('active');
       await accountsService.delete({ email: tempEmail }, true).catch(() => {});
     }
+  });
+
+  it('POST /invite with staff invite token → sets pending member to active', async () => {
+    const pendingEmail = `${TAG}_pendingstaff@cassandratest.local`;
+    await http.post(
+      `/hotels/${state.testHotelId}/staff`,
+      { email: pendingEmail, role: 'hotel_staff' },
+      state.ownerToken,
+    );
+    const pendingAccount = await accountsService.findOne({ where: { email: pendingEmail } });
+    expect(pendingAccount).toBeTruthy();
+    if (!pendingAccount) {
+      throw new Error('Pending account not created');
+    }
+    const hotelAccountBefore = await HotelAccount.findOne({ where: { hotelId: state.testHotelId, accountId: pendingAccount.id } });
+    expect(hotelAccountBefore?.status).toBe(HotelMemberStatus.PENDING);
+    const inviteToken = await authService.generateInviteToken(pendingAccount, { hotelId: state.testHotelId, type: 'staff' });
+    const inviteRes = await http.post('/invite', { token: inviteToken });
+    expect(inviteRes.status).toBe(201);
+    const hotelAccountAfter = await HotelAccount.findOne({ where: { hotelId: state.testHotelId, accountId: pendingAccount.id } });
+    expect(hotelAccountAfter?.status).toBe(HotelMemberStatus.ACTIVE);
+    await accountsService.delete({ email: pendingEmail }, true).catch(() => {});
+  });
+
+  it('POST /hotels/:id/staff/import and GET /hotels/:id/staff/sample-csv work', async () => {
+    const sampleRes = await http.get(`/hotels/${state.testHotelId}/staff/sample-csv`, state.ownerToken);
+    expect(sampleRes.status).toBe(200);
+    expect(sampleRes.data?.data?.content).toContain('email,name,role');
+    const csvContent = `email,name,role\n${TAG}_csvstaff1@cassandratest.local,Csv One,hotel_staff\n${TAG}_csvowner1@cassandratest.local,Csv Owner,hotel_owner`;
+    const importRes = await http.post(
+      `/hotels/${state.testHotelId}/staff/import`,
+      { csvContent },
+      state.ownerToken,
+    );
+    expect(importRes.status).toBe(201);
+    expect(importRes.data?.data?.imported).toBe(2);
+    await accountsService.delete({ email: `${TAG}_csvstaff1@cassandratest.local` }, true).catch(() => {});
+    await accountsService.delete({ email: `${TAG}_csvowner1@cassandratest.local` }, true).catch(() => {});
   });
 });
 

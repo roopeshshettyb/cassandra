@@ -12,6 +12,30 @@
     "GUEST": "guest",
     "HOTEL_STAFF": "hotel_staff"
   },
+  "HOTEL_MEMBER_ROLES": {
+    "hotel_owner": {
+      "key": "hotel_owner",
+      "label": "Hotel Owner"
+    },
+    "hotel_staff": {
+      "key": "hotel_staff",
+      "label": "Hotel Staff"
+    }
+  },
+  "HOTEL_MEMBER_STATUSES": {
+    "pending": {
+      "key": "pending",
+      "label": "Pending"
+    },
+    "active": {
+      "key": "active",
+      "label": "Active"
+    },
+    "disabled": {
+      "key": "disabled",
+      "label": "Disabled"
+    }
+  },
   "PERMISSIONS": {
     "CAN_CREATE_BOOKING": {
       "admin": true,

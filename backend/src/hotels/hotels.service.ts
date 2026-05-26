@@ -3,13 +3,13 @@ import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repositor
 import { Hotel } from './hotels.model';
 import { HotelBrand } from './brands.model';
 import { HotelAccount } from './hotel-accounts.model';
-import { CreateHotelDto, UpdateHotelDto, GrantHotelAccessDto, AddHotelStaffDto } from './hotels.dto';
+import { CreateHotelDto, UpdateHotelDto, GrantHotelAccessDto, AddHotelStaffDto, ImportHotelMembersCsvDto, UpdateHotelStaffStatusDto } from './hotels.dto';
 import { HotelQueryOptions } from './hotels.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
+import { ConstantsService, HOTEL_MEMBER_INVITE_TYPE_STAFF, HotelMemberStatus, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
@@ -18,6 +18,20 @@ import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { Notification } from '../notifications/notifications.model';
 import { Op, literal } from 'sequelize';
+
+export interface HotelMemberRow {
+  id: number;
+  name: string;
+  email: string;
+  role: AccountRole;
+  status: HotelMemberStatus;
+}
+
+interface ImportMemberRow {
+  email: string;
+  name: string;
+  role: AccountRole;
+}
 
 @Injectable()
 export class HotelsService {
@@ -32,6 +46,10 @@ export class HotelsService {
     private readonly constantsService: ConstantsService,
     private readonly awsService: AwsService,
   ) {}
+
+  private readonly memberAccessStatus = HotelMemberStatus.ACTIVE;
+  private readonly inviteTypeStaff = HOTEL_MEMBER_INVITE_TYPE_STAFF;
+  private readonly memberCsvHeader = 'email,name,role';
 
   async createHotel(createHotelDto: CreateHotelDto, currentAccount: Account): Promise<Hotel> {
     return this.hotelsRepository.create<Hotel>(createHotelDto);
@@ -57,7 +75,7 @@ export class HotelsService {
       hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
     } else if (currentAccount.role !== AccountRole.ADMIN) {
       const hotelAccounts = await this.hotelAccountsRepository.findAll({
-        where: { accountId: currentAccount.id },
+        where: { accountId: currentAccount.id, status: this.memberAccessStatus },
       });
       const hotelIds: number[] = [];
       for (let i = 0; i < hotelAccounts.length; i++) {
@@ -113,6 +131,7 @@ export class HotelsService {
       const hotelAccountWhere = {
         hotelId: id,
         accountId: currentAccount.id,
+        status: this.memberAccessStatus,
       };
 
       const hotelAccount = await this.hotelAccountsRepository.findOne({
@@ -176,7 +195,7 @@ export class HotelsService {
 
   async updateHotel(id: number, updateHotelDto: UpdateHotelDto, currentAccount: Account): Promise<Hotel> {
     if (currentAccount.role !== AccountRole.ADMIN) {
-      const hotelAccount = await this.hotelAccountsRepository.findOne({ where: { hotelId: id, accountId: currentAccount.id } });
+      const hotelAccount = await this.hotelAccountsRepository.findOne({ where: { hotelId: id, accountId: currentAccount.id, status: this.memberAccessStatus } });
       if (!hotelAccount) throw new ForbiddenException();
     }
 
@@ -201,6 +220,7 @@ export class HotelsService {
         where: {
           hotelId,
           accountId: currentAccount.id,
+          status: this.memberAccessStatus,
         },
       });
 
@@ -214,32 +234,27 @@ export class HotelsService {
     throw new ForbiddenException();
   }
 
-  async listStaffForHotel(hotelId: number, currentAccount: Account): Promise<Account[]> {
+  async listStaffForHotel(hotelId: number, currentAccount: Account): Promise<HotelMemberRow[]> {
     await this.ensureCanManageStaff(hotelId, currentAccount);
 
     const hotelAccounts = await this.hotelAccountsRepository.findAll({
       where: { hotelId },
+      include: [
+        {
+          model: Account,
+          as: 'account',
+          required: true,
+        },
+      ],
     });
-
-    const accountIds: number[] = [];
-    for (let i = 0; i < hotelAccounts.length; i++) {
-      const ha = hotelAccounts[i];
-      if (ha.accountId) {
-        accountIds.push(ha.accountId);
-      }
-    }
-
-    if (accountIds.length === 0) {
-      return [];
-    }
-
-    const where: any = {
-      id: accountIds,
-      role: AccountRole.HOTEL_STAFF,
-    };
-    const staffAccounts = await this.accountsService.findAll({ where });
-
-    return staffAccounts;
+    const rows: HotelMemberRow[] = hotelAccounts.map((hotelAccount) => ({
+      id: hotelAccount.account.id,
+      name: hotelAccount.account.name,
+      email: hotelAccount.account.email,
+      role: hotelAccount.role,
+      status: hotelAccount.status,
+    }));
+    return rows;
   }
 
   async addStaffByEmail(
@@ -251,6 +266,7 @@ export class HotelsService {
     name: string;
     email: string;
     role: AccountRole;
+    status: HotelMemberStatus;
   }> {
     const hotel = await this.ensureCanManageStaff(hotelId, currentAccount);
 
@@ -258,6 +274,7 @@ export class HotelsService {
     if (!normalizedEmail) {
       throw new BadRequestException('Email is required');
     }
+    const selectedRole = body.role;
 
     let account = await this.accountsService.findOne({
       where: { email: normalizedEmail },
@@ -270,31 +287,41 @@ export class HotelsService {
         email: normalizedEmail,
         name: body.name,
         oauthMeta: {},
-        role: AccountRole.HOTEL_STAFF,
+        role: selectedRole,
       });
       account = createdAccount;
     } else {
-      if (account.role === AccountRole.GUEST) {
+      if (account.role === AccountRole.GUEST || account.role === AccountRole.HOTEL_STAFF || account.role === AccountRole.HOTEL_OWNER) {
         await this.accountsService.update(
-          { role: AccountRole.HOTEL_STAFF },
+          { role: selectedRole },
           {
             id: account.id,
           },
         );
-        account.role = AccountRole.HOTEL_STAFF;
       }
     }
 
-    await this.hotelAccountsRepository.findOrCreate({
+    const [hotelAccount, createdHotelAccount] = await this.hotelAccountsRepository.findOrCreate({
       where: {
         hotelId,
         accountId: account.id,
       },
+      defaults: {
+        hotelId,
+        accountId: account.id,
+        role: selectedRole,
+        status: HotelMemberStatus.PENDING,
+      },
     });
+    if (!createdHotelAccount) {
+      hotelAccount.role = selectedRole;
+      hotelAccount.status = HotelMemberStatus.PENDING;
+      await hotelAccount.save();
+    }
 
     const inviteToken = await this.authService.generateInviteToken(account, {
       hotelId: hotel.id,
-      type: 'staff',
+      type: this.inviteTypeStaff,
     });
     const frontendUrl = this.constantsService.private.FRONTEND_URL;
     const inviteUrl = `${frontendUrl}/invite?token=${encodeURIComponent(inviteToken)}`;
@@ -305,19 +332,139 @@ export class HotelsService {
       id: account.id,
       name: account.name,
       email: account.email,
-      role: account.role,
+      role: selectedRole,
+      status: HotelMemberStatus.PENDING,
     };
   }
 
   async revokeStaffAccess(hotelId: number, accountId: number, currentAccount: Account): Promise<void> {
-    await this.ensureCanManageStaff(hotelId, currentAccount);
+    await this.updateStaffMemberStatus(hotelId, accountId, { status: HotelMemberStatus.DISABLED }, currentAccount);
+  }
 
-    await this.hotelAccountsRepository.destroy({
+  async updateStaffMemberStatus(
+    hotelId: number,
+    accountId: number,
+    body: UpdateHotelStaffStatusDto,
+    currentAccount: Account,
+  ): Promise<HotelMemberRow> {
+    await this.ensureCanManageStaff(hotelId, currentAccount);
+    if (body.status !== HotelMemberStatus.ACTIVE && body.status !== HotelMemberStatus.DISABLED) {
+      throw new BadRequestException('Only active and disabled statuses can be set manually');
+    }
+    const hotelAccount = await this.hotelAccountsRepository.findOne({
+      where: { hotelId, accountId },
+      include: [{ model: Account, as: 'account', required: true }],
+    });
+    if (!hotelAccount || !hotelAccount.account) {
+      throw new NotFoundException('Member not found for this hotel');
+    }
+    hotelAccount.status = body.status;
+    await hotelAccount.save();
+    return {
+      id: hotelAccount.account.id,
+      name: hotelAccount.account.name,
+      email: hotelAccount.account.email,
+      role: hotelAccount.role,
+      status: hotelAccount.status,
+    };
+  }
+
+  async importMembersCsv(
+    hotelId: number,
+    body: ImportHotelMembersCsvDto,
+    currentAccount: Account,
+  ): Promise<{ imported: number; failed: number; failures: string[] }> {
+    await this.ensureCanManageStaff(hotelId, currentAccount);
+    const rows = this.parseCsvRows(body.csvContent || '');
+    if (rows.length === 0) {
+      throw new BadRequestException('No rows found in csv');
+    }
+    let imported = 0;
+    let failed = 0;
+    const failures: string[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        await this.addStaffByEmail(
+          hotelId,
+          {
+            email: row.email,
+            name: row.name,
+            role: row.role,
+          },
+          currentAccount,
+        );
+        imported += 1;
+      } catch (error) {
+        failed += 1;
+        failures.push(`Row ${i + 2}: ${error.message}`);
+      }
+    }
+    return { imported, failed, failures };
+  }
+
+  getMembersSampleCsv(): { fileName: string; contentType: string; content: string } {
+    const rows: string[] = [
+      this.memberCsvHeader,
+      'alice@example.com,Alice Smith,hotel_staff',
+      'owner@example.com,Owner Example,hotel_owner',
+      'disabled@example.com,Disabled Member,hotel_staff',
+    ];
+    return {
+      fileName: 'members-sample.csv',
+      contentType: 'text/csv; charset=utf-8',
+      content: rows.join('\n'),
+    };
+  }
+
+  async markMemberActiveForInvite(accountId: number, hotelId?: number, type?: string): Promise<void> {
+    if (!hotelId || type !== this.inviteTypeStaff) {
+      return;
+    }
+    const hotelAccount = await this.hotelAccountsRepository.findOne({
       where: {
         hotelId,
         accountId,
       },
     });
+    if (!hotelAccount) {
+      return;
+    }
+    hotelAccount.status = HotelMemberStatus.ACTIVE;
+    await hotelAccount.save();
+  }
+
+  private parseCsvRows(csvContent: string): ImportMemberRow[] {
+    const rows: ImportMemberRow[] = [];
+    const lines = csvContent.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) {
+        continue;
+      }
+      if (i === 0 && line.toLowerCase() === this.memberCsvHeader) {
+        continue;
+      }
+      const parts = line.split(',');
+      if (parts.length < 3) {
+        throw new BadRequestException('Role must be hotel_staff or hotel_owner');
+      }
+      const email = (parts[0] || '').trim().toLowerCase();
+      const name = (parts[1] || '').trim();
+      const roleText = (parts[2] || '').trim().toLowerCase();
+      if (!email) {
+        throw new BadRequestException('Email is required');
+      }
+      if (roleText !== AccountRole.HOTEL_STAFF && roleText !== AccountRole.HOTEL_OWNER) {
+        throw new BadRequestException('Role must be hotel_staff or hotel_owner');
+      }
+      rows.push({
+        email,
+        name,
+        role: roleText === AccountRole.HOTEL_OWNER ? AccountRole.HOTEL_OWNER : AccountRole.HOTEL_STAFF,
+      });
+    }
+    return rows;
   }
 
   private async sendStaffInviteEmail(hotel: Hotel, account: Account, inviteUrl: string): Promise<void> {
@@ -328,21 +475,27 @@ export class HotelsService {
     const publicConstants = this.constantsService.public;
     const appName = publicConstants.APP_NAME;
 
-    const subject = `${appName} - You have been granted hotel staff access`;
+    const subject = `${appName} - You have been invited to join hotel members`;
 
     const greetingName = account.name ? ` ${account.name}` : '';
-    const cta = 'Start talking with Samantha by clicking here';
+    const cta = 'Click Here';
     const text = `Hi${greetingName},
 
-You have been granted staff access for ${hotel.name} on ${appName}.
+You have been granted member access for ${hotel.name} on ${appName}.
 
 ${cta}
 
 ${inviteUrl}`;
 
     const contentHtml = `<p>Hi${greetingName},</p>
-<p>You have been granted staff access for <strong>${hotel.name}</strong> on <strong>${appName}</strong>.</p>
-<p>Start talking with Samantha by clicking <a href="${inviteUrl}">here</a>.</p>`;
+<p>You have been granted member access for <strong>${hotel.name}</strong> on <strong>${appName}</strong>.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+  <tr>
+    <td align="center" valign="middle" style="padding:16px 0;">
+      <a href="${inviteUrl}" style="display:inline-block;background:linear-gradient(135deg,#D4AF37,#C5A022);color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:8px;">${cta}</a>
+    </td>
+  </tr>
+</table>`;
 
     const html = this.mailerService.buildBaseEmailHtml(contentHtml);
 
@@ -355,17 +508,35 @@ ${inviteUrl}`;
   }
 
   async grantAccess(hotelId: number, body: GrantHotelAccessDto): Promise<HotelAccount> {
-    const [hotel] = await Promise.all([this.hotelsRepository.findByPk(hotelId)]);
+    const hotel = await this.hotelsRepository.findByPk(hotelId);
     if (!hotel) {
       throw new NotFoundException();
     }
+    const account = await this.accountsService.findOne({
+      where: { id: body.accountId },
+    });
+    if (!account) {
+      throw new NotFoundException();
+    }
+    const role = account.role === AccountRole.HOTEL_OWNER ? AccountRole.HOTEL_OWNER : AccountRole.HOTEL_STAFF;
 
     const [hotelAccount] = await this.hotelAccountsRepository.findOrCreate({
       where: {
         hotelId,
         accountId: body.accountId,
       },
+      defaults: {
+        hotelId,
+        accountId: body.accountId,
+        role,
+        status: HotelMemberStatus.ACTIVE,
+      },
     });
+    hotelAccount.role = role;
+    if (hotelAccount.status !== HotelMemberStatus.ACTIVE) {
+      hotelAccount.status = HotelMemberStatus.ACTIVE;
+    }
+    await hotelAccount.save();
 
     return hotelAccount;
   }

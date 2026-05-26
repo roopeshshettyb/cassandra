@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
 import { Account } from './accounts/accounts.model';
-import { AccountRole } from './common/constants/constants.service';
+import { AccountRole, HotelMemberStatus } from './common/constants/constants.service';
 import { Hotel } from './hotels/hotels.model';
 import { HotelBrand } from './hotels/brands.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
@@ -200,18 +200,29 @@ async function seed() {
 
   // ── Hotel Accounts ───────────────────────────────────────────────────────────
   const hotelAccountLinks = [
-    { hotelIdx: 0, accountIdx: 1 },
-    { hotelIdx: 0, accountIdx: 2 },
-    { hotelIdx: 1, accountIdx: 1 },
-    { hotelIdx: 2, accountIdx: 1 },
+    { hotelIdx: 0, accountIdx: 1, role: AccountRole.HOTEL_OWNER, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 0, accountIdx: 2, role: AccountRole.HOTEL_STAFF, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 1, accountIdx: 1, role: AccountRole.HOTEL_OWNER, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 2, accountIdx: 1, role: AccountRole.HOTEL_OWNER, status: HotelMemberStatus.ACTIVE },
+    { hotelIdx: 2, accountIdx: 2, role: AccountRole.HOTEL_STAFF, status: HotelMemberStatus.PENDING },
   ];
   for (const link of hotelAccountLinks) {
     const [hotelAccount] = await HotelAccount.findOrCreate({
       where: { hotelId: hotels[link.hotelIdx].id, accountId: accounts[link.accountIdx].id },
-      defaults: { hotelId: hotels[link.hotelIdx].id, accountId: accounts[link.accountIdx].id } as any,
+      defaults: {
+        hotelId: hotels[link.hotelIdx].id,
+        accountId: accounts[link.accountIdx].id,
+        role: link.role,
+        status: link.status,
+      },
       paranoid: false,
     });
     await restoreIfSoftDeleted(hotelAccount);
+    if (hotelAccount.role !== link.role || hotelAccount.status !== link.status) {
+      hotelAccount.role = link.role;
+      hotelAccount.status = link.status;
+      await hotelAccount.save();
+    }
   }
 
   // ── Bookings ─────────────────────────────────────────────────────────────────

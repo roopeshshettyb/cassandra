@@ -28,6 +28,11 @@ export const DATABASE_PROVIDERS = [
       });
       await sequelize.authenticate();
       await sequelize.sync();
+      await sequelize.query('ALTER TABLE hotel_accounts ADD COLUMN IF NOT EXISTS role VARCHAR(255)');
+      await sequelize.query('ALTER TABLE hotel_accounts ADD COLUMN IF NOT EXISTS status VARCHAR(255)');
+      await sequelize.query("UPDATE hotel_accounts SET role = 'hotel_staff' WHERE role IS NULL");
+      await sequelize.query("UPDATE hotel_accounts SET status = 'active' WHERE status IS NULL");
+      await sequelize.query("UPDATE hotel_accounts ha SET role = 'hotel_owner' FROM accounts a WHERE ha.account_id = a.id AND a.role = 'hotel_owner'");
       logger.log({
         message: 'Database connection established successfully',
         traces: [{ host: config.host }, { port: config.port }, { database: config.database }],

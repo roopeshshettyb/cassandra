@@ -2,6 +2,8 @@ import { Body, Controller, HttpException, HttpStatus, Post } from '@nestjs/commo
 import { AuthService } from './auth.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { Account } from '../accounts/accounts.model';
+import { HOTEL_MEMBER_INVITE_TYPE_STAFF, HotelMemberStatus } from '../common/constants/constants.service';
+import { HotelAccount } from '../hotels/hotel-accounts.model';
 
 @Controller('invite')
 export class InviteController {
@@ -53,6 +55,16 @@ export class InviteController {
         },
         HttpStatus.UNAUTHORIZED,
       );
+    }
+
+    if (decoded.type === HOTEL_MEMBER_INVITE_TYPE_STAFF && decoded.hotelId) {
+      const hotelAccount = await HotelAccount.findOne({
+        where: { hotelId: decoded.hotelId, accountId: account.id },
+      });
+      if (hotelAccount) {
+        hotelAccount.status = HotelMemberStatus.ACTIVE;
+        await hotelAccount.save();
+      }
     }
 
     const standardToken = await this.authService.generateToken(account);

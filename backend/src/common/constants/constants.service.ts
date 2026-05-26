@@ -30,11 +30,50 @@ export enum AccountRole {
   HOTEL_STAFF = 'hotel_staff',
 }
 
+export enum HotelMemberRole {
+  HOTEL_OWNER = AccountRole.HOTEL_OWNER,
+  HOTEL_STAFF = AccountRole.HOTEL_STAFF,
+}
+
+export enum HotelMemberStatus {
+  PENDING = 'pending',
+  ACTIVE = 'active',
+  DISABLED = 'disabled',
+}
+
+export const HOTEL_MEMBER_INVITE_TYPE_STAFF = 'staff';
+
 export const ACCOUNT_ROLES = {
   ADMIN: AccountRole.ADMIN,
   HOTEL_OWNER: AccountRole.HOTEL_OWNER,
   GUEST: AccountRole.GUEST,
   HOTEL_STAFF: AccountRole.HOTEL_STAFF,
+} as const;
+
+export const HOTEL_MEMBER_ROLES = {
+  hotel_owner: {
+    key: HotelMemberRole.HOTEL_OWNER,
+    label: 'Hotel Owner',
+  },
+  hotel_staff: {
+    key: HotelMemberRole.HOTEL_STAFF,
+    label: 'Hotel Staff',
+  },
+} as const;
+
+export const HOTEL_MEMBER_STATUSES = {
+  pending: {
+    key: HotelMemberStatus.PENDING,
+    label: 'Pending',
+  },
+  active: {
+    key: HotelMemberStatus.ACTIVE,
+    label: 'Active',
+  },
+  disabled: {
+    key: HotelMemberStatus.DISABLED,
+    label: 'Disabled',
+  },
 } as const;
 
 export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> = {
@@ -252,6 +291,8 @@ export class ConstantsService {
       HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
 
       ACCOUNT_ROLES,
+      HOTEL_MEMBER_ROLES,
+      HOTEL_MEMBER_STATUSES,
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,
