@@ -270,7 +270,7 @@ export default function Landing({ openLoginPopup }) {
             className="hero-video"
             src={heroVideoUrl}
             type="video/mp4"
-            poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
+            poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'hero.png'}`}
             autoPlay
             loop
             muted
