@@ -29,6 +29,7 @@ export class DatabaseConfig implements IDatabaseConfig {
       define: {
         underscored: true,
         timestamps: true,
+        paranoid: true,
       },
       // sync: {
       //   alter: true,

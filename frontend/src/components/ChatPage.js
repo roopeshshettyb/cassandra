@@ -3,6 +3,7 @@ import GuestConcierge from './GuestPortal/GuestConcierge';
 
 export default function ChatPage({
   isMobile,
+  accountRole,
   alertError,
   conciergeVoiceReady,
   conciergeRecording,
@@ -33,6 +34,7 @@ export default function ChatPage({
     >
       <GuestConcierge
         booking={null}
+        accountRole={accountRole}
         bookingIdOverride={null}
         alertError={alertError}
         isWithinStay

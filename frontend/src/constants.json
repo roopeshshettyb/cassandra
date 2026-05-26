@@ -1,6 +1,5 @@
 {
   "APP_NAME": "Samantha",
-  "GOOGLE_MAPS_API": "AIzaSyCwWuMlCGlns0jRHwLfMUCp9ysTsoMYoAw",
   "TAGLINE": "With you, always",
   "DESCRIPTION": "Samantha is your personal concierge and will make your stay a breeze.",
   "X_API_URL": "https://api.twitter.com",
@@ -12,6 +11,30 @@
     "HOTEL_OWNER": "hotel_owner",
     "GUEST": "guest",
     "HOTEL_STAFF": "hotel_staff"
+  },
+  "HOTEL_MEMBER_ROLES": {
+    "hotel_owner": {
+      "key": "hotel_owner",
+      "label": "Hotel Owner"
+    },
+    "hotel_staff": {
+      "key": "hotel_staff",
+      "label": "Hotel Staff"
+    }
+  },
+  "HOTEL_MEMBER_STATUSES": {
+    "pending": {
+      "key": "pending",
+      "label": "Pending"
+    },
+    "active": {
+      "key": "active",
+      "label": "Active"
+    },
+    "disabled": {
+      "key": "disabled",
+      "label": "Disabled"
+    }
   },
   "PERMISSIONS": {
     "CAN_CREATE_BOOKING": {
@@ -80,39 +103,40 @@
   "NOTIFICATIONS_FETCHED": "Notifications fetched",
   "PREFERENCES_FETCHED": "Preferences fetched",
   "PREFERENCES_UPDATED": "Preferences updated",
-  "CONCIERGE_SUGGESTIONS": [
-    "I need room service",
-    "Request extra towels",
-    "Get dining recommendations",
-    "Arrange a late checkout",
-    "Book a spa treatment",
-    "I need a cab",
-    "Wake-up call please",
-    "What time is breakfast?"
-  ],
   "AI_ASSISTANT_TITLE": "AI Assistant",
   "AI_ASSISTANT_ROLE_SUGGESTIONS": {
     "guest": [
       "I need room service",
       "Request extra towels",
       "Arrange a late checkout",
-      "I need a cab"
+      "I need a cab",
+      "Wake-up call please",
+      "What time is breakfast?"
     ],
     "hotel_staff": [
       "Show pending requests",
       "List today check-ins",
-      "High priority requests"
+      "High priority requests",
+      "Show unresolved complaints",
+      "List late check-outs",
+      "Show room service queue"
     ],
     "hotel_owner": [
       "Hotel stats overview",
       "Show pending requests",
-      "List my hotels"
+      "List my hotels",
+      "Show today's occupancy",
+      "Show unresolved complaints",
+      "Show revenue snapshot"
     ],
     "admin": [
       "Hotel stats overview",
       "List my hotels",
       "Show costs",
-      "High priority requests"
+      "High priority requests",
+      "Show today's occupancy",
+      "Show unresolved complaints",
+      "Show platform health"
     ]
   },
   "MENU_CATEGORIES": [

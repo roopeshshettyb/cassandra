@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button } from '@mui/material';
+import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem } from '@mui/material';
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, PersonAdd, DeleteForever, MenuBook,
+  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -15,7 +15,7 @@ import { generateAndPlayTone } from '../utils/audioToneGenerator';
 import { getNotificationTone, createAudioFromBlob } from '../utils/notificationToneCache';
 import { CARD_SX, ROW_SX, LABEL_SX, FormCard, FormField, inputSx } from './cards/AppCards';
 import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar, HoursTab, AiTab, BasicThemePicker, buildThemePayload } from './DetailShell';
-import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, BRAND_GRADIENT, MUTED, BORDER, BG, SHADOW, TEXT_MUTED_LIGHT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
+import { NAVY, NAVY_GRADIENT, BRAND_GRADIENT, MUTED, BORDER, BG, TEXT_MUTED_LIGHT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ const TABS = [
   { key: 'theme',     label: 'Theme',         Icon: PaletteOutlined },
   { key: 'ai',        label: 'Concierge AI',  Icon: AutoAwesome },
   { key: 'restaurant', label: 'Restaurant',    Icon: MenuBook },
-  { key: 'staff',     label: 'Staff',         Icon: PeopleOutline },
+  { key: 'staff',     label: 'Members',       Icon: PeopleOutline },
   { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
 ];
 
@@ -40,27 +40,38 @@ const COLOR_PRESETS = [
   { p: '#3A4A2E', s: '#1F2918', name: 'Forest' },
 ];
 
-
 // ── Local sub-components ───────────────────────────────────────────────────
 
 
 
-const StaffRow = ({ data: s, canManage, onRevoke }) => {
-  const initials = s.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?';
+const StaffRow = ({ data: s, canManage, onToggleStatus }) => {
+  const initials = s.name ? s.name.trim().slice(0, 2).toUpperCase() : '?';
+  const statusMeta = constants.HOTEL_MEMBER_STATUSES[s.status];
+  const isActive = s.status === constants.HOTEL_MEMBER_STATUSES.active.key;
+  const isPending = s.status === constants.HOTEL_MEMBER_STATUSES.pending.key;
+  const isDisabled = s.status === constants.HOTEL_MEMBER_STATUSES.disabled.key;
+  const statusColor = isDisabled ? STATUS_ERROR : isPending ? '#B26A00' : '#2E7D32';
+  const statusBackground = isDisabled ? STATUS_ERROR_BG : isPending ? 'rgba(178,106,0,0.14)' : 'rgba(46,125,50,0.12)';
   return (
-    <Box sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: '40px 1fr 80px', alignItems: 'center', px: 2, py: 1.5, gap: 1.5 }}>
+    <Box sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: '40px 1fr 150px 90px 90px', alignItems: 'center', px: 2, py: 1.5, gap: 1.5 }}>
       <Avatar sx={{ width: 34, height: 34, fontSize: 12, fontWeight: 800, background: NAVY_GRADIENT }}>{initials}</Avatar>
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name || '—'}</Typography>
         <Typography sx={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email || '—'}</Typography>
       </Box>
-      {canManage && (
+      <Typography sx={{ fontSize: 12, fontWeight: 700, color: NAVY }}>
+        {s.role === constants.HOTEL_MEMBER_ROLES.hotel_owner.key ? constants.HOTEL_MEMBER_ROLES.hotel_owner.label : constants.HOTEL_MEMBER_ROLES.hotel_staff.label}
+      </Typography>
+      <Box sx={{ borderRadius: 999, px: 1, py: 0.4, fontSize: 11, fontWeight: 700, textAlign: 'center', color: statusColor, bgcolor: statusBackground }}>
+        {statusMeta.label}
+      </Box>
+      {canManage && !isPending && (
         <Box
           component="button"
-          onClick={e => { e.stopPropagation(); onRevoke?.(s.id); }}
-          sx={{ border: `1px solid ${STATUS_ERROR_BG}`, bgcolor: 'transparent', color: STATUS_ERROR, borderRadius: 1, px: 1.25, py: 0.5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+          onClick={e => { e.stopPropagation(); onToggleStatus?.(s.id, isActive ? constants.HOTEL_MEMBER_STATUSES.disabled.key : constants.HOTEL_MEMBER_STATUSES.active.key); }}
+          sx={{ border: `1px solid ${isActive ? STATUS_ERROR_BG : BORDER}`, bgcolor: 'transparent', color: isActive ? STATUS_ERROR : NAVY, borderRadius: 1, px: 1.25, py: 0.5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
         >
-          Revoke
+          {isActive ? 'Disable' : 'Activate'}
         </Box>
       )}
     </Box>
@@ -113,11 +124,13 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [hotel, setHotel] = useState(null);
   const [staff, setStaff] = useState([]);
   const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState(constants.HOTEL_MEMBER_ROLES.hotel_staff.key);
   const [tab, setTab] = useState('identity');
   const [isDirty, setIsDirty] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const logoInputRef = useRef(null);
   const toneInputRef = useRef(null);
+  const csvInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
   const [toneUploadFile, setToneUploadFile] = useState(null);
@@ -170,7 +183,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   useEffect(() => {
     if (id) fetchHotel();
     if (canManageStaff) fetchStaff();
-  }, [id]);
+  }, [id, canManageStaff]);
 
   useEffect(() => { return () => setThemeConfig(null); }, [setThemeConfig]);
 
@@ -195,13 +208,68 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     e.preventDefault();
     const email = (newStaffEmail || '').trim();
     if (!email) { alertError?.('Email is required'); return; }
-    const result = await request({ endpoint: `/hotels/${id}/staff`, method: 'POST', data: { email }, setLoading, alertSuccess, alertError });
-    if (result?.success) { setNewStaffEmail(''); fetchStaff(); }
+    const result = await request({
+      endpoint: `/hotels/${id}/staff`,
+      method: 'POST',
+      data: { email, role: newStaffRole },
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
+    if (result?.success) {
+      setNewStaffEmail('');
+      setNewStaffRole(constants.HOTEL_MEMBER_ROLES.hotel_staff.key);
+      fetchStaff();
+    }
   };
 
-  const handleRevokeStaff = async (accountId) => {
-    const ok = await request({ endpoint: `/hotels/${id}/staff/${accountId}`, method: 'DELETE', setLoading, alertSuccess, alertError });
+  const handleToggleStaffStatus = async (accountId, status) => {
+    const ok = await request({
+      endpoint: `/hotels/${id}/staff/${accountId}/status`,
+      method: 'PATCH',
+      data: { status },
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
     if (ok?.success) fetchStaff();
+  };
+
+  const handleCsvSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      alertError?.('Please upload a csv file');
+      return;
+    }
+    const csvContent = await file.text();
+    const result = await request({
+      endpoint: `/hotels/${id}/staff/import`,
+      method: 'POST',
+      data: { csvContent },
+      setLoading,
+      alertSuccess,
+      alertError,
+    });
+    if (result?.success) {
+      fetchStaff();
+    }
+    event.target.value = '';
+  };
+
+  const handleDownloadSampleCsv = async () => {
+    const result = await request({ endpoint: `/hotels/${id}/staff/sample-csv`, method: 'GET', setLoading, alertError, defaultData: null });
+    const sample = result?.data;
+    if (!sample || !sample.content) {
+      return;
+    }
+    const blob = new Blob([sample.content], { type: sample.contentType || 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = sample.fileName || 'members-sample.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLogoFileSelect = (event) => {
@@ -449,33 +517,53 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
           {/* Staff */}
           {tab === 'staff' && (
             <FormCard
-              title="Staff & access"
+              title="Members & access"
               sub="Members listed here can sign in and operate the staff console."
-              action={
-                <Box
-                  component="button"
-                  onClick={() => {}}
-                  sx={{ border: 'none', background: NAVY_GRADIENT, color: NAVY_CONTRAST, px: 1.5, py: 0.75, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
-                >
-                  <PersonAdd sx={{ fontSize: 13 }} /> Invite
-                </Box>
-              }
             >
-              <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+              <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 190px auto' }, gap: 1, mb: 2 }}>
                 <TextField
                   size="small" type="email" placeholder="Add by email…"
                   value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)}
-                  sx={{ flex: 1, ...inputSx }}
+                  sx={{ ...inputSx }}
                 />
+                <TextField
+                  select
+                  size="small"
+                  value={newStaffRole}
+                  onChange={e => setNewStaffRole(e.target.value)}
+                  sx={inputSx}
+                >
+                  <MenuItem value={constants.HOTEL_MEMBER_ROLES.hotel_staff.key}>{constants.HOTEL_MEMBER_ROLES.hotel_staff.label}</MenuItem>
+                  <MenuItem value={constants.HOTEL_MEMBER_ROLES.hotel_owner.key}>{constants.HOTEL_MEMBER_ROLES.hotel_owner.label}</MenuItem>
+                </TextField>
                 <Box
                   component="button" type="submit"
-                  sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                  sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer', minHeight: 40 }}
                 >
                   Send invite
                 </Box>
               </Box>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                <input ref={csvInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvSelect} style={{ display: 'none' }} />
+                <Box
+                  component="button"
+                  onClick={() => csvInputRef.current?.click()}
+                  sx={{ border: `1px solid ${BORDER}`, background: 'background.paper', color: NAVY, px: 1.5, py: 0.9, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+                >
+                  <UploadFile sx={{ fontSize: 14 }} />
+                  Upload csv
+                </Box>
+                <Box
+                  component="button"
+                  onClick={handleDownloadSampleCsv}
+                  sx={{ border: `1px solid ${BORDER}`, background: 'background.paper', color: NAVY, px: 1.5, py: 0.9, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+                >
+                  <Download sx={{ fontSize: 14 }} />
+                  Download sample csv
+                </Box>
+              </Box>
               <Box sx={{ ...CARD_SX, overflow: 'hidden', boxShadow: 'none' }}>
-                <MapComponent Component={StaffRow} data={staff} isLoading={loading} canManage={canManageStaff} onRevoke={handleRevokeStaff} />
+                <MapComponent Component={StaffRow} data={staff} isLoading={loading} canManage={canManageStaff} onToggleStatus={handleToggleStaffStatus} />
               </Box>
             </FormCard>
           )}

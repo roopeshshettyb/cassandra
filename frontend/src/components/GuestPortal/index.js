@@ -128,6 +128,7 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
         return (
           <GuestConcierge
             booking={booking}
+            accountRole={account?.role}
             alertError={alertError}
             isWithinStay={isWithinStay}
             isMobile={isMobile}
