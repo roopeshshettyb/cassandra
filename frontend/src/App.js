@@ -79,6 +79,7 @@ const NO_LOADING_PATHS = {
   '/terms-conditions': true,
   '/shipping-delivery-policy': true,
   '/contact': true,
+  '/404': true,
 };
 
 const getContrastText = (hexcolor) => {
