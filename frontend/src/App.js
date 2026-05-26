@@ -426,6 +426,7 @@ const AppContent = () => {
                     isAuthenticated ? (
                       <ChatPage
                         isMobile={isMobile}
+                        accountRole={account?.role}
                         alertError={alertError}
                         conciergeVoiceReady={conciergeVoiceReady}
                         conciergeRecording={conciergeRecording}
@@ -523,6 +524,7 @@ const AppContent = () => {
                   >
                     <GuestConcierge
                       booking={null}
+                      accountRole={account?.role}
                       bookingIdOverride={null}
                       alertError={alertError}
                       isWithinStay
