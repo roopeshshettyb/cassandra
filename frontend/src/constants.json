@@ -7,6 +7,7 @@
   "LOGO": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
   "PROD_FRONTEND_URL": "https://samantha.flashpact.in",
   "HERO": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
+  "LANDING_HERO_VIDEO": "landingpage-hero.m4v",
   "ACCOUNT_ROLES": {
     "ADMIN": "admin",
     "HOTEL_OWNER": "hotel_owner",
