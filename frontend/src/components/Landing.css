@@ -242,7 +242,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   grid-template-columns: 1.4fr 1fr;
   align-items: start;
   gap: 4vw;
-  padding: 14svh 0 4svh;
+  padding: 9svh 0 4svh;
 }
 @media (max-width: 1000px) {
   .landing-root .hero-top { grid-template-columns: 1fr; gap: 4svh; padding: 2svh 0; }
