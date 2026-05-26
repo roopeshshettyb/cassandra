@@ -67,7 +67,7 @@ export default function Landing({ openLoginPopup }) {
 
   const heroVideoSrc = constants.LANDING_HERO_VIDEO.startsWith('http')
     ? constants.LANDING_HERO_VIDEO
-    : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}?v=2`;
+    : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}?v=3`;
 
   const setMenu = (next) => {
     setMenuOpen(next);
