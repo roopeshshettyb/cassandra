@@ -273,6 +273,8 @@ export class ConstantsService {
       LOGO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
       PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
       HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+      CALENDLY_DEMO_URL: 'https://calendly.com/roopesh-flashpact/samantha-demo',
+      LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
 
       ACCOUNT_ROLES,
       PERMISSIONS,
