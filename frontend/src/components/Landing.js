@@ -67,7 +67,7 @@ export default function Landing({ openLoginPopup }) {
 
   const heroVideoSrc = constants.LANDING_HERO_VIDEO.startsWith('http')
     ? constants.LANDING_HERO_VIDEO
-    : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}?v=3`;
+    : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}`;
 
   const setMenu = (next) => {
     setMenuOpen(next);
@@ -257,7 +257,7 @@ export default function Landing({ openLoginPopup }) {
           className="hero-video"
           src={heroVideoSrc}
           type="video/mp4"
-          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'hero.png'}`}
+          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
           autoPlay
           loop
           muted
