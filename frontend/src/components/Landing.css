@@ -215,13 +215,12 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .hero .l-container { padding-top: 11svh; }
 .landing-root .hero-video {
   position: absolute;
-  top: 50%; left: 50%;
-  width: 100vw; height: 100%;
-  max-width: none;
-  transform: translate(-50%, -50%) scale(1.25);
-  transform-origin: center center;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  object-position: center center;
+  /* Slightly wide crop — shows more of the scene vs. tight center zoom */
+  object-position: center 42%;
   background: #060914;
   z-index: 0;
   pointer-events: none;
