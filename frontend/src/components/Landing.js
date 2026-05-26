@@ -247,7 +247,18 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </div>
 
-      <section className="hero" id="top" style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}>
+      <section className="hero" id="top">
+        <video
+          className="hero-video"
+          src={`${process.env.PUBLIC_URL || ''}/landingpage-hero.mp4`}
+          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        />
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">

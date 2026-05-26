@@ -207,13 +207,19 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   position: relative;
   min-height: 100svh;
   background-color: #060914;
-  background-size: cover;
-  background-position: center right;
-  background-repeat: no-repeat;
   overflow: hidden;
   color: #fff;
   display: flex; flex-direction: column;
   padding: 11svh 0 0;
+}
+.landing-root .hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center right;
+  z-index: 0;
+  pointer-events: none;
 }
 .landing-root .hero::before {
   content: ''; position: absolute; inset: 0;
