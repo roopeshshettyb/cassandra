@@ -64,29 +64,30 @@ export default function Landing({ openLoginPopup }) {
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 720px)');
-    const handler = (e) => setIsMobile(e.matches);
-    mq.addEventListener ? mq.addEventListener('change', handler) : mq.addListener(handler);
-    return () => {
-      mq.removeEventListener ? mq.removeEventListener('change', handler) : mq.removeListener(handler);
-    };
-  }, []);
+  const setMenu = (next) => {
+    setMenuOpen(next);
+    document.body.style.overflow = next ? 'hidden' : '';
+  };
+
+  const openCalendly = (e) => {
+    e?.preventDefault?.();
+    setMenu(false);
+    if (window.Calendly?.initPopupWidget) {
+      window.Calendly.initPopupWidget({ url: 'https://calendly.com/roopesh-flashpact/samantha-demo' });
+    } else {
+      window.open('https://calendly.com/roopesh-flashpact/samantha-demo', '_blank', 'noopener');
+    }
+  };
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, [menuOpen]);
-
-  useEffect(() => {
+    const root = rootRef.current;
     document.body.classList.add('landing-active');
-    return () => document.body.classList.remove('landing-active');
-  }, []);
+    root?.classList.add('has-js');
 
-  // Load Calendly widget assets once
-  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const mqHandler = (e) => setIsMobile(e.matches);
+    mq.addEventListener ? mq.addEventListener('change', mqHandler) : mq.addListener(mqHandler);
+
     if (!document.getElementById('calendly-css')) {
       const link = document.createElement('link');
       link.id = 'calendly-css';
@@ -101,80 +102,39 @@ export default function Landing({ openLoginPopup }) {
       script.async = true;
       document.body.appendChild(script);
     }
-  }, []);
 
-  const openCalendly = (e) => {
-    e?.preventDefault?.();
-    setMenuOpen(false);
-    if (window.Calendly?.initPopupWidget) {
-      window.Calendly.initPopupWidget({ url: 'https://calendly.com/roopesh-flashpact/samantha-demo' });
-    } else {
-      window.open('https://calendly.com/roopesh-flashpact/samantha-demo', '_blank', 'noopener');
+    const track = trackRef.current;
+    let marqueeOriginalCount = 0;
+    if (track) {
+      marqueeOriginalCount = track.children.length;
+      [...track.children].forEach((c) => track.appendChild(c.cloneNode(true)));
     }
-  };
 
-  // hero phrase rotation — synchronized word-slot handoff per original design
-  useEffect(() => {
     const WORD_ANIM = 950;
     const STRIDE = 120;
     const NUM_WORDS = 5;
     const HOLD = 4500;
     const TOTAL_EXIT = (NUM_WORDS - 1) * STRIDE + WORD_ANIM + 50;
-    const activeRef = { current: 0 };
-    const timeouts = [];
-
-    const tick = () => {
-      const cur = activeRef.current;
+    const phraseRef = { current: 0 };
+    const phraseTimeouts = [];
+    const phraseId = setInterval(() => {
+      const cur = phraseRef.current;
       const nxt = (cur + 1) % HERO_PHRASES.length;
-      // Step 1: cur drops active, picks up exiting (mutually exclusive states)
       setActivePhrase(-1);
       setExitingPhrase(cur);
-      // Step 2: after first word of cur finishes exiting, activate nxt — same word-slot enters
-      timeouts.push(setTimeout(() => {
-        setActivePhrase(nxt);
-        activeRef.current = nxt;
-      }, WORD_ANIM));
-      // Step 3: after last exit completes, clear exiting
-      timeouts.push(setTimeout(() => {
-        setExitingPhrase(null);
-      }, TOTAL_EXIT));
-    };
-
-    const id = setInterval(tick, HOLD);
-    return () => {
-      clearInterval(id);
-      timeouts.forEach((t) => clearTimeout(t));
-    };
-  }, []);
-
-  // marquee duplicate for seamless loop
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    const original = [...track.children];
-    original.forEach((c) => track.appendChild(c.cloneNode(true)));
-    return () => {
-      while (track.children.length > original.length) {
-        track.removeChild(track.lastChild);
-      }
-    };
-  }, []);
-
-  // sticky nav + reveal + statement word animation
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    root.classList.add('has-js');
+      phraseTimeouts.push(setTimeout(() => { setActivePhrase(nxt); phraseRef.current = nxt; }, WORD_ANIM));
+      phraseTimeouts.push(setTimeout(() => setExitingPhrase(null), TOTAL_EXIT));
+    }, HOLD);
 
     const onScroll = () => {
       const nav = navRef.current;
-      if (!nav) return;
-      nav.classList.toggle('scrolled', window.scrollY > 12);
+      if (nav) nav.classList.toggle('scrolled', window.scrollY > 12);
     };
     document.addEventListener('scroll', onScroll, { passive: true });
 
     // statement word cascade
     const stmt = statementRef.current;
+    let stmtIo;
     if (stmt) {
       const wordStride = 0.09;
       const letterStride = 0.06;
@@ -199,49 +159,41 @@ export default function Landing({ openLoginPopup }) {
           wIdx += 1;
         }
       });
-      const stmtIo = new IntersectionObserver(
-        (es) => {
-          es.forEach((e) => {
-            if (e.isIntersecting) {
-              stmt.classList.add('in');
-              stmtIo.disconnect();
-            }
-          });
-        },
-        { threshold: 0.25 },
-      );
+      stmtIo = new IntersectionObserver((es) => {
+        es.forEach((e) => { if (e.isIntersecting) { stmt.classList.add('in'); stmtIo.disconnect(); } });
+      }, { threshold: 0.25 });
       stmtIo.observe(stmt);
     }
 
-    // generic reveal
-    const reveals = root.querySelectorAll('.reveal');
-    let io;
+    let revealIo;
+    let revealFailsafe;
+    const reveals = root ? root.querySelectorAll('.reveal') : [];
     if ('IntersectionObserver' in window) {
-      io = new IntersectionObserver(
-        (es) => {
-          es.forEach((e) => {
-            if (e.isIntersecting) {
-              e.target.classList.add('in');
-              io.unobserve(e.target);
-            }
-          });
-        },
-        { threshold: 0.08, rootMargin: '0px 0px -40px 0px' },
-      );
+      revealIo = new IntersectionObserver((es) => {
+        es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); revealIo.unobserve(e.target); } });
+      }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
       reveals.forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.top < window.innerHeight) el.classList.add('in');
-        else io.observe(el);
+        else revealIo.observe(el);
       });
-      const failsafe = setTimeout(() => reveals.forEach((el) => el.classList.add('in')), 2000);
-      return () => {
-        clearTimeout(failsafe);
-        document.removeEventListener('scroll', onScroll);
-        io.disconnect();
-      };
+      revealFailsafe = setTimeout(() => reveals.forEach((el) => el.classList.add('in')), 2000);
+    } else {
+      reveals.forEach((el) => el.classList.add('in'));
     }
-    reveals.forEach((el) => el.classList.add('in'));
-    return () => document.removeEventListener('scroll', onScroll);
+
+    return () => {
+      document.body.classList.remove('landing-active');
+      document.body.style.overflow = '';
+      mq.removeEventListener ? mq.removeEventListener('change', mqHandler) : mq.removeListener(mqHandler);
+      document.removeEventListener('scroll', onScroll);
+      if (track) while (track.children.length > marqueeOriginalCount) track.removeChild(track.lastChild);
+      revealIo?.disconnect();
+      stmtIo?.disconnect();
+      clearTimeout(revealFailsafe);
+      clearInterval(phraseId);
+      phraseTimeouts.forEach((t) => clearTimeout(t));
+    };
   }, []);
 
   const handleSignIn = (e) => {
@@ -257,7 +209,7 @@ export default function Landing({ openLoginPopup }) {
     <div className="landing-root" ref={rootRef}>
       <nav className={`l-top${menuOpen ? ' menu-open' : ''}`} ref={navRef}>
         <div className="nav-inner">
-          <a className="brand" href="#top" onClick={() => setMenuOpen(false)}>
+          <a className="brand" href="#top" onClick={() => setMenu(false)}>
             <span className="mark">S</span>
             <span className="name">Samantha</span>
           </a>
@@ -274,7 +226,7 @@ export default function Landing({ openLoginPopup }) {
               className="hamburger"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
+              onClick={() => setMenu(!menuOpen)}
             >
               <span /><span /><span />
             </button>
@@ -284,18 +236,29 @@ export default function Landing({ openLoginPopup }) {
 
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
         <div className="mobile-menu-inner">
-          <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
-          <a href="#how" onClick={() => setMenuOpen(false)}>How it works</a>
-          <a href="#videoSection" onClick={() => setMenuOpen(false)}>Watch demo</a>
-          {/* <a href="#customers" onClick={() => setMenuOpen(false)}>Customers</a> */}
+          <a href="#features" onClick={() => setMenu(false)}>Features</a>
+          <a href="#how" onClick={() => setMenu(false)}>How it works</a>
+          <a href="#videoSection" onClick={() => setMenu(false)}>Watch demo</a>
+          {/* <a href="#customers" onClick={() => setMenu(false)}>Customers</a> */}
           <div className="mobile-menu-cta">
-            <a className="l-btn l-btn-ghost" href="#signin" onClick={(e) => { handleSignIn(e); setMenuOpen(false); }}>Sign in</a>
+            <a className="l-btn l-btn-ghost" href="#signin" onClick={(e) => { handleSignIn(e); setMenu(false); }}>Sign in</a>
             <a className="l-btn l-btn-primary" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
           </div>
         </div>
       </div>
 
-      <section className="hero" id="top" style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}>
+      <section className="hero" id="top">
+        <video
+          className="hero-video"
+          src={`${process.env.PUBLIC_URL || ''}/landingpage-hero.mp4`}
+          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        />
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">
@@ -581,7 +544,6 @@ export default function Landing({ openLoginPopup }) {
           <p>Twenty minutes is enough to know whether Samantha belongs on your line.</p>
           <div className="ctas">
             <a className="l-btn l-btn-primary" href="#book" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
-            <a className="l-btn l-btn-outline" href="#call">Or call her now: +44 20 4538 1188</a>
           </div>
         </div>
       </section>
