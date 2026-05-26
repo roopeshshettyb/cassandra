@@ -1,4 +1,4 @@
-import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
 import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
 import { Hotel } from './hotels.model';
 import { HotelBrand } from './brands.model';
@@ -13,8 +13,10 @@ import { ConstantsService, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB 
 import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
+import { BookingsService } from '../bookings/bookings.service';
 import { MenuItem } from '../restaurant/restaurant.model';
-import { Request } from '../requests/requests.model';
+import { Cost } from '../costs/costs.model';
+import { Notification } from '../notifications/notifications.model';
 import { Op, literal } from 'sequelize';
 
 @Injectable()
@@ -23,6 +25,7 @@ export class HotelsService {
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
+    @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
     private readonly accountsService: AccountsService,
     private readonly authService: AuthService,
     private readonly mailerService: MailerService,
@@ -82,8 +85,8 @@ export class HotelsService {
       order: [[orderField, sortOrder]],
       attributes: {
         include: [
-          [literal(`(SELECT COUNT(*) FROM requests WHERE requests.hotel_id = "Hotel"."id" AND requests.status NOT IN ('completed', 'cancelled'))`), 'openRequestsCount'],
-          [literal(`(SELECT COUNT(*) FROM bookings WHERE bookings.hotel_id = "Hotel"."id" AND bookings.start_time <= NOW() AND bookings.end_time >= NOW())`), 'activeGuestsCount'],
+          [literal(`(SELECT COUNT(*) FROM requests WHERE requests.hotel_id = "Hotel"."id" AND requests.deleted_at IS NULL AND requests.status NOT IN ('completed', 'cancelled'))`), 'openRequestsCount'],
+          [literal(`(SELECT COUNT(*) FROM bookings WHERE bookings.hotel_id = "Hotel"."id" AND bookings.deleted_at IS NULL AND bookings.start_time <= NOW() AND bookings.end_time >= NOW())`), 'activeGuestsCount'],
         ],
       },
     };
@@ -142,7 +145,7 @@ export class HotelsService {
     return hotel;
   }
 
-  async deleteHotel(id: number, currentAccount: Account): Promise<void> {
+  async deleteHotel(id: number, currentAccount: Account, force = false): Promise<void> {
     if (currentAccount.role !== AccountRole.ADMIN) {
       throw new ForbiddenException();
     }
@@ -150,11 +153,25 @@ export class HotelsService {
     if (!hotel) {
       throw new NotFoundException();
     }
-    await Request.destroy({ where: { hotelId: id } });
-    await this.bookingsRepository.destroy({ where: { hotelId: id } });
-    await this.hotelAccountsRepository.destroy({ where: { hotelId: id } });
-    await MenuItem.destroy({ where: { hotelId: id } });
-    await this.hotelsRepository.destroy({ where: { id } });
+    const sequelize = this.hotelsRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+
+    const transaction = await sequelize.transaction();
+    try {
+      await this.bookingsService.deleteBooking({ hotelId: id }, transaction, force);
+
+      await Notification.destroy({ where: { hotelId: id }, force, transaction });
+      await Cost.destroy({ where: { hotelId: id }, force, transaction });
+      await this.hotelAccountsRepository.destroy({ where: { hotelId: id }, force, transaction });
+      await MenuItem.destroy({ where: { hotelId: id }, force, transaction });
+      await this.hotelsRepository.destroy({ where: { id }, force, transaction });
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 
   async updateHotel(id: number, updateHotelDto: UpdateHotelDto, currentAccount: Account): Promise<Hotel> {

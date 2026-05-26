@@ -79,14 +79,14 @@ export class RestaurantService {
     return { success: true, message: 'Menu item updated', data: updatedItems[0] };
   }
 
-  async delete(id: number, currentAccount: Account) {
+  async delete(id: number, currentAccount: Account, force = false) {
     await this.ensureCanAccessMenuItem(id, currentAccount);
 
     if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
       throw new ForbiddenException();
     }
 
-    await this.restaurantRepository.destroy({ where: { id } });
+    await this.restaurantRepository.destroy({ where: { id }, force });
     return { success: true, message: 'Menu item deleted', data: null };
   }
 
@@ -118,6 +118,7 @@ export class RestaurantService {
     let sql = `
       SELECT * FROM menu_items
       WHERE hotel_id = :hotelId
+        AND deleted_at IS NULL
         AND is_available = true
         AND (available_start_time IS NULL OR available_start_time <= :currentTime)
         AND (available_end_time IS NULL OR available_end_time >= :currentTime)
