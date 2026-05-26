@@ -23,13 +23,15 @@ export class AwsService {
       requestChecksumCalculation: 'WHEN_REQUIRED',
     });
 
-    // Configure CORS for browser uploads
-    this.setupCorsForBucket(privateConstants.AWS_S3_PUBLIC_BUCKET_NAME).catch((err) =>
-      console.warn('⚠️  Failed to setup CORS on public bucket:', err.message),
-    );
-    this.setupCorsForBucket(privateConstants.AWS_S3_BUCKET_NAME).catch((err) =>
-      console.warn('⚠️  Failed to setup CORS on private bucket:', err.message),
-    );
+    // Skip CORS setup in test envs to avoid noisy logs/open handles during suite bootstrap.
+    if (privateConstants.NODE_ENV !== privateConstants.NODE_ENV_AUTOMATION_TEST) {
+      this.setupCorsForBucket(privateConstants.AWS_S3_PUBLIC_BUCKET_NAME).catch((err) =>
+        console.warn('⚠️  Failed to setup CORS on public bucket:', err.message),
+      );
+      this.setupCorsForBucket(privateConstants.AWS_S3_BUCKET_NAME).catch((err) =>
+        console.warn('⚠️  Failed to setup CORS on private bucket:', err.message),
+      );
+    }
   }
 
   private async setupCorsForBucket(bucketName: string): Promise<void> {

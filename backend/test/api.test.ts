@@ -18,6 +18,8 @@ import { ConfigModule } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import * as nodeHttp from 'http';
+import * as nodeHttps from 'https';
 
 import { OAuthModule } from '../src/oauth/oauth.module';
 import { BookingsModule } from '../src/bookings/bookings.module';
@@ -179,6 +181,8 @@ afterAll(async () => {
   await accountsService.delete({ email: EMAILS.guest }, true).catch(() => {});
 
   await moduleRef.close();
+  nodeHttp.globalAgent.destroy();
+  nodeHttps.globalAgent.destroy();
 }, 30000);
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
