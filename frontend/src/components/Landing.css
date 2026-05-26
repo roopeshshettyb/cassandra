@@ -852,21 +852,65 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   .landing-root .logobar { padding: 6svh 0; }
 }
 
-/* MOBILE (≤720px) */
+/* MOBILE (≤720px) — redesigned hero: card dropped, content stacked over video */
 @media (max-width: 720px) {
   .landing-root nav.l-top { top: 1svh; padding: 0 3vw; }
   .landing-root nav.l-top .nav-inner { padding: 8px 8px 8px 14px; gap: 8px; }
   .landing-root .nav-actions .l-btn { padding: 7px 12px; font-size: 12px; }
   .landing-root .brand .name { font-size: 14px; }
 
-  .landing-root .hero { padding-top: 10svh; min-height: auto; }
-  .landing-root .hero-top { padding: 4svh 0 3svh; gap: 4svh; }
-  .landing-root .hero-block { max-width: 100%; padding: 22px 22px 20px; border-radius: 14px; }
-  .landing-root .hero-block h2 { font-size: clamp(24px, 7vw, 32px); }
-  .landing-root .hero-block p { font-size: 14px; }
-  .landing-root .hero h1 { min-height: auto; }
+  .landing-root .hero { min-height: 100svh; }
+  .landing-root .hero .l-container { padding-top: 12svh; padding-bottom: 5svh; }
+  .landing-root .hero::before {
+    background: linear-gradient(180deg, rgba(6,9,20,0.45) 0%, rgba(6,9,20,0.20) 35%, rgba(6,9,20,0.70) 100%);
+  }
+  .landing-root .hero-top {
+    grid-template-columns: 1fr;
+    padding: 0;
+    gap: 3svh;
+    text-align: left;
+  }
+  .landing-root .hero-headline { order: 1; }
+  .landing-root .hero h1 {
+    min-height: auto;
+    max-width: 100%;
+    font-size: clamp(34px, 10vw, 48px);
+    letter-spacing: -0.025em;
+  }
   .landing-root .hero h1 .phrase { position: relative; }
   .landing-root .hero h1 .phrase:not(.active) { display: none; }
+
+  /* Convert .hero-block into inline content — no card chrome on mobile */
+  .landing-root .hero-block {
+    order: 2;
+    background: none;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    padding: 0;
+    max-width: 100%;
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .landing-root .hero-block .eyebrow {
+    margin-bottom: 16px;
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.18);
+  }
+  .landing-root .hero-block h2 {
+    display: none;
+  }
+  .landing-root .hero-block p {
+    font-size: 15px;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.82);
+    margin-bottom: 24px;
+    max-width: 30ch;
+  }
+  .landing-root .hero-block .ctas { gap: 8px; }
+  .landing-root .hero-block .ctas .l-btn { flex: 1; justify-content: center; padding: 13px 16px; }
 
   .landing-root .hero-marquee { padding: 4svh 0 5svh; }
   .landing-root .hero-marquee .track { gap: 9vw; }
