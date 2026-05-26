@@ -252,7 +252,6 @@ export default function Landing({ openLoginPopup }) {
       <nav className={`l-top${menuOpen ? ' menu-open' : ''}`} ref={navRef}>
         <div className="nav-inner">
           <a className="brand" href="#top" onClick={() => setMenu(false)}>
-            <span className="mark">S</span>
             <span className="name">Samantha</span>
           </a>
           <div className="links">
@@ -414,7 +413,7 @@ export default function Landing({ openLoginPopup }) {
         >
           {playing ? (
             <iframe
-              src={`https://www.youtube.com/embed/${constants.LANDING_DEMO_YOUTUBE_ID}?autoplay=1&rel=0&modestbranding=1`}
+              src={`https://www.youtube.com/embed/${constants.LANDING_DEMO_YOUTUBE_ID}?autoplay=1&rel=0&modestbranding=1&vq=hd1080&hd=1`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               title="Samantha product demo"
@@ -568,13 +567,12 @@ export default function Landing({ openLoginPopup }) {
         <div className="l-container">
           <div className="row">
             <a className="brand" href="#top">
-              <span className="mark">S</span>
               <span className="name">Samantha</span>
             </a>
             <div className="links-foot">
               <a href="#features">Features</a>
               <a href="#how">How it works</a>
-              <a href="#contact">Contact</a>
+              <a href="/contact">Contact</a>
               <a href="/privacy-policy">Privacy</a>
               <a href="/terms-conditions">Terms</a>
             </div>

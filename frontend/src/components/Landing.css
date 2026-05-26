@@ -643,7 +643,8 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   box-shadow: 0 0 0 4px rgba(212,175,55,0.18);
 }
 
-.landing-root section { padding: 64px 0; position: relative; }
+.landing-root section { padding: 64px 0; position: relative; scroll-margin-top: 11svh; }
+.landing-root #videoSection { scroll-margin-top: 11svh; }
 
 /* 2-COL SPLIT */
 .landing-root .split {
@@ -847,6 +848,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 20px;
 }
+.landing-root footer.l-footer .brand .name { color: var(--l-navy); }
 .landing-root footer.l-footer .legal { font-size: 13px; color: var(--l-muted); }
 .landing-root footer.l-footer .links-foot { display: flex; gap: 24px; }
 .landing-root footer.l-footer .links-foot a { font-size: 13px; color: var(--l-ink-2); transition: color .2s; }

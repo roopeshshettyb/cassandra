@@ -218,7 +218,7 @@ const AppContent = () => {
         }
       }
     };
-    fetchAccount();
+    fetchAccount().finally(() => setLoading(false));
   }, []);
 
   // BRAND_GRADIENT / NAVY / NAVY_GRADIENT constants update automatically.
@@ -556,10 +556,8 @@ const AppContent = () => {
               )}
             </>
           )}
-          {loading && <Loader isMobile={isMobile} />}
-          <Grid style={{ padding: '10px' }}>
-            <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
-          </Grid>
+          {loading && !showLandingChrome && <Loader isMobile={isMobile} />}
+          <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
           {!isLandingPage && !isFullScreenMobile && !isRequestDetail && !isChatRoute && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
