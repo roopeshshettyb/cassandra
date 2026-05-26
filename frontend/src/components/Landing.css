@@ -870,15 +870,20 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
     gap: 3svh;
     text-align: left;
   }
-  .landing-root .hero-headline { order: 1; }
+  .landing-root .hero-headline { order: 1; position: relative; }
+  /* Stable container — phrases stack absolutely so swapping doesn't reflow */
   .landing-root .hero h1 {
-    min-height: auto;
     max-width: 100%;
     font-size: clamp(34px, 10vw, 48px);
     letter-spacing: -0.025em;
+    /* Reserve height for tallest possible 3-line phrase at this font size */
+    min-height: calc(3.4em);
   }
-  .landing-root .hero h1 .phrase { position: relative; }
-  .landing-root .hero h1 .phrase:not(.active) { display: none; }
+  .landing-root .hero h1 .phrase {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+  }
 
   /* Convert .hero-block into inline content — no card chrome on mobile */
   .landing-root .hero-block {
