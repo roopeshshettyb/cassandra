@@ -210,18 +210,17 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   overflow: hidden;
   color: #fff;
   display: flex; flex-direction: column;
-  padding: 11svh 0 0;
 }
+.landing-root .hero .l-container { padding-top: 11svh; }
 .landing-root .hero-video {
   position: absolute;
   inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   object-position: center center;
+  background: #060914;
   z-index: 0;
   pointer-events: none;
-  transform: scale(1.08);
-  transform-origin: center center;
 }
 .landing-root .hero::before {
   content: ''; position: absolute; inset: 0;
