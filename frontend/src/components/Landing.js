@@ -99,6 +99,7 @@ export default function Landing({ openLoginPopup }) {
   const statementRef = useRef(null);
   const trackRef = useRef(null);
   const [playing, setPlaying] = useState(false);
+  const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [activePhrase, setActivePhrase] = useState(0);
   const [exitingPhrase, setExitingPhrase] = useState(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
@@ -129,6 +130,16 @@ export default function Landing({ openLoginPopup }) {
     const mq = window.matchMedia('(max-width: 720px)');
     const mqHandler = (e) => setIsMobile(e.matches);
     mq.addEventListener ? mq.addEventListener('change', mqHandler) : mq.addListener(mqHandler);
+
+    if (!document.getElementById('hero-video-preload')) {
+      const preload = document.createElement('link');
+      preload.id = 'hero-video-preload';
+      preload.rel = 'preload';
+      preload.as = 'video';
+      preload.type = 'video/mp4';
+      preload.href = heroVideoSrc;
+      document.head.appendChild(preload);
+    }
 
     if (!document.getElementById('calendly-css')) {
       const link = document.createElement('link');
@@ -288,18 +299,22 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </div>
 
-      <section className="hero" id="top">
+      <section
+        className="hero"
+        id="top"
+        style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}
+      >
         <video
-          className="hero-video"
+          className={`hero-video${heroVideoReady ? ' ready' : ''}`}
           src={heroVideoSrc}
           type="video/mp4"
-          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
           autoPlay
           loop
           muted
           playsInline
           preload="auto"
           aria-hidden="true"
+          onPlaying={() => setHeroVideoReady(true)}
         />
         <div className="l-container">
           <div className="hero-top">
@@ -322,7 +337,7 @@ export default function Landing({ openLoginPopup }) {
               <p>Samantha picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your house, every hour of the night.</p>
               <div className="ctas">
                 <a className="l-btn l-btn-white" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
-                <a className="l-btn l-btn-glass" href="#voice">Hear her speak</a>
+                <a className="l-btn l-btn-glass" href="#videoSection">Hear her speak</a>
               </div>
             </div>
           </div>
