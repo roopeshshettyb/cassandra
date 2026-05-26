@@ -29,8 +29,25 @@
   min-height: 100dvh;
 }
 body.landing-active { overflow-x: hidden; }
+html:has(body.landing-active), body.landing-active { scroll-behavior: smooth; }
 body.landing-active { scrollbar-width: none; -ms-overflow-style: none; }
 body.landing-active::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Calendly popup overrides — ensure dark backdrop + visible scrollbar inside iframe */
+body .calendly-overlay {
+  background: rgba(14, 19, 37, 0.72) !important;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+body .calendly-overlay .calendly-popup,
+body .calendly-overlay .calendly-popup-content {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+body .calendly-overlay .calendly-popup ::-webkit-scrollbar,
+body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
+  width: 8px; height: 8px; display: block;
+}
 
 .landing-root * { box-sizing: border-box; margin: 0; padding: 0; }
 .landing-root h1, .landing-root h2, .landing-root h3, .landing-root p, .landing-root blockquote, .landing-root figure { margin: 0; padding: 0; }

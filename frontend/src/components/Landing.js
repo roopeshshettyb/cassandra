@@ -533,7 +533,6 @@ export default function Landing({ openLoginPopup }) {
           <p>Twenty minutes is enough to know whether Samantha belongs on your line.</p>
           <div className="ctas">
             <a className="l-btn l-btn-primary" href="#book" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
-            <a className="l-btn l-btn-outline" href="#call">Or call her now: +44 20 4538 1188</a>
           </div>
         </div>
       </section>
