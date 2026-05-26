@@ -4,7 +4,7 @@ import './Landing.css';
 const HERO_PHRASES = [
   { lines: [['Every', 'guest,'], ['answered.']], em: [['Every', 'time.']] },
   { lines: [['Every', 'booking,'], ['taken.']], em: [['Every', 'night.']] },
-  { lines: [['Every', 'language,'], ['spoken.']], em: [['Every', 'house.']] },
+  { lines: [['Every', 'language,'], ['spoken.']], em: [['Every', 'where.']] },
 ];
 
 const STATEMENT_PARTS = [
