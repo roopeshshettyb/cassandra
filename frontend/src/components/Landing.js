@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import './Landing.css';
+import heroVideo from '../assets/landingpage-hero.mp4';
 
 const HERO_PHRASES = [
   { lines: [['Every', 'guest,'], ['answered.']], em: [['Every', 'time.']] },
@@ -250,7 +251,7 @@ export default function Landing({ openLoginPopup }) {
       <section className="hero" id="top">
         <video
           className="hero-video"
-          src={`${process.env.PUBLIC_URL || ''}/landingpage-hero.mp4`}
+          src={heroVideo}
           poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
           autoPlay
           loop
