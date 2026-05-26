@@ -56,7 +56,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root button { font: inherit; cursor: pointer; background: none; border: none; color: inherit; }
 .landing-root img, .landing-root video, .landing-root iframe { display: block; max-width: 100%; }
 
-.landing-root .l-container { max-width: 1160px; margin: 0 auto; padding: 0 2.5vw; position: relative; }
+.landing-root .l-container { max-width: 1160px; margin: 2.5vw; padding: 0 2.5vw; position: relative; }
 .landing-root .l-container.narrow { max-width: 900px; }
 @media (max-width: 720px) { .landing-root .l-container { padding: 0 5vw; } }
 
@@ -256,7 +256,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   letter-spacing: -0.03em;
   font-weight: 700;
   color: #fff;
-  max-width: 14ch;
+  max-width: 16ch;
   position: relative;
   min-height: 3.6em;
 }

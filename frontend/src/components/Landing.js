@@ -6,7 +6,7 @@ import MapComponent from './MapComponent';
 const HERO_PHRASES = [
   { lines: [['Every', 'guest,'], ['answered.']], em: [['Every', 'time.']] },
   { lines: [['Every', 'booking,'], ['taken.']], em: [['Every', 'night.']] },
-  { lines: [['Every', 'language,'], ['spoken.']], em: [['Every', 'house.']] },
+  { lines: [['Every', 'language,'], ['spoken.']], em: [['Every', 'room.']] },
 ];
 
 const STATEMENT_PARTS = [
@@ -45,7 +45,7 @@ const FEATURES = [
 
 const STEPS = [
   { num: 'i.',   delay: '',   title: 'Connect', body: 'Plug into your PMS, telephony, and channel manager in a single afternoon. We support Opera, Mews, Cloudbeds, SiteMinder, Twilio, and more.' },
-  { num: 'ii.',  delay: 'd1', title: 'Tune',    body: "Choose a voice and tone. Add house policies, signature phrases, and the wines you'd like recommended. Test on a private number first." },
+  { num: 'ii.',  delay: 'd1', title: 'Tune',    body: "Choose a voice and tone. Add hotel policies, signature phrases, and the wines you'd like recommended. Test on a private number first." },
   { num: 'iii.', delay: 'd2', title: 'Go live', body: 'Switch your forwarding rule. Samantha picks up overflow first, then full coverage at the pace you choose. Full audit and rollback any time.' },
 ];
 
@@ -101,10 +101,10 @@ export default function Landing({ openLoginPopup }) {
   const [playing, setPlaying] = useState(false);
   const [activePhrase, setActivePhrase] = useState(0);
   const [exitingPhrase, setExitingPhrase] = useState(null);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const heroVideoSrc = `${process.env.PUBLIC_URL || ''}/landingpage-hero.mp4`;
+  const heroPosterSrc = `${process.env.PUBLIC_URL || ''}/landingpage-hero-poster.png`;
 
   const setMenu = (next) => {
     setMenuOpen(next);
@@ -125,10 +125,6 @@ export default function Landing({ openLoginPopup }) {
     const root = rootRef.current;
     document.body.classList.add('landing-active');
     root?.classList.add('has-js');
-
-    const mq = window.matchMedia('(max-width: 720px)');
-    const mqHandler = (e) => setIsMobile(e.matches);
-    mq.addEventListener ? mq.addEventListener('change', mqHandler) : mq.addListener(mqHandler);
 
     if (!document.getElementById('calendly-css')) {
       const link = document.createElement('link');
@@ -227,7 +223,6 @@ export default function Landing({ openLoginPopup }) {
     return () => {
       document.body.classList.remove('landing-active');
       document.body.style.overflow = '';
-      mq.removeEventListener ? mq.removeEventListener('change', mqHandler) : mq.removeListener(mqHandler);
       document.removeEventListener('scroll', onScroll);
       if (track) while (track.children.length > marqueeOriginalCount) track.removeChild(track.lastChild);
       revealIo?.disconnect();
@@ -293,7 +288,7 @@ export default function Landing({ openLoginPopup }) {
           className="hero-video"
           src={heroVideoSrc}
           type="video/mp4"
-          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
+          poster={heroPosterSrc}
           autoPlay
           loop
           muted
@@ -319,10 +314,10 @@ export default function Landing({ openLoginPopup }) {
             <div className="hero-block">
               <div className="eyebrow"><strong>New</strong> Samantha 2.0 for hotels</div>
               <h2>The voice AI built for <em>hospitality.</em></h2>
-              <p>Samantha picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your house, every hour of the night.</p>
+              <p>Samantha picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your hotel, every hour of the night.</p>
               <div className="ctas">
                 <a className="l-btn l-btn-white" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
-                <a className="l-btn l-btn-glass" href="#voice">Hear her speak</a>
+                <a className="l-btn l-btn-glass" href="#videoSection">Hear her speak</a>
               </div>
             </div>
           </div>
@@ -414,8 +409,8 @@ export default function Landing({ openLoginPopup }) {
           ) : (
             <div className="poster">
               <span className="badge"><span className="live-dot"></span>Product walkthrough</span>
-              <div className="label">Two minutes</div>
-              <div className="title">See the staff dashboard <em>in action.</em></div>
+              <div className="label">One minute</div>
+              <div className="title">See Samantha <em>in action.</em></div>
               <button className="play-btn" aria-label="Play product video">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l16 9-16 9V3z"/></svg>
               </button>
@@ -475,7 +470,7 @@ export default function Landing({ openLoginPopup }) {
             <div className="split-head">
               <div className="eb">What she does</div>
               <h2>One agent, every <em>channel.</em></h2>
-              <p>Train Samantha once on your house, your rates, your rooms, your manners, then put her on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
+              <p>Train Samantha once on your hotel, your rates, your rooms, your manners, then put her on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
             </div>
             <div className="split-body">
               <MapComponent Component={FeatureCard} data={FEATURES} showNoDataAvailable={false} />
@@ -512,7 +507,7 @@ export default function Landing({ openLoginPopup }) {
             <div className="split-head">
               <div className="eb">How it works</div>
               <h2>Live in <em>hours,</em> not days.</h2>
-              <p>No replatforming, no custom middleware. Samantha reads your existing systems and learns your house&apos;s manners.</p>
+              <p>No replatforming, no custom middleware. Samantha reads your existing systems and learns your hotel&apos;s manners.</p>
             </div>
             <div className="split-body">
               <MapComponent Component={StepCard} data={STEPS} showNoDataAvailable={false} />
