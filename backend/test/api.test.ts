@@ -20,11 +20,16 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 import { OAuthModule } from '../src/oauth/oauth.module';
+import { BookingsModule } from '../src/bookings/bookings.module';
+import { HotelsModule } from '../src/hotels/hotels.module';
+import { RestaurantModule } from '../src/restaurant/restaurant.module';
 import { AccountsService } from '../src/accounts/accounts.service';
+import { BookingsService } from '../src/bookings/bookings.service';
+import { HotelsService } from '../src/hotels/hotels.service';
+import { RestaurantService } from '../src/restaurant/restaurant.service';
 import { EmailService } from '../src/oauth/email/email.service';
 import { ConstantsService } from '../src/common/constants/constants.service';
-import { AccountRole } from '../src/accounts/accounts.model';
-import { Request as ServiceRequest } from '../src/requests/requests.model';
+import { AccountRole, Account } from '../src/accounts/accounts.model';
 
 dotenv.config({ path: path.join(__dirname, '../dev.env') });
 
@@ -52,11 +57,15 @@ const state = {
   testBookingId: 0,
   testRequestId: 0,
   testMenuItemId: 0,
+  adminAccount: null as Account | null,
 };
 
 // ─── Module refs ──────────────────────────────────────────────────────────────
 let moduleRef: TestingModule;
 let accountsService: AccountsService;
+let bookingsService: BookingsService;
+let hotelsService: HotelsService;
+let restaurantService: RestaurantService;
 let emailService: EmailService;
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
@@ -104,10 +113,16 @@ beforeAll(async () => {
     imports: [
       ConfigModule.forRoot({ isGlobal: true, envFilePath: path.join(__dirname, '../dev.env') }),
       OAuthModule,
+      BookingsModule,
+      HotelsModule,
+      RestaurantModule,
     ],
   }).compile();
 
   accountsService = moduleRef.get(AccountsService);
+  bookingsService = moduleRef.get(BookingsService);
+  hotelsService = moduleRef.get(HotelsService);
+  restaurantService = moduleRef.get(RestaurantService);
   emailService    = moduleRef.get(EmailService);
   const constantsService = moduleRef.get(ConstantsService);
   state.BASE_URL = `http://localhost:${constantsService.private.BACKEND_PORT}`;
@@ -120,6 +135,7 @@ beforeAll(async () => {
     accountsService.create({ uuid: `email:${EMAILS.guest}`, email: EMAILS.guest, role: AccountRole.GUEST,       oauthMeta: {} }),
   ]);
   state.adminAccountId = adminAcc.id;
+  state.adminAccount = adminAcc;
   state.ownerAccountId = ownerAcc.id;
   state.staffAccountId = staffAcc.id;
   state.guestAccountId = guestAcc.id;
@@ -153,20 +169,14 @@ beforeAll(async () => {
 
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 afterAll(async () => {
-  // Requests are not cascade-deleted with bookings — delete them first
-  if (state.testBookingId) {
-    await ServiceRequest.destroy({ where: { bookingId: state.testBookingId } }).catch(() => {});
+  if (state.testHotelId && state.adminAccount) {
+    await hotelsService.deleteHotel(state.testHotelId, state.adminAccount, true).catch(() => {});
   }
 
-  // Delete test hotel via API (cascades: bookings, hotel_accounts, menu_items)
-  if (state.testHotelId && state.adminToken) {
-    await http.delete(`/hotels/${state.testHotelId}`, state.adminToken).catch(() => {});
-  }
-
-  // Delete all test accounts
-  for (const email of Object.values(EMAILS)) {
-    await accountsService.delete({ email }).catch(() => {});
-  }
+  await accountsService.delete({ email: EMAILS.admin }, true).catch(() => {});
+  await accountsService.delete({ email: EMAILS.owner }, true).catch(() => {});
+  await accountsService.delete({ email: EMAILS.staff }, true).catch(() => {});
+  await accountsService.delete({ email: EMAILS.guest }, true).catch(() => {});
 
   await moduleRef.close();
 }, 30000);
@@ -297,7 +307,7 @@ describe('Hotel Staff Management', () => {
     await http.post(`/hotels/${state.testHotelId}/staff`, { email: extraEmail }, state.ownerToken).catch(() => {});
     const created = await accountsService.findOne({ where: { email: extraEmail } });
     if (created) {
-      await accountsService.delete({ email: extraEmail }).catch(() => {});
+      await accountsService.delete({ email: extraEmail }, true).catch(() => {});
     }
   });
 
@@ -308,7 +318,7 @@ describe('Hotel Staff Management', () => {
     if (tempAcc) {
       const res = await http.delete(`/hotels/${state.testHotelId}/staff/${tempAcc.id}`, state.ownerToken);
       expect(res.status).toBe(200);
-      await accountsService.delete({ email: tempEmail }).catch(() => {});
+      await accountsService.delete({ email: tempEmail }, true).catch(() => {});
     }
   });
 });
@@ -356,8 +366,7 @@ describe('Bookings', () => {
     expect(res.status).toBe(201);
     const extraBookingId = res.data?.id ?? res.data?.data?.id;
     expect(extraBookingId).toBeTruthy();
-    await ServiceRequest.destroy({ where: { bookingId: extraBookingId } }).catch(() => {});
-    await http.delete(`/bookings/${extraBookingId}`, state.adminToken).catch(() => {});
+    await bookingsService.deleteBooking({ id: extraBookingId }, undefined, true).catch(() => {});
   });
 
   it('POST /bookings (guest) → 404 (hotel not accessible to guest)', async () => {
@@ -377,9 +386,10 @@ describe('Bookings', () => {
       state.adminToken,
     );
     const throwawayId = res.data?.id ?? res.data?.data?.id;
-    await ServiceRequest.destroy({ where: { bookingId: throwawayId } }).catch(() => {});
     const delRes = await http.delete(`/bookings/${throwawayId}`, state.adminToken);
     expect(delRes.status).toBe(200);
+    await expectStatus(404, () => http.get(`/bookings/${throwawayId}`, state.adminToken));
+    await bookingsService.deleteBooking({ id: throwawayId }, undefined, true).catch(() => {});
   });
 });
 
@@ -451,7 +461,9 @@ describe('Restaurant', () => {
     );
     expect(res.status).toBe(201);
     const extraItemId = res.data?.data?.id ?? res.data?.id;
-    await http.delete(`/restaurant/menu-items/${extraItemId}`, state.staffToken).catch(() => {});
+    if (state.adminAccount) {
+      await restaurantService.delete(extraItemId, state.adminAccount, true).catch(() => {});
+    }
   });
 
   it('POST /restaurant/menu-items (guest) → 404 (no hotel access)', async () => {
@@ -486,6 +498,7 @@ describe('Restaurant', () => {
   it('DELETE /restaurant/menu-items/:id (hotel_staff) → deletes menu item', async () => {
     const res = await http.delete(`/restaurant/menu-items/${state.testMenuItemId}`, state.staffToken);
     expect(res.status).toBe(200);
+    await expectStatus(404, () => http.get(`/restaurant/menu-items/${state.testMenuItemId}`, state.adminToken));
     state.testMenuItemId = 0;
   });
 });

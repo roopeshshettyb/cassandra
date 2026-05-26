@@ -14,10 +14,11 @@ import { ConstantsService } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Op, literal } from 'sequelize';
+import { Op, literal, Transaction } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
+import { Cost } from '../costs/costs.model';
 import { forwardRef } from '@nestjs/common';
 import { CostsService } from '../costs/costs.service';
 import { randomUUID } from 'crypto';
@@ -28,7 +29,7 @@ export class BookingsService {
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
     private readonly accountsService: AccountsService,
     private readonly authService: AuthService,
-    private readonly hotelsService: HotelsService,
+    @Inject(forwardRef(() => HotelsService)) private readonly hotelsService: HotelsService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
     private readonly awsService: AwsService,
@@ -471,7 +472,93 @@ export class BookingsService {
     return { success: true, message: null, data: plain };
   }
 
-  async deleteForAccount(id: number, currentAccount: Account) {
+  async deleteBooking(where: any, transaction?: Transaction, force = false): Promise<void> {
+    const sequelize = this.bookingsRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+
+    let localTransaction: Transaction | null = null;
+    let effectiveTransaction = transaction;
+    if (!effectiveTransaction) {
+      localTransaction = await sequelize.transaction();
+      effectiveTransaction = localTransaction;
+    }
+
+    try {
+      const bookings = await this.bookingsRepository.findAll({
+        where,
+        attributes: ['id'],
+        paranoid: !force,
+        transaction: effectiveTransaction,
+      });
+
+      const bookingIds: number[] = [];
+      for (let i = 0; i < bookings.length; i++) {
+        bookingIds.push(bookings[i].id);
+      }
+
+      if (bookingIds.length > 0) {
+        await Request.destroy({
+          where: { bookingId: { [Op.in]: bookingIds } },
+          force,
+          transaction: effectiveTransaction,
+        });
+
+        const chats = await Chat.findAll({
+          where: { bookingId: { [Op.in]: bookingIds } },
+          attributes: ['id'],
+          transaction: effectiveTransaction,
+        });
+
+        const chatIds: number[] = [];
+        for (let i = 0; i < chats.length; i++) {
+          chatIds.push(chats[i].id);
+        }
+
+        if (chatIds.length > 0) {
+          await Message.destroy({
+            where: { chatId: { [Op.in]: chatIds } },
+            force,
+            transaction: effectiveTransaction,
+          });
+          await Cost.destroy({
+            where: { chatId: { [Op.in]: chatIds } },
+            force,
+            transaction: effectiveTransaction,
+          });
+          await Chat.destroy({
+            where: { id: { [Op.in]: chatIds } },
+            force,
+            transaction: effectiveTransaction,
+          });
+        }
+
+        await Cost.destroy({
+          where: { bookingId: { [Op.in]: bookingIds } },
+          force,
+          transaction: effectiveTransaction,
+        });
+      }
+
+      await this.bookingsRepository.destroy({
+        where,
+        force,
+        transaction: effectiveTransaction,
+      });
+
+      if (localTransaction) {
+        await localTransaction.commit();
+      }
+    } catch (error) {
+      if (localTransaction) {
+        await localTransaction.rollback();
+      }
+      throw error;
+    }
+  }
+
+  async deleteForAccount(id: number, currentAccount: Account, force = false) {
     const where = await this.getWhereForAccount(currentAccount);
     const findWhere = where ? { ...where, id } : { id };
     const booking = await this.bookingsRepository.findOne({ where: findWhere });
@@ -480,18 +567,7 @@ export class BookingsService {
       throw new NotFoundException();
     }
 
-    // Clean up dependent records that reference this booking to satisfy
-    // database foreign key constraints (e.g. chats_booking_id_fkey, messages_chat_id_fkey).
-    await Request.destroy({ where: { bookingId: id } });
-
-    const chats = await Chat.findAll({ where: { bookingId: id } });
-    if (chats.length > 0) {
-      const chatIds = chats.map((c) => c.id);
-      await Message.destroy({ where: { chatId: { [Op.in]: chatIds } } });
-      await Chat.destroy({ where: { id: { [Op.in]: chatIds } } });
-    }
-
-    await this.bookingsRepository.destroy({ where: { id } });
+    await this.deleteBooking({ id }, undefined, force);
     return { success: true, message: 'Booking deleted', data: null };
   }
 }
