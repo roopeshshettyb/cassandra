@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import './Landing.css';
-import constants from '../constants.json';
 
 const HERO_PHRASES = [
   { lines: [['Every', 'guest,'], ['answered.']], em: [['Every', 'time.']] },
@@ -65,9 +64,7 @@ export default function Landing({ openLoginPopup }) {
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const heroVideoSrc = constants.LANDING_HERO_VIDEO.startsWith('http')
-    ? constants.LANDING_HERO_VIDEO
-    : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}`;
+  const heroVideoSrc = `${process.env.PUBLIC_URL || ''}/landingpage-hero.mp4`;
 
   const setMenu = (next) => {
     setMenuOpen(next);

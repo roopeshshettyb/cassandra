@@ -273,7 +273,6 @@ export class ConstantsService {
       LOGO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
       PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
       HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
-      LANDING_HERO_VIDEO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/landingpage-hero.mp4',
 
       ACCOUNT_ROLES,
       PERMISSIONS,
