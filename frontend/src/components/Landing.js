@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import './Landing.css';
-import heroVideo from '../assets/landingpage-hero.mp4';
+import constants from '../constants.json';
 
 const HERO_PHRASES = [
   { lines: [['Every', 'guest,'], ['answered.']], em: [['Every', 'time.']] },
@@ -251,7 +251,10 @@ export default function Landing({ openLoginPopup }) {
       <section className="hero" id="top">
         <video
           className="hero-video"
-          src={heroVideo}
+          src={constants.LANDING_HERO_VIDEO.startsWith('http')
+            ? constants.LANDING_HERO_VIDEO
+            : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}`}
+          type="video/mp4"
           poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
           autoPlay
           loop
