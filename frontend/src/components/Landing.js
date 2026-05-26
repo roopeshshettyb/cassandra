@@ -151,7 +151,7 @@ export default function Landing({ openLoginPopup }) {
     const WORD_ANIM = 950;
     const STRIDE = 120;
     const NUM_WORDS = 5;
-    const HOLD = 4500;
+    const HOLD = 2500;
     const TOTAL_EXIT = (NUM_WORDS - 1) * STRIDE + WORD_ANIM + 50;
     const phraseRef = { current: 0 };
     const phraseTimeouts = [];
