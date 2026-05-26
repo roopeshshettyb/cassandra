@@ -64,6 +64,7 @@ export default function Landing({ openLoginPopup }) {
   const [exitingPhrase, setExitingPhrase] = useState(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [heroVideoUrl, setHeroVideoUrl] = useState('');
 
   const setMenu = (next) => {
     setMenuOpen(next);
@@ -183,6 +184,20 @@ export default function Landing({ openLoginPopup }) {
       reveals.forEach((el) => el.classList.add('in'));
     }
 
+    const heroSrc = constants.LANDING_HERO_VIDEO;
+    let heroBlobUrl = '';
+    if (heroSrc.startsWith('http')) {
+      setHeroVideoUrl(heroSrc);
+    } else {
+      fetch(`${process.env.PUBLIC_URL || ''}/${heroSrc}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
+        .then((buf) => {
+          heroBlobUrl = URL.createObjectURL(new Blob([buf], { type: 'video/mp4' }));
+          setHeroVideoUrl(heroBlobUrl);
+        })
+        .catch(() => {});
+    }
+
     return () => {
       document.body.classList.remove('landing-active');
       document.body.style.overflow = '';
@@ -194,6 +209,7 @@ export default function Landing({ openLoginPopup }) {
       clearTimeout(revealFailsafe);
       clearInterval(phraseId);
       phraseTimeouts.forEach((t) => clearTimeout(t));
+      if (heroBlobUrl) URL.revokeObjectURL(heroBlobUrl);
     };
   }, []);
 
@@ -249,20 +265,20 @@ export default function Landing({ openLoginPopup }) {
       </div>
 
       <section className="hero" id="top">
-        <video
-          className="hero-video"
-          src={constants.LANDING_HERO_VIDEO.startsWith('http')
-            ? constants.LANDING_HERO_VIDEO
-            : `${process.env.PUBLIC_URL || ''}/${constants.LANDING_HERO_VIDEO}`}
-          type="video/mp4"
-          poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-        />
+        {heroVideoUrl ? (
+          <video
+            className="hero-video"
+            src={heroVideoUrl}
+            type="video/mp4"
+            poster={`${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'}`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          />
+        ) : null}
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">
