@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import './Landing.css';
+import constants from '../constants.json';
+import MapComponent from './MapComponent';
 
 const HERO_PHRASES = [
   { lines: [['Every', 'guest,'], ['answered.']], em: [['Every', 'time.']] },
@@ -28,6 +30,44 @@ const STATEMENT_PARTS = [
   { type: 'word', text: 'stays' },
   { type: 'word', text: 'human.' },
 ];
+
+const FEATURE_SVGS = {
+  phone: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92V21a1 1 0 0 1-1.1 1 19 19 0 0 1-8.3-3.06 18.9 18.9 0 0 1-6-6 19 19 0 0 1-3-8.3A1 1 0 0 1 4.6 3h4.1a1 1 0 0 1 1 .76 12 12 0 0 0 .57 2.6 1 1 0 0 1-.23 1L8.5 9a16 16 0 0 0 6 6l1.65-1.55a1 1 0 0 1 1-.23 12 12 0 0 0 2.6.57 1 1 0 0 1 .76 1Z"/></svg>,
+  chat: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>,
+  ops: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-7a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v7M3 14h18M3 18v3M21 18v3M7 11h4"/></svg>,
+};
+
+const FEATURES = [
+  { icon: 'phone', delay: '', title: 'Voice that picks up', body: 'Sub-second latency, native barge-in, and a brand-tuned voice your guests recognise call after call. Routes seamlessly to a human when needed.' },
+  { icon: 'chat',  delay: 'd1', title: 'Chat & SMS', body: 'The widget on your booking page, the SMS thread, the WhatsApp number, all answered by the same Samantha, with the same memory.' },
+  { icon: 'ops',   delay: 'd2', title: 'Runs your back office', body: 'Every call becomes a logged action: housekeeping tickets, dining reservations, PMS updates, handed to your team as a clean morning digest.' },
+];
+
+const STEPS = [
+  { num: 'i.',   delay: '',   title: 'Connect', body: 'Plug into your PMS, telephony, and channel manager in a single afternoon. We support Opera, Mews, Cloudbeds, SiteMinder, Twilio, and more.' },
+  { num: 'ii.',  delay: 'd1', title: 'Tune',    body: "Choose a voice and tone. Add house policies, signature phrases, and the wines you'd like recommended. Test on a private number first." },
+  { num: 'iii.', delay: 'd2', title: 'Go live', body: 'Switch your forwarding rule. Samantha picks up overflow first, then full coverage at the pace you choose. Full audit and rollback any time.' },
+];
+
+function FeatureCard({ data }) {
+  return (
+    <div className={`feature reveal ${data.delay}`}>
+      <div className="ic">{FEATURE_SVGS[data.icon]}</div>
+      <h3>{data.title}</h3>
+      <p>{data.body}</p>
+    </div>
+  );
+}
+
+function StepCard({ data }) {
+  return (
+    <div className={`step reveal ${data.delay}`}>
+      <div className="num">{data.num}</div>
+      <h3>{data.title}</h3>
+      <p>{data.body}</p>
+    </div>
+  );
+}
 
 function HeroPhrase({ words, em, idx }) {
   const stride = 0.12;
@@ -75,9 +115,9 @@ export default function Landing({ openLoginPopup }) {
     e?.preventDefault?.();
     setMenu(false);
     if (window.Calendly?.initPopupWidget) {
-      window.Calendly.initPopupWidget({ url: 'https://calendly.com/roopesh-flashpact/samantha-demo' });
+      window.Calendly.initPopupWidget({ url: constants.CALENDLY_DEMO_URL });
     } else {
-      window.open('https://calendly.com/roopesh-flashpact/samantha-demo', '_blank', 'noopener');
+      window.open(constants.CALENDLY_DEMO_URL, '_blank', 'noopener');
     }
   };
 
@@ -249,7 +289,12 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </div>
 
-      <section className="hero" id="top">
+      <section
+        className="hero"
+        id="top"
+        style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}
+      >
+        {/* Hero video commented out — using poster image directly
         <video
           className="hero-video"
           src={heroVideoSrc}
@@ -262,6 +307,8 @@ export default function Landing({ openLoginPopup }) {
           preload="auto"
           aria-hidden="true"
         />
+        */}
+        <div className="hero-fade" />
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">
@@ -367,7 +414,7 @@ export default function Landing({ openLoginPopup }) {
         >
           {playing ? (
             <iframe
-              src="https://www.youtube.com/embed/I9_GFTV5P2w?autoplay=1&rel=0&modestbranding=1"
+              src={`https://www.youtube.com/embed/${constants.LANDING_DEMO_YOUTUBE_ID}?autoplay=1&rel=0&modestbranding=1`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               title="Samantha product demo"
@@ -439,27 +486,7 @@ export default function Landing({ openLoginPopup }) {
               <p>Train Samantha once on your house, your rates, your rooms, your manners, then put her on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
             </div>
             <div className="split-body">
-              <div className="feature reveal">
-                <div className="ic">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92V21a1 1 0 0 1-1.1 1 19 19 0 0 1-8.3-3.06 18.9 18.9 0 0 1-6-6 19 19 0 0 1-3-8.3A1 1 0 0 1 4.6 3h4.1a1 1 0 0 1 1 .76 12 12 0 0 0 .57 2.6 1 1 0 0 1-.23 1L8.5 9a16 16 0 0 0 6 6l1.65-1.55a1 1 0 0 1 1-.23 12 12 0 0 0 2.6.57 1 1 0 0 1 .76 1Z"/></svg>
-                </div>
-                <h3>Voice that picks up</h3>
-                <p>Sub-second latency, native barge-in, and a brand-tuned voice your guests recognise call after call. Routes seamlessly to a human when needed.</p>
-              </div>
-              <div className="feature reveal d1">
-                <div className="ic">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>
-                </div>
-                <h3>Chat &amp; SMS</h3>
-                <p>The widget on your booking page, the SMS thread, the WhatsApp number, all answered by the same Samantha, with the same memory.</p>
-              </div>
-              <div className="feature reveal d2">
-                <div className="ic">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-7a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v7M3 14h18M3 18v3M21 18v3M7 11h4"/></svg>
-                </div>
-                <h3>Runs your back office</h3>
-                <p>Every call becomes a logged action: housekeeping tickets, dining reservations, PMS updates, handed to your team as a clean morning digest.</p>
-              </div>
+              <MapComponent Component={FeatureCard} data={FEATURES} showNoDataAvailable={false} />
             </div>
           </div>
         </div>
@@ -496,21 +523,7 @@ export default function Landing({ openLoginPopup }) {
               <p>No replatforming, no custom middleware. Samantha reads your existing systems and learns your house&apos;s manners.</p>
             </div>
             <div className="split-body">
-              <div className="step reveal">
-                <div className="num">i.</div>
-                <h3>Connect</h3>
-                <p>Plug into your PMS, telephony, and channel manager in a single afternoon. We support Opera, Mews, Cloudbeds, SiteMinder, Twilio, and more.</p>
-              </div>
-              <div className="step reveal d1">
-                <div className="num">ii.</div>
-                <h3>Tune</h3>
-                <p>Choose a voice and tone. Add house policies, signature phrases, and the wines you&apos;d like recommended. Test on a private number first.</p>
-              </div>
-              <div className="step reveal d2">
-                <div className="num">iii.</div>
-                <h3>Go live</h3>
-                <p>Switch your forwarding rule. Samantha picks up overflow first, then full coverage at the pace you choose. Full audit and rollback any time.</p>
-              </div>
+              <MapComponent Component={StepCard} data={STEPS} showNoDataAvailable={false} />
             </div>
           </div>
         </div>
