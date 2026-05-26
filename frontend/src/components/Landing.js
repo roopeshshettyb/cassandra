@@ -289,7 +289,12 @@ export default function Landing({ openLoginPopup }) {
         </div>
       </div>
 
-      <section className="hero" id="top">
+      <section
+        className="hero"
+        id="top"
+        style={{ backgroundImage: `url(${process.env.PUBLIC_URL || ''}/${isMobile ? 'mobile_hero.png' : 'landing-hero-bg.png'})` }}
+      >
+        {/* Hero video commented out — using poster image directly
         <video
           className="hero-video"
           src={heroVideoSrc}
@@ -302,6 +307,8 @@ export default function Landing({ openLoginPopup }) {
           preload="auto"
           aria-hidden="true"
         />
+        */}
+        <div className="hero-fade" />
         <div className="l-container">
           <div className="hero-top">
             <div className="hero-headline">
