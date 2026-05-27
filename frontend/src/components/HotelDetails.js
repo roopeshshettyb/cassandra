@@ -375,10 +375,23 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
           eyebrow={hotel.brand?.name || 'Independent'}
           logoUrl={hotel.logoUrl}
           meta={hotel.address && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <LocationOn sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
-              <Typography sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }}>{hotel.address}</Typography>
-            </Box>
+            hotel.googleMapsUrl ? (
+              <Box
+                component="a"
+                href={hotel.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, textDecoration: 'none', color: TEXT_MUTED_LIGHT, '&:hover': { color: 'primary.main' } }}
+              >
+                <LocationOn sx={{ fontSize: 12 }} />
+                <Typography sx={{ fontSize: 12, color: 'inherit', textDecoration: 'underline' }}>{hotel.address}</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <LocationOn sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }} />
+                <Typography sx={{ fontSize: 12, color: TEXT_MUTED_LIGHT }}>{hotel.address}</Typography>
+              </Box>
+            )
           )}
         />
 

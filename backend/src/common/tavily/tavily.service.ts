@@ -49,8 +49,15 @@ export class TavilyService {
     }
   }
 
-  async crawlWebsite(url: string): Promise<string> {
-    const results = await this.search(`site:${url} hotel information hours wifi policy`, 'advanced', 10);
+  async crawlWebsite(url: string, scopeHint = ''): Promise<string> {
+    // Scope to the specific property first (handles chains where one site covers many locations).
+    let results = scopeHint
+      ? await this.search(`site:${url} "${scopeHint}" hotel information hours wifi policy`, 'advanced', 10)
+      : [];
+    // Fallback to generic site crawl if scoped search returned nothing.
+    if (results.length === 0) {
+      results = await this.search(`site:${url} hotel information hours wifi policy`, 'advanced', 10);
+    }
     let text = '';
     for (let i = 0; i < results.length; i++) {
       if (text) text += '\n\n';
