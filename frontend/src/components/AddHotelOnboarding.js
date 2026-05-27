@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import debounce from '@mui/utils/debounce';
 import {
   Box, Button, Dialog, DialogContent, TextField, Typography,
@@ -11,17 +11,44 @@ import LanguageIcon from '@mui/icons-material/Language';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import request from '../helper/api';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, NAVY_GRADIENT, SHADOW } from '../theme';
+import MapComponent from './MapComponent';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, NAVY_GRADIENT, SHADOW, BORDER } from '../theme';
 
 const FADE = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 } };
 
-function HourRow({ label, value }) {
-  if (!value) return null;
+const HOUR_FIELDS = [
+  { key: 'checkInTime', label: 'Check-in' },
+  { key: 'checkOutTime', label: 'Check-out' },
+  { key: 'breakfastHours', label: 'Breakfast' },
+  { key: 'lunchHours', label: 'Lunch' },
+  { key: 'dinnerHours', label: 'Dinner' },
+  { key: 'snacksHours', label: 'Snacks' },
+  { key: 'restaurantHours', label: 'Restaurant' },
+  { key: 'poolHours', label: 'Pool' },
+  { key: 'gymHours', label: 'Gym' },
+  { key: 'roomServiceHours', label: 'Room Service' },
+  { key: 'houseKeepingHours', label: 'Housekeeping' },
+];
+
+const editInputSx = {
+  '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13, bgcolor: '#fff' },
+  '& .MuiInputLabel-root': { fontSize: 13 },
+};
+
+// Renders one labelled editable row. Used standalone + via MapComponent for hours.
+function EditRow({ data, onChange }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-      <Typography sx={{ fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</Typography>
-      <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{value}</Typography>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.6 }}>
+      <Typography sx={{ flex: '0 0 38%', fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{data.label}</Typography>
+      <TextField
+        fullWidth size="small" variant="outlined"
+        placeholder={data.placeholder || '—'}
+        value={data.value || ''}
+        onChange={(e) => onChange(data.key, e.target.value)}
+        sx={editInputSx}
+      />
     </Box>
   );
 }
@@ -34,6 +61,8 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [manualWebsite, setManualWebsite] = useState('');
   const [extractedData, setExtractedData] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const logoInputRef = useRef(null);
 
   const debouncedSearch = useMemo(() => debounce(async (value) => {
     const response = await request({
@@ -71,6 +100,11 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
             ...brandRes.data,
             name: value.name,
             address: value.address,
+            website: response.data.website || null,
+            phoneNumber: response.data.phoneNumber || null,
+            googleMapsUrl: value.id
+              ? `https://www.google.com/maps/place/?q=place_id:${value.id}`
+              : (response.data.location?.lat != null ? `https://www.google.com/maps?q=${response.data.location.lat},${response.data.location.lng}` : null),
             brandName: brandRes.data.name,
             brandId: brandRes.data.id,
             brandFound: true,
@@ -94,15 +128,30 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
 
   const handleFinalize = async () => {
     const response = await request({ endpoint: '/hotels/onboarding/finalize', method: 'POST', data: extractedData, setLoading, alertError, alertSuccess });
-    if (response?.success) { onHotelCreated(); handleClose(); }
+    if (!response?.success) return;
+    const hotelId = response.data?.id;
+    // If a new logo file was picked, upload it via the existing hotel-logo presigned flow
+    if (logoFile && hotelId) {
+      try {
+        const presignedRes = await request({ endpoint: `/hotels/${hotelId}/logo/presigned-url`, method: 'POST', data: { fileName: logoFile.name, fileSize: logoFile.size, contentType: logoFile.type }, throw: true });
+        const { presignedUrl, s3Url } = presignedRes?.data || {};
+        const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': logoFile.type }, body: logoFile });
+        if (!s3Resp.ok) throw new Error(`S3 upload failed (${s3Resp.status})`);
+        await request({ endpoint: `/hotels/${hotelId}/logo`, method: 'PATCH', data: { s3Url }, throw: true });
+      } catch (err) { alertError?.(`Logo upload failed: ${err.message}`); }
+    }
+    onHotelCreated(); handleClose();
   };
 
   const resetState = () => {
     setStep('search'); setSuggestions([]); setNoResults(false);
-    setSelectedPlace(null); setExtractedData(null); setManualWebsite('');
+    setSelectedPlace(null); setExtractedData(null); setManualWebsite(''); setLogoFile(null);
   };
 
   const handleClose = () => onClose();
+
+  const setField = (key, value) => setExtractedData((prev) => ({ ...prev, [key]: value }));
+  const setColor = (key, value) => setExtractedData((prev) => ({ ...prev, themeConfig: { ...(prev?.themeConfig || {}), [key]: value } }));
 
   const isReview = step === 'review';
   const primaryColor = extractedData?.themeConfig?.primaryColor;
@@ -243,94 +292,92 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
             </motion.div>
           )}
 
-          {/* REVIEW */}
+          {/* REVIEW — all fields editable inline */}
           {step === 'review' && extractedData && (
             <motion.div key="review" {...FADE} transition={{ duration: 0.25 }}>
-              <Box sx={{ p: 3 }}>
-                {/* Brand header */}
-                <Box sx={{ borderRadius: 3, overflow: 'hidden', mb: 2.5, border: '1px solid rgba(0,0,0,0.07)', boxShadow: SHADOW }}>
-                  <Box sx={{ background: primaryColor ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor || primaryColor} 100%)` : NAVY_GRADIENT, px: 2.5, py: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      {/* Logo */}
-                      <Box sx={{ flexShrink: 0, width: 52, height: 52, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-                        {logoUrl
-                          ? <Box component="img" src={logoUrl} alt="logo" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                          : null}
-                        <Box sx={{ display: logoUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography sx={{ fontWeight: 900, fontSize: 20, color: 'rgba(255,255,255,0.8)', lineHeight: 1 }}>
-                            {extractedData.name?.[0]?.toUpperCase()}
-                          </Typography>
+              <Box sx={{ p: 3, bgcolor: '#fff' }}>
+                {/* Identity card */}
+                <Box sx={{ borderRadius: 3, mb: 2, border: `1px solid ${BORDER}`, boxShadow: SHADOW, p: 2, bgcolor: '#fff' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                    {(() => {
+                      const preview = logoFile ? URL.createObjectURL(logoFile) : extractedData.logoUrl;
+                      return (
+                        <Box sx={{ flexShrink: 0, width: 48, height: 48, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {preview
+                            ? <Box component="img" src={preview} alt="logo" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                            : null}
+                          <Box sx={{ display: preview ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography sx={{ fontWeight: 900, fontSize: 18, color: MUTED, lineHeight: 1 }}>{extractedData.name?.[0]?.toUpperCase()}</Typography>
+                          </Box>
                         </Box>
+                      );
+                    })()}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        {extractedData.brandName && (
+                          <Chip label={extractedData.brandName} size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(212,175,55,0.12)', color: 'primary.main', border: '1px solid rgba(212,175,55,0.25)' }} />
+                        )}
+                        {extractedData.brandFound && (
+                          <Chip label="Brand matched ✓" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }} />
+                        )}
+                        {!extractedData.brandName && (
+                          <Chip label="Independent" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(0,0,0,0.05)', color: MUTED }} />
+                        )}
                       </Box>
-                      {/* Name + address */}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#fff', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extractedData.name}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.4 }}>
-                          <LocationOnIcon sx={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', flexShrink: 0, mt: 0.15 }} />
-                          <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{extractedData.address}</Typography>
-                        </Box>
-                      </Box>
-                      {/* Color swatches */}
-                      {primaryColor && (
-                        <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: primaryColor, border: '2px solid rgba(255,255,255,0.5)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-                          {secondaryColor && <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: secondaryColor, border: '2px solid rgba(255,255,255,0.5)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />}
-                        </Box>
-                      )}
+                      <Button onClick={() => logoInputRef.current?.click()} size="small" startIcon={<UploadFileIcon sx={{ fontSize: 16 }} />}
+                        sx={{ alignSelf: 'flex-start', textTransform: 'none', fontSize: 12, fontWeight: 700, color: 'primary.main', px: 1, py: 0.25, minWidth: 0 }}>
+                        {logoFile ? 'Change logo' : 'Upload new logo'}
+                      </Button>
+                      <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setLogoFile(f); e.target.value = ''; }} />
                     </Box>
                   </Box>
-                  <Box sx={{ px: 2.5, py: 1.5, bgcolor: '#fff', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    {logoUrl && (
-                      <Chip label="Logo extracted ✓" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(99,102,241,0.08)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.2)' }} />
-                    )}
-                    {extractedData.brandName && (
-                      <Chip label={extractedData.brandName} size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(212,175,55,0.12)', color: 'primary.main', border: '1px solid rgba(212,175,55,0.25)' }} />
-                    )}
-                    {extractedData.brandFound && (
-                      <Chip label="Brand matched ✓" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }} />
-                    )}
-                    {!extractedData.brandName && (
-                      <Chip label="Independent" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(0,0,0,0.05)', color: MUTED }} />
-                    )}
-                  </Box>
+                  <TextField fullWidth size="small" label="Hotel name" value={extractedData.name || ''} onChange={(e) => setField('name', e.target.value)} sx={{ ...editInputSx, mb: 1.25 }} />
+                  <TextField fullWidth size="small" multiline maxRows={2} label="Address" value={extractedData.address || ''} onChange={(e) => setField('address', e.target.value)} sx={editInputSx} />
                 </Box>
 
-                {/* Contact row */}
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, mb: 2 }}>
-                  {extractedData.website && (
-                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'rgba(0,0,0,0.03)', borderRadius: 2 }}>
-                      <LanguageIcon sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {(() => { try { return new URL(extractedData.website).hostname; } catch { return extractedData.website; } })()}
-                      </Typography>
-                    </Box>
-                  )}
-                  {extractedData.phoneNumber && (
-                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'rgba(0,0,0,0.03)', borderRadius: 2 }}>
-                      <PhoneIcon sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }} />
-                      <Typography sx={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{extractedData.phoneNumber}</Typography>
+                {/* Contact + location */}
+                <Box sx={{ borderRadius: 2, p: 2, mb: 2, border: `1px solid ${BORDER}` }}>
+                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, mb: 1.5 }}>
+                    <TextField fullWidth size="small" label="Website" value={extractedData.website || ''} onChange={(e) => setField('website', e.target.value)} InputProps={{ startAdornment: <LanguageIcon sx={{ fontSize: 16, color: MUTED, mr: 0.75 }} /> }} sx={editInputSx} />
+                    <TextField fullWidth size="small" label="Phone" value={extractedData.phoneNumber || ''} onChange={(e) => setField('phoneNumber', e.target.value)} InputProps={{ startAdornment: <PhoneIcon sx={{ fontSize: 16, color: MUTED, mr: 0.75 }} /> }} sx={editInputSx} />
+                  </Box>
+                  <TextField fullWidth size="small" label="Google Maps link" value={extractedData.googleMapsUrl || ''} onChange={(e) => setField('googleMapsUrl', e.target.value)} placeholder="https://www.google.com/maps/place/..." InputProps={{ startAdornment: <LocationOnIcon sx={{ fontSize: 16, color: MUTED, mr: 0.75 }} /> }} sx={editInputSx} />
+                  {extractedData.googleMapsUrl && (
+                    <Box
+                      component="a"
+                      href={extractedData.googleMapsUrl}
+                      target="_blank" rel="noopener noreferrer"
+                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 1, fontSize: 12, fontWeight: 600, color: 'primary.main', textDecoration: 'none' }}
+                    >
+                      <LocationOnIcon sx={{ fontSize: 14 }} /> View on Google Maps
                     </Box>
                   )}
                 </Box>
 
-                {/* Hours */}
-                <Box sx={{ bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 2, p: 2, border: '1px solid rgba(0,0,0,0.05)' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                {/* Brand + colors + wifi */}
+                <Box sx={{ borderRadius: 2, p: 2, mb: 2, border: `1px solid ${BORDER}` }}>
+                  <TextField fullWidth size="small" label="Brand name" placeholder="Independent (leave blank)" value={extractedData.brandName || ''} onChange={(e) => setField('brandName', e.target.value || null)} sx={{ ...editInputSx, mb: 1.5 }} />
+                  <TextField fullWidth size="small" label="Wifi password" value={extractedData.wifiPassword || ''} onChange={(e) => setField('wifiPassword', e.target.value)} sx={{ ...editInputSx, mb: 1.5 }} />
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <TextField fullWidth size="small" label="Primary color" value={primaryColor || ''} onChange={(e) => setColor('primaryColor', e.target.value)} placeholder="#RRGGBB"
+                      InputProps={{ startAdornment: <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: primaryColor || 'transparent', border: `1px solid ${BORDER}`, mr: 0.75, flexShrink: 0 }} /> }} sx={editInputSx} />
+                    <TextField fullWidth size="small" label="Secondary color" value={secondaryColor || ''} onChange={(e) => setColor('secondaryColor', e.target.value)} placeholder="#RRGGBB"
+                      InputProps={{ startAdornment: <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: secondaryColor || 'transparent', border: `1px solid ${BORDER}`, mr: 0.75, flexShrink: 0 }} /> }} sx={editInputSx} />
+                  </Box>
+                </Box>
+
+                {/* Operating hours — all editable */}
+                <Box sx={{ borderRadius: 2, p: 2, border: `1px solid ${BORDER}` }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <AccessTimeIcon sx={{ fontSize: 15, color: 'primary.main' }} />
                     <Typography sx={{ fontSize: 12, fontWeight: 800, color: NAVY, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Operating Hours</Typography>
                   </Box>
-                  <HourRow label="Check-in" value={extractedData.checkInTime} />
-                  <HourRow label="Check-out" value={extractedData.checkOutTime} />
-                  <HourRow label="Breakfast" value={extractedData.breakfastHours} />
-                  <HourRow label="Lunch" value={extractedData.lunchHours} />
-                  <HourRow label="Dinner" value={extractedData.dinnerHours} />
-                  <HourRow label="Restaurant" value={extractedData.restaurantHours} />
-                  <HourRow label="Pool" value={extractedData.poolHours} />
-                  <HourRow label="Gym" value={extractedData.gymHours} />
-                  <HourRow label="Room Service" value={extractedData.roomServiceHours} />
-                  {!extractedData.checkInTime && !extractedData.checkOutTime && !extractedData.breakfastHours && (
-                    <Typography sx={{ fontSize: 12, color: MUTED, textAlign: 'center', py: 1 }}>No hours extracted</Typography>
-                  )}
+                  <MapComponent
+                    Component={EditRow}
+                    showNoDataAvailable={false}
+                    data={HOUR_FIELDS.map((f) => ({ ...f, value: extractedData[f.key] }))}
+                    onChange={setField}
+                  />
                 </Box>
               </Box>
             </motion.div>

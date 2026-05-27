@@ -102,6 +102,13 @@ export class OnboardingService {
     }
   }
 
+  // Prefer rich place panel (reviews/photos) via placeId; fall back to lat/lng pin.
+  private buildGoogleMapsUrl(placeId?: string, location?: { lat?: number; lng?: number }): string | null {
+    if (placeId) return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    if (location?.lat != null && location?.lng != null) return `https://www.google.com/maps?q=${location.lat},${location.lng}`;
+    return null;
+  }
+
   private extractLogoUrl(rawHtml: string, website: string): string | null {
     if (!rawHtml) return null;
     const base = (() => { try { const u = new URL(website); return `${u.protocol}//${u.host}`; } catch { return ''; } })();
@@ -113,7 +120,51 @@ export class OnboardingService {
       return null;
     };
 
+    // 1) Search the DOM for a real logo element — scan <img> tags, score by "logo" signals.
+    //    Prefer header/nav region (top of document) and explicit logo class/id/alt/src.
+    const headerRegion = rawHtml.slice(0, 8000); // top of page — where headers/navs live
+    const imgTagRegex = /<img\b[^>]*>/gi;
+    let bestSrc: string | null = null;
+    let bestScore = 0;
+
+    const scoreImg = (tag: string, inHeader: boolean): { src: string | null; score: number } => {
+      const srcMatch = tag.match(/\bsrc=["']([^"']+)["']/i) || tag.match(/\bdata-src=["']([^"']+)["']/i);
+      const src = srcMatch ? srcMatch[1] : null;
+      if (!src) return { src: null, score: 0 };
+      const classMatch = tag.match(/\bclass=["']([^"']*)["']/i);
+      const idMatch = tag.match(/\bid=["']([^"']*)["']/i);
+      const altMatch = tag.match(/\balt=["']([^"']*)["']/i);
+      const cls = (classMatch?.[1] || '').toLowerCase();
+      const id = (idMatch?.[1] || '').toLowerCase();
+      const alt = (altMatch?.[1] || '').toLowerCase();
+      const srcLower = src.toLowerCase();
+      let score = 0;
+      if (cls.includes('logo')) score += 4;
+      if (id.includes('logo')) score += 4;
+      if (alt.includes('logo')) score += 3;
+      if (srcLower.includes('logo')) score += 3;
+      if (inHeader) score += 2;
+      // Penalise obvious non-logos
+      if (srcLower.includes('sprite') || srcLower.includes('icon-') || srcLower.endsWith('.svg') === false && (srcLower.includes('banner') || srcLower.includes('hero'))) score -= 2;
+      return { src, score };
+    };
+
+    let match: RegExpExecArray | null;
+    while ((match = imgTagRegex.exec(rawHtml)) !== null) {
+      const tag = match[0];
+      const inHeader = match.index < headerRegion.length;
+      const { src, score } = scoreImg(tag, inHeader);
+      if (src && score > bestScore) {
+        const resolved = resolve(src);
+        if (resolved) { bestScore = score; bestSrc = resolved; }
+      }
+    }
+    // Require a meaningful logo signal (not just "in header")
+    if (bestSrc && bestScore >= 3) return bestSrc;
+
+    // 2) Fallback — meta/social/icon tags
     const patterns = [
+      /<meta[^>]+property=["']og:logo["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
       /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
@@ -124,11 +175,11 @@ export class OnboardingService {
     ];
 
     for (const pattern of patterns) {
-      const match = rawHtml.match(pattern);
-      const resolved = match ? resolve(match[1]) : null;
+      const m = rawHtml.match(pattern);
+      const resolved = m ? resolve(m[1]) : null;
       if (resolved) return resolved;
     }
-    return null;
+    return bestSrc; // last resort: any header img we found
   }
 
   async crawlAndExtract(placeId: string, manualWebsite?: string) {
@@ -140,18 +191,24 @@ export class OnboardingService {
       throw new BadRequestException('Website is required for deep analysis');
     }
 
-    // Step 1: Crawl — parallel: general info + policy search + direct HTML fetch (for logo + colors)
-    const [crawlGeneral, crawlPolicy, websiteHtml] = await Promise.all([
-      this.tavilyService.crawlWebsite(website),
+    // Step 1: Crawl — parallel: general info + policy search + dedicated operating-hours search + direct HTML fetch (logo + colors)
+    const [crawlGeneral, crawlPolicy, crawlHours, websiteHtml] = await Promise.all([
+      this.tavilyService.crawlWebsite(website, details.name),
       this.tavilyService.search(`"${details.name}" check-in check-out time hotel policy`, 'advanced', 5),
+      this.tavilyService.search(`"${details.name}" operating hours timings pool gym restaurant breakfast lunch dinner room service housekeeping`, 'advanced', 5),
       this.fetchWebsiteHtml(website),
     ]);
-    let policyText = '';
-    for (let i = 0; i < crawlPolicy.length; i++) {
-      if (policyText) policyText += '\n\n';
-      policyText += `--- SOURCE: ${crawlPolicy[i].url} ---\n${crawlPolicy[i].content}`;
-    }
-    const crawlData = crawlGeneral + '\n\n' + policyText;
+    const buildSourceText = (results: { url: string; content: string }[]) => {
+      let text = '';
+      for (let i = 0; i < results.length; i++) {
+        if (text) text += '\n\n';
+        text += `--- SOURCE: ${results[i].url} ---\n${results[i].content}`;
+      }
+      return text;
+    };
+    const policyText = buildSourceText(crawlPolicy);
+    const hoursText = buildSourceText(crawlHours);
+    const crawlData = `${crawlGeneral}\n\n${policyText}\n\n--- OPERATING HOURS SOURCES ---\n${hoursText}`;
 
     // Extract CSS color hints and logo from directly-fetched HTML (not Tavily markdown)
     const colorHints = websiteHtml
@@ -171,8 +228,10 @@ STRICT RULES — READ CAREFULLY:
 3. For brandName: identify the parent hotel chain/brand (e.g. "Radisson Blu", "Marriott", "OYO"). Return null if this is clearly an independent hotel.
 4. For themeConfig colors: extract ONLY from the CSS color hints provided. If CSS hints are empty or don't contain clear brand colors, return null. Do NOT guess colors from brand knowledge.
 5. Return null for any field not found. Do not fabricate data.
+6. PROPERTY SCOPE: This is for ONE specific property — "${details.name}" at "${details.address}". The website may cover multiple locations of the same chain. Extract ONLY data that applies to THIS property/location. If the crawl data describes a different city/branch, ignore it and return null for that field.
 
 HOTEL NAME: ${details.name}
+HOTEL LOCATION: ${details.address}
 
 CSS COLOR HINTS (extracted from website HTML — use ONLY these for colors):
 ${colorHints || 'None available'}
@@ -243,6 +302,7 @@ ${crawlData}`;
       address: details.address,
       website: website,
       phoneNumber: details.phoneNumber,
+      googleMapsUrl: this.buildGoogleMapsUrl(details.id ?? placeId, details.location),
       logoUrl: logoUrl || null,
       ...extracted,
       brandFound: !!brand,
@@ -348,7 +408,7 @@ ${crawlData}`;
       // Only update fields that were actually extracted (non-null)
       const updates: any = { hotelBrandId: brandId };
       const fields = [
-        'name', 'website', 'phoneNumber', 'logoUrl', 'checkInTime', 'checkOutTime',
+        'name', 'website', 'phoneNumber', 'googleMapsUrl', 'logoUrl', 'checkInTime', 'checkOutTime',
         'poolHours', 'gymHours', 'restaurantHours', 'wifiPassword',
         'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
         'houseKeepingHours', 'roomServiceHours', 'llmInstructions', 'themeConfig',
@@ -369,6 +429,7 @@ ${crawlData}`;
       address: hotelData.address,
       website: hotelData.website,
       phoneNumber: hotelData.phoneNumber,
+      googleMapsUrl: hotelData.googleMapsUrl,
       logoUrl: hotelData.logoUrl,
       checkInTime: hotelData.checkInTime,
       checkOutTime: hotelData.checkOutTime,
