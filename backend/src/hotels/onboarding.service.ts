@@ -96,6 +96,68 @@ export class OnboardingService {
     }
   }
 
+  private extractColorHints(html: string): string {
+    const tiers: string[] = [];
+
+    // --- TIER 1: Strong signals ---
+    const strong: string[] = [];
+
+    // meta theme-color (browsers use for address bar — almost always primary)
+    const themeColorMatch = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i);
+    if (themeColorMatch?.[1]) strong.push(`meta theme-color: ${themeColorMatch[1]}`);
+
+    // msapplication-TileColor
+    const tileMatch = html.match(/<meta[^>]+name=["']msapplication-TileColor["'][^>]+content=["']([^"']+)["']/i);
+    if (tileMatch?.[1]) strong.push(`msapplication-TileColor: ${tileMatch[1]}`);
+
+    // CSS custom properties with semantic names (--primary, --brand, --accent, --theme)
+    const semanticVarRegex = /--[\w-]*(primary|brand|accent|theme|main)[\w-]*:\s*([^;}\s]+)/gi;
+    let semanticMatch: RegExpExecArray | null;
+    const seenVars: Record<string, boolean> = {};
+    while ((semanticMatch = semanticVarRegex.exec(html)) !== null) {
+      const val = semanticMatch[0].trim();
+      if (!seenVars[val]) { seenVars[val] = true; strong.push(val); }
+    }
+
+    if (strong.length > 0) tiers.push(`STRONG SIGNALS:\n${strong.join('\n')}`);
+
+    // --- TIER 2a: Element colors (nav/header/button) ---
+    const elementColors: string[] = [];
+    const elementRegex = /<(nav|header|button|\w+[^>]*class="[^"]*(?:btn|nav|header)[^"]*")[^>]*style="[^"]*(?:background(?:-color)?|color)\s*:\s*([^;"]+)/gi;
+    let elMatch: RegExpExecArray | null;
+    while ((elMatch = elementRegex.exec(html)) !== null) {
+      const color = elMatch[2].trim();
+      if (color && color !== 'inherit' && color !== 'transparent') {
+        elementColors.push(`${elMatch[1].slice(0, 20)}: ${color}`);
+      }
+      if (elementColors.length >= 8) break;
+    }
+    if (elementColors.length > 0) tiers.push(`ELEMENT COLORS (nav/header/button):\n${elementColors.join('\n')}`);
+
+    // --- TIER 2b: All colors by frequency ---
+    const allColorsRegex = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)/gi;
+    const freq: Record<string, number> = {};
+    let colorMatch: RegExpExecArray | null;
+    while ((colorMatch = allColorsRegex.exec(html)) !== null) {
+      const c = colorMatch[0].toLowerCase();
+      freq[c] = (freq[c] || 0) + 1;
+    }
+    const sorted: { color: string; count: number }[] = [];
+    const freqKeys = Object.keys(freq);
+    for (let i = 0; i < freqKeys.length; i++) {
+      sorted.push({ color: freqKeys[i], count: freq[freqKeys[i]] });
+    }
+    sorted.sort((a, b) => b.count - a.count);
+    const top10: string[] = [];
+    for (let i = 0; i < Math.min(10, sorted.length); i++) {
+      top10.push(`${sorted[i].color} (${sorted[i].count}×)`);
+    }
+    if (top10.length > 0) tiers.push(`TOP COLORS BY FREQUENCY:\n${top10.join('\n')}`);
+
+    return tiers.length > 0 ? tiers.join('\n\n') : 'None available';
+  }
+
   private getFaviconUrl(website: string): string | null {
     try {
       const u = new URL(website);
@@ -213,10 +275,8 @@ export class OnboardingService {
     const hoursText = buildSourceText(crawlHours);
     const crawlData = `${crawlGeneral}\n\n${policyText}\n\n--- OPERATING HOURS SOURCES ---\n${hoursText}`;
 
-    // Extract CSS color hints and logo from directly-fetched HTML (not Tavily markdown)
-    const colorHints = websiteHtml
-      ? websiteHtml.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\d+,\s*\d+,\s*\d+\)|--[\w-]*color[\w-]*:\s*[^;]+/gi)?.slice(0, 30).join(', ') || ''
-      : '';
+    // Extract tiered color hints from directly-fetched HTML
+    const colorHints = websiteHtml ? this.extractColorHints(websiteHtml) : 'None available';
     const rawLogoUrl = this.extractLogoUrl(websiteHtml, website) || this.getFaviconUrl(website);
     const logoUrl = rawLogoUrl && !rawLogoUrl.includes(this.constantsService.private.AWS_S3_URL_DOMAIN)
       ? await this.uploadLogoFromUrl(rawLogoUrl, details.name)
@@ -229,15 +289,15 @@ STRICT RULES — READ CAREFULLY:
 1. ONLY extract values that are explicitly present in the crawl data below. Do NOT guess, infer, or use general knowledge for operating hours, wifi passwords, or room service hours.
 2. For checkInTime / checkOutTime: look for explicit text like "check-in from 3pm", "check out by 12:00", "arrival after 14:00", "departure before 11:00". Convert to HH:MM 24h format. If not explicitly found in the data, return null — do NOT use a default.
 3. For brandName: identify the parent hotel chain/brand (e.g. "Radisson Blu", "Marriott", "OYO"). Return null if this is clearly an independent hotel.
-4. For themeConfig colors: extract ONLY from the CSS color hints provided. If CSS hints are empty or don't contain clear brand colors, return null. Do NOT guess colors from brand knowledge.
+4. For themeConfig colors: use the TIERED COLOR SIGNALS below. STRONG SIGNALS (meta theme-color, semantic CSS vars) are near-certain brand colors — prefer them. ELEMENT COLORS (nav/header/button) are likely brand. FREQUENCY colors are candidates ordered by occurrence — higher count = more prominent. Pick the 2 best brand colors across all tiers. Return null if no clear brand colors.
 5. Return null for any field not found. Do not fabricate data.
 6. PROPERTY SCOPE: This is for ONE specific property — "${details.name}" at "${details.address}". The website may cover multiple locations of the same chain. Extract ONLY data that applies to THIS property/location. If the crawl data describes a different city/branch, ignore it and return null for that field.
 
 HOTEL NAME: ${details.name}
 HOTEL LOCATION: ${details.address}
 
-CSS COLOR HINTS (extracted from website HTML — use ONLY these for colors):
-${colorHints || 'None available'}
+COLOR SIGNALS (tiered by confidence — STRONG first):
+${colorHints}
 
 CRAWL DATA:
 ${crawlData}`;
