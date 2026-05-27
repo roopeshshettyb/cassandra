@@ -65,6 +65,8 @@ export class OnboardingService {
       }
     }
 
+    const existingHotel = await this.hotelsRepository.findOne({ where: { address: details.address } });
+
     return {
       success: true,
       message: null,
@@ -72,6 +74,7 @@ export class OnboardingService {
         ...details,
         needsWebsite: !details.website,
         brandMatch: matchedBrand ? { id: matchedBrand.id, name: matchedBrand.name } : null,
+        existingHotel: existingHotel ? { id: existingHotel.id, name: existingHotel.name } : null,
       },
     };
   }
