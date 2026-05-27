@@ -417,6 +417,20 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                       <TextField fullWidth size="small" value={editValues.address} onChange={handleInputChange('address')} placeholder="Ex. 123 Marine Drive, Mumbai 400001" sx={inputSx} />
                     </FormField>
                   </Box>
+                  {hotel.googleMapsUrl && (
+                    <Box sx={{ gridColumn: { sm: 'span 2' } }}>
+                      <Box
+                        component="a"
+                        href={hotel.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.75, borderRadius: 2, bgcolor: 'rgba(0,0,0,0.03)', border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 600, color: 'primary.main', textDecoration: 'none', overflow: 'hidden', maxWidth: '100%' }}
+                      >
+                        <LocationOn sx={{ fontSize: 15, flexShrink: 0 }} />
+                        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>View on Google Maps</Box>
+                      </Box>
+                    </Box>
+                  )}
                 </Box>
               </FormCard>
 

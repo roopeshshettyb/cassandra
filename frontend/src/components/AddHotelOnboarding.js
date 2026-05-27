@@ -92,25 +92,9 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
     setStep('analyzing');
     const response = await request({ endpoint: `/hotels/onboarding/analyze/${value.id}`, method: 'GET', setLoading, alertError });
     if (response?.success) {
-      if (response.data.brandMatch) {
-        // Brand exists — skip crawl, use brand data directly
-        const brandRes = await request({ endpoint: `/hotels/brands/${response.data.brandMatch.id}`, method: 'GET', setLoading, alertError });
-        if (brandRes?.success) {
-          setExtractedData({
-            ...brandRes.data,
-            name: value.name,
-            address: value.address,
-            website: response.data.website || null,
-            phoneNumber: response.data.phoneNumber || null,
-            googleMapsUrl: value.id
-              ? `https://www.google.com/maps/place/?q=place_id:${value.id}`
-              : (response.data.location?.lat != null ? `https://www.google.com/maps?q=${response.data.location.lat},${response.data.location.lng}` : null),
-            brandName: brandRes.data.name,
-            brandId: brandRes.data.id,
-            brandFound: true,
-          });
-          setStep('review');
-        } else { setStep('search'); }
+      if (response.data.existingHotel) {
+        alertError?.(`"${response.data.existingHotel.name}" already exists`);
+        setStep('search');
       } else if (response.data.needsWebsite) {
         setStep('website-required');
       } else {
@@ -163,22 +147,22 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
       PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden', mx: { xs: '4%', sm: 3 }, mt: { xs: '12vh', sm: '5vh' }, mb: { xs: '2vh', sm: '5vh' }, maxHeight: { xs: '86vh', sm: '90vh' }, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' } }}>
 
       {/* Header */}
-      <Box sx={{ background: NAVY_GRADIENT, px: 3, pt: 3, pb: 2.5 }}>
+      <Box sx={{ background: isReview ? '#fff' : NAVY_GRADIENT, px: 3, pt: 3, pb: 2.5, borderBottom: isReview ? `1px solid ${BORDER}` : 'none' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 2, background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ApartmentIcon sx={{ fontSize: 18, color: PRIMARY_CONTRAST }} />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#fff', lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: 16, color: isReview ? NAVY : '#fff', lineHeight: 1.2 }}>
                 {isReview ? 'Review Extracted Data' : 'Add New Hotel'}
               </Typography>
-              <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', mt: 0.2 }}>
+              <Typography sx={{ fontSize: 11, color: isReview ? MUTED : 'rgba(255,255,255,0.55)', mt: 0.2 }}>
                 {isReview ? 'Confirm and save hotel information' : 'AI-powered hotel onboarding'}
               </Typography>
             </Box>
           </Box>
-          <Button onClick={handleClose} sx={{ color: 'rgba(255,255,255,0.5)', minWidth: 0, p: 0.5, fontSize: 18, lineHeight: 1 }}>✕</Button>
+          <Button onClick={handleClose} sx={{ color: isReview ? MUTED : 'rgba(255,255,255,0.5)', minWidth: 0, p: 0.5, fontSize: 18, lineHeight: 1 }}>✕</Button>
         </Box>
 
         {/* Step indicator */}
@@ -337,21 +321,21 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
 
                 {/* Contact + location */}
                 <Box sx={{ borderRadius: 2, p: 2, mb: 2, border: `1px solid ${BORDER}` }}>
-                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
                     <TextField fullWidth size="small" label="Website" value={extractedData.website || ''} onChange={(e) => setField('website', e.target.value)} InputProps={{ startAdornment: <LanguageIcon sx={{ fontSize: 16, color: MUTED, mr: 0.75 }} /> }} sx={editInputSx} />
                     <TextField fullWidth size="small" label="Phone" value={extractedData.phoneNumber || ''} onChange={(e) => setField('phoneNumber', e.target.value)} InputProps={{ startAdornment: <PhoneIcon sx={{ fontSize: 16, color: MUTED, mr: 0.75 }} /> }} sx={editInputSx} />
+                    {extractedData.googleMapsUrl && (
+                      <Box
+                        component="a"
+                        href={extractedData.googleMapsUrl}
+                        target="_blank" rel="noopener noreferrer"
+                        sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.75, borderRadius: 2, bgcolor: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 600, color: 'primary.main', textDecoration: 'none', overflow: 'hidden', maxWidth: { xs: '100%', sm: 160 }, whiteSpace: 'nowrap' }}
+                      >
+                        <LocationOnIcon sx={{ fontSize: 15, flexShrink: 0 }} />
+                        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Maps</Box>
+                      </Box>
+                    )}
                   </Box>
-                  <TextField fullWidth size="small" label="Google Maps link" value={extractedData.googleMapsUrl || ''} onChange={(e) => setField('googleMapsUrl', e.target.value)} placeholder="https://www.google.com/maps/place/..." InputProps={{ startAdornment: <LocationOnIcon sx={{ fontSize: 16, color: MUTED, mr: 0.75 }} /> }} sx={editInputSx} />
-                  {extractedData.googleMapsUrl && (
-                    <Box
-                      component="a"
-                      href={extractedData.googleMapsUrl}
-                      target="_blank" rel="noopener noreferrer"
-                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 1, fontSize: 12, fontWeight: 600, color: 'primary.main', textDecoration: 'none' }}
-                    >
-                      <LocationOnIcon sx={{ fontSize: 14 }} /> View on Google Maps
-                    </Box>
-                  )}
                 </Box>
 
                 {/* Brand + colors + wifi */}
@@ -360,9 +344,9 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                   <TextField fullWidth size="small" label="Wifi password" value={extractedData.wifiPassword || ''} onChange={(e) => setField('wifiPassword', e.target.value)} sx={{ ...editInputSx, mb: 1.5 }} />
                   <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                     <TextField fullWidth size="small" label="Primary color" value={primaryColor || ''} onChange={(e) => setColor('primaryColor', e.target.value)} placeholder="#RRGGBB"
-                      InputProps={{ startAdornment: <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: primaryColor || 'transparent', border: `1px solid ${BORDER}`, mr: 0.75, flexShrink: 0 }} /> }} sx={editInputSx} />
+                      InputProps={{ startAdornment: <input type="color" value={primaryColor || '#000000'} onChange={(e) => setColor('primaryColor', e.target.value)} style={{ width: 24, height: 24, border: 'none', padding: 0, background: 'none', cursor: 'pointer', marginRight: 6, flexShrink: 0, borderRadius: '50%' }} /> }} sx={editInputSx} />
                     <TextField fullWidth size="small" label="Secondary color" value={secondaryColor || ''} onChange={(e) => setColor('secondaryColor', e.target.value)} placeholder="#RRGGBB"
-                      InputProps={{ startAdornment: <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: secondaryColor || 'transparent', border: `1px solid ${BORDER}`, mr: 0.75, flexShrink: 0 }} /> }} sx={editInputSx} />
+                      InputProps={{ startAdornment: <input type="color" value={secondaryColor || '#000000'} onChange={(e) => setColor('secondaryColor', e.target.value)} style={{ width: 24, height: 24, border: 'none', padding: 0, background: 'none', cursor: 'pointer', marginRight: 6, flexShrink: 0, borderRadius: '50%' }} /> }} sx={editInputSx} />
                   </Box>
                 </Box>
 
