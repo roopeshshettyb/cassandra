@@ -97,6 +97,30 @@ export class LangGraphService {
     return result as T;
   }
 
+  /** OCR + extract structured data from one or more image URLs via OpenRouter vision model. */
+  async extractFromImageUrlsWithStructuredOutput<T>(
+    schema: z.ZodType<T>,
+    prompt: string,
+    imageUrls: string[],
+    schemaName?: string,
+  ): Promise<T> {
+    const llmConfig = this.constantsService.private.LLM;
+    const model = new ChatOpenAI({
+      modelName: llmConfig.MENU_OCR_MODEL,
+      apiKey: llmConfig.OPENROUTER.API_KEY,
+      temperature: 0,
+      configuration: { baseURL: llmConfig.OPENROUTER.BASE_URL },
+    });
+    const content: any[] = [{ type: 'text', text: prompt }];
+    for (let i = 0; i < imageUrls.length; i++) {
+      content.push({ type: 'image_url', image_url: { url: imageUrls[i] } });
+    }
+    const message = new HumanMessage({ content });
+    const structured = model.withStructuredOutput(schema, { name: schemaName });
+    const result = await structured.invoke([message]);
+    return result as T;
+  }
+
   private createVisionModel(): ChatOpenAI {
     const openaiConfig = this.constantsService.private?.LLM?.STT_CONFIG?.OPENAI;
     const apiKey = openaiConfig?.API_KEY;

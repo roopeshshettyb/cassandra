@@ -442,6 +442,7 @@ export class ConstantsService {
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
         TEXT_MODEL: 'google/gemini-3.1-flash-lite',
+        MENU_OCR_MODEL: this.configService.get<string>('MENU_OCR_MODEL', 'google/gemini-2.5-flash-lite'),
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00025,
