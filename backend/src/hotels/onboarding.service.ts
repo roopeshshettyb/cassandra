@@ -97,39 +97,27 @@ export class OnboardingService {
   }
 
   private extractColorHints(html: string): string {
-    const sorted = this.getTopColorsByFrequency(html);
-    if (sorted.length === 0) return 'None available';
-    const top: string[] = [];
-    for (let i = 0; i < Math.min(10, sorted.length); i++) {
-      top.push(`${sorted[i].color} (${sorted[i].count}×)`);
-    }
-    return `TOP COLORS BY FREQUENCY:\n${top.join('\n')}`;
-  }
+    const signals: string[] = [];
 
-  // Normalize all color forms to lowercase #rrggbb hex, count occurrences, return sorted desc by count.
-  private getTopColorsByFrequency(html: string): { color: string; count: number }[] {
-    const regex = /#([0-9a-fA-F]{6})\b|#([0-9a-fA-F]{3})\b|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi;
-    const freq: Record<string, number> = {};
-    let m: RegExpExecArray | null;
-    while ((m = regex.exec(html)) !== null) {
-      let hex: string | null = null;
-      if (m[1]) hex = `#${m[1].toLowerCase()}`;
-      else if (m[2]) {
-        const c = m[2].toLowerCase();
-        hex = `#${c[0]}${c[0]}${c[1]}${c[1]}${c[2]}${c[2]}`;
-      } else if (m[3]) {
-        const r = parseInt(m[3], 10).toString(16).padStart(2, '0');
-        const g = parseInt(m[4], 10).toString(16).padStart(2, '0');
-        const b = parseInt(m[5], 10).toString(16).padStart(2, '0');
-        hex = `#${r}${g}${b}`;
-      }
-      if (hex) freq[hex] = (freq[hex] || 0) + 1;
+    // meta theme-color — browsers use for address bar, near-certain brand primary
+    const themeColorMatch = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i);
+    if (themeColorMatch?.[1]) signals.push(`meta theme-color: ${themeColorMatch[1]}`);
+
+    // msapplication-TileColor — Windows tile, often set to brand color
+    const tileMatch = html.match(/<meta[^>]+name=["']msapplication-TileColor["'][^>]+content=["']([^"']+)["']/i);
+    if (tileMatch?.[1]) signals.push(`msapplication-TileColor: ${tileMatch[1]}`);
+
+    // CSS custom properties with semantic names (--primary, --brand, --accent, --theme, --main)
+    const semanticVarRegex = /--[\w-]*(primary|brand|accent|theme|main)[\w-]*:\s*([^;}\s]+)/gi;
+    let semanticMatch: RegExpExecArray | null;
+    const seenVars: Record<string, boolean> = {};
+    while ((semanticMatch = semanticVarRegex.exec(html)) !== null) {
+      const val = semanticMatch[0].trim();
+      if (!seenVars[val]) { seenVars[val] = true; signals.push(val); }
     }
-    const out: { color: string; count: number }[] = [];
-    const keys = Object.keys(freq);
-    for (let i = 0; i < keys.length; i++) out.push({ color: keys[i], count: freq[keys[i]] });
-    out.sort((a, b) => b.count - a.count);
-    return out;
+
+    return signals.length > 0 ? `STRONG SIGNALS:\n${signals.join('\n')}` : 'None available';
   }
 
   private getFaviconUrl(website: string): string | null {
@@ -264,7 +252,10 @@ STRICT RULES — READ CAREFULLY:
 1. ONLY extract values that are explicitly present in the crawl data below. Do NOT guess, infer, or use general knowledge for operating hours, wifi passwords, or room service hours.
 2. For checkInTime / checkOutTime: look for explicit text like "check-in from 3pm", "check out by 12:00", "arrival after 14:00", "departure before 11:00". Convert to HH:MM 24h format. If not explicitly found in the data, return null — do NOT use a default.
 3. For brandName: identify the parent hotel chain/brand (e.g. "Radisson Blu", "Marriott", "OYO"). Return null if this is clearly an independent hotel.
-4. For themeConfig colors: the COLOR SIGNALS list shows the top colors on the website ordered by occurrence count. Cross-reference with your knowledge of "${details.name}" and its parent chain to pick the primary + secondary brand colors. If you recognize the hotel/chain (e.g. Lemon Tree=yellow, Marriott=red, Radisson=burgundy, Taj=navy/gold), prefer candidates matching its known brand identity. Otherwise pick the most prominent non-neutral colors. Return null only if no candidate could plausibly be a brand color.
+4. For themeConfig colors: pick primary + secondary brand colors using:
+   (a) STRONG SIGNALS below (meta theme-color, CSS vars named --primary/--brand/--accent) — these are explicit brand declarations. PREFER these IF they make sense for the brand.
+   (b) Your knowledge of "${details.name}" and its parent chain — if you recognize the hotel/chain, pick its known brand colors directly.
+   IMPORTANT: STRONG SIGNALS can be unmodified framework defaults (e.g. Bootstrap's blue, Tailwind's defaults). If the signal value clearly doesn't match what you know about this brand, IGNORE the signal and use brand-knowledge instead. Return null only if you have no recognition of the brand AND no plausible strong signals.
 5. Return null for any field not found. Do not fabricate data.
 6. PROPERTY SCOPE: This is for ONE specific property — "${details.name}" at "${details.address}". The website may cover multiple locations of the same chain. Extract ONLY data that applies to THIS property/location. If the crawl data describes a different city/branch, ignore it and return null for that field.
 
