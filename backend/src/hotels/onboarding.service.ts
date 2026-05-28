@@ -30,9 +30,9 @@ const HOTEL_EXTRACTION_SCHEMA = z.object({
   houseKeepingHours: z.string().nullable().describe('Housekeeping hours. ONLY if explicitly stated. Null otherwise.'),
   roomServiceHours: z.string().nullable().describe('Room service hours. ONLY if explicitly stated. Null otherwise.'),
   themeConfig: z.object({
-    primaryColor: z.string().nullable().describe('Hex color (#RRGGBB) extracted from CSS hints only. Null if not found in CSS.'),
-    secondaryColor: z.string().nullable().describe('Hex color (#RRGGBB) extracted from CSS hints only. Null if not found in CSS.'),
-  }).describe('Colors from CSS only — do not guess from brand knowledge here'),
+    primaryColor: z.string().nullable().describe('Hex color (#RRGGBB). Pick from COLOR SIGNALS, cross-referenced with brand identity. Null if no plausible candidate.'),
+    secondaryColor: z.string().nullable().describe('Hex color (#RRGGBB). Pick from COLOR SIGNALS, cross-referenced with brand identity. Null if no plausible candidate.'),
+  }).describe('Brand colors picked from extracted signals using brand-identity knowledge as judgment.'),
 });
 
 @Injectable()
@@ -136,19 +136,7 @@ export class OnboardingService {
     if (elementColors.length > 0) tiers.push(`ELEMENT COLORS (nav/header/button):\n${elementColors.join('\n')}`);
 
     // --- TIER 2b: All colors by frequency ---
-    const allColorsRegex = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)/gi;
-    const freq: Record<string, number> = {};
-    let colorMatch: RegExpExecArray | null;
-    while ((colorMatch = allColorsRegex.exec(html)) !== null) {
-      const c = colorMatch[0].toLowerCase();
-      freq[c] = (freq[c] || 0) + 1;
-    }
-    const sorted: { color: string; count: number }[] = [];
-    const freqKeys = Object.keys(freq);
-    for (let i = 0; i < freqKeys.length; i++) {
-      sorted.push({ color: freqKeys[i], count: freq[freqKeys[i]] });
-    }
-    sorted.sort((a, b) => b.count - a.count);
+    const sorted = this.getTopColorsByFrequency(html);
     const top10: string[] = [];
     for (let i = 0; i < Math.min(10, sorted.length); i++) {
       top10.push(`${sorted[i].color} (${sorted[i].count}×)`);
@@ -156,6 +144,32 @@ export class OnboardingService {
     if (top10.length > 0) tiers.push(`TOP COLORS BY FREQUENCY:\n${top10.join('\n')}`);
 
     return tiers.length > 0 ? tiers.join('\n\n') : 'None available';
+  }
+
+  // Normalize all color forms to lowercase #rrggbb hex, count occurrences, return sorted desc by count.
+  private getTopColorsByFrequency(html: string): { color: string; count: number }[] {
+    const regex = /#([0-9a-fA-F]{6})\b|#([0-9a-fA-F]{3})\b|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi;
+    const freq: Record<string, number> = {};
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(html)) !== null) {
+      let hex: string | null = null;
+      if (m[1]) hex = `#${m[1].toLowerCase()}`;
+      else if (m[2]) {
+        const c = m[2].toLowerCase();
+        hex = `#${c[0]}${c[0]}${c[1]}${c[1]}${c[2]}${c[2]}`;
+      } else if (m[3]) {
+        const r = parseInt(m[3], 10).toString(16).padStart(2, '0');
+        const g = parseInt(m[4], 10).toString(16).padStart(2, '0');
+        const b = parseInt(m[5], 10).toString(16).padStart(2, '0');
+        hex = `#${r}${g}${b}`;
+      }
+      if (hex) freq[hex] = (freq[hex] || 0) + 1;
+    }
+    const out: { color: string; count: number }[] = [];
+    const keys = Object.keys(freq);
+    for (let i = 0; i < keys.length; i++) out.push({ color: keys[i], count: freq[keys[i]] });
+    out.sort((a, b) => b.count - a.count);
+    return out;
   }
 
   private getFaviconUrl(website: string): string | null {
@@ -277,6 +291,7 @@ export class OnboardingService {
 
     // Extract tiered color hints from directly-fetched HTML
     const colorHints = websiteHtml ? this.extractColorHints(websiteHtml) : 'None available';
+    // console.log('[COLOR HINTS]\n', colorHints);
     const rawLogoUrl = this.extractLogoUrl(websiteHtml, website) || this.getFaviconUrl(website);
     const logoUrl = rawLogoUrl && !rawLogoUrl.includes(this.constantsService.private.AWS_S3_URL_DOMAIN)
       ? await this.uploadLogoFromUrl(rawLogoUrl, details.name)
@@ -289,7 +304,10 @@ STRICT RULES — READ CAREFULLY:
 1. ONLY extract values that are explicitly present in the crawl data below. Do NOT guess, infer, or use general knowledge for operating hours, wifi passwords, or room service hours.
 2. For checkInTime / checkOutTime: look for explicit text like "check-in from 3pm", "check out by 12:00", "arrival after 14:00", "departure before 11:00". Convert to HH:MM 24h format. If not explicitly found in the data, return null — do NOT use a default.
 3. For brandName: identify the parent hotel chain/brand (e.g. "Radisson Blu", "Marriott", "OYO"). Return null if this is clearly an independent hotel.
-4. For themeConfig colors: use the TIERED COLOR SIGNALS below. STRONG SIGNALS (meta theme-color, semantic CSS vars) are near-certain brand colors — prefer them. ELEMENT COLORS (nav/header/button) are likely brand. FREQUENCY colors are candidates ordered by occurrence — higher count = more prominent. Pick the 2 best brand colors across all tiers. Return null if no clear brand colors.
+4. For themeConfig colors: cross-reference the COLOR SIGNALS below with your knowledge of "${details.name}" and its parent chain.
+   - If you RECOGNIZE this hotel/chain (e.g. Lemon Tree = yellow, Marriott = red, Radisson = burgundy, Taj = navy/gold), pick the candidates from the signals that BEST MATCH its known brand identity. Skip candidates that are clearly page chrome (pure black/white/grays) unless the brand actually uses them.
+   - If you DO NOT recognize the brand, fall back to: STRONG SIGNALS first (meta theme-color, semantic vars), then ELEMENT colors (nav/header/button), then top-frequency non-neutral colors.
+   - Return null only if no candidate could plausibly be a brand color.
 5. Return null for any field not found. Do not fabricate data.
 6. PROPERTY SCOPE: This is for ONE specific property — "${details.name}" at "${details.address}". The website may cover multiple locations of the same chain. Extract ONLY data that applies to THIS property/location. If the crawl data describes a different city/branch, ignore it and return null for that field.
 
