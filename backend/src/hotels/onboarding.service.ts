@@ -255,7 +255,7 @@ STRICT RULES — READ CAREFULLY:
 4. For themeConfig colors: pick primary + secondary brand colors using:
    (a) STRONG SIGNALS below (meta theme-color, CSS vars named --primary/--brand/--accent) — these are explicit brand declarations. PREFER these IF they make sense for the brand.
    (b) Your knowledge of "${details.name}" and its parent chain — if you recognize the hotel/chain, pick its known brand colors directly.
-   IMPORTANT: STRONG SIGNALS can be unmodified framework defaults (e.g. Bootstrap's blue, Tailwind's defaults). If the signal value clearly doesn't match what you know about this brand, IGNORE the signal and use brand-knowledge instead. Return null only if you have no recognition of the brand AND no plausible strong signals.
+   IMPORTANT: STRONG SIGNALS can be unmodified framework defaults. If the signal value clearly doesn't match what you know about this brand, IGNORE the signal and use brand-knowledge instead. Return null only if you have no recognition of the brand AND no plausible strong signals.
 5. Return null for any field not found. Do not fabricate data.
 6. PROPERTY SCOPE: This is for ONE specific property — "${details.name}" at "${details.address}". The website may cover multiple locations of the same chain. Extract ONLY data that applies to THIS property/location. If the crawl data describes a different city/branch, ignore it and return null for that field.
 
