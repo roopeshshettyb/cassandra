@@ -169,6 +169,13 @@ export class Hotel extends Model<Hotel> {
   })
   phoneNumber: string;
 
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'google_maps_url',
+  })
+  googleMapsUrl: string;
+
   @ForeignKey(() => HotelBrand)
   @Column({
     type: DataType.INTEGER,

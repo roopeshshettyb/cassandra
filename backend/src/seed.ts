@@ -107,6 +107,7 @@ async function seed() {
     {
       name: 'Radisson Blu Plaza Delhi',
       address: 'National Highway 8, Mahipalpur, New Delhi, Delhi 110037',
+      googleMapsUrl: 'https://www.google.com/maps?q=28.5446,77.1199',
       checkInTime: '15:00', checkOutTime: '12:00',
       hotelBrandId: brands['Radisson'].id,
       themeConfig: brands['Radisson'].themeConfig,
@@ -114,6 +115,7 @@ async function seed() {
     {
       name: 'The Taj Mahal Palace',
       address: 'Apollo Bandar, Colaba, Mumbai, Maharashtra 400001',
+      googleMapsUrl: 'https://www.google.com/maps?q=18.9220,72.8332',
       checkInTime: '14:00', checkOutTime: '12:00',
       hotelBrandId: brands['Taj Hotels'].id,
       themeConfig: brands['Taj Hotels'].themeConfig,
@@ -121,6 +123,7 @@ async function seed() {
     {
       name: 'ITC Maurya',
       address: 'Sardar Patel Marg, Diplomatic Enclave, Chanakyapuri, New Delhi 110021',
+      googleMapsUrl: 'https://www.google.com/maps?q=28.5984,77.1734',
       checkInTime: '14:00', checkOutTime: '12:00',
       hotelBrandId: brands['ITC Hotels'].id,
       themeConfig: brands['ITC Hotels'].themeConfig,
@@ -128,6 +131,7 @@ async function seed() {
     {
       name: 'Taj Cidade De Goa Horizon',
       address: 'Vainguinim Plateau, Panaji, Goa 403004',
+      googleMapsUrl: 'https://www.google.com/maps?q=15.4734,73.8350',
       checkInTime: '14:00', checkOutTime: '12:00',
       hotelBrandId: brands['Taj Hotels'].id,
       themeConfig: brands['Taj Hotels'].themeConfig,
@@ -135,6 +139,7 @@ async function seed() {
     {
       name: 'JW Marriott Sahar',
       address: 'Sahar, Andheri East, Mumbai, Maharashtra 400099',
+      googleMapsUrl: 'https://www.google.com/maps?q=19.0989,72.8686',
       checkInTime: '16:00', checkOutTime: '12:00',
       hotelBrandId: brands['Marriott'].id,
       themeConfig: brands['Marriott'].themeConfig,
@@ -142,6 +147,7 @@ async function seed() {
     {
       name: 'St. Regis Mumbai',
       address: '462, Senapati Bapat Marg, Lower Parel, Mumbai 400013',
+      googleMapsUrl: 'https://www.google.com/maps?q=19.0130,72.8300',
       checkInTime: '15:00', checkOutTime: '12:00',
       hotelBrandId: brands['Marriott'].id,
       themeConfig: brands['Marriott'].themeConfig,
@@ -149,6 +155,7 @@ async function seed() {
     {
       name: 'Four Seasons Mumbai',
       address: '1/136, Dr. E Moses Road, Worli, Mumbai 400018',
+      googleMapsUrl: 'https://www.google.com/maps?q=18.9940,72.8175',
       checkInTime: '15:00', checkOutTime: '12:00',
       hotelBrandId: brands['Four Seasons'].id,
       themeConfig: brands['Four Seasons'].themeConfig,
@@ -156,6 +163,7 @@ async function seed() {
     {
       name: 'Grand Hyatt Mumbai',
       address: 'Santacruz-Chembur Link Road, Mumbai 400055',
+      googleMapsUrl: 'https://www.google.com/maps?q=19.0716,72.8487',
       checkInTime: '15:00', checkOutTime: '12:00',
       hotelBrandId: brands['Hyatt'].id,
       themeConfig: brands['Hyatt'].themeConfig,
@@ -163,6 +171,7 @@ async function seed() {
     {
       name: 'Burj Al Arab Jumeirah',
       address: 'Jumeirah Beach Road, Dubai, UAE',
+      googleMapsUrl: 'https://www.google.com/maps?q=25.1412,55.1853',
       checkInTime: '15:00', checkOutTime: '12:00',
       hotelBrandId: brands['Jumeirah'].id,
       themeConfig: brands['Jumeirah'].themeConfig,
@@ -170,21 +179,25 @@ async function seed() {
     {
       name: 'The Lodhi',
       address: 'Lodhi Road, New Delhi 110003',
+      googleMapsUrl: 'https://www.google.com/maps?q=28.5905,77.2360',
       checkInTime: '14:00', checkOutTime: '12:00',
     },
     {
       name: 'The Twin Towers Hotel New Kufri',
       address: 'Kufri, Shimla, Himachal Pradesh 171012',
+      googleMapsUrl: 'https://www.google.com/maps?q=31.0980,77.2660',
       checkInTime: '12:00', checkOutTime: '10:00',
     },
     {
       name: 'Hotel de Paris Monte-Carlo',
       address: 'Place du Casino, 98000 Monaco',
+      googleMapsUrl: 'https://www.google.com/maps?q=43.7396,7.4281',
       checkInTime: '15:00', checkOutTime: '12:00',
     },
     {
       name: "Badrutt's Palace Hotel St. Moritz",
       address: 'Via Serlas 27, 7500 St. Moritz, Switzerland',
+      googleMapsUrl: 'https://www.google.com/maps?q=46.4976,9.8395',
       checkInTime: '15:00', checkOutTime: '12:00',
     },
   ];
