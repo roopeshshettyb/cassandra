@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
@@ -141,6 +141,41 @@ export class AwsService {
       ContentType: contentType,
     });
     return await getSignedUrl(this.s3Client, command, { expiresIn });
+  }
+
+  /**
+   * Validate + presign a client-side upload in one call. Shared by hotel logo, notification tone,
+   * menu OCR uploads. Caller builds the s3 key (domain-specific naming). Returns the presigned PUT
+   * URL and the resolved object URL (public HTTPS for public bucket, base URL for private).
+   */
+  async createUploadUrl(opts: {
+    key: string;
+    contentType: string;
+    fileSize?: number;
+    maxSizeMb?: number;
+    allowedType?: 'image' | 'audio';
+    isPublic?: boolean;
+    expiresIn?: number;
+  }): Promise<{ presignedUrl: string; s3Url: string }> {
+    if (opts.maxSizeMb && opts.fileSize && opts.fileSize > opts.maxSizeMb * 1024 * 1024) {
+      throw new BadRequestException(`File size must not exceed ${opts.maxSizeMb}MB`);
+    }
+    if (opts.allowedType === 'image' && !opts.contentType.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+    if (opts.allowedType === 'audio' && !opts.contentType.includes('audio')) {
+      throw new BadRequestException('Only audio files are allowed');
+    }
+    const isPublic = opts.isPublic ?? false;
+    try {
+      const presignedUrl = await this.getPresignedPutUrl(opts.key, opts.contentType, opts.expiresIn ?? 900, isPublic);
+      const s3Url = isPublic
+        ? this.getPublicUrl(this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME, opts.key)
+        : presignedUrl.split('?')[0];
+      return { presignedUrl, s3Url };
+    } catch (error) {
+      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
+    }
   }
 
   /** Copy object within the same bucket. Used to move temp upload to permanent key. */

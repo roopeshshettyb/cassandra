@@ -1,15 +1,32 @@
-import { Inject, Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
 import { QueryTypes } from 'sequelize';
+import { z } from 'zod';
 import { RESTAURANT_REPOSITORY } from './restaurant.repository';
-import { MenuItem } from './restaurant.model';
+import { MenuItem, MenuItemCategory } from './restaurant.model';
 import { CreateMenuItemDto, UpdateMenuItemDto } from './restaurant.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { HotelsService } from '../hotels/hotels.service';
+import { AwsService } from '../common/aws/aws.service';
+import { ConstantsService } from '../common/constants/constants.service';
+import { LangGraphService } from '../langgraph/langgraph.service';
+
+const MENU_OCR_SCHEMA = z.object({
+  items: z.array(z.object({
+    name: z.string().describe('Item name as printed on the menu.'),
+    description: z.string().nullable().describe('Short description if present. Null if not on the menu.'),
+    price: z.number().nullable().describe('Numeric price. Strip currency symbol. Null if no price visible.'),
+    category: z.enum(Object.values(MenuItemCategory) as [string, ...string[]]).describe('Best-fit category for this item.'),
+  })),
+});
+
 @Injectable()
 export class RestaurantService {
   constructor(
     @Inject(RESTAURANT_REPOSITORY) private readonly restaurantRepository: typeof MenuItem,
     private readonly hotelsService: HotelsService,
+    private readonly awsService: AwsService,
+    private readonly constantsService: ConstantsService,
+    @Inject(forwardRef(() => LangGraphService)) private readonly langGraphService: LangGraphService,
   ) {}
 
   private async ensureCanAccessHotel(hotelId: number, currentAccount: Account): Promise<void> {
@@ -143,5 +160,103 @@ export class RestaurantService {
     });
 
     return { success: true, message: 'Menu items fetched', data: items };
+  }
+
+  async getMenuOcrPresignedUrl(
+    body: { hotelId: number; fileName: string; fileSize: number; contentType: string },
+    currentAccount: Account,
+  ) {
+    await this.ensureCanAccessHotel(body.hotelId, currentAccount);
+
+    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
+      throw new ForbiddenException();
+    }
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}menu-ocr-temp/${body.hotelId}-${Date.now()}-${body.fileName}`;
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key, contentType: body.contentType, fileSize: body.fileSize,
+      maxSizeMb: 10, allowedType: 'image', isPublic: true,
+    });
+    return { success: true, data: { ...data, s3Key } };
+  }
+
+  async extractMenuFromImages(
+    body: { hotelId: number; imageUrls: string[] },
+    currentAccount: Account,
+  ) {
+    await this.ensureCanAccessHotel(body.hotelId, currentAccount);
+
+    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
+      throw new ForbiddenException();
+    }
+
+    const prompt = `You are a restaurant menu OCR extractor. The attached image(s) are pages of a hotel restaurant menu.
+
+Extract every menu item visible. For each item return: name, description (if present, else null), price (numeric, no currency symbol; null if missing), category (one of: appetizer, main_course, dessert, beverage, side, breakfast, lunch, dinner, snacks — pick the best fit from context).
+
+Rules:
+- Combine items from multiple images into a single flat list.
+- Do not duplicate items across pages.
+- Preserve item names exactly as printed (clean up obvious OCR glitches, but don't paraphrase).
+- If a description spans multiple lines, join into one string.
+- If a price has multiple sizes (e.g. half/full), use the larger/main price.
+- If no price visible, set price to null — do not guess.
+- Skip section headers, decorative text, and non-item content.`;
+
+    let extracted: z.infer<typeof MENU_OCR_SCHEMA> = { items: [] };
+    try {
+      extracted = await this.langGraphService.extractFromImageUrlsWithStructuredOutput(
+        MENU_OCR_SCHEMA,
+        prompt,
+        body.imageUrls,
+        'menuOcr',
+      );
+    } finally {
+      // Always clean up S3 temp uploads after the LLM call (success or fail)
+      const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
+      for (let i = 0; i < body.imageUrls.length; i++) {
+        try {
+          const url = body.imageUrls[i];
+          const idx = url.indexOf(`/${publicBucket}/`);
+          const key = idx >= 0 ? url.substring(idx + publicBucket.length + 2) : url.split('/').slice(3).join('/');
+          if (key && key.startsWith(`${keyPrefix}menu-ocr-temp/`)) {
+            await this.awsService.deleteObject(key, true);
+          }
+        } catch {
+          // Lifecycle rule will catch orphans; ignore individual delete failures
+        }
+      }
+    }
+
+    return { success: true, message: 'Menu extracted', data: { items: extracted.items } };
+  }
+
+  async bulkCreate(
+    body: { hotelId: number; items: CreateMenuItemDto[] },
+    currentAccount: Account,
+  ) {
+    await this.ensureCanAccessHotel(body.hotelId, currentAccount);
+
+    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
+      throw new ForbiddenException();
+    }
+
+    const sequelize = this.restaurantRepository.sequelize;
+    const created = await sequelize.transaction(async (t) => {
+      const rows: MenuItem[] = [];
+      for (let i = 0; i < body.items.length; i++) {
+        const dto = body.items[i];
+        if (dto.hotelId !== body.hotelId) {
+          throw new BadRequestException('Item hotelId must match bulk hotelId');
+        }
+        const row = await this.restaurantRepository.create(dto, { transaction: t });
+        rows.push(row);
+      }
+      return rows;
+    });
+
+    return { success: true, message: `${created.length} menu items created`, data: created };
   }
 }

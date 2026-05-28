@@ -557,33 +557,14 @@ ${inviteUrl}`;
   ) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
 
-    const maxSizeBytes = NOTIFICATION_TONE_MAX_FILE_SIZE_MB * 1024 * 1024;
-    if (body.fileSize > maxSizeBytes) {
-      throw new BadRequestException(`File size must not exceed ${NOTIFICATION_TONE_MAX_FILE_SIZE_MB}MB`);
-    }
-
-    if (!body.contentType.includes('audio')) {
-      throw new BadRequestException('Only audio files are allowed');
-    }
-
     const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
     const s3Key = `${keyPrefix}notification-tones/${hotel.id}-${Date.now()}-${body.fileName}`;
-
-    try {
-      // Use private bucket (isPublic: false) since we read it via signed URLs anyway
-      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, false);
-      const baseUrl = presignedUrl.split('?')[0];
-
-      return {
-        success: true,
-        data: {
-          presignedUrl,
-          s3Url: baseUrl,
-        },
-      };
-    } catch (error) {
-      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
-    }
+    // Private bucket (isPublic: false) since we read it via signed URLs anyway
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key, contentType: body.contentType, fileSize: body.fileSize,
+      maxSizeMb: NOTIFICATION_TONE_MAX_FILE_SIZE_MB, allowedType: 'audio', isPublic: false,
+    });
+    return { success: true, data };
   }
 
   async confirmNotificationToneUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
@@ -619,30 +600,13 @@ ${inviteUrl}`;
   ) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
 
-    const maxSizeBytes = 5 * 1024 * 1024;
-    if (body.fileSize > maxSizeBytes) {
-      throw new BadRequestException('File size must not exceed 5MB');
-    }
-
-    if (!body.contentType.startsWith('image/')) {
-      throw new BadRequestException('Only image files are allowed');
-    }
-
     const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
     const s3Key = `${keyPrefix}hotel-logos/${hotel.id}-${Date.now()}-${body.fileName}`;
-
-    try {
-      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, true);
-      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
-      const publicUrl = this.awsService.getPublicUrl(publicBucket, s3Key);
-
-      return {
-        success: true,
-        data: { presignedUrl, s3Url: publicUrl },
-      };
-    } catch (error) {
-      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
-    }
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key, contentType: body.contentType, fileSize: body.fileSize,
+      maxSizeMb: 5, allowedType: 'image', isPublic: true,
+    });
+    return { success: true, data };
   }
 
   async confirmLogoUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
