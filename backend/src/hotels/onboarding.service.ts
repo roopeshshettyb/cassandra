@@ -97,53 +97,13 @@ export class OnboardingService {
   }
 
   private extractColorHints(html: string): string {
-    const tiers: string[] = [];
-
-    // --- TIER 1: Strong signals ---
-    const strong: string[] = [];
-
-    // meta theme-color (browsers use for address bar — almost always primary)
-    const themeColorMatch = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i);
-    if (themeColorMatch?.[1]) strong.push(`meta theme-color: ${themeColorMatch[1]}`);
-
-    // msapplication-TileColor
-    const tileMatch = html.match(/<meta[^>]+name=["']msapplication-TileColor["'][^>]+content=["']([^"']+)["']/i);
-    if (tileMatch?.[1]) strong.push(`msapplication-TileColor: ${tileMatch[1]}`);
-
-    // CSS custom properties with semantic names (--primary, --brand, --accent, --theme)
-    const semanticVarRegex = /--[\w-]*(primary|brand|accent|theme|main)[\w-]*:\s*([^;}\s]+)/gi;
-    let semanticMatch: RegExpExecArray | null;
-    const seenVars: Record<string, boolean> = {};
-    while ((semanticMatch = semanticVarRegex.exec(html)) !== null) {
-      const val = semanticMatch[0].trim();
-      if (!seenVars[val]) { seenVars[val] = true; strong.push(val); }
-    }
-
-    if (strong.length > 0) tiers.push(`STRONG SIGNALS:\n${strong.join('\n')}`);
-
-    // --- TIER 2a: Element colors (nav/header/button) ---
-    const elementColors: string[] = [];
-    const elementRegex = /<(nav|header|button|\w+[^>]*class="[^"]*(?:btn|nav|header)[^"]*")[^>]*style="[^"]*(?:background(?:-color)?|color)\s*:\s*([^;"]+)/gi;
-    let elMatch: RegExpExecArray | null;
-    while ((elMatch = elementRegex.exec(html)) !== null) {
-      const color = elMatch[2].trim();
-      if (color && color !== 'inherit' && color !== 'transparent') {
-        elementColors.push(`${elMatch[1].slice(0, 20)}: ${color}`);
-      }
-      if (elementColors.length >= 8) break;
-    }
-    if (elementColors.length > 0) tiers.push(`ELEMENT COLORS (nav/header/button):\n${elementColors.join('\n')}`);
-
-    // --- TIER 2b: All colors by frequency ---
     const sorted = this.getTopColorsByFrequency(html);
-    const top10: string[] = [];
+    if (sorted.length === 0) return 'None available';
+    const top: string[] = [];
     for (let i = 0; i < Math.min(10, sorted.length); i++) {
-      top10.push(`${sorted[i].color} (${sorted[i].count}×)`);
+      top.push(`${sorted[i].color} (${sorted[i].count}×)`);
     }
-    if (top10.length > 0) tiers.push(`TOP COLORS BY FREQUENCY:\n${top10.join('\n')}`);
-
-    return tiers.length > 0 ? tiers.join('\n\n') : 'None available';
+    return `TOP COLORS BY FREQUENCY:\n${top.join('\n')}`;
   }
 
   // Normalize all color forms to lowercase #rrggbb hex, count occurrences, return sorted desc by count.
@@ -304,10 +264,7 @@ STRICT RULES — READ CAREFULLY:
 1. ONLY extract values that are explicitly present in the crawl data below. Do NOT guess, infer, or use general knowledge for operating hours, wifi passwords, or room service hours.
 2. For checkInTime / checkOutTime: look for explicit text like "check-in from 3pm", "check out by 12:00", "arrival after 14:00", "departure before 11:00". Convert to HH:MM 24h format. If not explicitly found in the data, return null — do NOT use a default.
 3. For brandName: identify the parent hotel chain/brand (e.g. "Radisson Blu", "Marriott", "OYO"). Return null if this is clearly an independent hotel.
-4. For themeConfig colors: cross-reference the COLOR SIGNALS below with your knowledge of "${details.name}" and its parent chain.
-   - If you RECOGNIZE this hotel/chain (e.g. Lemon Tree = yellow, Marriott = red, Radisson = burgundy, Taj = navy/gold), pick the candidates from the signals that BEST MATCH its known brand identity. Skip candidates that are clearly page chrome (pure black/white/grays) unless the brand actually uses them.
-   - If you DO NOT recognize the brand, fall back to: STRONG SIGNALS first (meta theme-color, semantic vars), then ELEMENT colors (nav/header/button), then top-frequency non-neutral colors.
-   - Return null only if no candidate could plausibly be a brand color.
+4. For themeConfig colors: the COLOR SIGNALS list shows the top colors on the website ordered by occurrence count. Cross-reference with your knowledge of "${details.name}" and its parent chain to pick the primary + secondary brand colors. If you recognize the hotel/chain (e.g. Lemon Tree=yellow, Marriott=red, Radisson=burgundy, Taj=navy/gold), prefer candidates matching its known brand identity. Otherwise pick the most prominent non-neutral colors. Return null only if no candidate could plausibly be a brand color.
 5. Return null for any field not found. Do not fabricate data.
 6. PROPERTY SCOPE: This is for ONE specific property — "${details.name}" at "${details.address}". The website may cover multiple locations of the same chain. Extract ONLY data that applies to THIS property/location. If the crawl data describes a different city/branch, ignore it and return null for that field.
 
