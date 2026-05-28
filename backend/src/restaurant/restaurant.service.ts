@@ -172,25 +172,13 @@ export class RestaurantService {
       throw new ForbiddenException();
     }
 
-    const maxSizeBytes = 10 * 1024 * 1024;
-    if (body.fileSize > maxSizeBytes) {
-      throw new BadRequestException('File size must not exceed 10MB');
-    }
-    if (!body.contentType.startsWith('image/')) {
-      throw new BadRequestException('Only image files are allowed');
-    }
-
     const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
     const s3Key = `${keyPrefix}menu-ocr-temp/${body.hotelId}-${Date.now()}-${body.fileName}`;
-
-    try {
-      const presignedUrl = await this.awsService.getPresignedPutUrl(s3Key, body.contentType, 900, true);
-      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
-      const publicUrl = this.awsService.getPublicUrl(publicBucket, s3Key);
-      return { success: true, data: { presignedUrl, s3Url: publicUrl, s3Key } };
-    } catch (error) {
-      throw new BadRequestException(`Failed to generate presigned URL: ${error.message}`);
-    }
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key, contentType: body.contentType, fileSize: body.fileSize,
+      maxSizeMb: 10, allowedType: 'image', isPublic: true,
+    });
+    return { success: true, data: { ...data, s3Key } };
   }
 
   async extractMenuFromImages(
