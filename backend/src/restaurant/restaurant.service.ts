@@ -191,36 +191,72 @@ export class RestaurantService {
       throw new ForbiddenException();
     }
 
-    const prompt = `You are a restaurant menu OCR extractor. The attached image(s) are pages of a hotel restaurant menu.
+    const prompt = `You are a restaurant menu OCR extractor. The attached image is one page of a hotel restaurant menu.
 
 Extract every menu item visible. For each item return: name, description (if present, else null), price (numeric, no currency symbol; null if missing), category (one of: appetizer, main_course, dessert, beverage, side, breakfast, lunch, dinner, snacks — pick the best fit from context).
 
 Rules:
-- Combine items from multiple images into a single flat list.
-- Do not duplicate items across pages.
 - Preserve item names exactly as printed (clean up obvious OCR glitches, but don't paraphrase).
 - If a description spans multiple lines, join into one string.
-- If a price has multiple sizes (e.g. half/full), use the larger/main price.
+- PRICE: use the item's main standalone price (the number printed on the same row as the name). IGNORE add-on / modifier prices such as "+ Mash £5", "+£3", or size-upgrade surcharges — those are not the item price. If a size range is shown (e.g. 225g/300g) with a single listed price, use that listed price.
 - If no price visible, set price to null — do not guess.
-- Skip section headers, decorative text, and non-item content.`;
+- Skip section headers, decorative text, history/story paragraphs, and ingredient lists shown beside food photos.`;
 
-    let extracted: z.infer<typeof MENU_OCR_SCHEMA> = { items: [] };
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
+    const s3KeyFromUrl = (url: string) => {
+      const idx = url.indexOf(`/${publicBucket}/`);
+      return idx >= 0 ? url.substring(idx + publicBucket.length + 2) : url.split('/').slice(3).join('/');
+    };
+
+    // Read each image from S3 ourselves (authenticated) and inline as base64 data URLs.
+    // Passing data URLs — not public S3 URLs — guarantees the model receives the image
+    // regardless of bucket public-read policy / the LLM provider's ability to fetch the URL.
+    const dataUrls: string[] = [];
+    for (let i = 0; i < body.imageUrls.length; i++) {
+      const key = s3KeyFromUrl(body.imageUrls[i]);
+      if (!key || !key.startsWith(`${keyPrefix}menu-ocr-temp/`)) {
+        throw new BadRequestException('Invalid image URL');
+      }
+      let buffer: Buffer;
+      try {
+        buffer = await this.awsService.download(key, true);
+      } catch {
+        throw new BadRequestException('Could not read the uploaded image. Please re-upload and try again.');
+      }
+      if (!buffer || buffer.length === 0) {
+        throw new BadRequestException('Uploaded image is empty. Please re-upload and try again.');
+      }
+      const ext = (key.split('.').pop() || 'jpeg').toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      dataUrls.push(`data:${mime};base64,${buffer.toString('base64')}`);
+    }
+
+    // Process each image in its own LLM call (full model attention per page → higher accuracy),
+    // then merge. Cross-image cramming caused dropped items / misreads on dense menus.
+    const items: z.infer<typeof MENU_OCR_SCHEMA>['items'] = [];
     try {
-      extracted = await this.langGraphService.extractFromImageUrlsWithStructuredOutput(
-        MENU_OCR_SCHEMA,
-        prompt,
-        body.imageUrls,
-        'menuOcr',
-      );
+      const calls: Promise<z.infer<typeof MENU_OCR_SCHEMA>>[] = [];
+      for (let i = 0; i < dataUrls.length; i++) {
+        calls.push(this.langGraphService.extractFromImageUrlsWithStructuredOutput(
+          MENU_OCR_SCHEMA, prompt, [dataUrls[i]], 'menuOcr',
+        ));
+      }
+      const results = await Promise.all(calls);
+      const seen: Record<string, boolean> = {};
+      for (let i = 0; i < results.length; i++) {
+        const pageItems = results[i]?.items || [];
+        for (let j = 0; j < pageItems.length; j++) {
+          const it = pageItems[j];
+          const dedupKey = `${(it.name || '').toLowerCase().trim()}|${it.price}`;
+          if (!seen[dedupKey]) { seen[dedupKey] = true; items.push(it); }
+        }
+      }
     } finally {
       // Always clean up S3 temp uploads after the LLM call (success or fail)
-      const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
-      const publicBucket = this.constantsService.private.AWS_S3_PUBLIC_BUCKET_NAME;
       for (let i = 0; i < body.imageUrls.length; i++) {
         try {
-          const url = body.imageUrls[i];
-          const idx = url.indexOf(`/${publicBucket}/`);
-          const key = idx >= 0 ? url.substring(idx + publicBucket.length + 2) : url.split('/').slice(3).join('/');
+          const key = s3KeyFromUrl(body.imageUrls[i]);
           if (key && key.startsWith(`${keyPrefix}menu-ocr-temp/`)) {
             await this.awsService.deleteObject(key, true);
           }
@@ -230,7 +266,11 @@ Rules:
       }
     }
 
-    return { success: true, message: 'Menu extracted', data: { items: extracted.items } };
+    if (items.length === 0) {
+      throw new BadRequestException('No menu items detected in the image(s). Please upload a clearer photo of the menu.');
+    }
+
+    return { success: true, message: 'Menu extracted', data: { items } };
   }
 
   async bulkCreate(
