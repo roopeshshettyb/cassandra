@@ -40,7 +40,7 @@ const ReviewRow = ({ data: item, index, onChange, onRemove, isMobile }) => (
     }}
   >
     <TextField size="small" label={isMobile ? 'Name' : undefined} placeholder="Name" value={item.name} onChange={e => onChange(index, 'name', e.target.value)} error={!item.name} sx={{ ...inputSx, gridColumn: { xs: '1 / -1', md: 'auto' }, pr: { xs: 4, md: 0 } }} />
-    <TextField size="small" label={isMobile ? 'Price' : undefined} type="number" placeholder="Price" inputProps={{ min: 0, step: 0.01 }} value={item.price ?? ''} onChange={e => onChange(index, 'price', e.target.value)} error={item.price === '' || item.price == null} sx={noSpinnerSx} />
+    <TextField size="small" label={isMobile ? 'Price' : undefined} type="number" placeholder="Price (optional)" inputProps={{ min: 0, step: 0.01 }} value={item.price ?? ''} onChange={e => onChange(index, 'price', e.target.value)} sx={noSpinnerSx} />
     <TextField size="small" select label={isMobile ? 'Category' : undefined} value={item.category || ''} onChange={e => onChange(index, 'category', e.target.value)} error={!item.category} sx={inputSx}>
       {CATEGORIES.map(c => <MuiMenuItem key={c.value} value={c.value}>{c.label}</MuiMenuItem>)}
     </TextField>
@@ -141,9 +141,9 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
 
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.name || !form.price || !form.category) { alertError?.('Name, price and category required'); return; }
-    const priceNum = parseFloat(form.price);
-    if (isNaN(priceNum) || priceNum < 0) { alertError?.('Invalid price'); return; }
+    if (!form.name || !form.category) { alertError?.('Name and category required'); return; }
+    const priceNum = form.price === '' || form.price == null ? undefined : parseFloat(form.price);
+    if (priceNum !== undefined && (isNaN(priceNum) || priceNum < 0)) { alertError?.('Invalid price'); return; }
 
     const payload = {
       name: form.name, description: form.description || undefined, price: priceNum,
@@ -214,11 +214,11 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
   const handleReviewRemove = idx => setReviewItems(prev => prev.filter((_, i) => i !== idx));
   const handleReviewAdd = () => setReviewItems(prev => [...prev, { name: '', price: '', category: DEFAULT_CATEGORY, description: '' }]);
 
-  const reviewValid = reviewItems.length > 0 && reviewItems.every(it => it.name && it.category && it.price !== '' && it.price != null && !isNaN(parseFloat(it.price)));
+  const reviewValid = reviewItems.length > 0 && reviewItems.every(it => it.name && it.category && (it.price === '' || it.price == null || !isNaN(parseFloat(it.price))));
 
   const handleBulkConfirm = async () => {
     const items = reviewItems.map(it => ({
-      hotelId: Number(hotelId), name: it.name, price: parseFloat(it.price),
+      hotelId: Number(hotelId), name: it.name, price: it.price === '' || it.price == null ? undefined : parseFloat(it.price),
       category: it.category, description: it.description || undefined,
     }));
     const res = await request({
@@ -265,7 +265,7 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField fullWidth size="small" label="Name" value={form.name} onChange={handleChange('name')} required sx={inputSx} />
               <TextField fullWidth size="small" label="Description" multiline rows={2} value={form.description} onChange={handleChange('description')} sx={inputSx} />
-              <TextField fullWidth size="small" label="Price" type="number" inputProps={{ min: 0, step: 0.01 }} value={form.price} onChange={handleChange('price')} required sx={noSpinnerSx} />
+              <TextField fullWidth size="small" label="Price (optional)" type="number" inputProps={{ min: 0, step: 0.01 }} value={form.price} onChange={handleChange('price')} sx={noSpinnerSx} />
               <TextField fullWidth size="small" select label="Category" value={form.category} onChange={handleChange('category')} required sx={inputSx}>
                 {CATEGORIES.map(c => <MuiMenuItem key={c.value} value={c.value}>{c.label}</MuiMenuItem>)}
               </TextField>
@@ -291,7 +291,7 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
         <DialogTitle sx={{ fontWeight: 800 }}>
           Review extracted items
           <Typography sx={{ fontSize: 12, color: MUTED, fontWeight: 400, mt: 0.25 }}>
-            Edit, remove or add items. Name, price and category required for each.
+            Edit, remove or add items. Name and category required for each; price optional.
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ px: 2 }}>

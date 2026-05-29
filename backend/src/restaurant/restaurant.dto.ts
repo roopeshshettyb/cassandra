@@ -20,8 +20,9 @@ export class CreateMenuItemDto {
   readonly description?: string;
 
   @IsNumber()
-  @ApiProperty()
-  readonly price: number;
+  @IsOptional()
+  @ApiProperty({ required: false })
+  readonly price?: number;
 
   @IsEnum(MenuItemCategory)
   @ApiProperty({ enum: MenuItemCategory })
