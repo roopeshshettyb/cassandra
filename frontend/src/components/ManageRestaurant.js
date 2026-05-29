@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, Typography, TextField, Checkbox, FormControlLabel, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem as MuiMenuItem, IconButton } from '@mui/material';
+import { Box, Typography, TextField, Checkbox, FormControlLabel, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem as MuiMenuItem, IconButton, useMediaQuery } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
@@ -12,12 +12,19 @@ const CATEGORIES = constants.MENU_CATEGORIES;
 const DEFAULT_CATEGORY = CATEGORIES[0]?.value;
 
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13 } };
+// Hide native number-input spinner arrows
+const noSpinnerSx = {
+  ...inputSx,
+  '& input[type=number]': { MozAppearance: 'textfield' },
+  '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+};
 
 const REVIEW_GRID = '1.4fr 90px 1fr 1.6fr 40px';
-const hideLabelOnDesktop = { sx: { display: { md: 'none' } } };
 
-// Editable row in the OCR review dialog — grid row on desktop, stacked card on mobile
-const ReviewRow = ({ data: item, index, onChange, onRemove }) => (
+// Editable row in the OCR review dialog — grid row on desktop, stacked card on mobile.
+// Labels only on mobile (desktop has column headers); omitting the label on desktop
+// avoids MUI's outline notch showing as a "cut" in the top border.
+const ReviewRow = ({ data: item, index, onChange, onRemove, isMobile }) => (
   <Box
     sx={{
       display: 'grid',
@@ -32,12 +39,12 @@ const ReviewRow = ({ data: item, index, onChange, onRemove }) => (
       position: 'relative',
     }}
   >
-    <TextField size="small" label="Name" placeholder="Name" value={item.name} onChange={e => onChange(index, 'name', e.target.value)} error={!item.name} InputLabelProps={hideLabelOnDesktop} sx={{ ...inputSx, gridColumn: { xs: '1 / -1', md: 'auto' }, pr: { xs: 4, md: 0 } }} />
-    <TextField size="small" label="Price" type="number" placeholder="Price" inputProps={{ min: 0, step: 0.01 }} value={item.price ?? ''} onChange={e => onChange(index, 'price', e.target.value)} error={item.price === '' || item.price == null} InputLabelProps={hideLabelOnDesktop} sx={inputSx} />
-    <TextField size="small" select label="Category" value={item.category || ''} onChange={e => onChange(index, 'category', e.target.value)} error={!item.category} InputLabelProps={hideLabelOnDesktop} sx={inputSx}>
+    <TextField size="small" label={isMobile ? 'Name' : undefined} placeholder="Name" value={item.name} onChange={e => onChange(index, 'name', e.target.value)} error={!item.name} sx={{ ...inputSx, gridColumn: { xs: '1 / -1', md: 'auto' }, pr: { xs: 4, md: 0 } }} />
+    <TextField size="small" label={isMobile ? 'Price' : undefined} type="number" placeholder="Price" inputProps={{ min: 0, step: 0.01 }} value={item.price ?? ''} onChange={e => onChange(index, 'price', e.target.value)} error={item.price === '' || item.price == null} sx={noSpinnerSx} />
+    <TextField size="small" select label={isMobile ? 'Category' : undefined} value={item.category || ''} onChange={e => onChange(index, 'category', e.target.value)} error={!item.category} sx={inputSx}>
       {CATEGORIES.map(c => <MuiMenuItem key={c.value} value={c.value}>{c.label}</MuiMenuItem>)}
     </TextField>
-    <TextField size="small" label="Description" placeholder="Description" value={item.description || ''} onChange={e => onChange(index, 'description', e.target.value)} InputLabelProps={hideLabelOnDesktop} sx={{ ...inputSx, gridColumn: { xs: '1 / -1', md: 'auto' } }} />
+    <TextField size="small" label={isMobile ? 'Description' : undefined} placeholder="Description" value={item.description || ''} onChange={e => onChange(index, 'description', e.target.value)} sx={{ ...inputSx, gridColumn: { xs: '1 / -1', md: 'auto' } }} />
     <IconButton size="small" onClick={() => onRemove(index)} sx={{ color: STATUS_ERROR, position: { xs: 'absolute', md: 'static' }, top: { xs: 8, md: 'auto' }, right: { xs: 8, md: 'auto' }, justifySelf: { md: 'center' } }}><DeleteOutlineIcon fontSize="small" /></IconButton>
   </Box>
 );
@@ -99,6 +106,7 @@ const MenuItemRow = ({ data: item, onEdit, onDelete, canManage }) => {
 
 function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess, alertError }) {
   const canManage = !!constants.PERMISSIONS.CAN_MANAGE_RESTAURANT_MENU[account?.role];
+  const isMobile = useMediaQuery('(max-width:899.95px)');
   const [items, setItems] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -157,7 +165,8 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
   const handleDelete = async () => {
     if (!deleteTarget) return;
     const res = await request({ endpoint: `/restaurant/menu-items/${deleteTarget.id}`, method: 'DELETE', setLoading, alertSuccess, alertError });
-    if (res?.success) { setShowDelete(false); setDeleteTarget(null); fetchItems(); }
+    // Keep deleteTarget set so the dialog text doesn't flash empty during fade-out.
+    if (res?.success) { setShowDelete(false); fetchItems(); }
   };
 
   // Bulk OCR: upload images → S3 → extract → review
@@ -166,31 +175,38 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
     e.target.value = '';
     if (files.length === 0) return;
 
-    const imageUrls = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const presigned = await request({
-        endpoint: '/restaurant/menu-ocr/presigned-url', method: 'POST',
-        data: { hotelId: Number(hotelId), fileName: file.name, fileSize: file.size, contentType: file.type },
-        setLoading, alertError, throw: true,
-      });
-      const { presignedUrl, s3Url } = presigned?.data || {};
-      if (!presignedUrl) return;
-      const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-      if (!s3Resp.ok) { alertError?.(`Upload failed (${s3Resp.status})`); return; }
-      imageUrls.push(s3Url);
-    }
+    // Own the loader across the full sequence (presigned + raw S3 PUT + extract),
+    // since the S3 PUT is a raw fetch with no loader of its own.
+    setLoading(true);
+    try {
+      const imageUrls = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const presigned = await request({
+          endpoint: '/restaurant/menu-ocr/presigned-url', method: 'POST',
+          data: { hotelId: Number(hotelId), fileName: file.name, fileSize: file.size, contentType: file.type },
+          alertError, throw: true,
+        });
+        const { presignedUrl, s3Url } = presigned?.data || {};
+        if (!presignedUrl) return;
+        const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+        if (!s3Resp.ok) { alertError?.(`Upload failed (${s3Resp.status})`); return; }
+        imageUrls.push(s3Url);
+      }
 
-    const res = await request({
-      endpoint: '/restaurant/menu-ocr/extract', method: 'POST',
-      data: { hotelId: Number(hotelId), imageUrls }, setLoading, alertError,
-    });
-    if (res?.success) {
-      const items = (res.data?.items || []).map(it => ({
-        name: it.name || '', price: it.price ?? '', category: it.category || DEFAULT_CATEGORY, description: it.description || '',
-      }));
-      setReviewItems(items);
-      setShowReview(true);
+      const res = await request({
+        endpoint: '/restaurant/menu-ocr/extract', method: 'POST',
+        data: { hotelId: Number(hotelId), imageUrls }, alertError,
+      });
+      if (res?.success) {
+        const items = (res.data?.items || []).map(it => ({
+          name: it.name || '', price: it.price ?? '', category: it.category || DEFAULT_CATEGORY, description: it.description || '',
+        }));
+        setReviewItems(items);
+        setShowReview(true);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -249,7 +265,7 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField fullWidth size="small" label="Name" value={form.name} onChange={handleChange('name')} required sx={inputSx} />
               <TextField fullWidth size="small" label="Description" multiline rows={2} value={form.description} onChange={handleChange('description')} sx={inputSx} />
-              <TextField fullWidth size="small" label="Price" type="number" inputProps={{ min: 0, step: 0.01 }} value={form.price} onChange={handleChange('price')} required sx={inputSx} />
+              <TextField fullWidth size="small" label="Price" type="number" inputProps={{ min: 0, step: 0.01 }} value={form.price} onChange={handleChange('price')} required sx={noSpinnerSx} />
               <TextField fullWidth size="small" select label="Category" value={form.category} onChange={handleChange('category')} required sx={inputSx}>
                 {CATEGORIES.map(c => <MuiMenuItem key={c.value} value={c.value}>{c.label}</MuiMenuItem>)}
               </TextField>
@@ -260,7 +276,7 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
               <FormControlLabel control={<Checkbox checked={form.isAvailable} onChange={handleChange('isAvailable')} />} label="Available" />
               <TextField fullWidth size="small" label="Dietary tags (comma-separated)" value={form.dietaryTags} onChange={handleChange('dietaryTags')} sx={inputSx} />
               <TextField fullWidth size="small" label="Image URL" value={form.imageUrl} onChange={handleChange('imageUrl')} sx={inputSx} />
-              <TextField fullWidth size="small" label="Sort order" type="number" inputProps={{ min: 0 }} value={form.sortOrder} onChange={handleChange('sortOrder')} sx={inputSx} />
+              <TextField fullWidth size="small" label="Sort order" type="number" inputProps={{ min: 0 }} value={form.sortOrder} onChange={handleChange('sortOrder')} sx={noSpinnerSx} />
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -283,7 +299,7 @@ function ManageRestaurant({ hotelId, account, loading, setLoading, alertSuccess,
             <MapComponent Component={ColumnLabel} data={['Name', 'Price', 'Category', 'Description', '']} showNoDataAvailable={false} />
           </Box>
           <Box sx={{ mt: { xs: 1, md: 0 } }}>
-            <MapComponent Component={ReviewRow} data={reviewItems} showNoDataAvailable={false} onChange={handleReviewChange} onRemove={handleReviewRemove} />
+            <MapComponent Component={ReviewRow} data={reviewItems} showNoDataAvailable={false} onChange={handleReviewChange} onRemove={handleReviewRemove} isMobile={isMobile} />
           </Box>
           <Box component="button" onClick={handleReviewAdd}
             sx={{ mt: 1.5, border: `1px dashed ${BORDER}`, background: 'transparent', color: NAVY, px: 2, py: 0.75, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
