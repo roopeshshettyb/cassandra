@@ -44,7 +44,7 @@ export class MenuItem extends Model<MenuItem> {
 
   @Column({
     type: DataType.DECIMAL(10, 2),
-    allowNull: false,
+    allowNull: true,
   })
   price: number;
 

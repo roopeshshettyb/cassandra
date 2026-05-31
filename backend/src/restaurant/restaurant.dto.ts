@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsEnum, IsArray, IsBoolean, IsInt, Matches } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsArray, IsBoolean, IsInt, Matches, ValidateNested, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
 import { MenuItemCategory } from './restaurant.model';
 
 const TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -19,8 +20,9 @@ export class CreateMenuItemDto {
   readonly description?: string;
 
   @IsNumber()
-  @ApiProperty()
-  readonly price: number;
+  @IsOptional()
+  @ApiProperty({ required: false })
+  readonly price?: number;
 
   @IsEnum(MenuItemCategory)
   @ApiProperty({ enum: MenuItemCategory })
@@ -58,6 +60,49 @@ export class CreateMenuItemDto {
   @IsOptional()
   @ApiProperty({ required: false, default: 0 })
   readonly sortOrder?: number;
+}
+
+export class MenuOcrPresignedUrlDto {
+  @IsInt()
+  @ApiProperty()
+  readonly hotelId: number;
+
+  @IsString()
+  @ApiProperty()
+  readonly fileName: string;
+
+  @IsNumber()
+  @ApiProperty()
+  readonly fileSize: number;
+
+  @IsString()
+  @ApiProperty()
+  readonly contentType: string;
+}
+
+export class MenuOcrExtractDto {
+  @IsInt()
+  @ApiProperty()
+  readonly hotelId: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMinSize(1)
+  @ApiProperty({ type: [String] })
+  readonly imageUrls: string[];
+}
+
+export class BulkCreateMenuItemsDto {
+  @IsInt()
+  @ApiProperty()
+  readonly hotelId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateMenuItemDto)
+  @ArrayMinSize(1)
+  @ApiProperty({ type: [CreateMenuItemDto] })
+  readonly items: CreateMenuItemDto[];
 }
 
 export class UpdateMenuItemDto {
