@@ -1,5 +1,5 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
-import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
+import { HOTELS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY, HOTEL_BRANDS_REPOSITORY } from './hotels.repository';
 import { Hotel } from './hotels.model';
 import { HotelBrand } from './brands.model';
 import { HotelAccount } from './hotel-accounts.model';
@@ -38,6 +38,7 @@ export class HotelsService {
   constructor(
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
+    @Inject(HOTEL_BRANDS_REPOSITORY) private readonly brandsRepository: typeof HotelBrand,
     @Inject(BOOKINGS_REPOSITORY) private readonly bookingsRepository: typeof Booking,
     @Inject(forwardRef(() => BookingsService)) private readonly bookingsService: BookingsService,
     private readonly accountsService: AccountsService,
@@ -186,6 +187,34 @@ export class HotelsService {
       await this.hotelAccountsRepository.destroy({ where: { hotelId: id }, force, transaction });
       await MenuItem.destroy({ where: { hotelId: id }, force, transaction });
       await this.hotelsRepository.destroy({ where: { id }, force, transaction });
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async deleteBrand(brandId: number, currentAccount: Account): Promise<void> {
+    if (currentAccount.role !== AccountRole.ADMIN) throw new ForbiddenException();
+    const brand = await this.brandsRepository.findByPk(brandId);
+    if (!brand) throw new NotFoundException();
+
+    const hotels = await this.hotelsRepository.findAll({ where: { hotelBrandId: brandId }, attributes: ['id'] });
+    const sequelize = this.hotelsRepository.sequelize;
+    if (!sequelize) throw new BadRequestException('Database connection is unavailable');
+
+    const transaction = await sequelize.transaction();
+    try {
+      for (let i = 0; i < hotels.length; i++) {
+        const hotelId = hotels[i].id;
+        await this.bookingsService.deleteBooking({ hotelId }, transaction);
+        await Notification.destroy({ where: { hotelId }, transaction });
+        await Cost.destroy({ where: { hotelId }, transaction });
+        await this.hotelAccountsRepository.destroy({ where: { hotelId }, transaction });
+        await MenuItem.destroy({ where: { hotelId }, transaction });
+      }
+      await this.hotelsRepository.destroy({ where: { hotelBrandId: brandId }, transaction });
+      await this.brandsRepository.destroy({ where: { id: brandId }, transaction });
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, Checkbox, FormControlLabel } from '@mui/material';
-import { Business } from '@mui/icons-material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography, Checkbox, FormControlLabel } from '@mui/material';
+import { Business, DeleteForever, DeleteOutline } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import { CARD_SX, ROW_SX, FormCard } from './cards/AppCards';
 import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar, HoursTab, AiTab, BasicThemePicker, buildThemePayload } from './DetailShell';
 import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, MUTED, BORDER, TEXT_MUTED_LIGHT } from '../theme';
+import constants from '../constants.json';
 
 const BRAND_THEME_KEYS = ['primaryColor', 'secondaryColor'];
 
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'theme',      label: 'Theme' },
   { key: 'ai',         label: 'Concierge AI' },
   { key: 'properties', label: 'Properties' },
+  { key: 'danger',     label: 'Danger zone', Icon: DeleteOutline },
 ];
 
 const HotelRow = ({ data: hotel, navigate }) => (
@@ -36,6 +38,7 @@ function BrandDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [brand, setBrand] = useState(null);
   const [tab, setTab] = useState('hours');
   const [isDirty, setIsDirty] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [propagate, setPropagate] = useState(true);
   const [editValues, setEditValues] = useState({});
 
@@ -71,6 +74,14 @@ function BrandDetails({ loading, setLoading, account, navigate, alertSuccess, al
       setLoading, alertSuccess, alertError,
     });
     if (res?.success) { setBrand(res.data); loadValues(res.data); setIsDirty(false); }
+  };
+
+  const canDelete = !!constants.PERMISSIONS.CAN_DELETE_BRAND[account?.role];
+
+  const handleDeleteConfirm = async () => {
+    setShowDeleteConfirm(false);
+    const res = await request({ endpoint: `/hotels/brands/${id}`, method: 'DELETE', setLoading, alertSuccess, alertError });
+    if (res?.success) navigate('/brands');
   };
 
   if (!brand) return null;
@@ -128,6 +139,36 @@ function BrandDetails({ loading, setLoading, account, navigate, alertSuccess, al
           <MapComponent Component={HotelRow} data={brand.hotels || []} navigate={navigate} />
         </Box>
       )}
+
+      {tab === 'danger' && (
+        <FormCard title="Danger zone" sub="Destructive actions. Confirmation is always required.">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {canDelete && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, borderRadius: 1.5, border: '1px solid rgba(220,38,38,0.25)', bgcolor: 'rgba(220,38,38,0.04)' }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Permanently delete brand</Typography>
+                  <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>Removes this brand and all associated properties, bookings, and requests. Cannot be undone.</Typography>
+                </Box>
+                <Box component="button" onClick={() => setShowDeleteConfirm(true)}
+                  sx={{ border: 'none', bgcolor: '#DC2626', color: '#fff', px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+                  <DeleteForever sx={{ fontSize: 14 }} /> Delete forever
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </FormCard>
+      )}
+
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
+        <DialogTitle>Delete brand</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Delete <strong>{brand.name}</strong>? All associated properties, bookings, requests, and staff links will be removed. This cannot be undone.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">Delete forever</Button>
+        </DialogActions>
+      </Dialog>
 
       {isDirty && (
         <UnsavedChangesBar onDiscard={() => { loadValues(brand); setIsDirty(false); }} onSave={handleSave}

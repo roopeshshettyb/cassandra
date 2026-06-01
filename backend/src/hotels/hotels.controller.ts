@@ -40,6 +40,13 @@ export class HotelsController {
     return this.onboardingService.updateBrand(Number(brandId), dto, account);
   }
 
+  @Delete('brands/:brandId')
+  @AdminOnly()
+  async deleteBrand(@Param('brandId') brandId: string, @CurrentAccount() account: Account) {
+    await this.hotelsService.deleteBrand(Number(brandId), account);
+    return { success: true, message: 'Brand and all associated properties deleted', data: null };
+  }
+
   @Get(':id')
   async findById(@Param('id') id: string, @CurrentAccount() account: Account) {
     return this.hotelsService.findByIdForAccount(Number(id), account);

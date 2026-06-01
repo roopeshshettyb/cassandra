@@ -4,13 +4,14 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   UseGuards,
   ValidationPipe,
   ParseIntPipe,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto, ReservationDocumentUploadUrlDto, ReservationDocumentKeyDto } from './bookings.dto';
+import { CreateBookingDto, UpdateBookingDto, ReservationDocumentUploadUrlDto, ReservationDocumentKeyDto } from './bookings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
@@ -75,6 +76,11 @@ export class BookingsController {
   @Post()
   async create(@Body(ValidationPipe) dto: CreateBookingDto, @CurrentAccount() account: Account) {
     return this.bookingsService.createBooking(dto, account);
+  }
+
+  @Patch(':id')
+  async update(@Param('id', ParseIntPipe) id: number, @Body(ValidationPipe) dto: UpdateBookingDto, @CurrentAccount() account: Account) {
+    return this.bookingsService.updateForAccount(id, dto, account);
   }
 
   @Delete(':id')

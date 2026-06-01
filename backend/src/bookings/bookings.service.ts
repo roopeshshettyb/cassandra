@@ -1,7 +1,7 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
-import { CreateBookingDto } from './bookings.dto';
+import { CreateBookingDto, UpdateBookingDto } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
@@ -10,7 +10,7 @@ import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { HotelBrand } from '../hotels/brands.model';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService } from '../common/constants/constants.service';
+import { ConstantsService, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -65,8 +65,8 @@ export class BookingsService {
       throw new BadRequestException('endDate must be on or after startDate');
     }
 
-    const checkInTime = hotel.checkInTime || '15:00';
-    const checkOutTime = hotel.checkOutTime || '11:00';
+    const checkInTime = hotel.checkInTime || DEFAULT_CHECK_IN_TIME;
+    const checkOutTime = hotel.checkOutTime || DEFAULT_CHECK_OUT_TIME;
 
     const normalizedEmail = dto.guestEmail.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -470,6 +470,40 @@ export class BookingsService {
     }
 
     return { success: true, message: null, data: plain };
+  }
+
+  async updateForAccount(id: number, dto: UpdateBookingDto, currentAccount: Account) {
+    const where = await this.getWhereForAccount(currentAccount);
+    const findWhere = where ? { ...where, id } : { id };
+    const booking = await this.bookingsRepository.findOne({
+      where: findWhere,
+      include: [{ model: Hotel, as: 'hotel' }],
+    });
+
+    if (!booking) {
+      throw new NotFoundException();
+    }
+
+    const hotel: any = (booking as any).hotel;
+    const checkInTime = hotel?.checkInTime || DEFAULT_CHECK_IN_TIME;
+    const checkOutTime = hotel?.checkOutTime || DEFAULT_CHECK_OUT_TIME;
+
+    if (dto.startDate !== undefined) {
+      booking.startTime = this.parseDateTime(dto.startDate.trim(), checkInTime);
+    }
+    if (dto.endDate !== undefined) {
+      booking.endTime = this.parseDateTime(dto.endDate.trim(), checkOutTime);
+    }
+    if (dto.roomNumber !== undefined) {
+      booking.roomNumber = dto.roomNumber.trim() || null;
+    }
+
+    if (booking.startTime >= booking.endTime) {
+      throw new BadRequestException('endDate must be after startDate');
+    }
+
+    await booking.save();
+    return { success: true, message: 'Booking updated', data: booking };
   }
 
   async deleteBooking(where: any, transaction?: Transaction, force = false): Promise<void> {

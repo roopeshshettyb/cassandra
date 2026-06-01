@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 
 export const OTP_EXPIRY_MINUTES = 10;
 export const OTP_LENGTH = 6;
+export const DEFAULT_CHECK_IN_TIME = '15:00';
+export const DEFAULT_CHECK_OUT_TIME = '11:00';
 
 export enum NotificationTone {
   NONE = 'none',
@@ -81,9 +83,12 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_MANAGE_STAFF:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
   CAN_EDIT_HOTEL:             { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_DELETE_HOTEL:           { [AccountRole.ADMIN]: true },
+  CAN_DELETE_BRAND:           { [AccountRole.ADMIN]: true },
   CAN_ADD_HOTEL:              { [AccountRole.ADMIN]: true },
   CAN_VIEW_COSTS:             { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
   CAN_SEND_INVITES:           { [AccountRole.ADMIN]: true },
+  CAN_EDIT_BOOKING:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
+  CAN_DELETE_BOOKING:         { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
 };
 
