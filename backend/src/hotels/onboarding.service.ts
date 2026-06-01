@@ -429,12 +429,8 @@ ${crawlData}`;
           }
         }
       } catch (err: any) {
-        if (err?.name === 'SequelizeUniqueConstraintError') {
-          brand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
-          if (!brand) throw err;
-        } else {
-          throw err;
-        }
+        brand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
+        if (!brand) throw err;
       }
       brandId = brand.id;
     }
