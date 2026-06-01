@@ -408,23 +408,32 @@ ${crawlData}`;
         logoUrl: hotelData.logoUrl,
       };
 
-      const [brand, created] = await this.brandsRepository.findOrCreate({
-        where: { name: hotelData.brandName },
-        defaults: brandTemplate,
-      });
-
-      if (!created) {
-        // Update existing brand with any newly extracted non-null values
-        const updates: any = {};
-        const keys = Object.keys(brandTemplate);
-        for (let i = 0; i < keys.length; i++) {
-          const key = keys[i];
-          if (key !== 'name' && brandTemplate[key] !== null && brandTemplate[key] !== undefined) {
-            updates[key] = brandTemplate[key];
+      let brand: HotelBrand;
+      try {
+        const [b, created] = await this.brandsRepository.findOrCreate({
+          where: { name: hotelData.brandName },
+          defaults: brandTemplate,
+        });
+        brand = b;
+        if (!created) {
+          const updates: any = {};
+          const keys = Object.keys(brandTemplate);
+          for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            if (key !== 'name' && brandTemplate[key] !== null && brandTemplate[key] !== undefined) {
+              updates[key] = brandTemplate[key];
+            }
+          }
+          if (Object.keys(updates).length > 0) {
+            await this.brandsRepository.update(updates, { where: { id: brand.id } });
           }
         }
-        if (Object.keys(updates).length > 0) {
-          await this.brandsRepository.update(updates, { where: { id: brand.id } });
+      } catch (err: any) {
+        if (err?.name === 'SequelizeUniqueConstraintError') {
+          brand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
+          if (!brand) throw err;
+        } else {
+          throw err;
         }
       }
       brandId = brand.id;
