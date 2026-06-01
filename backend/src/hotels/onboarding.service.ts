@@ -408,30 +408,19 @@ ${crawlData}`;
         logoUrl: hotelData.logoUrl,
       };
 
-      let brand: HotelBrand;
-      try {
-        const [b, created] = await this.brandsRepository.findOrCreate({
-          where: { name: hotelData.brandName },
-          defaults: brandTemplate,
-        });
-        brand = b;
-        if (!created) {
-          const updates: any = {};
-          const keys = Object.keys(brandTemplate);
-          for (let i = 0; i < keys.length; i++) {
-            const key = keys[i];
-            if (key !== 'name' && brandTemplate[key] !== null && brandTemplate[key] !== undefined) {
-              updates[key] = brandTemplate[key];
-            }
-          }
-          if (Object.keys(updates).length > 0) {
-            await this.brandsRepository.update(updates, { where: { id: brand.id } });
-          }
+      // Build upsert payload — only non-null extracted fields so we never
+      // overwrite existing brand data with nulls when the brand already exists.
+      const upsertPayload: any = { name: hotelData.brandName };
+      const templateKeys = Object.keys(brandTemplate);
+      for (let i = 0; i < templateKeys.length; i++) {
+        const key = templateKeys[i];
+        if (brandTemplate[key] !== null && brandTemplate[key] !== undefined) {
+          upsertPayload[key] = brandTemplate[key];
         }
-      } catch (err: any) {
-        brand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
-        if (!brand) throw err;
       }
+      // upsert uses INSERT … ON CONFLICT DO UPDATE — atomic, no race condition
+      await this.brandsRepository.upsert(upsertPayload);
+      const brand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
       brandId = brand.id;
     }
 
