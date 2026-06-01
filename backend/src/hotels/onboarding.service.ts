@@ -419,8 +419,7 @@ ${crawlData}`;
         }
       }
       // upsert uses INSERT … ON CONFLICT DO UPDATE — atomic, no race condition
-      await this.brandsRepository.upsert(upsertPayload);
-      const brand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
+      const [brand] = await this.brandsRepository.upsert(upsertPayload, { returning: true });
       brandId = brand.id;
     }
 
