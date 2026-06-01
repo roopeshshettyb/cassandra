@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, TextField, Typography } from '@mui/material';
+import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControlLabel, MenuItem, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
@@ -297,9 +297,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       <Dialog open={!!deleteBooking && CAN_DELETE_BOOKING} onClose={() => setDeleteBooking(null)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>Delete Booking</DialogTitle>
         <DialogContent>
-          <Typography sx={{ color: MUTED, fontSize: 14 }}>
-            Delete booking for <strong>{deleteBooking?.guest?.name || deleteBooking?.guest?.email || 'this guest'}</strong> at <strong>{deleteBooking?.hotel?.name}</strong>? This cannot be undone.
-          </Typography>
+          <DialogContentText>Delete booking for <strong>{deleteBooking?.guest?.name || deleteBooking?.guest?.email || 'this guest'}</strong> at <strong>{deleteBooking?.hotel?.name}</strong>? This cannot be undone.</DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button onClick={() => setDeleteBooking(null)} sx={{ color: MUTED }}>Cancel</Button>
