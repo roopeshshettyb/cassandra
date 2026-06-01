@@ -77,6 +77,7 @@ const BrandCard = ({ data, navigate }) => {
             </Box>
           </Box>
         </Box>
+
       </Box>
     </motion.div>
   );

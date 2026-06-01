@@ -53,6 +53,25 @@ export class CreateBookingDto {
   readonly reservationDocumentKey?: string;
 }
 
+export class UpdateBookingDto {
+  @IsOptional()
+  @IsString()
+  @Matches(DATE_REGEX, { message: 'startDate must be YYYY-MM-DD' })
+  @ApiProperty({ required: false, example: '2025-02-10' })
+  readonly startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(DATE_REGEX, { message: 'endDate must be YYYY-MM-DD' })
+  @ApiProperty({ required: false, example: '2025-02-12' })
+  readonly endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
+  readonly roomNumber?: string;
+}
+
 export class ReservationDocumentUploadUrlDto {
   @IsOptional()
   @IsString()

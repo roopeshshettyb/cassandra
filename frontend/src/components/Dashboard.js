@@ -45,6 +45,7 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
   const { stats, propertyRows, actionQueue, recentRequests: recentReqs, recentBookings: recentBooks } = dashboard;
 
   const isGuest   = account?.role === constants.ACCOUNT_ROLES.GUEST;
+  const isStaff   = account?.role === constants.ACCOUNT_ROLES.HOTEL_STAFF;
   const canInvite = !!constants.PERMISSIONS.CAN_SEND_INVITES[account?.role];
   const firstName = account?.name?.split(' ')[0] || '';
   const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -92,7 +93,36 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
     );
   }
 
-  // ── Admin / owner / staff view ──────────────────────────────────────────
+  // ── Staff view ──────────────────────────────────────────────────────────
+  if (isStaff) {
+    return (
+      <Box sx={{ px: { xs: 1.5, sm: 2.5, md: 3 }, pb: 6, maxWidth: 900, mx: 'auto' }}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <Typography sx={{ ...LABEL_SX, mb: 1 }}>{dateLabel}</Typography>
+          <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em', mb: 3 }}>
+            {greeting()}{firstName ? `, ${firstName}` : ''}.
+          </Typography>
+        </motion.div>
+        <Grid container spacing={{ xs: 1.5, md: 2.5 }}>
+          <Grid item xs={12} sm={6}>
+            <Box sx={CARD_SX}>
+              <SectionHeader label="Recent Requests" title="Last 24 hours" onViewAll={() => navigate('/requests')} />
+              <MapComponent Component={RequestRow} data={recentReqs} showNoDataAvailable={false} navigate={navigate} />
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ ...CARD_SX, height: '100%' }}>
+              <CardHeader eyebrow="Action queue" eyebrowColor={STATUS_ERROR} title="Needs attention"
+                right={actionQueue.length > 0 ? <Chip label={actionQueue.length} size="small" sx={{ fontSize: 10, height: 20, fontWeight: 700, bgcolor: STATUS_ERROR_BG, color: STATUS_ERROR, border: 'none' }} /> : null} />
+              <MapComponent Component={ActionItem} data={actionQueue} showNoDataAvailable={false} navigate={navigate} />
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+    );
+  }
+
+  // ── Admin / owner view ──────────────────────────────────────────────────
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2.5, md: 3 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
 
