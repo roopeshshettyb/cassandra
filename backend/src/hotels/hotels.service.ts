@@ -200,26 +200,10 @@ export class HotelsService {
     if (!brand) throw new NotFoundException();
 
     const hotels = await this.hotelsRepository.findAll({ where: { hotelBrandId: brandId }, attributes: ['id'] });
-    const sequelize = this.hotelsRepository.sequelize;
-    if (!sequelize) throw new BadRequestException('Database connection is unavailable');
-
-    const transaction = await sequelize.transaction();
-    try {
-      for (let i = 0; i < hotels.length; i++) {
-        const hotelId = hotels[i].id;
-        await this.bookingsService.deleteBooking({ hotelId }, transaction);
-        await Notification.destroy({ where: { hotelId }, transaction });
-        await Cost.destroy({ where: { hotelId }, transaction });
-        await this.hotelAccountsRepository.destroy({ where: { hotelId }, transaction });
-        await MenuItem.destroy({ where: { hotelId }, transaction });
-      }
-      await this.hotelsRepository.destroy({ where: { hotelBrandId: brandId }, transaction });
-      await this.brandsRepository.destroy({ where: { id: brandId }, transaction });
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
+    for (let i = 0; i < hotels.length; i++) {
+      await this.deleteHotel(hotels[i].id, currentAccount);
     }
+    await this.brandsRepository.destroy({ where: { id: brandId } });
   }
 
   async updateHotel(id: number, updateHotelDto: UpdateHotelDto, currentAccount: Account): Promise<Hotel> {
