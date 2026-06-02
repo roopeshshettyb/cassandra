@@ -83,7 +83,7 @@ async function request({ endpoint, method = 'GET', data, token, headers = {}, se
     // Show error toast if alertError is provided
     if (alertError) {
       const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
-      alertError('shrijit api: ' + errorMessage);
+      alertError(errorMessage);
     }
 
     if (shouldThrow) {
