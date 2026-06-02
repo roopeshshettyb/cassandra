@@ -36,10 +36,10 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
-  @IsOptional()
   @IsString()
-  @ApiProperty({ required: false })
-  readonly roomNumber?: string;
+  @IsNotEmpty()
+  @ApiProperty()
+  readonly roomNumber: string;
 
   @IsOptional()
   @IsBoolean()
@@ -66,10 +66,10 @@ export class UpdateBookingDto {
   @ApiProperty({ required: false, example: '2025-02-12' })
   readonly endDate?: string;
 
-  @IsOptional()
   @IsString()
-  @ApiProperty({ required: false })
-  readonly roomNumber?: string;
+  @IsNotEmpty()
+  @ApiProperty()
+  readonly roomNumber: string;
 }
 
 export class ReservationDocumentUploadUrlDto {

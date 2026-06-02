@@ -15,13 +15,13 @@ const createBookingFieldConfigs = [
   { field: 'guestEmail', label: 'Guest Email', type: 'email', required: true },
   { field: 'guestName', label: 'Guest Name', type: 'text' },
   { field: 'guestPhone', label: 'Guest Phone', type: 'tel' },
-  { field: 'roomNumber', label: 'Room Number', type: 'text' },
+  { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
 
 const editBookingFieldConfigs = [
   { field: 'startDate', label: 'Start Date', type: 'date', required: true },
   { field: 'endDate', label: 'End Date', type: 'date', required: true, getInputProps: (values) => ({ min: values.startDate }) },
-  { field: 'roomNumber', label: 'Room Number', type: 'text' },
+  { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
 
 function CreateFieldRow({ data, createValues, handleCreateInput }) {
@@ -80,7 +80,8 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     e.preventDefault();
     const { startDate, endDate, roomNumber } = editValues;
     if (new Date(endDate) < new Date(startDate)) { alertError?.('End date must be after start date'); return; }
-    const result = await request({ endpoint: `/bookings/${editBooking.id}`, method: 'PATCH', data: { startDate, endDate, roomNumber: roomNumber.trim() || undefined }, setLoading, alertSuccess, alertError });
+    if (!roomNumber?.trim()) { alertError?.('Room number is required'); return; }
+    const result = await request({ endpoint: `/bookings/${editBooking.id}`, method: 'PATCH', data: { startDate, endDate, roomNumber: roomNumber.trim() }, setLoading, alertSuccess, alertError });
     if (result?.success) { setEditBooking(null); fetchBookings(); }
   };
 
@@ -152,7 +153,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const handleCreateBooking = async (e) => {
     e.preventDefault();
     const { startDate, endDate, guestEmail, guestName, guestPhone, roomNumber, hotelId, sendInviteImmediately } = createValues;
-    if (!startDate || !endDate || !guestEmail || !hotelId) {
+    if (!startDate || !endDate || !guestEmail || !hotelId || !roomNumber?.trim()) {
       alertError?.('All fields are required');
       return;
     }

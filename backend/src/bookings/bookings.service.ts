@@ -495,7 +495,7 @@ export class BookingsService {
       booking.endTime = this.parseDateTime(dto.endDate.trim(), checkOutTime);
     }
     if (dto.roomNumber !== undefined) {
-      booking.roomNumber = dto.roomNumber.trim() || null;
+      booking.roomNumber = dto.roomNumber.trim();
     }
 
     if (booking.startTime >= booking.endTime) {
