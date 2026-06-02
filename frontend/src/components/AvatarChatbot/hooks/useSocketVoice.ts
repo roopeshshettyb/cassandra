@@ -82,6 +82,7 @@ export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady,
     if (!enabled) return;
     const token = localStorage.getItem('token');
     if (!token) return;
+    console.log('[useSocketVoice] connecting', { bookingId, enabled });
 
     setIsReady(false);
     startConnectingLoading();
