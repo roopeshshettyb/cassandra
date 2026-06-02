@@ -6,6 +6,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 interface UseSocketVoiceProps {
   bookingId?: number | string | null;
+  enabled?: boolean;
   setLoading?: (loading: boolean) => void;
   onReady?: () => void;
   onUserMessage?: (text: string) => void;
@@ -14,7 +15,7 @@ interface UseSocketVoiceProps {
   onError?: (error: string) => void;
 }
 
-export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
+export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -78,6 +79,7 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -246,7 +248,7 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [bookingId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading, retryCount]);
+  }, [enabled, bookingId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading, retryCount]);
 
   const startRecording = async () => {
     if (isRecording) return;
