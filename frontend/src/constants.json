@@ -56,6 +56,9 @@
     "CAN_DELETE_HOTEL": {
       "admin": true
     },
+    "CAN_DELETE_BRAND": {
+      "admin": true
+    },
     "CAN_ADD_HOTEL": {
       "admin": true
     },
@@ -65,6 +68,16 @@
     },
     "CAN_SEND_INVITES": {
       "admin": true
+    },
+    "CAN_EDIT_BOOKING": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_DELETE_BOOKING": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
     },
     "CAN_MANAGE_RESTAURANT_MENU": {
       "admin": true,

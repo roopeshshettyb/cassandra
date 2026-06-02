@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR } from '../../theme';
 import { ROW_SX, StatusChip } from './AppCards';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
@@ -7,6 +7,8 @@ import NightsStayIcon from '@mui/icons-material/NightsStay';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 const getLuminance = (hex) => {
   const c = (hex || '').replace('#', '');
@@ -20,7 +22,7 @@ const getLuminance = (hex) => {
 
 const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-const BookingCard = ({ data, navigate }) => {
+const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
   const booking = data;
   const hotelName = booking.hotel?.name || 'Unknown Hotel';
   const themeConfig = booking.hotel?.themeConfig || booking.hotel?.brand?.themeConfig;
@@ -157,6 +159,33 @@ const BookingCard = ({ data, navigate }) => {
             </Box>
           </Box>
         </Box>
+
+        {/* Action strip */}
+        {(onEdit || onDelete) && (
+          <Box onClick={(e) => e.stopPropagation()} sx={{ display: 'flex', borderTop: `1px solid ${BORDER}` }}>
+            {onEdit && (
+              <Box onClick={() => onEdit(booking)} sx={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
+                py: 1.25, cursor: 'pointer', color: accent,
+                '&:hover': { bgcolor: `${accent}10` },
+                ...(onDelete && { borderRight: `1px solid ${BORDER}` }),
+              }}>
+                <EditIcon sx={{ fontSize: 13 }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Edit</Typography>
+              </Box>
+            )}
+            {onDelete && (
+              <Box onClick={() => onDelete(booking)} sx={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
+                py: 1.25, cursor: 'pointer', color: STATUS_ERROR,
+                '&:hover': { bgcolor: `${STATUS_ERROR}10` },
+              }}>
+                <DeleteOutlineIcon sx={{ fontSize: 13 }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Delete</Typography>
+              </Box>
+            )}
+          </Box>
+        )}
       </Box>
     </motion.div>
   );

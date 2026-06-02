@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, TextField, Typography } from '@mui/material';
+import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControlLabel, MenuItem, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
@@ -15,12 +15,18 @@ const createBookingFieldConfigs = [
   { field: 'guestEmail', label: 'Guest Email', type: 'email', required: true },
   { field: 'guestName', label: 'Guest Name', type: 'text' },
   { field: 'guestPhone', label: 'Guest Phone', type: 'tel' },
-  { field: 'roomNumber', label: 'Room Number', type: 'text' },
+  { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
+];
+
+const editBookingFieldConfigs = [
+  { field: 'startDate', label: 'Start Date', type: 'date', required: true },
+  { field: 'endDate', label: 'End Date', type: 'date', required: true, getInputProps: (values) => ({ min: values.startDate }) },
+  { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
 
 function CreateFieldRow({ data, createValues, handleCreateInput }) {
-  const { field, label, type, required } = data;
-  return <TextField fullWidth label={label} type={type} value={createValues[field] ?? ''} onChange={handleCreateInput(field)} InputLabelProps={{ shrink: true }} required={!!required} />;
+  const { field, label, type, required, getInputProps } = data;
+  return <TextField fullWidth label={label} type={type} value={createValues[field] ?? ''} onChange={handleCreateInput(field)} InputLabelProps={{ shrink: true }} required={!!required} inputProps={getInputProps ? getInputProps(createValues) : undefined} />;
 }
 
 const initialCreateValues = {
@@ -41,6 +47,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [createValues, setCreateValues] = useState(initialCreateValues);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [uploadedReservationDocumentKey, setUploadedReservationDocumentKey] = useState(null);
+  const [editBooking, setEditBooking] = useState(null);
+  const [editValues, setEditValues] = useState({ startDate: '', endDate: '', roomNumber: '' });
+  const [deleteBooking, setDeleteBooking] = useState(null);
 
   const fetchBookings = async () => {
     await request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError, delay: false });
@@ -56,7 +65,30 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   }, []);
 
   const CAN_CREATE_BOOKING = account && !!constants.PERMISSIONS.CAN_CREATE_BOOKING[account.role];
+  const CAN_EDIT_BOOKING = account && !!constants.PERMISSIONS.CAN_EDIT_BOOKING[account.role];
+  const CAN_DELETE_BOOKING = account && !!constants.PERMISSIONS.CAN_DELETE_BOOKING[account.role];
   const handleCreateInput = (field) => (e) => setCreateValues((prev) => ({ ...prev, [field]: e.target.value }));
+  const handleEditInput = (field) => (e) => setEditValues((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const handleOpenEdit = (booking) => {
+    const toDateStr = (dt) => dt ? new Date(dt).toISOString().slice(0, 10) : '';
+    setEditValues({ startDate: toDateStr(booking.startTime), endDate: toDateStr(booking.endTime), roomNumber: booking.roomNumber || '' });
+    setEditBooking(booking);
+  };
+
+  const handleEditBooking = async (e) => {
+    e.preventDefault();
+    const { startDate, endDate, roomNumber } = editValues;
+    if (new Date(endDate) < new Date(startDate)) { alertError?.('End date must be after start date'); return; }
+    if (!roomNumber?.trim()) { alertError?.('Room number is required'); return; }
+    const result = await request({ endpoint: `/bookings/${editBooking.id}`, method: 'PATCH', data: { startDate, endDate, roomNumber: roomNumber.trim() }, setLoading, alertSuccess, alertError });
+    if (result?.success) { setEditBooking(null); fetchBookings(); }
+  };
+
+  const handleDeleteBooking = async () => {
+    const result = await request({ endpoint: `/bookings/${deleteBooking.id}`, method: 'DELETE', setLoading, alertSuccess, alertError });
+    if (result?.success) { setDeleteBooking(null); fetchBookings(); }
+  };
 
   const handleReservationDocumentUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -121,7 +153,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const handleCreateBooking = async (e) => {
     e.preventDefault();
     const { startDate, endDate, guestEmail, guestName, guestPhone, roomNumber, hotelId, sendInviteImmediately } = createValues;
-    if (!startDate || !endDate || !guestEmail || !hotelId) {
+    if (!startDate || !endDate || !guestEmail || !hotelId || !roomNumber?.trim()) {
       alertError?.('All fields are required');
       return;
     }
@@ -245,6 +277,35 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </Box>
       </Dialog>
 
+      {/* Edit Booking Dialog */}
+      <Dialog open={!!editBooking && CAN_EDIT_BOOKING} onClose={() => setEditBooking(null)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}
+        sx={{ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)' } }}>
+        <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>Edit Booking</DialogTitle>
+        <Box component="form" onSubmit={handleEditBooking}>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <MapComponent Component={CreateFieldRow} data={editBookingFieldConfigs} createValues={editValues} handleCreateInput={handleEditInput} showNoDataAvailable={false} isLoading={false} />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button onClick={() => setEditBooking(null)} sx={{ color: MUTED }}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary">Save Changes</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+
+      {/* Delete Booking Dialog */}
+      <Dialog open={!!deleteBooking && CAN_DELETE_BOOKING} onClose={() => setDeleteBooking(null)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>Delete Booking</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Delete booking for <strong>{deleteBooking?.guest?.name || deleteBooking?.guest?.email || 'this guest'}</strong> at <strong>{deleteBooking?.hotel?.name}</strong>? This cannot be undone.</DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setDeleteBooking(null)} sx={{ color: MUTED }}>Cancel</Button>
+          <Button onClick={handleDeleteBooking} variant="contained" color="error">Delete</Button>
+        </DialogActions>
+      </Dialog>
+
       <DataGrid CardComponent={BookingCard} data={(() => {
         const hotelMap = {};
         for (let i = 0; i < hotels.length; i++) hotelMap[hotels[i].id] = hotels[i];
@@ -256,7 +317,10 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
           enriched.push(themeConfig ? { ...b, hotel: { ...b.hotel, themeConfig } } : b);
         }
         return enriched;
-      })()} isLoading={loading} navigate={navigate} />
+      })()} isLoading={loading} navigate={navigate}
+        onEdit={CAN_EDIT_BOOKING ? handleOpenEdit : null}
+        onDelete={CAN_DELETE_BOOKING ? setDeleteBooking : null}
+      />
     </Box>
   );
 }
