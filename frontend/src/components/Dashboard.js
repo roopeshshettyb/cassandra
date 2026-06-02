@@ -32,7 +32,13 @@ const Dashboard = ({ account, navigate, alertError, alertSuccess, setLoading }) 
   };
 
   useEffect(() => {
-    const fetchAll = () => request({ endpoint: '/dashboard', method: 'GET', setData: setDashboard, setLoading, alertError });
+    let inFlight = false;
+    const fetchAll = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      await request({ endpoint: '/dashboard', method: 'GET', setData: setDashboard, setLoading, alertError });
+      inFlight = false;
+    };
     fetchAll();
     const onVisible = () => { if (!document.hidden) fetchAll(); };
     document.addEventListener('visibilitychange', onVisible);
