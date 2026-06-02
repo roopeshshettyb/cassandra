@@ -142,7 +142,7 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
 
     socket.on('connect_error', (err: any) => {
       clearConnectingLoading();
-      onError?.(err?.message || 'Voice connection failed');
+      onError?.('shrijit socket: ' + (err?.message || 'Voice connection failed'));
     });
 
     // Backend is ready / ready for the next turn
