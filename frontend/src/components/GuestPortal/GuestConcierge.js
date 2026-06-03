@@ -583,7 +583,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                <Box sx={{ display: 'block' }}>
                   <IconButton
                     onClick={onSwitchToVoice}
                     size="small"
@@ -634,7 +634,6 @@ export default function GuestConcierge({
   accountRole,
   alertError,
   isWithinStay,
-  isMobile,
   logoUrl,
   isReady,
   isRecording,
@@ -724,9 +723,9 @@ export default function GuestConcierge({
   return (
     <Box
       sx={{
-        flex: isMobile ? 1 : 'unset',
-        minHeight: isMobile ? 0 : '89dvh',
-        height: isMobile ? 'unset' : '89dvh',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
