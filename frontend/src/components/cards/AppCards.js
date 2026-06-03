@@ -137,17 +137,17 @@ export const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSi
 
 /** Operating hours field config — shared between HotelDetails and BrandDetails. */
 export const HOURS_FIELDS = [
-  { key: 'checkInTime',       label: 'Check-in',        type: 'time', Icon: Login,            placeholder: 'Ex. 15:00' },
-  { key: 'checkOutTime',      label: 'Check-out',       type: 'time', Icon: Logout,           placeholder: 'Ex. 12:00' },
-  { key: 'breakfastHours',    label: 'Breakfast',                      Icon: FreeBreakfast,    placeholder: 'Ex. 07:00 – 10:30' },
-  { key: 'lunchHours',        label: 'Lunch',                          Icon: LunchDining,      placeholder: 'Ex. 12:00 – 14:30' },
-  { key: 'dinnerHours',       label: 'Dinner',                         Icon: DinnerDining,     placeholder: 'Ex. 19:00 – 22:30' },
-  { key: 'snacksHours',       label: 'All-day snacks',                 Icon: LocalCafe,        placeholder: 'Ex. 10:00 – 22:00' },
-  { key: 'poolHours',         label: 'Pool',                           Icon: Pool,             placeholder: 'Ex. 06:00 – 22:00' },
-  { key: 'gymHours',          label: 'Gym',                            Icon: FitnessCenter,    placeholder: 'Ex. 06:00 – 23:00' },
-  { key: 'restaurantHours',   label: 'Restaurant',                     Icon: Restaurant,       placeholder: 'Ex. 07:00 – 23:00' },
+  { key: 'checkInTime',       label: 'Check-in',        type: 'time', Icon: Login,            placeholder: 'Ex. 3:00 PM' },
+  { key: 'checkOutTime',      label: 'Check-out',       type: 'time', Icon: Logout,           placeholder: 'Ex. 12:00 PM' },
+  { key: 'breakfastHours',    label: 'Breakfast',                      Icon: FreeBreakfast,    placeholder: 'Ex. 7:00 AM – 10:30 AM' },
+  { key: 'lunchHours',        label: 'Lunch',                          Icon: LunchDining,      placeholder: 'Ex. 12:00 PM – 2:30 PM' },
+  { key: 'dinnerHours',       label: 'Dinner',                         Icon: DinnerDining,     placeholder: 'Ex. 7:00 PM – 10:30 PM' },
+  { key: 'snacksHours',       label: 'All-day snacks',                 Icon: LocalCafe,        placeholder: 'Ex. 10:00 AM – 10:00 PM' },
+  { key: 'poolHours',         label: 'Pool',                           Icon: Pool,             placeholder: 'Ex. 6:00 AM – 10:00 PM' },
+  { key: 'gymHours',          label: 'Gym',                            Icon: FitnessCenter,    placeholder: 'Ex. 6:00 AM – 11:00 PM' },
+  { key: 'restaurantHours',   label: 'Restaurant',                     Icon: Restaurant,       placeholder: 'Ex. 7:00 AM – 11:00 PM' },
   { key: 'roomServiceHours',  label: 'Room service',                   Icon: RoomService,      placeholder: 'Ex. 24 hours' },
-  { key: 'houseKeepingHours', label: 'Housekeeping',                   Icon: CleaningServices, placeholder: 'Ex. 08:00 – 20:00' },
+  { key: 'houseKeepingHours', label: 'Housekeeping',                   Icon: CleaningServices, placeholder: 'Ex. 8:00 AM – 8:00 PM' },
   { key: 'wifiPassword',      label: 'Wi-Fi password',                 Icon: Wifi,             placeholder: 'Ex. Hotel@2024' },
 ];
 

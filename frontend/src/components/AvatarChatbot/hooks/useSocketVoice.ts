@@ -144,9 +144,12 @@ export function useSocketVoice({ bookingId, chatId, setLoading, onReady, onUserM
       cleanupAudio();
     });
 
-    socket.on('connect_error', (err: any) => {
+    socket.on('connect_error', () => {
       clearConnectingLoading();
-      onError?.(err?.message || 'Voice connection failed');
+    });
+
+    socket.on('reconnect_failed', () => {
+      onError?.('Voice connection failed. Please refresh.');
     });
 
     // Backend is ready / ready for the next turn
