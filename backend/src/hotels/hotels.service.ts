@@ -52,8 +52,24 @@ export class HotelsService {
   private readonly inviteTypeStaff = HOTEL_MEMBER_INVITE_TYPE_STAFF;
   private readonly memberCsvHeader = 'email,name,role';
 
+  ensureCanAddHotel(currentAccount: Account): void {
+    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER) {
+      throw new ForbiddenException();
+    }
+  }
+
   async createHotel(createHotelDto: CreateHotelDto, currentAccount: Account): Promise<Hotel> {
-    return this.hotelsRepository.create<Hotel>(createHotelDto);
+    this.ensureCanAddHotel(currentAccount);
+    const hotel = await this.hotelsRepository.create<Hotel>(createHotelDto);
+    if (currentAccount.role === AccountRole.HOTEL_OWNER) {
+      await this.hotelAccountsRepository.create({
+        hotelId: hotel.id,
+        accountId: currentAccount.id,
+        role: AccountRole.HOTEL_OWNER,
+        status: this.memberAccessStatus,
+      });
+    }
+    return hotel;
   }
 
   async findAllForAccount(currentAccount: Account, options?: HotelQueryOptions): Promise<any> {

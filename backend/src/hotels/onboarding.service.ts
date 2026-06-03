@@ -5,7 +5,7 @@ import { TavilyService } from '../common/tavily/tavily.service';
 import { LangGraphService } from '../langgraph/langgraph.service';
 import { ApiService } from '../common/api/api.service';
 import { AwsService } from '../common/aws/aws.service';
-import { ConstantsService } from '../common/constants/constants.service';
+import { ConstantsService, HotelMemberStatus } from '../common/constants/constants.service';
 import { HotelBrand } from './brands.model';
 import { Hotel } from './hotels.model';
 import { HotelAccount } from './hotel-accounts.model';
@@ -384,7 +384,7 @@ ${crawlData}`;
     }
   }
 
-  async finalizeOnboarding(hotelData: any) {
+  async finalizeOnboarding(hotelData: any, currentAccount?: Account) {
     // Upload logo to S3 if it's an external URL
     if (hotelData.logoUrl && !hotelData.logoUrl.includes(this.constantsService.private.AWS_S3_URL_DOMAIN)) {
       hotelData.logoUrl = await this.uploadLogoFromUrl(hotelData.logoUrl, hotelData.name);
@@ -469,6 +469,15 @@ ${crawlData}`;
       themeConfig: hotelData.themeConfig,
       hotelBrandId: brandId,
     });
+
+    if (currentAccount?.role === AccountRole.HOTEL_OWNER) {
+      await this.hotelAccountsRepository.create({
+        hotelId: hotel.id,
+        accountId: currentAccount.id,
+        role: AccountRole.HOTEL_OWNER,
+        status: HotelMemberStatus.ACTIVE,
+      });
+    }
 
     return {
       success: true,

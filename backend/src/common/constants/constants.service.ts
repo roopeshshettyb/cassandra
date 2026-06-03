@@ -84,7 +84,7 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_EDIT_HOTEL:             { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_DELETE_HOTEL:           { [AccountRole.ADMIN]: true },
   CAN_DELETE_BRAND:           { [AccountRole.ADMIN]: true },
-  CAN_ADD_HOTEL:              { [AccountRole.ADMIN]: true },
+  CAN_ADD_HOTEL:              { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
   CAN_VIEW_COSTS:             { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
   CAN_SEND_INVITES:           { [AccountRole.ADMIN]: true },
   CAN_EDIT_BOOKING:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
