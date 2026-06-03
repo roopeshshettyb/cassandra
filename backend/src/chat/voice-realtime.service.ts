@@ -82,7 +82,7 @@ export class VoiceRealtimeService {
         const llmInstructions = hotel?.llmInstructions;
         const account: any = ctx.account;
         const languageCode = ctx.languageCode ?? null;
-        const { instructionsWithoutRole: instructionsWithSpeaker } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions, account?.role, languageCode);
+        const { instructionsWithoutRole: instructionsWithSpeaker } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions, account?.role, languageCode, true);
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
         const sessionUpdate = {
@@ -387,7 +387,7 @@ export class VoiceRealtimeService {
           const hotel: any = state.ctx.hotel;
           const llmInstructions = hotel?.llmInstructions;
           const account: any = state.ctx.account;
-          const { instructionsWithoutRole: updatedInstructions } = await buildSystemInstructions(this.chatContextService, state.ctx.chatId, appName, llmInstructions, account?.role, newLanguageCode);
+          const { instructionsWithoutRole: updatedInstructions } = await buildSystemInstructions(this.chatContextService, state.ctx.chatId, appName, llmInstructions, account?.role, newLanguageCode, true);
 
           const sessionUpdateEvent = {
             type: 'session.update',

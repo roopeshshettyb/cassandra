@@ -65,6 +65,7 @@ export class DeepgramVoiceAgentService {
           (ctx.hotel as any)?.llmInstructions,
           (ctx.account as any)?.role,
           ctx.languageCode ?? null,
+          true,
         );
 
         const tools = this.realtimeToolsService.getToolsMetadata(ctx);
@@ -258,6 +259,7 @@ export class DeepgramVoiceAgentService {
             (state.ctx.hotel as any)?.llmInstructions,
             (state.ctx.account as any)?.role,
             newLanguageCode,
+            true,
           );
           const updatedThink = { ...state.thinkConfig, prompt: updatedPrompt };
           state.thinkConfig = updatedThink;

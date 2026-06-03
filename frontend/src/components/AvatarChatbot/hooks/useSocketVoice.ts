@@ -6,6 +6,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 interface UseSocketVoiceProps {
   bookingId?: number | string | null;
+  chatId?: number | string | null;
   setLoading?: (loading: boolean) => void;
   onReady?: () => void;
   onUserMessage?: (text: string) => void;
@@ -14,7 +15,7 @@ interface UseSocketVoiceProps {
   onError?: (error: string) => void;
 }
 
-export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
+export function useSocketVoice({ bookingId, chatId, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -85,6 +86,9 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
     const query: Record<string, string> = { token };
     if (bookingId) {
       query.bookingId = String(bookingId);
+    }
+    if (chatId) {
+      query.chatId = String(chatId);
     }
 
     const socket = io(`${BACKEND_URL}/voice`, {
@@ -205,11 +209,11 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
     });
 
     socket.on('auth_required', () => {
-      if (bookingId) {
-        socket.emit('auth', { token, bookingId });
-        return;
-      }
-      socket.emit('auth', { token });
+      socket.emit('auth', {
+        token,
+        ...(bookingId ? { bookingId } : {}),
+        ...(chatId ? { chatId: Number(chatId) } : {}),
+      });
     });
 
     const handleVisibilityChange = () => {
@@ -227,7 +231,7 @@ export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, 
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [bookingId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading]);
+  }, [bookingId, chatId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading]);
 
   const startRecording = async () => {
     if (isRecording) return;

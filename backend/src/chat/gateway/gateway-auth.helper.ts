@@ -6,6 +6,7 @@ export interface GatewayAuthDeps {
   chatService: {
     findOrCreateForBooking: (bookingId: number, account: any) => Promise<any>;
     findOrCreateGeneralForAccount: (account: any) => Promise<any>;
+    findByIdForSessionScope: (account: any, chatId: number, bookingId: number | null) => Promise<any>;
   };
   bookingsService: { findByIdForAccount: (bookingId: number, account: any) => Promise<{ data: any }> };
   constantsService: { public: { ERROR_CHAT_ONLY_DURING_STAY: string } };
@@ -14,12 +15,18 @@ export interface GatewayAuthDeps {
 /**
  * Parse token and bookingId from Socket handshake (query or auth).
  */
-export function parseConnectionHandshake(client: any): { token: string | null; bookingId: number | undefined } {
+export function parseConnectionHandshake(client: any): { token: string | null; bookingId: number | undefined; chatId: number | undefined } {
   const auth: any = client.handshake?.auth;
   const token = client.handshake?.query?.token || (auth?.token ?? null);
   const bookingIdRaw = client.handshake?.query?.bookingId;
   const bookingId = bookingIdRaw ? parseInt(String(bookingIdRaw), 10) : undefined;
-  return { token, bookingId: typeof bookingId === 'number' && !isNaN(bookingId) ? bookingId : undefined };
+  const chatIdRaw = client.handshake?.query?.chatId ?? auth?.chatId;
+  const chatId = chatIdRaw ? parseInt(String(chatIdRaw), 10) : undefined;
+  return {
+    token,
+    bookingId: typeof bookingId === 'number' && !isNaN(bookingId) ? bookingId : undefined,
+    chatId: typeof chatId === 'number' && !isNaN(chatId) ? chatId : undefined,
+  };
 }
 
 /**
@@ -30,6 +37,7 @@ export async function authenticateAndInit(
   client: any,
   token: string,
   bookingId: number | undefined,
+  chatId: number | undefined,
   deps: GatewayAuthDeps,
   onSuccess: (session: ChatSession) => Promise<void>,
 ): Promise<void> {
@@ -57,6 +65,15 @@ export async function authenticateAndInit(
       sessionBookingId = bookingId;
     } else {
       chat = await deps.chatService.findOrCreateGeneralForAccount(account);
+    }
+
+    // If the client requested a specific chat, use it when it belongs to this
+    // account + booking scope. Otherwise fall back to the resolved default.
+    if (typeof chatId === 'number') {
+      const scopedChat = await deps.chatService.findByIdForSessionScope(account, chatId, sessionBookingId);
+      if (scopedChat) {
+        chat = scopedChat;
+      }
     }
 
     const session: ChatSession = {
