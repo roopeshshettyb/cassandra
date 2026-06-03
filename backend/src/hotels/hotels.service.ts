@@ -181,6 +181,46 @@ export class HotelsService {
     return hotel;
   }
 
+  /**
+   * Hotel ids the account may access. `null` means no restriction (admin → all hotels).
+   * An empty array means the account has access to no hotel.
+   * Guests are scoped to hotels they have bookings at; staff/owners to their granted hotels.
+   */
+  async getAccessibleHotelIds(currentAccount: Account): Promise<number[] | null> {
+    if (currentAccount.role === AccountRole.ADMIN) {
+      return null;
+    }
+
+    const ids: number[] = [];
+    const seen: Record<number, boolean> = {};
+
+    if (currentAccount.role === AccountRole.GUEST) {
+      const bookings = await this.bookingsRepository.findAll({
+        where: { guestId: currentAccount.id },
+        attributes: ['hotelId'],
+      });
+      for (const booking of bookings) {
+        if (!seen[booking.hotelId]) {
+          seen[booking.hotelId] = true;
+          ids.push(booking.hotelId);
+        }
+      }
+      return ids;
+    }
+
+    const hotelAccounts = await this.hotelAccountsRepository.findAll({
+      where: { accountId: currentAccount.id, status: this.memberAccessStatus },
+      attributes: ['hotelId'],
+    });
+    for (const hotelAccount of hotelAccounts) {
+      if (!seen[hotelAccount.hotelId]) {
+        seen[hotelAccount.hotelId] = true;
+        ids.push(hotelAccount.hotelId);
+      }
+    }
+    return ids;
+  }
+
   async deleteHotel(id: number, currentAccount: Account, force = false): Promise<void> {
     if (currentAccount.role !== AccountRole.ADMIN) {
       throw new ForbiddenException();

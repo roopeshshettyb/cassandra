@@ -108,47 +108,67 @@ export class RestaurantService {
   }
 
   /**
-   * Search menu items for a hotel. Guests can search only when they have a booking at that hotel.
+   * Search menu items. When `hotelId` is given, searches that hotel (access verified).
+   * When omitted, searches every hotel the account can access (admin → all hotels,
+   * staff/owner → their hotels, guest → hotels they have a booking at).
    * Uses raw SQL: comma-separated keywords for search, current time for available window.
    */
   async searchMenuItems(
-    hotelId: number,
     currentAccount: Account,
-    options: { booking?: { hotelId: number; guestId: number }; keywords?: string } = {},
+    options: { hotelId?: number; keywords?: string } = {},
   ) {
-    if (currentAccount.role === AccountRole.ADMIN || currentAccount.role === AccountRole.HOTEL_OWNER || currentAccount.role === AccountRole.HOTEL_STAFF) {
-      await this.ensureCanAccessHotel(hotelId, currentAccount);
-    } else if (currentAccount.role === AccountRole.GUEST) {
-      const { booking } = options;
-      if (!booking || booking.hotelId !== hotelId || booking.guestId !== currentAccount.id) {
+    const accessibleHotelIds = await this.hotelsService.getAccessibleHotelIds(currentAccount);
+
+    let hotelIds: number[] | null;
+    if (options.hotelId != null) {
+      if (accessibleHotelIds !== null && !accessibleHotelIds.includes(options.hotelId)) {
         throw new ForbiddenException('No access to this hotel menu');
       }
+      hotelIds = [options.hotelId];
     } else {
-      throw new ForbiddenException();
+      hotelIds = accessibleHotelIds;
+    }
+
+    if (hotelIds !== null && hotelIds.length === 0) {
+      return { success: true, message: 'Menu items fetched', data: [] };
     }
 
     const currentTime = new Date().toTimeString().slice(0, 5); // HH:mm
-    const keywords = options.keywords ? options.keywords.split(',').map((k) => k.trim()).filter(Boolean) : [];
 
     const escapeLike = (s: string) => s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const keywords: string[] = [];
+    if (options.keywords) {
+      const parts = options.keywords.split(',');
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed) {
+          keywords.push(trimmed);
+        }
+      }
+    }
 
     let sql = `
       SELECT * FROM menu_items
-      WHERE hotel_id = :hotelId
-        AND deleted_at IS NULL
+      WHERE deleted_at IS NULL
         AND is_available = true
         AND (available_start_time IS NULL OR available_start_time <= :currentTime)
         AND (available_end_time IS NULL OR available_end_time >= :currentTime)
     `;
 
-    const replacements: Record<string, string | number> = { hotelId, currentTime };
+    const replacements: Record<string, string | number | number[]> = { currentTime };
+
+    if (hotelIds !== null) {
+      sql += ` AND hotel_id IN (:hotelIds)`;
+      replacements.hotelIds = hotelIds;
+    }
 
     if (keywords.length > 0) {
-      const orParts = keywords.map((_, i) => `(name ILIKE :kw${i} OR description ILIKE :kw${i})`).join(' OR ');
-      sql += ` AND (${orParts})`;
-      keywords.forEach((kw, i) => {
-        replacements[`kw${i}`] = `%${escapeLike(kw)}%`;
-      });
+      const orParts: string[] = [];
+      for (let i = 0; i < keywords.length; i++) {
+        orParts.push(`(name ILIKE :kw${i} OR description ILIKE :kw${i})`);
+        replacements[`kw${i}`] = `%${escapeLike(keywords[i])}%`;
+      }
+      sql += ` AND (${orParts.join(' OR ')})`;
     }
 
     sql += ` ORDER BY sort_order ASC, name ASC`;

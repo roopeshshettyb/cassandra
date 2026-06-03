@@ -315,23 +315,26 @@ export function createAgentTools(
       tool: new DynamicStructuredTool({
         name: 'search_restaurant_menu',
       description:
-        'Search the restaurant menu for the current hotel. Use when guests ask about menu items, food options, prices, vegetarian/vegan options, dietary restrictions, or what is available to order. Returns available menu items (name, description, price, category, dietary tags, available times).',
+        'Search the restaurant menu. Use when guests ask about menu items, food options, prices, vegetarian/vegan options, dietary restrictions, or what is available to order. Provide bookingId to search the menu of that booking\'s hotel, or hotelId to search a specific hotel. If neither is given, it searches the current booking\'s hotel when in a booking context, otherwise every hotel you have access to. Returns available menu items (name, description, price, category, dietary tags, available times).',
       schema: z.object({
+        hotelId: z.number().optional().describe('Search the menu of this specific hotel'),
         keywords: z
           .string()
           .optional()
           .describe('Comma-separated search terms to filter by name or description (e.g. "vegetarian, pasta, gluten-free")'),
       }),
       func: async (args) => {
-        const bookingAny: any = currentBooking;
-        const hotelId = bookingAny?.hotelId;
-        if (!hotelId) {
-          return JSON.stringify({ error: 'Booking context missing' });
+        let hotelId: number | undefined;
+        if (args.bookingId != null) {
+          const bookingAny: any = currentBooking;
+          hotelId = bookingAny?.hotelId;
+        } else if (args.hotelId != null) {
+          hotelId = args.hotelId;
+        } else if (currentBooking) {
+          const bookingAny: any = currentBooking;
+          hotelId = bookingAny?.hotelId;
         }
-        const result = await restaurantService.searchMenuItems(hotelId, account, {
-          booking: bookingAny ? { hotelId, guestId: bookingAny.guestId } : undefined,
-          keywords: args.keywords,
-        });
+        const result = await restaurantService.searchMenuItems(account, { hotelId, keywords: args.keywords });
         return JSON.stringify(result.data);
       },
     }),
