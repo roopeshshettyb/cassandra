@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useReducer } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk } from '../utils/audio';
 
@@ -6,7 +6,6 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 interface UseSocketVoiceProps {
   bookingId?: number | string | null;
-  enabled?: boolean;
   setLoading?: (loading: boolean) => void;
   onReady?: () => void;
   onUserMessage?: (text: string) => void;
@@ -15,14 +14,12 @@ interface UseSocketVoiceProps {
   onError?: (error: string) => void;
 }
 
-export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
+export function useSocketVoice({ bookingId, setLoading, onReady, onUserMessage, onAssistantTextChunk, onAssistantTextEnd, onError }: UseSocketVoiceProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   // True between voice_turn_end and voice_ready (backend is processing LLM+TTS)
   const [isProcessing, setIsProcessing] = useState(false);
-  const [retryCount, incRetry] = useReducer((c: number) => c + 1, 0);
-  const isReadyRef = useRef(false);
 
   const socketRef = useRef<Socket | null>(null);
   const onReadyRef = useRef(onReady);
@@ -79,10 +76,8 @@ export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady,
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
     const token = localStorage.getItem('token');
     if (!token) return;
-    console.log('[useSocketVoice] connecting', { bookingId, enabled });
 
     setIsReady(false);
     startConnectingLoading();
@@ -94,34 +89,16 @@ export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady,
 
     const socket = io(`${BACKEND_URL}/voice`, {
       path: '/socket.io',
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
       query,
       auth: { token },
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 4000,
+      reconnectionDelayMax: 5000,
     });
 
     socketRef.current = socket;
-    isReadyRef.current = false;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !socket.connected) {
-        socket.connect();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // If voice_ready not received within 8s, force a full reconnect
-    const readyTimeout = setTimeout(() => {
-      if (!isReadyRef.current) {
-        socket.removeAllListeners();
-        socket.disconnect();
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        incRetry();
-      }
-    }, 8000);
 
     // Signal server that client finished playing audio.
     // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
@@ -163,18 +140,13 @@ export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady,
       cleanupAudio();
     });
 
-    socket.on('connect_error', () => {
+    socket.on('connect_error', (err: any) => {
       clearConnectingLoading();
-    });
-
-    socket.on('reconnect_failed', () => {
-      onError?.('Voice connection failed. Please refresh.');
+      onError?.(err?.message || 'Voice connection failed');
     });
 
     // Backend is ready / ready for the next turn
     socket.on('voice_ready', () => {
-      isReadyRef.current = true;
-      clearTimeout(readyTimeout);
       setIsReady(true);
       setIsProcessing(false);
       setIsSpeaking(false);
@@ -240,8 +212,14 @@ export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady,
       socket.emit('auth', { token });
     });
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !socket.connected) {
+        socket.connect();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      clearTimeout(readyTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearConnectingLoading();
       cancelPlaybackTracking();
@@ -249,7 +227,7 @@ export function useSocketVoice({ bookingId, enabled = true, setLoading, onReady,
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [enabled, bookingId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading, retryCount]);
+  }, [bookingId, cleanupAudio, cancelPlaybackTracking, clearConnectingLoading, startConnectingLoading]);
 
   const startRecording = async () => {
     if (isRecording) return;

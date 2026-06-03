@@ -151,7 +151,6 @@ const AppContent = () => {
     sendText: conciergeSendText,
   } = useSocketVoice({
     bookingId: null,
-    enabled: conciergeOpen,
     setLoading,
     onError: (error) => alertError(error),
   });
