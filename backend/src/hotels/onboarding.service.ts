@@ -12,7 +12,6 @@ import { HotelAccount } from './hotel-accounts.model';
 import { HOTELS_REPOSITORY, HOTEL_BRANDS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { UpdateBrandDto } from './hotels.dto';
-import { HotelsService } from './hotels.service';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 
@@ -48,7 +47,6 @@ export class OnboardingService {
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_BRANDS_REPOSITORY) private readonly brandsRepository: typeof HotelBrand,
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
-    private readonly hotelsService: HotelsService,
   ) {}
 
   async analyzePlace(placeId: string) {
@@ -448,7 +446,38 @@ ${crawlData}`;
       return { success: true, message: 'Hotel updated successfully', data: updated };
     }
 
-    const hotel = await this.hotelsService.createHotel({ ...hotelData, hotelBrandId: brandId }, currentAccount);
+    const hotel = await this.hotelsRepository.create({
+      name: hotelData.name,
+      address: hotelData.address,
+      website: hotelData.website,
+      phoneNumber: hotelData.phoneNumber,
+      googleMapsUrl: hotelData.googleMapsUrl,
+      logoUrl: hotelData.logoUrl,
+      checkInTime: hotelData.checkInTime,
+      checkOutTime: hotelData.checkOutTime,
+      poolHours: hotelData.poolHours,
+      gymHours: hotelData.gymHours,
+      restaurantHours: hotelData.restaurantHours,
+      wifiPassword: hotelData.wifiPassword,
+      breakfastHours: hotelData.breakfastHours,
+      lunchHours: hotelData.lunchHours,
+      dinnerHours: hotelData.dinnerHours,
+      snacksHours: hotelData.snacksHours,
+      houseKeepingHours: hotelData.houseKeepingHours,
+      roomServiceHours: hotelData.roomServiceHours,
+      llmInstructions: hotelData.llmInstructions,
+      themeConfig: hotelData.themeConfig,
+      hotelBrandId: brandId,
+    });
+
+    if (currentAccount?.role === AccountRole.HOTEL_OWNER) {
+      await this.hotelAccountsRepository.create({
+        hotelId: hotel.id,
+        accountId: currentAccount.id,
+        role: AccountRole.HOTEL_OWNER,
+        status: HotelMemberStatus.ACTIVE,
+      });
+    }
 
     return {
       success: true,
