@@ -60,7 +60,8 @@
       "admin": true
     },
     "CAN_ADD_HOTEL": {
-      "admin": true
+      "admin": true,
+      "hotel_owner": true
     },
     "CAN_VIEW_COSTS": {
       "admin": true,

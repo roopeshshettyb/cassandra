@@ -53,7 +53,6 @@ export class HotelsController {
   }
 
   @Post()
-  @AdminOnly()
   async create(@Body(ValidationPipe) createHotelDto: CreateHotelDto, @CurrentAccount() account: Account) {
     return this.hotelsService.createHotel(createHotelDto, account);
   }
@@ -192,27 +191,26 @@ export class HotelsController {
 
   // Onboarding Endpoints
   @Get('onboarding/search')
-  @AdminOnly()
-  async search(@Query('query') query: string) {
+  async search(@Query('query') query: string, @CurrentAccount() account: Account) {
+    this.hotelsService.ensureCanAddHotel(account);
     const data = await this.mapsService.searchPlaces(query);
     return { success: true, data };
   }
 
   @Get('onboarding/analyze/:placeId')
-  @AdminOnly()
-  async analyze(@Param('placeId') placeId: string) {
+  async analyze(@Param('placeId') placeId: string, @CurrentAccount() account: Account) {
+    this.hotelsService.ensureCanAddHotel(account);
     return this.onboardingService.analyzePlace(placeId);
   }
 
   @Post('onboarding/extract')
-  @AdminOnly()
-  async extract(@Body() body: { placeId: string; website?: string }) {
+  async extract(@Body() body: { placeId: string; website?: string }, @CurrentAccount() account: Account) {
+    this.hotelsService.ensureCanAddHotel(account);
     return this.onboardingService.crawlAndExtract(body.placeId, body.website);
   }
 
   @Post('onboarding/finalize')
-  @AdminOnly()
-  async finalize(@Body() body: any) {
-    return this.onboardingService.finalizeOnboarding(body);
+  async finalize(@Body() body: any, @CurrentAccount() account: Account) {
+    return this.onboardingService.finalizeOnboarding(body, account);
   }
 }

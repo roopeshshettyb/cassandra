@@ -6,6 +6,7 @@ import { LangGraphService } from '../langgraph/langgraph.service';
 import { ApiService } from '../common/api/api.service';
 import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
+import { HotelsService } from './hotels.service';
 import { HotelBrand } from './brands.model';
 import { Hotel } from './hotels.model';
 import { HotelAccount } from './hotel-accounts.model';
@@ -47,6 +48,7 @@ export class OnboardingService {
     @Inject(HOTELS_REPOSITORY) private readonly hotelsRepository: typeof Hotel,
     @Inject(HOTEL_BRANDS_REPOSITORY) private readonly brandsRepository: typeof HotelBrand,
     @Inject(HOTEL_ACCOUNTS_REPOSITORY) private readonly hotelAccountsRepository: typeof HotelAccount,
+    private readonly hotelsService: HotelsService,
   ) {}
 
   async analyzePlace(placeId: string) {
@@ -384,7 +386,7 @@ ${crawlData}`;
     }
   }
 
-  async finalizeOnboarding(hotelData: any) {
+  async finalizeOnboarding(hotelData: any, currentAccount?: Account) {
     // Upload logo to S3 if it's an external URL
     if (hotelData.logoUrl && !hotelData.logoUrl.includes(this.constantsService.private.AWS_S3_URL_DOMAIN)) {
       hotelData.logoUrl = await this.uploadLogoFromUrl(hotelData.logoUrl, hotelData.name);
@@ -446,29 +448,7 @@ ${crawlData}`;
       return { success: true, message: 'Hotel updated successfully', data: updated };
     }
 
-    const hotel = await this.hotelsRepository.create({
-      name: hotelData.name,
-      address: hotelData.address,
-      website: hotelData.website,
-      phoneNumber: hotelData.phoneNumber,
-      googleMapsUrl: hotelData.googleMapsUrl,
-      logoUrl: hotelData.logoUrl,
-      checkInTime: hotelData.checkInTime,
-      checkOutTime: hotelData.checkOutTime,
-      poolHours: hotelData.poolHours,
-      gymHours: hotelData.gymHours,
-      restaurantHours: hotelData.restaurantHours,
-      wifiPassword: hotelData.wifiPassword,
-      breakfastHours: hotelData.breakfastHours,
-      lunchHours: hotelData.lunchHours,
-      dinnerHours: hotelData.dinnerHours,
-      snacksHours: hotelData.snacksHours,
-      houseKeepingHours: hotelData.houseKeepingHours,
-      roomServiceHours: hotelData.roomServiceHours,
-      llmInstructions: hotelData.llmInstructions,
-      themeConfig: hotelData.themeConfig,
-      hotelBrandId: brandId,
-    });
+    const hotel = await this.hotelsService.createHotel({ ...hotelData, hotelBrandId: brandId }, currentAccount);
 
     return {
       success: true,
