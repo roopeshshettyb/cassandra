@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Grid, useMediaQuery, Box, Typography, Fab, ClickAwayListener } from '@mui/material';
@@ -141,6 +141,8 @@ const AppContent = () => {
   };
 
   const token = localStorage.getItem('token');
+  const [conciergeSearchParams] = useSearchParams();
+  const conciergeChatId = conciergeSearchParams.get('chatId');
   const {
     isReady: conciergeVoiceReady,
     isRecording: conciergeRecording,
@@ -151,6 +153,7 @@ const AppContent = () => {
     sendText: conciergeSendText,
   } = useSocketVoice({
     bookingId: null,
+    chatId: conciergeChatId,
     setLoading,
     onError: (error) => alertError(error),
   });

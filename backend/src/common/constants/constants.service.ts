@@ -17,6 +17,9 @@ export const DEFAULT_NOTIFICATION_TONE = NotificationTone.GENTLE_CHIME;
 
 export const NOTIFICATION_TONE_MAX_FILE_SIZE_MB = 5;
 
+export const HOTEL_IMAGE_MAX_FILE_SIZE_MB = 5;
+export const HOTEL_IMAGES_MAX_COUNT = 12;
+
 export enum NotificationEventType {
   NEW_REQUEST = 'new_request',
   REQUEST_UPDATED = 'request_updated',

@@ -52,8 +52,11 @@ export default function GuestPortal({ booking, account, isMobile, alertError, al
     }
   }, [setSearchParams, isWithinStay, activeTab]);
 
+  const conciergeChatId = searchParams.get('chatId');
+
   const { isReady, isRecording, isProcessing, isSpeaking, startRecording, stopRecording, sendText } = useSocketVoice({
     bookingId: voiceBookingId,
+    chatId: conciergeChatId,
     setLoading,
     onReady: handleVoiceReady,
     onError: (err) => alertError?.(err),

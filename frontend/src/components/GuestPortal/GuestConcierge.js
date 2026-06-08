@@ -180,6 +180,7 @@ function ChatBubble({ message }) {
 
 // ── Text Chat panel ────────────────────────────────────────────────────────
 export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt, suggestions, showHeader = true }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [ready, setReady] = useState(false);
@@ -197,6 +198,25 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
   const shouldAutoScrollRef = useRef(true);
   const sendingRef = useRef(false);
   const scrollRafRef = useRef(null);
+  // chatId lives in the URL so it survives text<->voice remounts and is shared
+  // with the voice socket. Accessed via refs inside the socket effect so the
+  // socket only (re)connects on bookingId/stay changes, never on URL churn.
+  const chatIdParamRef = useRef(searchParams.get('chatId'));
+  chatIdParamRef.current = searchParams.get('chatId');
+  const alertErrorRef = useRef(alertError);
+  alertErrorRef.current = alertError;
+  const setSearchParamsRef = useRef(setSearchParams);
+  setSearchParamsRef.current = setSearchParams;
+
+  // Persist the active chat to the URL (single source of truth). No-op if unchanged.
+  const syncChatIdToUrl = useCallback((cid) => {
+    if (!cid || String(chatIdParamRef.current || '') === String(cid)) return;
+    setSearchParamsRef.current((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('chatId', String(cid));
+      return next;
+    }, { replace: true });
+  }, []);
 
   useEffect(() => {
     if (!showHistory) return;
@@ -264,6 +284,9 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     if (bookingId) {
       query.bookingId = String(bookingId);
     }
+    if (chatIdParamRef.current) {
+      query.chatId = String(chatIdParamRef.current);
+    }
 
     const socket = io(`${url}/chat`, {
       path: '/socket.io',
@@ -280,6 +303,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     socket.on('ready', (payload) => {
       setReady(true);
       setCurrentChatId(payload?.chatId || null);
+      syncChatIdToUrl(payload?.chatId || null);
       if (Array.isArray(payload?.messages)) {
         const nextMessages = [];
         for (const m of payload.messages) {
@@ -312,8 +336,12 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       }
       setChatList(nextChats);
       setCurrentChatId(payload?.currentChatId ?? null);
+      syncChatIdToUrl(payload?.currentChatId ?? null);
     });
-    socket.on('auth_required', () => socket.emit('auth', bookingId ? { token, bookingId } : { token }));
+    socket.on('auth_required', () => {
+      const cid = chatIdParamRef.current;
+      socket.emit('auth', { token, ...(bookingId ? { bookingId } : {}), ...(cid ? { chatId: Number(cid) } : {}) });
+    });
     socket.on('stream_chunk', (p) => setStreamingContent((prev) => prev + (p.content || '')));
     socket.on('stream_end', (p) => {
       if (p.content) {
@@ -328,7 +356,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       setStreamingContent('');
       sendingRef.current = false;
       setSending(false);
-      alertError?.(p?.message || 'Something went wrong');
+      alertErrorRef.current?.(p?.message || 'Something went wrong');
     });
 
     const handleVisibilityChange = () => {
@@ -343,7 +371,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [bookingId, isWithinStay, alertError]);
+  }, [bookingId, isWithinStay, syncChatIdToUrl]);
 
   const handleSend = useCallback(() => {
     const text = input.trim();
@@ -583,7 +611,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                <Box sx={{ display: 'block' }}>
                   <IconButton
                     onClick={onSwitchToVoice}
                     size="small"
@@ -634,7 +662,6 @@ export default function GuestConcierge({
   accountRole,
   alertError,
   isWithinStay,
-  isMobile,
   logoUrl,
   isReady,
   isRecording,
@@ -724,9 +751,9 @@ export default function GuestConcierge({
   return (
     <Box
       sx={{
-        flex: isMobile ? 1 : 'unset',
-        minHeight: isMobile ? 0 : '89dvh',
-        height: isMobile ? 'unset' : '89dvh',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',

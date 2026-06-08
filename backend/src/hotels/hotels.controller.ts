@@ -166,6 +166,33 @@ export class HotelsController {
     return this.hotelsService.confirmLogoUpload(Number(id), body, account);
   }
 
+  @Post(':id/images/presigned-url')
+  async getImagesPresignedUrl(
+    @Param('id') id: string,
+    @Body() body: { fileName: string; fileSize: number; contentType: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.getImagesPresignedUrl(Number(id), body, account);
+  }
+
+  @Post(':id/images')
+  async confirmImageUpload(
+    @Param('id') id: string,
+    @Body() body: { s3Url: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.confirmImageUpload(Number(id), body, account);
+  }
+
+  @Delete(':id/images')
+  async deleteImage(
+    @Param('id') id: string,
+    @Body() body: { s3Url: string },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.deleteImage(Number(id), body, account);
+  }
+
   @Post(':id/notification-tone/presigned-url')
   async getNotificationTonePresignedUrl(
     @Param('id') id: string,

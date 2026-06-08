@@ -34,6 +34,7 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE hotel_accounts ADD COLUMN IF NOT EXISTS role VARCHAR(255)',
         'ALTER TABLE hotel_accounts ADD COLUMN IF NOT EXISTS status VARCHAR(255)',
         'ALTER TABLE hotels ADD COLUMN IF NOT EXISTS google_maps_url VARCHAR(512)',
+        "ALTER TABLE hotels ADD COLUMN IF NOT EXISTS images JSON DEFAULT '[]'",
         'ALTER TABLE hotels DROP COLUMN IF EXISTS latitude',
         'ALTER TABLE hotels DROP COLUMN IF EXISTS longitude',
         'ALTER TABLE hotels DROP COLUMN IF EXISTS google_place_id',

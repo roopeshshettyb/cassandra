@@ -9,7 +9,7 @@ import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, HOTEL_MEMBER_INVITE_TYPE_STAFF, HotelMemberStatus, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
+import { ConstantsService, HOTEL_MEMBER_INVITE_TYPE_STAFF, HotelMemberStatus, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB, HOTEL_IMAGE_MAX_FILE_SIZE_MB, HOTEL_IMAGES_MAX_COUNT } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
@@ -179,6 +179,46 @@ export class HotelsService {
       throw new NotFoundException();
     }
     return hotel;
+  }
+
+  /**
+   * Hotel ids the account may access. `null` means no restriction (admin → all hotels).
+   * An empty array means the account has access to no hotel.
+   * Guests are scoped to hotels they have bookings at; staff/owners to their granted hotels.
+   */
+  async getAccessibleHotelIds(currentAccount: Account): Promise<number[] | null> {
+    if (currentAccount.role === AccountRole.ADMIN) {
+      return null;
+    }
+
+    const ids: number[] = [];
+    const seen: Record<number, boolean> = {};
+
+    if (currentAccount.role === AccountRole.GUEST) {
+      const bookings = await this.bookingsRepository.findAll({
+        where: { guestId: currentAccount.id },
+        attributes: ['hotelId'],
+      });
+      for (const booking of bookings) {
+        if (!seen[booking.hotelId]) {
+          seen[booking.hotelId] = true;
+          ids.push(booking.hotelId);
+        }
+      }
+      return ids;
+    }
+
+    const hotelAccounts = await this.hotelAccountsRepository.findAll({
+      where: { accountId: currentAccount.id, status: this.memberAccessStatus },
+      attributes: ['hotelId'],
+    });
+    for (const hotelAccount of hotelAccounts) {
+      if (!seen[hotelAccount.hotelId]) {
+        seen[hotelAccount.hotelId] = true;
+        ids.push(hotelAccount.hotelId);
+      }
+    }
+    return ids;
   }
 
   async deleteHotel(id: number, currentAccount: Account, force = false): Promise<void> {
@@ -649,6 +689,59 @@ ${inviteUrl}`;
     return {
       success: true,
       message: 'Logo updated successfully',
+      data: updatedHotels[0],
+    };
+  }
+
+  async getImagesPresignedUrl(
+    hotelId: number,
+    body: { fileName: string; fileSize: number; contentType: string },
+    currentAccount: Account,
+  ) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}hotel-images/${hotel.id}-${Date.now()}-${body.fileName}`;
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key, contentType: body.contentType, fileSize: body.fileSize,
+      maxSizeMb: HOTEL_IMAGE_MAX_FILE_SIZE_MB, allowedType: 'image', isPublic: true,
+    });
+    return { success: true, data };
+  }
+
+  async confirmImageUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const images = hotel.images || [];
+    if (images.length >= HOTEL_IMAGES_MAX_COUNT) {
+      throw new BadRequestException(`A hotel can have at most ${HOTEL_IMAGES_MAX_COUNT} images`);
+    }
+
+    const [, updatedHotels] = await this.hotelsRepository.update(
+      { images: [...images, body.s3Url] },
+      { where: { id: hotelId }, returning: true },
+    );
+
+    return {
+      success: true,
+      message: 'Image added successfully',
+      data: updatedHotels[0],
+    };
+  }
+
+  async deleteImage(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const images = (hotel.images || []).filter((url) => url !== body.s3Url);
+
+    const [, updatedHotels] = await this.hotelsRepository.update(
+      { images },
+      { where: { id: hotelId }, returning: true },
+    );
+
+    return {
+      success: true,
+      message: 'Image removed successfully',
       data: updatedHotels[0],
     };
   }

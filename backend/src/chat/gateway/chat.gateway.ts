@@ -103,7 +103,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleConnection(client: any) {
-    const { token, bookingId } = parseConnectionHandshake(client);
+    const { token, bookingId, chatId } = parseConnectionHandshake(client);
     if (!token) {
       client.sessionPending = { token: null, bookingId: null };
       client.emit('auth_required', { message: 'Send auth with token' });
@@ -114,6 +114,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client,
       token,
       bookingId,
+      chatId,
       {
         authService: this.authService,
         chatService: this.chatService,
@@ -127,7 +128,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('auth')
-  async onAuth(client: any, payload: { token: string; bookingId?: number | null }) {
+  async onAuth(client: any, payload: { token: string; bookingId?: number | null; chatId?: number | null }) {
     if (client.session) {
       client.emit('error', { message: 'Already authenticated' });
       return;
@@ -135,6 +136,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token = payload?.token;
     const bookingIdRaw = payload?.bookingId;
     const bookingId = typeof bookingIdRaw === 'number' && bookingIdRaw > 0 ? bookingIdRaw : undefined;
+    const chatIdRaw = payload?.chatId;
+    const chatId = typeof chatIdRaw === 'number' && chatIdRaw > 0 ? chatIdRaw : undefined;
     if (!token) {
       client.emit('error', { message: 'auth requires token' });
       return;
@@ -143,6 +146,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client,
       token,
       bookingId,
+      chatId,
       {
         authService: this.authService,
         chatService: this.chatService,
