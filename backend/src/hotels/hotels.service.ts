@@ -9,7 +9,7 @@ import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, HOTEL_MEMBER_INVITE_TYPE_STAFF, HotelMemberStatus, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
+import { ConstantsService, HOTEL_MEMBER_INVITE_TYPE_STAFF, HotelMemberStatus, NotificationTone, NOTIFICATION_TONE_MAX_FILE_SIZE_MB, HOTEL_IMAGE_MAX_FILE_SIZE_MB, HOTEL_IMAGES_MAX_COUNT } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { BOOKINGS_REPOSITORY } from '../bookings/bookings.repository';
 import { Booking } from '../bookings/bookings.model';
@@ -689,6 +689,59 @@ ${inviteUrl}`;
     return {
       success: true,
       message: 'Logo updated successfully',
+      data: updatedHotels[0],
+    };
+  }
+
+  async getImagesPresignedUrl(
+    hotelId: number,
+    body: { fileName: string; fileSize: number; contentType: string },
+    currentAccount: Account,
+  ) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}hotel-images/${hotel.id}-${Date.now()}-${body.fileName}`;
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key, contentType: body.contentType, fileSize: body.fileSize,
+      maxSizeMb: HOTEL_IMAGE_MAX_FILE_SIZE_MB, allowedType: 'image', isPublic: true,
+    });
+    return { success: true, data };
+  }
+
+  async confirmImageUpload(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const images = hotel.images || [];
+    if (images.length >= HOTEL_IMAGES_MAX_COUNT) {
+      throw new BadRequestException(`A hotel can have at most ${HOTEL_IMAGES_MAX_COUNT} images`);
+    }
+
+    const [, updatedHotels] = await this.hotelsRepository.update(
+      { images: [...images, body.s3Url] },
+      { where: { id: hotelId }, returning: true },
+    );
+
+    return {
+      success: true,
+      message: 'Image added successfully',
+      data: updatedHotels[0],
+    };
+  }
+
+  async deleteImage(hotelId: number, body: { s3Url: string }, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+
+    const images = (hotel.images || []).filter((url) => url !== body.s3Url);
+
+    const [, updatedHotels] = await this.hotelsRepository.update(
+      { images },
+      { where: { id: hotelId }, returning: true },
+    );
+
+    return {
+      success: true,
+      message: 'Image removed successfully',
       data: updatedHotels[0],
     };
   }
