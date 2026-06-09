@@ -739,6 +739,11 @@ ${inviteUrl}`;
       { where: { id: hotelId }, returning: true },
     );
 
+    try {
+      const key = new URL(body.s3Url).pathname.slice(1);
+      await this.awsService.deleteObject(key);
+    } catch (_) {}
+
     return {
       success: true,
       message: 'Image removed successfully',
