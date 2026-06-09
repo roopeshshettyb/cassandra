@@ -739,10 +739,8 @@ ${inviteUrl}`;
       { where: { id: hotelId }, returning: true },
     );
 
-    try {
-      const key = new URL(body.s3Url).pathname.slice(1);
-      await this.awsService.deleteObject(key);
-    } catch (_) {}
+    const key = new URL(body.s3Url).pathname.slice(1);
+    await this.awsService.deleteObject(key).catch((err) => console.warn(`S3 delete failed for ${key}:`, err.message));
 
     return {
       success: true,
