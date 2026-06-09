@@ -4,7 +4,7 @@ import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogAct
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close,
+  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -134,8 +134,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const csvInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
-  const [imagesUploadFiles, setImagesUploadFiles] = useState([]);
   const [imagesUploadLoading, setImagesUploadLoading] = useState(false);
+  const dragFromRef = useRef(null);
+  const dragToRef = useRef(null);
   const [toneUploadFile, setToneUploadFile] = useState(null);
   const [toneUploadLoading, setToneUploadLoading] = useState(false);
   const [tonePlaying, setTonePlaying] = useState(false);
@@ -297,12 +298,41 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     finally { setLogoUploadLoading(false); }
   };
 
-  const handleImagesFileSelect = (event) => {
+  const handleImagesFileSelect = async (event) => {
     const files = Array.from(event.target.files || []);
-    if (!files.length) return;
+    event.target.value = '';
+    if (!files.length || !id) return;
     const valid = files.filter(file => file.type.startsWith('image/') && file.size <= 100 * 1024 * 1024);
     if (valid.length !== files.length) alertError?.('Only image files up to 100MB are allowed');
-    setImagesUploadFiles(valid);
+    if (!valid.length) return;
+    setImagesUploadLoading(true);
+    try {
+      let updatedHotel = null;
+      for (const file of valid) {
+        const upload = await compressImage(file);
+        const presignedRes = await request({ endpoint: `/hotels/${id}/images/presigned-url`, method: 'POST', data: { fileName: upload.name, fileSize: upload.size, contentType: upload.type }, throw: true });
+        const { presignedUrl, s3Url } = presignedRes?.data || {};
+        const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': upload.type }, body: upload });
+        if (!s3Resp.ok) throw new Error(`S3 upload failed (${s3Resp.status})`);
+        const result = await request({ endpoint: `/hotels/${id}/images`, method: 'POST', data: { s3Url }, throw: true });
+        if (result.success) updatedHotel = result.data;
+      }
+      if (updatedHotel) { alertSuccess?.('Photos uploaded'); setHotel(prev => ({ ...prev, images: updatedHotel.images })); }
+    } catch (err) { alertError?.(`Photo upload failed: ${err.message}`); }
+    finally { setImagesUploadLoading(false); }
+  };
+
+  const handleImagesReorder = async () => {
+    const from = dragFromRef.current;
+    const to = dragToRef.current;
+    dragFromRef.current = null;
+    dragToRef.current = null;
+    if (from === null || to === null || from === to) return;
+    const reordered = [...(hotel.images || [])];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setHotel(prev => ({ ...prev, images: reordered }));
+    await request({ endpoint: `/hotels/${id}/images/reorder`, method: 'PATCH', data: { images: reordered } });
   };
 
   const compressImage = (file, maxDimension = 1600, quality = 0.8) => new Promise((resolve) => {
@@ -322,24 +352,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     img.src = URL.createObjectURL(file);
   });
 
-  const handleImagesUpload = async () => {
-    if (!imagesUploadFiles.length || !id) return;
-    setImagesUploadLoading(true);
-    try {
-      let updatedHotel = null;
-      for (const file of imagesUploadFiles) {
-        const upload = await compressImage(file);
-        const presignedRes = await request({ endpoint: `/hotels/${id}/images/presigned-url`, method: 'POST', data: { fileName: upload.name, fileSize: upload.size, contentType: upload.type }, throw: true });
-        const { presignedUrl, s3Url } = presignedRes?.data || {};
-        const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': upload.type }, body: upload });
-        if (!s3Resp.ok) throw new Error(`S3 upload failed (${s3Resp.status})`);
-        const result = await request({ endpoint: `/hotels/${id}/images`, method: 'POST', data: { s3Url }, throw: true });
-        if (result.success) updatedHotel = result.data;
-      }
-      if (updatedHotel) { alertSuccess?.('Photos uploaded'); setImagesUploadFiles([]); setHotel(prev => ({ ...prev, images: updatedHotel.images })); }
-    } catch (err) { alertError?.(`Photo upload failed: ${err.message}`); }
-    finally { setImagesUploadLoading(false); }
-  };
 
   const handleImageDelete = async (s3Url) => {
     const result = await request({ endpoint: `/hotels/${id}/images`, method: 'DELETE', data: { s3Url }, alertError });
@@ -518,42 +530,35 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 </Box>
               </FormCard>
 
-              <FormCard title="Photos" sub="Shown in a scrolling gallery on the hotel card. PNG/JPG, max 100MB each, up to 12 photos. Compressed automatically before upload.">
-                {Array.isArray(hotel.images) && hotel.images.length > 0 && (
-                  <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 1.5, '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-                    {hotel.images.map((url) => (
-                      <Box key={url} sx={{ position: 'relative', flexShrink: 0 }}>
-                        <Box component="img" src={url} alt="" sx={{ width: 120, height: 90, borderRadius: 1.5, objectFit: 'cover', border: `1px solid ${BORDER}`, display: 'block' }} />
-                        <Box
-                          component="button"
-                          onClick={() => handleImageDelete(url)}
-                          sx={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', border: 'none', bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                        >
-                          <Close sx={{ fontSize: 13 }} />
-                        </Box>
+              <FormCard title="Photos" sub="Drag to reorder. PNG/JPG, max 100MB each, up to 12 photos. Compressed automatically before upload.">
+                <input ref={imagesInputRef} type="file" accept="image/*" multiple onChange={handleImagesFileSelect} style={{ display: 'none' }} />
+                <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
+                  {(hotel.images || []).map((url, idx) => (
+                    <Box
+                      key={url}
+                      draggable
+                      onDragStart={() => { dragFromRef.current = idx; }}
+                      onDragOver={(e) => { e.preventDefault(); dragToRef.current = idx; }}
+                      onDrop={handleImagesReorder}
+                      sx={{ position: 'relative', flexShrink: 0, cursor: 'grab' }}
+                    >
+                      <Box component="img" src={url} alt="" sx={{ width: 120, height: 90, borderRadius: 1.5, objectFit: 'cover', border: `1px solid ${BORDER}`, display: 'block', pointerEvents: 'none', userSelect: 'none' }} />
+                      <Box
+                        component="button"
+                        onClick={() => handleImageDelete(url)}
+                        sx={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', border: 'none', bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      >
+                        <Close sx={{ fontSize: 13 }} />
                       </Box>
-                    ))}
-                  </Box>
-                )}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <input ref={imagesInputRef} type="file" accept="image/*" multiple onChange={handleImagesFileSelect} style={{ display: 'none' }} />
-                  <Box
-                    component="button"
-                    onClick={() => imagesInputRef.current?.click()}
-                    disabled={imagesUploadLoading}
-                    sx={{ border: `1px solid ${BORDER}`, bgcolor: 'background.paper', color: NAVY, px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
-                  >
-                    Choose photos
-                  </Box>
-                  {imagesUploadFiles.length > 0 && (
+                    </Box>
+                  ))}
+                  {(!hotel.images || hotel.images.length < 12) && (
                     <Box
                       component="button"
-                      onClick={handleImagesUpload}
-                      disabled={imagesUploadLoading}
-                      sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+                      onClick={() => !imagesUploadLoading && imagesInputRef.current?.click()}
+                      sx={{ width: 120, height: 90, borderRadius: 1.5, border: `2px dashed ${BORDER}`, bgcolor: 'background.paper', cursor: imagesUploadLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, flexShrink: 0, '&:hover': { borderColor: 'var(--app-primary)', color: 'var(--app-primary)' } }}
                     >
-                      {imagesUploadLoading ? <CircularProgress size={14} /> : null}
-                      Upload {imagesUploadFiles.length} photo{imagesUploadFiles.length > 1 ? 's' : ''}
+                      {imagesUploadLoading ? <CircularProgress size={22} /> : <Add sx={{ fontSize: 30 }} />}
                     </Box>
                   )}
                 </Box>

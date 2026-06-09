@@ -193,6 +193,15 @@ export class HotelsController {
     return this.hotelsService.deleteImage(Number(id), body, account);
   }
 
+  @Patch(':id/images/reorder')
+  async reorderImages(
+    @Param('id') id: string,
+    @Body() body: { images: string[] },
+    @CurrentAccount() account: Account,
+  ) {
+    return this.hotelsService.reorderImages(Number(id), body, account);
+  }
+
   @Post(':id/notification-tone/presigned-url')
   async getNotificationTonePresignedUrl(
     @Param('id') id: string,

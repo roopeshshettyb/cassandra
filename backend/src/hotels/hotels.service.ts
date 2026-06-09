@@ -746,6 +746,19 @@ ${inviteUrl}`;
     };
   }
 
+  async reorderImages(hotelId: number, body: { images: string[] }, currentAccount: Account) {
+    const hotel = await this.findByIdForAccount(hotelId, currentAccount);
+    const existing = new Set(hotel.images || []);
+    if (body.images.length !== existing.size || !body.images.every((url) => existing.has(url))) {
+      throw new BadRequestException('Invalid image list');
+    }
+    const [, updatedHotels] = await this.hotelsRepository.update(
+      { images: body.images },
+      { where: { id: hotelId }, returning: true },
+    );
+    return { success: true, message: 'Images reordered', data: updatedHotels[0] };
+  }
+
   async getNotificationToneSignedUrl(hotelId: number, currentAccount: Account) {
     const hotel = await this.findByIdForAccount(hotelId, currentAccount);
 
