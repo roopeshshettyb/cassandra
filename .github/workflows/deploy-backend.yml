@@ -20,6 +20,9 @@ jobs:
           script: |
             set -e
 
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+
             BRANCH="${{ github.ref_name }}"
             APP_DIR=~/cassandra
 
@@ -32,7 +35,7 @@ jobs:
             npm install --omit=dev
             npm run build:stage
 
-            pm2 reload cassandra-stage --update-env
+            pm2 reload ecosystem.config.js --update-env
             pm2 save
 
             echo "Deploy of $BRANCH complete"
