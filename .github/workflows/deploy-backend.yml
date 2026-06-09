@@ -36,7 +36,7 @@ jobs:
             npm run build:stage
             npm prune --omit=dev
 
-            pm2 reload ecosystem.config.js --update-env
+            pm2 reload samantha-api-dev --update-env
             pm2 save
 
             echo "Deploy of $BRANCH complete"
