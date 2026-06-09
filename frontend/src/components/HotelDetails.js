@@ -300,10 +300,27 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const handleImagesFileSelect = (event) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
-    const valid = files.filter(file => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
-    if (valid.length !== files.length) alertError?.('Only image files up to 5MB are allowed');
+    const valid = files.filter(file => file.type.startsWith('image/') && file.size <= 100 * 1024 * 1024);
+    if (valid.length !== files.length) alertError?.('Only image files up to 100MB are allowed');
     setImagesUploadFiles(valid);
   };
+
+  const compressImage = (file, maxDimension = 1600, quality = 0.8) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(img.src);
+        resolve(blob && blob.size < file.size ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
 
   const handleImagesUpload = async () => {
     if (!imagesUploadFiles.length || !id) return;
@@ -311,9 +328,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     try {
       let updatedHotel = null;
       for (const file of imagesUploadFiles) {
-        const presignedRes = await request({ endpoint: `/hotels/${id}/images/presigned-url`, method: 'POST', data: { fileName: file.name, fileSize: file.size, contentType: file.type }, throw: true });
+        const upload = await compressImage(file);
+        const presignedRes = await request({ endpoint: `/hotels/${id}/images/presigned-url`, method: 'POST', data: { fileName: upload.name, fileSize: upload.size, contentType: upload.type }, throw: true });
         const { presignedUrl, s3Url } = presignedRes?.data || {};
-        const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+        const s3Resp = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': upload.type }, body: upload });
         if (!s3Resp.ok) throw new Error(`S3 upload failed (${s3Resp.status})`);
         const result = await request({ endpoint: `/hotels/${id}/images`, method: 'POST', data: { s3Url }, throw: true });
         if (result.success) updatedHotel = result.data;
@@ -500,7 +518,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                 </Box>
               </FormCard>
 
-              <FormCard title="Photos" sub="Shown in a scrolling gallery on the hotel card. PNG/JPG, max 5MB each, up to 12 photos.">
+              <FormCard title="Photos" sub="Shown in a scrolling gallery on the hotel card. PNG/JPG, max 100MB each, up to 12 photos. Compressed automatically before upload.">
                 {Array.isArray(hotel.images) && hotel.images.length > 0 && (
                   <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 1.5, '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
                     {hotel.images.map((url) => (
