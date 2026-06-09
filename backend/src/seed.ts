@@ -111,6 +111,7 @@ async function seed() {
       checkInTime: '15:00', checkOutTime: '12:00',
       hotelBrandId: brands['Radisson'].id,
       themeConfig: brands['Radisson'].themeConfig,
+      images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800', 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800', 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800'],
     },
     {
       name: 'The Taj Mahal Palace',
@@ -119,6 +120,7 @@ async function seed() {
       checkInTime: '14:00', checkOutTime: '12:00',
       hotelBrandId: brands['Taj Hotels'].id,
       themeConfig: brands['Taj Hotels'].themeConfig,
+      images: ['https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800', 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800'],
     },
     {
       name: 'ITC Maurya',
@@ -127,6 +129,7 @@ async function seed() {
       checkInTime: '14:00', checkOutTime: '12:00',
       hotelBrandId: brands['ITC Hotels'].id,
       themeConfig: brands['ITC Hotels'].themeConfig,
+      images: ['https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800', 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', 'https://images.unsplash.com/photo-1614609819764-5bc6c2f96e90?w=800'],
     },
     {
       name: 'Taj Cidade De Goa Horizon',

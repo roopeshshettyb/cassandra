@@ -161,7 +161,7 @@ export function HoursRow({ data: f, editValues, handleInputChange, onDirty, acce
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.25 }}>{f.label}</Typography>
-        <TextField variant="standard" type={f.type || 'text'} value={editValues[f.key] || ''} placeholder={f.placeholder}
+        <TextField fullWidth variant="standard" type={f.type || 'text'} value={editValues[f.key] || ''} placeholder={f.placeholder}
           onChange={e => { handleInputChange(f.key)(e); onDirty?.(f.key); }}
           InputProps={{ disableUnderline: true }}
           sx={{ '& input': { fontSize: 13, fontWeight: 700, p: 0, fontFamily: 'ui-monospace, monospace', color: NAVY } }} />
