@@ -134,7 +134,6 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const csvInputRef = useRef(null);
   const [logoUploadFile, setLogoUploadFile] = useState(null);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
-  const [imagesUploadLoading, setImagesUploadLoading] = useState(false);
   const dragFromRef = useRef(null);
   const dragToRef = useRef(null);
   const [toneUploadFile, setToneUploadFile] = useState(null);
@@ -305,7 +304,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     const valid = files.filter(file => file.type.startsWith('image/') && file.size <= 100 * 1024 * 1024);
     if (valid.length !== files.length) alertError?.('Only image files up to 100MB are allowed');
     if (!valid.length) return;
-    setImagesUploadLoading(true);
+    setLoading(true);
     try {
       let updatedHotel = null;
       for (const file of valid) {
@@ -319,7 +318,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       }
       if (updatedHotel) { alertSuccess?.('Photos uploaded'); setHotel(prev => ({ ...prev, images: updatedHotel.images })); }
     } catch (err) { alertError?.(`Photo upload failed: ${err.message}`); }
-    finally { setImagesUploadLoading(false); }
+    finally { setLoading(false); }
   };
 
   const handleImagesReorder = async () => {
@@ -332,7 +331,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
     setHotel(prev => ({ ...prev, images: reordered }));
-    await request({ endpoint: `/hotels/${id}/images/reorder`, method: 'PATCH', data: { images: reordered } });
+    await request({ endpoint: `/hotels/${id}/images/reorder`, method: 'PATCH', data: { images: reordered }, setLoading });
   };
 
   const compressImage = (file, maxDimension = 1600, quality = 0.8) => new Promise((resolve) => {
@@ -555,10 +554,10 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                   {(!hotel.images || hotel.images.length < 12) && (
                     <Box
                       component="button"
-                      onClick={() => !imagesUploadLoading && imagesInputRef.current?.click()}
-                      sx={{ width: 120, height: 90, borderRadius: 1.5, border: `2px dashed ${BORDER}`, bgcolor: 'background.paper', cursor: imagesUploadLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, flexShrink: 0, '&:hover': { borderColor: 'var(--app-primary)', color: 'var(--app-primary)' } }}
+                      onClick={() => !loading && imagesInputRef.current?.click()}
+                      sx={{ width: 120, height: 90, borderRadius: 1.5, border: `2px dashed ${BORDER}`, bgcolor: 'background.paper', cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, flexShrink: 0, '&:hover': { borderColor: 'var(--app-primary)', color: 'var(--app-primary)' } }}
                     >
-                      {imagesUploadLoading ? <CircularProgress size={22} /> : <Add sx={{ fontSize: 30 }} />}
+                      {loading ? <CircularProgress size={22} /> : <Add sx={{ fontSize: 30 }} />}
                     </Box>
                   )}
                 </Box>
