@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
+import { Op } from 'sequelize';
 import { Account } from './accounts/accounts.model';
 import { AccountRole, HotelMemberStatus } from './common/constants/constants.service';
 import { Hotel } from './hotels/hotels.model';
@@ -43,17 +44,29 @@ async function seed() {
   await sequelize.sync();
 
   // ── Accounts ────────────────────────────────────────────────────────────────
+  // uuid uses the `email:` form so seeded users can sign in via the email OTP flow.
+  // Gmail plus-addressing: every OTP mail lands in the real flashpactone@gmail.com
+  // inbox while each address stays a distinct account.
   const accountData = [
-    { uuid: 'seed-admin-1',  email: 'admin@seed.com',  name: 'Seed Admin',      role: AccountRole.ADMIN,       oauthMeta: {} },
-    { uuid: 'seed-owner-1',  email: 'owner1@seed.com', name: 'Hotel Owner One', role: AccountRole.HOTEL_OWNER, oauthMeta: {} },
-    { uuid: 'seed-staff-1',  email: 'staff1@seed.com', name: 'Staff One',       role: AccountRole.HOTEL_STAFF, oauthMeta: {} },
-    { uuid: 'seed-guest-1',  email: 'guest1@seed.com', name: 'Guest One',       role: AccountRole.GUEST,       oauthMeta: {} },
-    { uuid: 'seed-guest-2',  email: 'guest2@seed.com', name: 'Guest Two',       role: AccountRole.GUEST,       oauthMeta: {} },
+    { uuid: 'email:flashpactone+admin@gmail.com',  email: 'flashpactone+admin@gmail.com',  name: 'Seed Admin',      role: AccountRole.ADMIN,       oauthMeta: {} },
+    { uuid: 'email:flashpactone+owner1@gmail.com', email: 'flashpactone+owner1@gmail.com', name: 'Hotel Owner One', role: AccountRole.HOTEL_OWNER, oauthMeta: {} },
+    { uuid: 'email:flashpactone+staff1@gmail.com', email: 'flashpactone+staff1@gmail.com', name: 'Staff One',       role: AccountRole.HOTEL_STAFF, oauthMeta: {} },
+    { uuid: 'email:flashpactone+guest1@gmail.com', email: 'flashpactone+guest1@gmail.com', name: 'Guest One',       role: AccountRole.GUEST,       oauthMeta: {} },
+    { uuid: 'email:flashpactone+guest2@gmail.com', email: 'flashpactone+guest2@gmail.com', name: 'Guest Two',       role: AccountRole.GUEST,       oauthMeta: {} },
   ];
   const accounts: Account[] = [];
   for (const row of accountData) {
-    const [acc] = await Account.findOrCreate({ where: { email: row.email }, defaults: row as any, paranoid: false });
+    // Keep one canonical account per email. Drop any other row holding the target
+    // uuid (e.g. an empty account auto-created by the OTP login flow) so the uuid
+    // can be assigned to the seeded, data-owning account without colliding.
+    const canonical = await Account.findOne({ where: { email: row.email } as any, order: [['id', 'ASC']], paranoid: false });
+    await Account.destroy({ where: { uuid: row.uuid, ...(canonical ? { id: { [Op.ne]: canonical.id } } : {}) } as any, force: true });
+    const [acc] = await Account.findOrCreate({ where: { email: row.email } as any, defaults: row as any, paranoid: false });
     await restoreIfSoftDeleted(acc);
+    acc.uuid = row.uuid;
+    acc.name = row.name;
+    acc.role = row.role;
+    await acc.save();
     accounts.push(acc);
   }
 
@@ -246,7 +259,8 @@ async function seed() {
   const d = (offsetDays: number, h = 15, m = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, h, m, 0);
 
   const bookingData = [
-    { guestId: accounts[3].id, hotelId: hotels[0].id, startTime: d(7), endTime: d(9, 11), roomNumber: '301' },
+    // Guest One is currently mid-stay so the guest portal/concierge is testable
+    { guestId: accounts[3].id, hotelId: hotels[0].id, startTime: d(-1), endTime: d(2, 11), roomNumber: '301' },
     { guestId: accounts[3].id, hotelId: hotels[1].id, startTime: d(14), endTime: d(16, 10), roomNumber: '512' },
     { guestId: accounts[4].id, hotelId: hotels[0].id, startTime: d(14), endTime: d(16, 10), roomNumber: '204' },
     { guestId: accounts[4].id, hotelId: hotels[2].id, startTime: d(21, 16), endTime: d(23, 11), roomNumber: '118' },

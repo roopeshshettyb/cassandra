@@ -375,6 +375,8 @@ export class ConstantsService {
       GOOGLE_CLIENT_ID: this.configService.get<string>('GOOGLE_CLIENT_ID'),
       GOOGLE_MAPS_API: this.configService.get<string>('GOOGLE_MAPS_API'),
       GOOGLE_SERVICE_JSON: this.configService.get<string>('GOOGLE_SERVICE_JSON'),
+      // Firebase service-account JSON (raw or base64) for FCM v1 push. Secret — set in env, never commit.
+      FIREBASE_SERVICE_ACCOUNT: this.configService.get<string>('FIREBASE_SERVICE_ACCOUNT'),
       GOOGLE_MAPS_BASE_URL: 'https://places.googleapis.com/v1/places',
       GOOGLE_MAPS_AUTH_SCOPE: 'https://www.googleapis.com/auth/cloud-platform',
       GOOGLE_MAPS_SEARCH_FIELD_MASK: 'places.id,places.displayName,places.formattedAddress',

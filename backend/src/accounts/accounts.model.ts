@@ -101,6 +101,17 @@ export class Account extends Model<Account> {
     field: 'notification_preferences',
   })
   notificationPreferences: NotificationPreferences;
+
+  // Requires the `expo_push_tokens` column on the accounts table. On deploy run:
+  //   ALTER TABLE accounts ADD COLUMN IF NOT EXISTS expo_push_tokens JSONB NOT NULL DEFAULT '[]'::jsonb;
+  // (a dev DB without owner rights will 500 on account queries until added).
+  @Column({
+    type: DataType.JSONB,
+    allowNull: false,
+    defaultValue: [],
+    field: 'expo_push_tokens',
+  })
+  expoPushTokens: string[];
 }
 
 export { AccountRole };

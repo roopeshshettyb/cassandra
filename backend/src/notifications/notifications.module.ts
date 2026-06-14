@@ -4,6 +4,7 @@ import { NotificationsRepository } from './notifications.repository';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationFactory } from './notification.factory';
+import { FcmPushService } from './fcm-push.service';
 import { DatabaseModule } from '../database/database.module';
 import { CommonModule } from '../common/common.module';
 import { AccountsModule } from '../accounts/accounts.module';
@@ -20,6 +21,7 @@ import { Account } from '../accounts/accounts.model';
     NotificationsService,
     NotificationsGateway,
     NotificationFactory,
+    FcmPushService,
     { provide: 'ACCOUNTS_REPOSITORY', useValue: Account },
   ],
   exports: [NotificationsService, NotificationsGateway, NotificationFactory],

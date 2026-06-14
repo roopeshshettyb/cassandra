@@ -83,6 +83,15 @@ export class NotificationsService {
     };
   }
 
+  // Append an Expo push token to the account's device list (deduped).
+  async registerDevice(accountId: number, token: string): Promise<void> {
+    if (!token) return;
+    const savedAccount = await this.accountsService.findOne({ where: { id: accountId } });
+    const current = Array.isArray((savedAccount as any)?.expoPushTokens) ? (savedAccount as any).expoPushTokens : [];
+    if (current.includes(token)) return;
+    await this.accountsService.update({ expoPushTokens: [...current, token] } as any, { id: accountId });
+  }
+
   async updatePreferences(
     accountId: number,
     body: { pushEnabled?: boolean; emailEnabled?: boolean },

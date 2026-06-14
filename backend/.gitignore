@@ -44,5 +44,10 @@ lerna-debug.log*
 
 *.env
 
+# Firebase service-account credentials (FCM v1) — never commit
+*firebase-adminsdk*.json
+*service-account*.json
+firebase-service-account*.json
+firebase-service-account.b64*
 
 package-lock.json
