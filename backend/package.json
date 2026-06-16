@@ -8,7 +8,7 @@
     "build:stage": "cross-env NODE_ENV=dev nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:debug": "cross-env NODE_ENV=dev nest start --debug --watch",
+    "start:debug": "nodemon",
     "start:prod": "cross-env NODE_ENV=prod node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test:api": "cross-env NODE_ENV=automation_test jest --config jest.api.config.js --runInBand --verbose",

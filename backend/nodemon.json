@@ -1,0 +1,10 @@
+{
+  "watch": ["src", "*.env"],
+  "ext": "ts,env",
+  "ignore": ["node_modules/**", "dist/**", "test/**"],
+  "exec": "nest start --debug",
+  "env": {
+    "NODE_ENV": "dev"
+  },
+  "delay": 500
+}
