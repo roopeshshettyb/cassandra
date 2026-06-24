@@ -110,7 +110,7 @@ export class ChatLlmService {
       toolCalls.length ? toolCalls : undefined,
     );
 
-    await this.chatContextService.rebuildCache(chatId);
+    await this.chatContextService.rebuildCacheAndSummarize(chatId);
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
 
