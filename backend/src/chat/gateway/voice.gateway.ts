@@ -591,7 +591,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               toolCalls.length ? toolCalls : undefined,
             );
           }
-          await this.chatContextService.rebuildCache(session.chatId);
+          await this.chatContextService.rebuildCacheAndSummarize(session.chatId);
         } catch (err) {
           this.logger.error('Failed to persist voice messages', err as Error);
         }
@@ -669,7 +669,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               toolCalls.length ? toolCalls : undefined,
             );
           }
-          await this.chatContextService.rebuildCache(session.chatId);
+          await this.chatContextService.rebuildCacheAndSummarize(session.chatId);
         } catch (err) {
           this.logger.error('Failed to persist Deepgram voice messages', err as Error);
         }

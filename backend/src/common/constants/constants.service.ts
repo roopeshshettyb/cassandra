@@ -453,10 +453,22 @@ export class ConstantsService {
       LLM: {
         TEXT_MODEL: 'google/gemini-3.1-flash-lite',
         MENU_OCR_MODEL: this.configService.get<string>('MENU_OCR_MODEL', 'google/gemini-2.5-flash-lite'),
+        SUMMARY_MODEL: this.configService.get<string>('SUMMARY_MODEL', 'openai/gpt-4o-mini'),
         PROVIDER: 'openai',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00025,
         TEXT_OUTPUT_PRICE_PER_1K: 0.0015,
+        SUMMARY_INPUT_PRICE_PER_1K: 0.00015,
+        SUMMARY_OUTPUT_PRICE_PER_1K: 0.0006,
+        CONTEXT_SUMMARY: {
+          ENABLED: this.configService.get<string>('ENABLE_CONTEXT_SUMMARY', 'false') === 'true',
+          TRIGGER_TOKENS: parseInt(this.configService.get('CONTEXT_SUMMARY_TRIGGER_TOKENS') || '5000', 10),
+          RAW_TAIL_COUNT: parseInt(this.configService.get('CONTEXT_RAW_TAIL_COUNT') || '20', 10),
+          CHUNK_SIZE: parseInt(this.configService.get('CONTEXT_CHUNK_SIZE') || '30', 10),
+          TIER1_MAX_COUNT: parseInt(this.configService.get('CONTEXT_TIER1_MAX_COUNT') || '5', 10),
+          TIER1_TARGET_WORDS: 200,
+          TIER2_TARGET_WORDS: 400,
+        },
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
         STT_CONFIG: {
           // Common STT settings across providers
