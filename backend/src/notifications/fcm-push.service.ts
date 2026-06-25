@@ -54,13 +54,23 @@ export class FcmPushService {
     return out;
   }
 
-  async send(tokens: string[], payload: FcmPushPayload): Promise<void> {
+  // FCM error codes that indicate the token is permanently invalid (app uninstalled
+  // or token rotated) — caller should remove these from the account so the list self-heals.
+  private static readonly DEAD_TOKEN_CODES = new Set<string>([
+    'messaging/registration-token-not-registered',
+    'messaging/invalid-registration-token',
+    'messaging/invalid-argument',
+    'messaging/mismatched-credential',
+  ]);
+
+  async send(tokens: string[], payload: FcmPushPayload): Promise<{ deadTokens: string[] }> {
     const valid = (tokens || []).filter((t) => typeof t === 'string' && t.length > 0);
-    if (valid.length === 0) return;
+    if (valid.length === 0) return { deadTokens: [] };
 
     const app = this.getApp();
-    if (!app) return;
+    if (!app) return { deadTokens: [] };
 
+    const deadTokens: string[] = [];
     try {
       const res = await getMessaging(app).sendEachForMulticast({
         tokens: valid,
@@ -70,11 +80,17 @@ export class FcmPushService {
       });
       if (res.failureCount > 0) {
         res.responses.forEach((r, i) => {
-          if (!r.success) this.logger.warn(`FCM send failed for token #${i}: ${r.error?.message}`);
+          if (r.success) return;
+          const code = r.error?.code;
+          if (code && FcmPushService.DEAD_TOKEN_CODES.has(code)) {
+            deadTokens.push(valid[i]);
+          }
+          this.logger.warn(`FCM send failed for token #${i}: ${r.error?.message}`);
         });
       }
     } catch (err) {
       this.logger.error('FCM push send error', err instanceof Error ? err.stack : String(err));
     }
+    return { deadTokens };
   }
 }

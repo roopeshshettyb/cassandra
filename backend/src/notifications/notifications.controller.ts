@@ -4,6 +4,7 @@ import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ConstantsService } from '../common/constants/constants.service';
+import { RegisterDeviceDto } from './notifications.dto';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -27,8 +28,8 @@ export class NotificationsController {
 
   @Post('register-device')
   @UseGuards(JwtAuthGuard)
-  async registerDevice(@CurrentAccount() account: Account, @Body() body: { token?: string; platform?: string }) {
-    if (body?.token) await this.notificationsService.registerDevice(account.id, body.token);
+  async registerDevice(@CurrentAccount() account: Account, @Body() body: RegisterDeviceDto) {
+    await this.notificationsService.registerDevice(account.id, body.token);
     return { success: true, message: null, data: null };
   }
 

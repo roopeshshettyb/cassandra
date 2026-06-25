@@ -83,13 +83,11 @@ export class NotificationsService {
     };
   }
 
-  // Append an Expo push token to the account's device list (deduped).
+  // Append a native FCM device token to the account's device list (atomic, deduped).
+  // Column is named expo_push_tokens for backcompat — tokens are FCM, not Expo relay tokens.
   async registerDevice(accountId: number, token: string): Promise<void> {
     if (!token) return;
-    const savedAccount = await this.accountsService.findOne({ where: { id: accountId } });
-    const current = Array.isArray((savedAccount as any)?.expoPushTokens) ? (savedAccount as any).expoPushTokens : [];
-    if (current.includes(token)) return;
-    await this.accountsService.update({ expoPushTokens: [...current, token] } as any, { id: accountId });
+    await this.accountsService.addPushToken(accountId, token);
   }
 
   async updatePreferences(
