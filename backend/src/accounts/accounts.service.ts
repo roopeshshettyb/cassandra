@@ -3,6 +3,7 @@ import { ACCOUNTS_REPOSITORY } from './accounts.repository';
 import { Account } from './accounts.model';
 import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
 import { FindOptions, CountOptions } from 'sequelize';
+import { literal } from 'sequelize';
 
 @Injectable()
 export class AccountsService {
@@ -55,5 +56,26 @@ export class AccountsService {
 
   async upsert(data: Partial<Account>): Promise<[Account, boolean]> {
     return this.accountsRepository.upsert(data, { conflictFields: ['uuid'] });
+  }
+
+  // Atomic JSONB array append with in-DB dedup. Safe under concurrent device
+  // registrations (read-modify-write would lose tokens). Postgres-only.
+  async addPushToken(accountId: number, token: string): Promise<void> {
+    if (!token) return;
+    const newArr = this.accountsRepository.sequelize!.escape(JSON.stringify([token]));
+    const expr: any = literal(
+      `(SELECT COALESCE(jsonb_agg(DISTINCT t), '[]'::jsonb) FROM jsonb_array_elements_text(expo_push_tokens || ${newArr}::jsonb) AS t)`,
+    );
+    await this.accountsRepository.update({ expoPushTokens: expr }, { where: { id: accountId } });
+  }
+
+  // Atomic JSONB array filter — drops the given tokens (stale/invalid from FCM).
+  async removePushTokens(accountId: number, tokens: string[]): Promise<void> {
+    if (!tokens?.length) return;
+    const dropArr = this.accountsRepository.sequelize!.escape(JSON.stringify(tokens));
+    const expr: any = literal(
+      `(SELECT COALESCE(jsonb_agg(t), '[]'::jsonb) FROM jsonb_array_elements_text(expo_push_tokens) AS t WHERE NOT (t = ANY (SELECT jsonb_array_elements_text(${dropArr}::jsonb))))`,
+    );
+    await this.accountsRepository.update({ expoPushTokens: expr }, { where: { id: accountId } });
   }
 }

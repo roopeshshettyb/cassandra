@@ -2,12 +2,14 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
 import { Notification, NotificationType } from './notifications.model';
 import { NotificationsGateway } from './notifications.gateway';
+import { FcmPushService } from './fcm-push.service';
 import { MailerService } from '../mailer/mailer.service';
 import { ConstantsService, HotelMemberStatus, NotificationTone } from '../common/constants/constants.service';
 import { Request } from '../requests/requests.model';
 import { Booking } from '../bookings/bookings.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Account, AccountRole } from '../accounts/accounts.model';
+import { AccountsService } from '../accounts/accounts.service';
 import { HotelAccount } from '../hotels/hotel-accounts.model';
 import { Op } from 'sequelize';
 
@@ -34,8 +36,10 @@ export class NotificationFactory {
     @Inject(NOTIFICATIONS_REPOSITORY) private readonly notificationsRepository: typeof Notification,
     @Inject('ACCOUNTS_REPOSITORY') private readonly accountsRepository: typeof Account,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly fcmPushService: FcmPushService,
     private readonly mailerService: MailerService,
     private readonly constantsService: ConstantsService,
+    private readonly accountsService: AccountsService,
     @Inject('HOTEL_ACCOUNTS_REPOSITORY') private readonly hotelAccountRepository: typeof HotelAccount,
   ) {}
 
@@ -191,6 +195,19 @@ export class NotificationFactory {
             type: notification.type,
             read: false,
           });
+          // Native push to the account's registered mobile devices (FCM v1).
+          const tokens = account?.expoPushTokens;
+          if (Array.isArray(tokens) && tokens.length > 0) {
+            const { deadTokens } = await this.fcmPushService.send(tokens, {
+              title: notificationData.title,
+              body: notificationData.message,
+              data: { link: notificationData.link, notificationId: notification.id, type: notificationType },
+            });
+            if (deadTokens.length > 0) {
+              // Self-heal: drop tokens for uninstalled/rotated devices so we stop retrying them.
+              await this.accountsService.removePushTokens(accountId, deadTokens);
+            }
+          }
         } catch (err) {
           this.logger.error(`Failed to create/emit push notification for account ${accountId}`, err instanceof Error ? err.stack : String(err));
         }

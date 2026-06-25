@@ -1,9 +1,10 @@
-import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ConstantsService } from '../common/constants/constants.service';
+import { RegisterDeviceDto } from './notifications.dto';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -23,6 +24,13 @@ export class NotificationsController {
   @UseGuards(JwtAuthGuard)
   async markAsRead(@Param('id') id: string, @CurrentAccount() account: Account) {
     return this.notificationsService.update({ read: true }, { id: parseInt(id, 10), accountId: account.id });
+  }
+
+  @Post('register-device')
+  @UseGuards(JwtAuthGuard)
+  async registerDevice(@CurrentAccount() account: Account, @Body() body: RegisterDeviceDto) {
+    await this.notificationsService.registerDevice(account.id, body.token);
+    return { success: true, message: null, data: null };
   }
 
   @Get('preferences')

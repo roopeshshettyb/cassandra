@@ -34,6 +34,23 @@ export class CreateNotificationDto {
   readonly link?: string;
 }
 
+export enum DevicePlatform {
+  IOS = 'ios',
+  ANDROID = 'android',
+}
+
+export class RegisterDeviceDto {
+  @IsNotEmpty()
+  @IsString()
+  @ApiProperty({ description: 'Native FCM device token (from expo-notifications getDevicePushTokenAsync).' })
+  readonly token: string;
+
+  @IsOptional()
+  @IsEnum(DevicePlatform)
+  @ApiProperty({ required: false, enum: DevicePlatform, description: 'Reported platform — currently informational only; FCM routes to the right transport via the token.' })
+  readonly platform?: DevicePlatform;
+}
+
 export class UpdateNotificationDto {
   @IsOptional()
   @IsString()
