@@ -10,6 +10,7 @@ import { HotelAccount } from './hotels/hotel-accounts.model';
 import { Booking } from './bookings/bookings.model';
 import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/requests.model';
 import { Chat } from './chat/chat.model';
+import { ChatSummary } from './chat-summary/chat-summary.model';
 
 const nodeEnv = process.env.NODE_ENV;
 const envFile = nodeEnv === 'prod' ? 'prod.env' : 'dev.env';
@@ -33,7 +34,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }

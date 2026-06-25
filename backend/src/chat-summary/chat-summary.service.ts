@@ -77,7 +77,7 @@ export class ChatSummaryService {
   private async createTier1Chunk(chatId: number, messages: Message[]): Promise<void> {
     if (!messages.length) return;
     const cfg = this.constantsService.private.LLM.CONTEXT_SUMMARY;
-    const prompt = buildTier1Prompt(messages, cfg.TIER1_TARGET_WORDS);
+    const prompt = buildTier1Prompt(cfg.TIER1_INSTRUCTIONS, messages, cfg.TIER1_TARGET_WORDS);
     const summary = await this.callSummaryModel(prompt, chatId);
     if (!summary) return;
     await this.summaryRepository.create({
@@ -100,7 +100,7 @@ export class ChatSummaryService {
     const existingTier2Row = rows.find((r) => r.tier === 2) ?? null;
     const tier1Rows = rows.filter((r) => r.tier === 1);
     if (!tier1Rows.length) return;
-    const prompt = buildTier2Prompt(existingTier2Row?.summary ?? null, tier1Rows.map((r) => r.summary), cfg.TIER2_TARGET_WORDS);
+    const prompt = buildTier2Prompt(cfg.TIER2_INSTRUCTIONS, existingTier2Row?.summary ?? null, tier1Rows.map((r) => r.summary), cfg.TIER2_TARGET_WORDS);
     const merged = await this.callSummaryModel(prompt, chatId);
     if (!merged) return;
 
@@ -138,9 +138,9 @@ export class ChatSummaryService {
       configuration: { baseURL: llm.OPENROUTER.BASE_URL },
     });
     try {
-      const result = await model.invoke([new HumanMessage(prompt)]);
+      const result: any = await model.invoke([new HumanMessage(prompt)]);
       const text = typeof result.content === 'string' ? result.content : String(result.content);
-      const usage: any = (result as any).usage_metadata ?? (result as any).response_metadata?.tokenUsage ?? {};
+      const usage: any = result.usage_metadata ?? result.response_metadata?.tokenUsage ?? {};
       const promptTokens = usage.input_tokens ?? usage.promptTokens ?? this.estimateTokens(prompt);
       const completionTokens = usage.output_tokens ?? usage.completionTokens ?? this.estimateTokens(text);
       // Tag as LLM_CHAT subtype=summary in meta — keeps existing enum_costs_type unchanged

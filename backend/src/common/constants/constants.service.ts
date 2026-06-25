@@ -468,6 +468,8 @@ export class ConstantsService {
           TIER1_MAX_COUNT: parseInt(this.configService.get('CONTEXT_TIER1_MAX_COUNT') || '5', 10),
           TIER1_TARGET_WORDS: 200,
           TIER2_TARGET_WORDS: 400,
+          TIER1_INSTRUCTIONS: `You are summarizing a chunk of a hotel concierge AI chat. Produce a concise summary in approximately {TARGET_WORDS} words.\n\nPreserve:\n- Guest preferences (room, food, language, accessibility)\n- Requests made (service requests, what was requested, status, urgency)\n- Decisions and confirmations (bookings, reservations, special arrangements)\n- Key facts (names, dates, room numbers, hotel info, costs mentioned)\n- Tool calls and their outcomes\n\nSkip:\n- Pleasantries, small talk\n- Acknowledgements without information\n\nOutput plain prose. No markdown, no headers, no bullet points. Refer to the guest as "the guest" and the AI as "the assistant".`,
+          TIER2_INSTRUCTIONS: `You are maintaining the long-term memory of a hotel concierge AI chat. Combine the existing long-term summary (if any) with the new chunk summaries into one consolidated summary in approximately {TARGET_WORDS} words.\n\nPreserve:\n- Standing guest preferences\n- Outstanding requests and their status\n- Confirmed decisions and arrangements\n- Key facts (names, dates, room numbers, hotel info)\n\nMerge duplicates and resolve contradictions in favor of the most recent information. Output plain prose only.`,
         },
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
         STT_CONFIG: {

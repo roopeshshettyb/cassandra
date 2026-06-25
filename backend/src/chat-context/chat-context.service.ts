@@ -4,7 +4,8 @@ import { CacheService } from '../common/cache/cache.service';
 import { LoggerService } from '../common/logger.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { ChatSummaryService } from '../chat-summary/chat-summary.service';
-import { Message, ToolCallRecord } from '../messages/message.model';
+import { Message } from '../messages/message.model';
+import { MessageFormatter } from '../messages/message-formatter';
 
 const CACHE_KEY_PREFIX = 'chat_context:';
 const CACHE_TTL_MINUTES = 3;
@@ -72,26 +73,7 @@ export class ChatContextService {
     const parts: string[] = [];
     if (tier2) parts.push(`[Earlier conversation summary]\n${tier2}`);
     if (tier1.length) parts.push(`[Recent conversation summary]\n${tier1.join('\n\n')}`);
-    if (recent.length) {
-      const recentBlock = recent.map((m) => {
-        const role = m.role === 'user' ? 'User' : 'Assistant';
-        let line = `${role}: ${m.content}`;
-        if (m.toolCalls?.length) line += `\n${this.formatToolCalls(m.toolCalls)}`;
-        return line;
-      }).join('\n\n');
-      parts.push(`[Recent messages]\n${recentBlock}`);
-    }
+    if (recent.length) parts.push(`[Recent messages]\n${MessageFormatter.formatMessages(recent)}`);
     return parts.length ? parts.join('\n\n---\n\n') : '(No messages yet)';
-  }
-
-  private formatToolCalls(toolCalls: ToolCallRecord[]): string {
-    const lines: string[] = [];
-    for (const toolCall of toolCalls) {
-      let line = `[Tool: ${toolCall.toolName}] Input: ${JSON.stringify(toolCall.input)}`;
-      if (toolCall.output !== undefined) line += ` Output: ${JSON.stringify(toolCall.output)}`;
-      if (toolCall.error) line += ` Error: ${toolCall.error}`;
-      lines.push(line);
-    }
-    return lines.join('\n');
   }
 }
