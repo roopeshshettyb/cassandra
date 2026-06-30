@@ -167,7 +167,7 @@ beforeAll(async () => {
   // Create guest booking
   const bookingRes = await http.post(
     '/bookings',
-    { startDate: '2026-01-01', endDate: '2026-01-07', guestEmail: EMAILS.guest, hotelId: state.testHotelId, guestName: 'Test Guest' },
+    { startDate: '2026-01-01', endDate: '2026-01-07', guestEmail: EMAILS.guest, hotelId: state.testHotelId, guestName: 'Test Guest', roomNumber: '101' },
     state.adminToken,
   );
   state.testBookingId = bookingRes.data?.id ?? bookingRes.data?.data?.id;
@@ -274,8 +274,9 @@ describe('Hotels', () => {
     expect(res.status).toBe(200);
   });
 
-  it('POST /hotels (hotel_owner) → 403 Forbidden', async () => {
-    await expectStatus(403, () => http.post('/hotels', { name: 'X', address: 'Y' }, state.ownerToken));
+  it('POST /hotels (hotel_owner) → 201 Created (owners may create their own hotel)', async () => {
+    const res = await expectStatus(201, () => http.post('/hotels', { name: `Owner Hotel ${TAG}`, address: 'Y' }, state.ownerToken));
+    await hotelsService.deleteHotel(res.data.id, state.adminAccount, true).catch(() => {});
   });
 
   it('POST /hotels (hotel_staff) → 403 Forbidden', async () => {
@@ -438,7 +439,7 @@ describe('Bookings', () => {
   it('POST /bookings (hotel_staff) → creates booking', async () => {
     const res = await http.post(
       '/bookings',
-      { startDate: '2026-02-01', endDate: '2026-02-03', guestEmail: EMAILS.guest, hotelId: state.testHotelId, guestName: 'Staff Created Guest' },
+      { startDate: '2026-02-01', endDate: '2026-02-03', guestEmail: EMAILS.guest, hotelId: state.testHotelId, guestName: 'Staff Created Guest', roomNumber: '102' },
       state.staffToken,
     );
     expect(res.status).toBe(201);
@@ -451,7 +452,7 @@ describe('Bookings', () => {
     await expectStatus(404, () =>
       http.post(
         '/bookings',
-        { startDate: '2026-03-01', endDate: '2026-03-03', guestEmail: EMAILS.guest, hotelId: state.testHotelId },
+        { startDate: '2026-03-01', endDate: '2026-03-03', guestEmail: EMAILS.guest, hotelId: state.testHotelId, roomNumber: '103' },
         state.guestToken,
       ),
     );
@@ -460,7 +461,7 @@ describe('Bookings', () => {
   it('DELETE /bookings/:id → deletes a booking (admin)', async () => {
     const res = await http.post(
       '/bookings',
-      { startDate: '2026-04-01', endDate: '2026-04-02', guestEmail: EMAILS.guest, hotelId: state.testHotelId },
+      { startDate: '2026-04-01', endDate: '2026-04-02', guestEmail: EMAILS.guest, hotelId: state.testHotelId, roomNumber: '104' },
       state.adminToken,
     );
     const throwawayId = res.data?.id ?? res.data?.data?.id;
@@ -638,11 +639,11 @@ describe('Permission Guards', () => {
     await expectStatus(403, () => http.post('/bookings/send-pending-invites', {}, state.guestToken));
   });
 
-  it('POST /hotels → 403 for hotel_owner / staff / guest', async () => {
-    const body = { name: 'Bad Hotel', address: 'Bad St' };
-    await expectStatus(403, () => http.post('/hotels', body, state.ownerToken));
-    await expectStatus(403, () => http.post('/hotels', body, state.staffToken));
-    await expectStatus(403, () => http.post('/hotels', body, state.guestToken));
+  it('POST /hotels → 201 for hotel_owner, 403 for staff / guest', async () => {
+    const res = await expectStatus(201, () => http.post('/hotels', { name: `Owner Hotel ${TAG}`, address: 'Bad St' }, state.ownerToken));
+    await hotelsService.deleteHotel(res.data.id, state.adminAccount, true).catch(() => {});
+    await expectStatus(403, () => http.post('/hotels', { name: 'Bad Hotel', address: 'Bad St' }, state.staffToken));
+    await expectStatus(403, () => http.post('/hotels', { name: 'Bad Hotel', address: 'Bad St' }, state.guestToken));
   });
 
   it('DELETE /hotels/:id → 403 for hotel_owner / staff / guest', async () => {
@@ -655,7 +656,7 @@ describe('Permission Guards', () => {
     await expectStatus(404, () =>
       http.post(
         '/bookings',
-        { startDate: '2026-05-01', endDate: '2026-05-03', guestEmail: EMAILS.guest, hotelId: state.testHotelId },
+        { startDate: '2026-05-01', endDate: '2026-05-03', guestEmail: EMAILS.guest, hotelId: state.testHotelId, roomNumber: '105' },
         state.guestToken,
       ),
     );
