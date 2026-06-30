@@ -15,6 +15,7 @@ import { Message } from '../messages/message.model';
 export enum CostType {
   LLM_CHAT = 'llm_chat',
   LLM_VOICE = 'llm_voice',
+  LLM_SUMMARY = 'llm_summary',
 }
 
 @Table({ tableName: 'costs' })

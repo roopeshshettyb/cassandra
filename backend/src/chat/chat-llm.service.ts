@@ -57,7 +57,7 @@ export class ChatLlmService {
   async streamUserMessage(session: ChatSession, userMessage: string, options: StreamUserMessageOptions): Promise<void> {
     const chatId = session.chatId;
 
-    await this.messagesService.create(chatId, MessageRole.USER, userMessage);
+    const userMsg = await this.messagesService.create(chatId, MessageRole.USER, userMessage);
 
     const appName = this.constantsService.public.APP_NAME;
     const hotel: any = session.hotel;
@@ -110,7 +110,7 @@ export class ChatLlmService {
       toolCalls.length ? toolCalls : undefined,
     );
 
-    await this.chatContextService.rebuildCache(chatId);
+    this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
 

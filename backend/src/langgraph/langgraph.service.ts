@@ -77,10 +77,10 @@ export class LangGraphService {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  createModel(temperature = 0): ChatOpenAI {
+  createModel(temperature = 0, modelName?: string): ChatOpenAI {
     const llmConfig = this.constantsService.private.LLM;
     return new ChatOpenAI({
-      modelName: llmConfig.TEXT_MODEL,
+      modelName: modelName ?? llmConfig.TEXT_MODEL,
       apiKey: llmConfig.OPENROUTER.API_KEY,
       temperature,
       configuration: { baseURL: llmConfig.OPENROUTER.BASE_URL },
