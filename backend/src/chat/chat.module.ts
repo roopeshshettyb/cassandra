@@ -16,6 +16,7 @@ import { DeepgramVoiceAgentService } from './deepgram-voice-agent.service';
 import { CostsModule } from '../costs/costs.module';
 import { SttModule } from '../stt/stt.module';
 import { TtsModule } from '../tts/tts.module';
+import { LlmEvalModule } from '../llm-eval/llm-eval.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { TtsModule } from '../tts/tts.module';
     CostsModule,
     SttModule,
     TtsModule,
+    LlmEvalModule,
   ],
   providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService, DeepgramVoiceAgentService],
   exports: [ChatRepository, ChatService],

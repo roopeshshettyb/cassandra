@@ -16,6 +16,7 @@ export enum CostType {
   LLM_CHAT = 'llm_chat',
   LLM_VOICE = 'llm_voice',
   LLM_SUMMARY = 'llm_summary',
+  LLM_EVAL = 'llm_eval',
 }
 
 @Table({ tableName: 'costs' })

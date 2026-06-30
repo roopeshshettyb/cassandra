@@ -9,8 +9,10 @@ import { HotelBrand } from './hotels/brands.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
 import { Booking } from './bookings/bookings.model';
 import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/requests.model';
-import { Chat } from './chat/chat.model';
+import { Chat, ChatType } from './chat/chat.model';
 import { ChatSummary } from './chat-summary/chat-summary.model';
+import { Message, MessageRole } from './messages/message.model';
+import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
 
 const nodeEnv = process.env.NODE_ENV;
 const envFile = nodeEnv === 'prod' ? 'prod.env' : 'dev.env';
@@ -34,7 +36,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -323,6 +325,88 @@ async function seed() {
       paranoid: false,
     });
     await restoreIfSoftDeleted(request);
+  }
+
+  // ── Chats, Messages & LLM Evals ─────────────────────────────────────────────
+  const judgeModel = 'google/gemini-3.1-flash-lite';
+
+  const chatData = [
+    {
+      accountId: accounts[3].id, bookingId: bookings[0].id, chatType: ChatType.BOOKING, languageCode: 'en',
+      messages: [
+        { role: MessageRole.USER, content: 'Can you send up two extra towels and a bottle of water?' },
+        {
+          role: MessageRole.ASSISTANT,
+          content: "I've requested two extra towels and a bottle of water for room 301 — housekeeping will bring them shortly.",
+          toolCalls: [{ toolName: 'create_request', toolCallId: 'seed-tc-1', input: { requestType: 'house_keeping', items: ['towels', 'water'] }, output: { success: true } }],
+          evals: [
+            { dimension: EvalDimension.TOOL_CALL, passed: true, reasoning: "The tool call correctly matched the guest's housekeeping request with the right items." },
+            { dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Response confirmed the action clearly and concisely.' },
+          ],
+        },
+        { role: MessageRole.USER, content: 'Thanks! Also what time is breakfast served?' },
+        {
+          role: MessageRole.ASSISTANT,
+          content: 'Breakfast is served from 7:00 AM to 10:30 AM at the main restaurant on the ground floor.',
+          evals: [{ dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Accurately answered the breakfast timing question without unnecessary tool use.' }],
+        },
+      ],
+    },
+    {
+      accountId: accounts[4].id, bookingId: bookings[3].id, chatType: ChatType.BOOKING, languageCode: 'en',
+      messages: [
+        { role: MessageRole.USER, content: "I'd like to book an airport transfer for tomorrow morning." },
+        {
+          role: MessageRole.ASSISTANT,
+          content: 'Sure, could you share your flight number and pickup time so I can arrange the transfer?',
+          evals: [{ dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Appropriately asked a clarifying question before taking action.' }],
+        },
+        { role: MessageRole.USER, content: 'Flight 6E 202, pickup at 6am.' },
+        {
+          role: MessageRole.ASSISTANT,
+          content: 'Got it! Airport transfer booked for 6:00 AM ahead of flight 6E 202.',
+          toolCalls: [{ toolName: 'create_request', toolCallId: 'seed-tc-2', input: { requestType: 'airport_transfer', flightNumber: '6E 202', pickupTime: '06:00' }, output: { success: true } }],
+          evals: [
+            { dimension: EvalDimension.TOOL_CALL, passed: false, reasoning: "Tool was invoked before confirming the guest's pickup address and terminal, risking an incomplete request." },
+            { dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Confirmed the booking back to the guest clearly.' },
+          ],
+        },
+      ],
+    },
+  ];
+
+  for (const row of chatData) {
+    const [chat] = await Chat.findOrCreate({
+      where: { accountId: row.accountId, bookingId: row.bookingId } as any,
+      defaults: { accountId: row.accountId, bookingId: row.bookingId, chatType: row.chatType, languageCode: row.languageCode } as any,
+      paranoid: false,
+    });
+    await restoreIfSoftDeleted(chat);
+
+    const existingMessageCount = await Message.count({ where: { chatId: chat.id } });
+    if (existingMessageCount > 0) {
+      continue;
+    }
+
+    for (const msg of row.messages) {
+      const message = await Message.create({
+        chatId: chat.id,
+        role: msg.role,
+        content: msg.content,
+        toolCalls: (msg as any).toolCalls ?? null,
+      } as any);
+
+      for (const evalRow of (msg as any).evals ?? []) {
+        await LlmEval.create({
+          chatId: chat.id,
+          messageId: message.id,
+          dimension: evalRow.dimension,
+          passed: evalRow.passed,
+          reasoning: evalRow.reasoning,
+          judgeModel,
+        } as any);
+      }
+    }
   }
 
   console.log('Seed completed.');

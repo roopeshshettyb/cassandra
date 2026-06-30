@@ -18,6 +18,7 @@ import { Message, MessageRole } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
+import { LlmEvalService } from '../../llm-eval/llm-eval.service';
 import { parseConnectionHandshake, authenticateAndInit } from './gateway-auth.helper';
 
 export interface VoiceTurnStatistics {
@@ -52,6 +53,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly messagesService: MessagesService,
     private readonly chatContextService: ChatContextService,
     private readonly costsService: CostsService,
+    private readonly llmEvalService: LlmEvalService,
   ) {}
 
   private isGptVoicePipeline(): boolean {
@@ -616,6 +618,23 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             messageId: assistantMessage ? assistantMessage.id : null,
           });
         }
+
+        if (cleanAssistant && assistantMessage) {
+          this.llmEvalService
+            .maybeEvaluate({
+              chatId: session.chatId,
+              messageId: assistantMessage.id,
+              userMessage: cleanUser ?? '',
+              assistantMessage: cleanAssistant,
+              toolCalls,
+              accountId: session.account.id,
+              role: session.account.role,
+              hotelId: session.booking ? session.booking.hotelId : null,
+              bookingId: session.bookingId,
+            })
+            .catch((err) => this.logger.error('LLM eval failed for voice turn', err as Error));
+        }
+
         client.emit('voice_text_end', { text: finalAssistantText, toolCalls });
         break;
       }
@@ -693,6 +712,22 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             chatId: session.chatId,
             messageId: assistantMessage ? assistantMessage.id : null,
           });
+        }
+
+        if (cleanAssistant && assistantMessage) {
+          this.llmEvalService
+            .maybeEvaluate({
+              chatId: session.chatId,
+              messageId: assistantMessage.id,
+              userMessage: cleanUser ?? '',
+              assistantMessage: cleanAssistant,
+              toolCalls,
+              accountId: session.account.id,
+              role: session.account.role,
+              hotelId: session.booking ? session.booking.hotelId : null,
+              bookingId: session.bookingId,
+            })
+            .catch((err) => this.logger.error('LLM eval failed for voice turn', err as Error));
         }
 
         client.emit('voice_audio_end');

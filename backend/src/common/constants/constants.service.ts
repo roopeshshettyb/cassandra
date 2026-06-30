@@ -540,6 +540,10 @@ export class ConstantsService {
             OUTPUT_FORMAT: this.configService.get<string>('LIGHTNING_TTS_OUTPUT_FORMAT', 'pcm'),
           },
         },
+        EVAL: {
+          ENABLED: this.configService.get<string>('LLM_EVAL_ENABLED', 'true') === 'true',
+          SAMPLE_RATE: parseFloat(this.configService.get('LLM_EVAL_SAMPLE_RATE') || '0.1'),
+        },
       },
     };
   }
