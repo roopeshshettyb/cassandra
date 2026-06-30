@@ -578,10 +578,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const cleanUser = userTranscript?.trim();
         const cleanAssistant = finalAssistantText?.trim();
 
+        let userMessage: Message | null = null;
         let assistantMessage: Message | null = null;
         try {
           if (cleanUser) {
-            await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
+            userMessage = await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
           }
           if (cleanAssistant) {
             assistantMessage = await this.messagesService.create(
@@ -591,7 +592,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               toolCalls.length ? toolCalls : undefined,
             );
           }
-          await this.chatContextService.rebuildCache(session.chatId);
+          this.chatContextService.rebuildCache(
+            session.chatId,
+            [userMessage, assistantMessage].filter((m): m is Message => m !== null),
+          );
         } catch (err) {
           this.logger.error('Failed to persist voice messages', err as Error);
         }
@@ -656,10 +660,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const cleanUser = userTranscript?.trim();
         const cleanAssistant = assistantText?.trim();
 
+        let userMessage: Message | null = null;
         let assistantMessage: Message | null = null;
         try {
           if (cleanUser) {
-            await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
+            userMessage = await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
           }
           if (cleanAssistant) {
             assistantMessage = await this.messagesService.create(
@@ -669,7 +674,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               toolCalls.length ? toolCalls : undefined,
             );
           }
-          await this.chatContextService.rebuildCache(session.chatId);
+          this.chatContextService.rebuildCache(
+            session.chatId,
+            [userMessage, assistantMessage].filter((m): m is Message => m !== null),
+          );
         } catch (err) {
           this.logger.error('Failed to persist Deepgram voice messages', err as Error);
         }
