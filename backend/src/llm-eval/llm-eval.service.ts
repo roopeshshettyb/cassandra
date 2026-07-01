@@ -6,7 +6,7 @@ import { LangGraphService } from '../langgraph/langgraph.service';
 import { CostsService } from '../costs/costs.service';
 import { CostType } from '../costs/costs.model';
 import { ToolCallRecord } from '../messages/message.model';
-import { judgeTurn } from './llm-eval.judge';
+import { judgeTurn, judgeSummary } from './llm-eval.judge';
 import { LoggerService } from '../common/logger.service';
 
 export interface MaybeEvaluateParams {
@@ -19,6 +19,15 @@ export interface MaybeEvaluateParams {
   role: string;
   hotelId: number | null;
   bookingId: number | null;
+}
+
+export interface MaybeEvaluateSummaryParams {
+  chatId: number;
+  messageId: number;
+  previousSummary: string | null;
+  foldedMessages: string;
+  newSummary: string;
+  hotelId: number | null;
 }
 
 @Injectable()
@@ -81,6 +90,50 @@ export class LlmEvalService {
         error: err,
         serviceName: 'LlmEval',
         actionName: `maybeEvaluate chatId=${params.chatId} messageId=${params.messageId}`,
+      });
+    }
+  }
+
+  // Evaluates a freshly-written rolling summary. Summaries are infrequent (only
+  // when the token threshold trips), so every one is judged when eval is enabled
+  // rather than sampled.
+  async maybeEvaluateSummary(params: MaybeEvaluateSummaryParams): Promise<void> {
+    const cfg = this.constantsService.private.LLM.EVAL;
+    if (!cfg.ENABLED) return;
+
+    try {
+      const judgeModel = this.constantsService.private.LLM.TEXT_MODEL;
+      const { verdict, usage } = await judgeSummary(
+        this.langGraphService,
+        params.previousSummary,
+        params.foldedMessages,
+        params.newSummary,
+      );
+
+      this.costsService.recordLlmCost({
+        type: CostType.LLM_EVAL,
+        usage,
+        bookingId: null,
+        hotelId: params.hotelId,
+        accountId: null,
+        role: null,
+        chatId: params.chatId,
+        messageId: params.messageId,
+      });
+
+      await this.evalRepository.create({
+        chatId: params.chatId,
+        messageId: params.messageId,
+        dimension: EvalDimension.SUMMARY_ACCURACY,
+        passed: verdict.summaryAccuracy.passed,
+        reasoning: verdict.summaryAccuracy.reasoning,
+        judgeModel,
+      } as LlmEval);
+    } catch (err) {
+      this.logger.error({
+        error: err,
+        serviceName: 'LlmEval',
+        actionName: `maybeEvaluateSummary chatId=${params.chatId} messageId=${params.messageId}`,
       });
     }
   }

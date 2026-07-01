@@ -348,7 +348,10 @@ async function seed() {
         {
           role: MessageRole.ASSISTANT,
           content: 'Breakfast is served from 7:00 AM to 10:30 AM at the main restaurant on the ground floor.',
-          evals: [{ dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Accurately answered the breakfast timing question without unnecessary tool use.' }],
+          evals: [
+            { dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Accurately answered the breakfast timing question without unnecessary tool use.' },
+            { dimension: EvalDimension.SUMMARY_ACCURACY, passed: true, reasoning: 'The rolling summary faithfully captured the towel/water request and breakfast query without inventing facts.' },
+          ],
         },
       ],
     },

@@ -53,6 +53,7 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE hotels DROP COLUMN IF EXISTS google_place_id',
         'ALTER TABLE menu_items ALTER COLUMN price DROP NOT NULL',
         "ALTER TYPE enum_costs_type ADD VALUE IF NOT EXISTS 'llm_eval'",
+        "ALTER TYPE enum_llm_evals_dimension ADD VALUE IF NOT EXISTS 'summary_accuracy'",
         "UPDATE hotel_accounts SET role = 'hotel_staff' WHERE role IS NULL",
         "UPDATE hotel_accounts SET status = 'active' WHERE status IS NULL",
         "UPDATE hotel_accounts ha SET role = 'hotel_owner' FROM accounts a WHERE ha.account_id = a.id AND a.role = 'hotel_owner'",

@@ -5,6 +5,7 @@ import { Message } from '../messages/message.model';
 export enum EvalDimension {
   TOOL_CALL = 'tool_call',
   RESPONSE_QUALITY = 'response_quality',
+  SUMMARY_ACCURACY = 'summary_accuracy',
 }
 
 @Table({ tableName: 'llm_evals' })
