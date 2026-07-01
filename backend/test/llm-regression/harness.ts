@@ -11,7 +11,6 @@
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import * as path from 'path';
-import { z } from 'zod';
 import { LangGraphService, ToolCallRecord } from '../../src/langgraph/langgraph.service';
 import { ConstantsService } from '../../src/common/constants/constants.service';
 import { BookingsService } from '../../src/bookings/bookings.service';
@@ -20,7 +19,7 @@ import { RestaurantService } from '../../src/restaurant/restaurant.service';
 import { ChatService } from '../../src/chat/chat.service';
 import { HotelsService } from '../../src/hotels/hotels.service';
 import { AgentToolContext } from '../../src/langgraph/langgraph-tools.context';
-import { buildEvalMessages } from '../../src/llm-eval/llm-eval-prompt.builder';
+import { judgeTurn } from '../../src/llm-eval/llm-eval.judge';
 
 // ── Canned fixtures the mocked tools/context return ──────────────────────────
 export const TEST_HOTEL = {
@@ -124,20 +123,14 @@ export async function runTurn(
   return { content, toolCalls };
 }
 
-const JUDGE_SCHEMA = z.object({ passed: z.boolean(), reasoning: z.string() });
-
-// Reuses the same LLM-as-judge as the eval feature for the response-quality grade.
+// Reuses the exact same LLM-as-judge business logic as the eval feature.
 export async function judgeQuality(
   service: LangGraphService,
   userMessage: string,
   result: RunResult,
 ): Promise<{ passed: boolean; reasoning: string }> {
-  const messages = buildEvalMessages(userMessage, result.content, result.toolCalls);
-  const { parsed } = await service
-    .createModel(0)
-    .withStructuredOutput(z.object({ responseQuality: JUDGE_SCHEMA }), { name: 'RegressionJudge', includeRaw: true })
-    .invoke(messages);
-  return parsed.responseQuality;
+  const { verdict } = await judgeTurn(service, userMessage, result.content, result.toolCalls);
+  return verdict.responseQuality;
 }
 
 // A guest account stub — tools only read account.role and account.id.
