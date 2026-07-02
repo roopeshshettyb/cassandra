@@ -8,6 +8,7 @@ import { CostsService } from '../costs/costs.service';
 import { CostType } from '../costs/costs.model';
 import { ChatSession } from './gateway/chat-session.interface';
 import { buildChatPrompt } from './chat-prompt.builder';
+import { LlmEvalService } from '../llm-eval/llm-eval.service';
 
 export interface StreamUserMessageOptions {
   onChunk: (chunk: string) => Promise<void> | void;
@@ -25,6 +26,7 @@ export class ChatLlmService {
     private readonly langGraphService: LangGraphService,
     private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
+    private readonly llmEvalService: LlmEvalService,
   ) {}
 
   private syncSessionBookingFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
@@ -127,6 +129,18 @@ export class ChatLlmService {
       role: session.account.role,
       chatId: session.chatId,
       messageId: assistantMessage.id,
+    });
+
+    this.llmEvalService.maybeEvaluate({
+      chatId: session.chatId,
+      messageId: assistantMessage.id,
+      userMessage,
+      assistantMessage: fullContent,
+      toolCalls,
+      accountId: session.account.id,
+      role: session.account.role,
+      hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
+      bookingId: session.bookingId,
     });
 
     if (options.onEnd) {

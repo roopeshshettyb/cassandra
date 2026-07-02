@@ -9,6 +9,8 @@ import { ConstantsService } from '../common/constants/constants.service';
 import { CostsService } from '../costs/costs.service';
 import { CostType } from '../costs/costs.model';
 import { LangGraphService } from '../langgraph/langgraph.service';
+import { LlmEvalService } from '../llm-eval/llm-eval.service';
+import { MessageFormatter } from '../messages/message-formatter';
 import { buildSummaryPrompt } from './summary-prompt.builder';
 
 @Injectable()
@@ -19,6 +21,7 @@ export class ChatSummaryService {
     private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
     @Inject(forwardRef(() => LangGraphService)) private readonly langGraphService: LangGraphService,
+    @Inject(forwardRef(() => LlmEvalService)) private readonly llmEvalService: LlmEvalService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -47,7 +50,8 @@ export class ChatSummaryService {
       const toFold = unsummarized.slice(0, unsummarized.length - cfg.RAW_TAIL_COUNT);
       if (!toFold.length) return;
 
-      const prompt = buildSummaryPrompt(cfg.INSTRUCTIONS, existing?.summary ?? null, toFold, cfg.TARGET_WORDS);
+      const previousSummary = existing?.summary ?? null;
+      const prompt = buildSummaryPrompt(cfg.INSTRUCTIONS, previousSummary, toFold, cfg.TARGET_WORDS);
       const newSummary = await this.callSummaryModel(prompt, chatId);
       if (!newSummary) return;
 
@@ -62,6 +66,16 @@ export class ChatSummaryService {
       } else {
         await this.summaryRepository.create({ chatId, summary: newSummary, messageIdEnd, tokenEstimate });
       }
+
+      // Fire-and-forget: grade the summary's accuracy (LLM-as-judge; never rejects).
+      this.llmEvalService.maybeEvaluateSummary({
+        chatId,
+        messageId: messageIdEnd,
+        previousSummary,
+        foldedMessages: MessageFormatter.formatMessages(toFold),
+        newSummary,
+        hotelId: null,
+      });
     } catch (err) {
       this.logger.error({ error: err, serviceName: 'ChatSummary', actionName: `maybeSummarize chatId=${chatId}` });
     }
