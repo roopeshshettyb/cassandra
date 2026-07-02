@@ -100,11 +100,15 @@ export class LlmEvalService {
     return text.length > max ? `${text.slice(0, max)}… [truncated]` : text;
   }
 
+  private shouldSample(rate: number): boolean {
+    return Math.random() < rate;
+  }
+
   // Chat/voice turns are high-volume → sampled via SAMPLE_RATE.
   async maybeEvaluate(params: MaybeEvaluateParams): Promise<void> {
     await this.runSafely(`maybeEvaluate chatId=${params.chatId} messageId=${params.messageId}`, async () => {
       const cfg = this.constantsService.private.LLM.EVAL;
-      if (!cfg.ENABLED || Math.random() >= cfg.SAMPLE_RATE) return;
+      if (!cfg.ENABLED || !this.shouldSample(cfg.SAMPLE_RATE)) return;
 
       const { verdict, usage, judgeModel } = await judgeTurn(this.langGraphService, params.userMessage, params.assistantMessage, params.toolCalls);
 
@@ -118,10 +122,11 @@ export class LlmEvalService {
     });
   }
 
-  // Summaries are infrequent (token-threshold gated) → every one is judged.
+  // Summaries are infrequent (token-threshold gated) → sampled via TASK_SAMPLE_RATE.
   async maybeEvaluateSummary(params: MaybeEvaluateSummaryParams): Promise<void> {
     await this.runSafely(`maybeEvaluateSummary chatId=${params.chatId} messageId=${params.messageId}`, async () => {
-      if (!this.constantsService.private.LLM.EVAL.ENABLED) return;
+      const cfg = this.constantsService.private.LLM.EVAL;
+      if (!cfg.ENABLED || !this.shouldSample(cfg.TASK_SAMPLE_RATE)) return;
 
       const { verdict, usage, judgeModel } = await judgeSummary(this.langGraphService, params.previousSummary, params.foldedMessages, params.newSummary);
       await this.persistVerdicts([{ dimension: EvalDimension.SUMMARY_ACCURACY, ...verdict.summaryAccuracy }], usage, judgeModel, params);
@@ -129,12 +134,12 @@ export class LlmEvalService {
   }
 
   // Generic hook for single-shot LLM tasks (extraction, OCR, title generation).
-  // These are infrequent admin/setup flows → every one is judged. Input is
-  // truncated so oversized sources (crawl dumps) can't blow up judge cost.
+  // Sampled via TASK_SAMPLE_RATE. Input is truncated so oversized sources
+  // (crawl dumps) can't blow up judge cost.
   async maybeEvaluateTask(params: MaybeEvaluateTaskParams): Promise<void> {
     await this.runSafely(`maybeEvaluateTask dimension=${params.dimension}`, async () => {
       const cfg = this.constantsService.private.LLM.EVAL;
-      if (!cfg.ENABLED) return;
+      if (!cfg.ENABLED || !this.shouldSample(cfg.TASK_SAMPLE_RATE)) return;
 
       const { verdict, usage, judgeModel } = await judgeTask(
         this.langGraphService,
