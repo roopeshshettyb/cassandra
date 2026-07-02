@@ -330,7 +330,7 @@ async function seed() {
   // ── Chats, Messages & LLM Evals ─────────────────────────────────────────────
   const judgeModel = 'google/gemini-3.1-flash-lite';
 
-  const chatData = [
+  const chatData: any[] = [
     {
       accountId: accounts[3].id, bookingId: bookings[0].id, chatType: ChatType.BOOKING, languageCode: 'en',
       messages: [
@@ -379,11 +379,9 @@ async function seed() {
   ];
 
   for (const row of chatData) {
-    const [chat] = await Chat.findOrCreate({
-      where: { accountId: row.accountId, bookingId: row.bookingId } as any,
-      defaults: { accountId: row.accountId, bookingId: row.bookingId, chatType: row.chatType, languageCode: row.languageCode } as any,
-      paranoid: false,
-    });
+    const chatKey: any = { accountId: row.accountId, bookingId: row.bookingId };
+    const chatDefaults: any = { ...chatKey, chatType: row.chatType, languageCode: row.languageCode };
+    const [chat] = await Chat.findOrCreate({ where: chatKey, defaults: chatDefaults, paranoid: false });
     await restoreIfSoftDeleted(chat);
 
     const existingMessageCount = await Message.count({ where: { chatId: chat.id } });
@@ -392,46 +390,51 @@ async function seed() {
     }
 
     for (const msg of row.messages) {
-      const message = await Message.create({
+      const messageData: any = {
         chatId: chat.id,
         role: msg.role,
         content: msg.content,
-        toolCalls: (msg as any).toolCalls ?? null,
-      } as any);
+        toolCalls: msg.toolCalls ?? null,
+      };
+      const message = await Message.create(messageData);
 
-      for (const evalRow of (msg as any).evals ?? []) {
-        await LlmEval.create({
+      for (const evalRow of msg.evals ?? []) {
+        const evalData: any = {
           chatId: chat.id,
           messageId: message.id,
           dimension: evalRow.dimension,
           passed: evalRow.passed,
           reasoning: evalRow.reasoning,
           judgeModel,
-        } as any);
+        };
+        await LlmEval.create(evalData);
       }
     }
 
     // Chat-level eval example (no message reference): the generated chat title.
-    await LlmEval.create({
+    const chatTitleEval: any = {
       chatId: chat.id,
       messageId: null,
       dimension: EvalDimension.CHAT_TITLE,
       passed: true,
       reasoning: 'Three-word title concisely reflects the conversation topic.',
       judgeModel,
-    } as any);
+    };
+    await LlmEval.create(chatTitleEval);
   }
 
   // Flow-level eval examples (no chat/message context): extraction pipelines.
-  const taskEvalExamples = [
+  const taskEvalExamples: any[] = [
     { dimension: EvalDimension.DOCUMENT_EXTRACTION, passed: true, reasoning: 'Extracted dates, guest email, and room number match the reservation image.' },
     { dimension: EvalDimension.MENU_OCR, passed: true, reasoning: 'Items are well-formed dishes with plausible prices and valid categories.' },
     { dimension: EvalDimension.ONBOARDING_EXTRACTION, passed: false, reasoning: 'Check-in time was returned as 14:00 but the crawl data never states it.' },
   ];
   for (const example of taskEvalExamples) {
-    const exists = await LlmEval.count({ where: { dimension: example.dimension } as any });
+    const taskWhere: any = { dimension: example.dimension };
+    const exists = await LlmEval.count({ where: taskWhere });
     if (exists === 0) {
-      await LlmEval.create({ chatId: null, messageId: null, judgeModel, ...example } as any);
+      const taskEvalData: any = { chatId: null, messageId: null, judgeModel, ...example };
+      await LlmEval.create(taskEvalData);
     }
   }
 
