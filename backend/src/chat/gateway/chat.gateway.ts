@@ -15,6 +15,8 @@ import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
 import { parseConnectionHandshake, authenticateAndInit } from './gateway-auth.helper';
 import { ChatLlmService } from '../chat-llm.service';
+import { LlmEvalService } from '../../llm-eval/llm-eval.service';
+import { EvalDimension } from '../../llm-eval/llm-eval.model';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
@@ -35,6 +37,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly constantsService: ConstantsService,
     private readonly costsService: CostsService,
     private readonly chatLlmService: ChatLlmService,
+    private readonly llmEvalService: LlmEvalService,
   ) {}
 
   private async emitChatHistory(client: any, session: ChatSession): Promise<void> {
@@ -99,7 +102,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (selected.length < 3) {
       return;
     }
-    await this.chatService.updateChatName(session.chatId, selected.join(' '), session.account);
+    const title = selected.join(' ');
+    await this.chatService.updateChatName(session.chatId, title, session.account);
+
+    this.llmEvalService
+      .maybeEvaluateTask({
+        dimension: EvalDimension.CHAT_TITLE,
+        taskDescription: 'Generate a three-word title for a hotel-concierge conversation from its transcript.',
+        input: transcript,
+        output: title,
+        chatId: session.chatId,
+        accountId: session.account.id,
+        role: session.account.role,
+        bookingId: session.bookingId,
+      })
+      .catch((err) => this.logger.error('LLM eval failed for chat title', err as Error));
   }
 
   async handleConnection(client: any) {

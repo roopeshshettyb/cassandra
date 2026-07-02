@@ -3,6 +3,8 @@ import axios from 'axios';
 import { MapsService } from '../common/maps/maps.service';
 import { TavilyService } from '../common/tavily/tavily.service';
 import { LangGraphService } from '../langgraph/langgraph.service';
+import { LlmEvalService } from '../llm-eval/llm-eval.service';
+import { EvalDimension } from '../llm-eval/llm-eval.model';
 import { ApiService } from '../common/api/api.service';
 import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
@@ -42,6 +44,7 @@ export class OnboardingService {
     private readonly mapsService: MapsService,
     private readonly tavilyService: TavilyService,
     @Inject(forwardRef(() => LangGraphService)) private readonly langGraphService: LangGraphService,
+    @Inject(forwardRef(() => LlmEvalService)) private readonly llmEvalService: LlmEvalService,
     private readonly apiService: ApiService,
     private readonly awsService: AwsService,
     private readonly constantsService: ConstantsService,
@@ -278,6 +281,17 @@ ${crawlData}`;
       ],
       'extractor',
     );
+
+    // Fire-and-forget: judge the main extraction against the crawl data it was
+    // grounded on (the brand-color / name-match micro-calls are not worth judging).
+    this.llmEvalService
+      .maybeEvaluateTask({
+        dimension: EvalDimension.ONBOARDING_EXTRACTION,
+        taskDescription: `Extract hotel operational data (hours, check-in/out times, brand, colors) for "${details.name}" strictly from crawled website data — no fabrication, null when absent.`,
+        input: crawlData,
+        output: JSON.stringify(extracted),
+      })
+      .catch(() => undefined);
 
     // Pass 2: If brand identified, apply brand-level knowledge for colors only (not operational data)
     if (extracted.brandName && !extracted.themeConfig?.primaryColor) {

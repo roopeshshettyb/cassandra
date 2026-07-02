@@ -9,6 +9,8 @@ import { HotelsService } from '../hotels/hotels.service';
 import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { LangGraphService } from '../langgraph/langgraph.service';
+import { LlmEvalService } from '../llm-eval/llm-eval.service';
+import { EvalDimension } from '../llm-eval/llm-eval.model';
 
 const MENU_OCR_SCHEMA = z.object({
   items: z.array(z.object({
@@ -27,6 +29,7 @@ export class RestaurantService {
     private readonly awsService: AwsService,
     private readonly constantsService: ConstantsService,
     @Inject(forwardRef(() => LangGraphService)) private readonly langGraphService: LangGraphService,
+    @Inject(forwardRef(() => LlmEvalService)) private readonly llmEvalService: LlmEvalService,
   ) {}
 
   private async ensureCanAccessHotel(hotelId: number, currentAccount: Account): Promise<void> {
@@ -289,6 +292,20 @@ Rules:
     if (items.length === 0) {
       throw new BadRequestException('No menu items detected in the image(s). Please upload a clearer photo of the menu.');
     }
+
+    // Fire-and-forget: source images are temp-deleted above, so the judge grades
+    // structural plausibility of the extracted items rather than visual fidelity.
+    this.llmEvalService
+      .maybeEvaluateTask({
+        dimension: EvalDimension.MENU_OCR,
+        taskDescription: `OCR-extract restaurant menu items from ${dataUrls.length} menu photo(s) (images not attached — judge whether the items look like a plausible, well-formed menu extraction: dish-like names, sane prices, valid categories, no OCR garbage).`,
+        input: `${dataUrls.length} menu image(s), source unavailable.`,
+        output: JSON.stringify(items),
+        hotelId: body.hotelId,
+        accountId: currentAccount.id,
+        role: currentAccount.role,
+      })
+      .catch(() => undefined);
 
     return { success: true, message: 'Menu extracted', data: { items } };
   }

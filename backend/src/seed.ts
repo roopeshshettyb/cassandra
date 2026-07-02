@@ -410,6 +410,29 @@ async function seed() {
         } as any);
       }
     }
+
+    // Chat-level eval example (no message reference): the generated chat title.
+    await LlmEval.create({
+      chatId: chat.id,
+      messageId: null,
+      dimension: EvalDimension.CHAT_TITLE,
+      passed: true,
+      reasoning: 'Three-word title concisely reflects the conversation topic.',
+      judgeModel,
+    } as any);
+  }
+
+  // Flow-level eval examples (no chat/message context): extraction pipelines.
+  const taskEvalExamples = [
+    { dimension: EvalDimension.DOCUMENT_EXTRACTION, passed: true, reasoning: 'Extracted dates, guest email, and room number match the reservation image.' },
+    { dimension: EvalDimension.MENU_OCR, passed: true, reasoning: 'Items are well-formed dishes with plausible prices and valid categories.' },
+    { dimension: EvalDimension.ONBOARDING_EXTRACTION, passed: false, reasoning: 'Check-in time was returned as 14:00 but the crawl data never states it.' },
+  ];
+  for (const example of taskEvalExamples) {
+    const exists = await LlmEval.count({ where: { dimension: example.dimension } as any });
+    if (exists === 0) {
+      await LlmEval.create({ chatId: null, messageId: null, judgeModel, ...example } as any);
+    }
   }
 
   console.log('Seed completed.');

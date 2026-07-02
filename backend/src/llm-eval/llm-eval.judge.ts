@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AIMessage, BaseMessage } from '@langchain/core/messages';
 import { LangGraphService } from '../langgraph/langgraph.service';
 import { ToolCallRecord } from '../messages/message.model';
-import { buildEvalMessages, buildSummaryEvalMessages } from './llm-eval-prompt.builder';
+import { buildEvalMessages, buildSummaryEvalMessages, buildTaskEvalMessages } from './llm-eval-prompt.builder';
 
 const VERDICT = z.object({ passed: z.boolean(), reasoning: z.string() });
 
@@ -13,6 +13,7 @@ export const EVAL_SCHEMA = z.object({
 });
 
 export const SUMMARY_EVAL_SCHEMA = z.object({ summaryAccuracy: VERDICT });
+export const TASK_EVAL_SCHEMA = z.object({ accuracy: VERDICT });
 
 export type EvalVerdict = z.infer<typeof EVAL_SCHEMA>;
 export type Usage = { promptTokens: number; completionTokens: number; totalTokens: number };
@@ -51,6 +52,18 @@ export function judgeTurn(
   toolCalls: ToolCallRecord[],
 ): Promise<JudgeResult> {
   return runJudge(langGraphService, EVAL_SCHEMA, 'ChatTurnEval', buildEvalMessages(userMessage, assistantMessage, toolCalls));
+}
+
+// Pure LLM-as-judge for any single-shot LLM task (extraction, OCR, generation):
+// is the output faithful to the input? Optional images ground the verdict visually.
+export function judgeTask(
+  langGraphService: LangGraphService,
+  taskDescription: string,
+  input: string,
+  output: string,
+  imageUrls: string[] = [],
+): Promise<{ verdict: z.infer<typeof TASK_EVAL_SCHEMA>; usage: Usage }> {
+  return runJudge(langGraphService, TASK_EVAL_SCHEMA, 'TaskEval', buildTaskEvalMessages(taskDescription, input, output, imageUrls));
 }
 
 // Pure LLM-as-judge for a rolling summary update: does the new summary faithfully

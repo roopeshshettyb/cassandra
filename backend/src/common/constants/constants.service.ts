@@ -543,6 +543,8 @@ export class ConstantsService {
         EVAL: {
           ENABLED: this.configService.get<string>('LLM_EVAL_ENABLED', 'true') === 'true',
           SAMPLE_RATE: parseFloat(this.configService.get('LLM_EVAL_SAMPLE_RATE') || '0.1'),
+          // Cap on input/output text sent to the task judge (crawl dumps can be huge).
+          TASK_INPUT_MAX_CHARS: 8000,
         },
       },
     };

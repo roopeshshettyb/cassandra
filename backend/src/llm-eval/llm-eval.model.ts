@@ -6,6 +6,10 @@ export enum EvalDimension {
   TOOL_CALL = 'tool_call',
   RESPONSE_QUALITY = 'response_quality',
   SUMMARY_ACCURACY = 'summary_accuracy',
+  ONBOARDING_EXTRACTION = 'onboarding_extraction',
+  DOCUMENT_EXTRACTION = 'document_extraction',
+  MENU_OCR = 'menu_ocr',
+  CHAT_TITLE = 'chat_title',
 }
 
 @Table({ tableName: 'llm_evals' })
@@ -17,21 +21,23 @@ export class LlmEval extends Model<LlmEval> {
   })
   id: number;
 
+  // Nullable: chat-turn evals reference a chat/message, but extraction-flow
+  // evals (onboarding, document, menu OCR) have no chat context.
   @ForeignKey(() => Chat)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'chat_id',
   })
-  chatId: number;
+  chatId: number | null;
 
   @ForeignKey(() => Message)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'message_id',
   })
-  messageId: number;
+  messageId: number | null;
 
   @Column({
     type: DataType.ENUM(...Object.values(EvalDimension)),

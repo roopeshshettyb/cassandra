@@ -10,6 +10,7 @@ import { AuthModule } from '../auth/auth.module';
 import { MailerModule } from '../mailer/mailer.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { LangGraphModule } from '../langgraph/langgraph.module';
+import { LlmEvalModule } from '../llm-eval/llm-eval.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { LangGraphModule } from '../langgraph/langgraph.module';
     MailerModule,
     forwardRef(() => BookingsModule),
     forwardRef(() => LangGraphModule),
+    forwardRef(() => LlmEvalModule),
   ],
   controllers: [HotelsController],
   providers: [HotelsRepository, HotelAccountsRepository, HotelBrandsRepository, HotelsService, OnboardingService],
