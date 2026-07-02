@@ -67,17 +67,15 @@ export class ChatSummaryService {
         await this.summaryRepository.create({ chatId, summary: newSummary, messageIdEnd, tokenEstimate });
       }
 
-      // Fire-and-forget: grade the summary's accuracy (LLM-as-judge).
-      this.llmEvalService
-        .maybeEvaluateSummary({
-          chatId,
-          messageId: messageIdEnd,
-          previousSummary,
-          foldedMessages: MessageFormatter.formatMessages(toFold),
-          newSummary,
-          hotelId: null,
-        })
-        .catch((err) => this.logger.error(err));
+      // Fire-and-forget: grade the summary's accuracy (LLM-as-judge; never rejects).
+      this.llmEvalService.maybeEvaluateSummary({
+        chatId,
+        messageId: messageIdEnd,
+        previousSummary,
+        foldedMessages: MessageFormatter.formatMessages(toFold),
+        newSummary,
+        hotelId: null,
+      });
     } catch (err) {
       this.logger.error({ error: err, serviceName: 'ChatSummary', actionName: `maybeSummarize chatId=${chatId}` });
     }

@@ -60,13 +60,9 @@ export class LlmEvalService {
     private readonly logger: LoggerService,
   ) {}
 
-  private get cfg() {
-    return this.constantsService.private.LLM.EVAL;
-  }
-
   // Single persistence path for every eval flow: one cost record per judge call,
   // one row per judged dimension. Only verdicts are stored — never raw content.
-  private async persistVerdicts(verdicts: DimensionVerdict[], usage: Usage, refs: EvalRefs): Promise<void> {
+  private async persistVerdicts(verdicts: DimensionVerdict[], usage: Usage, judgeModel: string, refs: EvalRefs): Promise<void> {
     this.costsService.recordLlmCost({
       type: CostType.LLM_EVAL,
       usage,
@@ -78,7 +74,6 @@ export class LlmEvalService {
       messageId: refs.messageId ?? null,
     });
 
-    const judgeModel = this.constantsService.private.LLM.TEXT_MODEL;
     const rows = verdicts.map((v) => ({
       chatId: refs.chatId ?? null,
       messageId: refs.messageId ?? null,
@@ -91,6 +86,8 @@ export class LlmEvalService {
   }
 
   // Shared guard: evals are observability, never a failure path for the caller.
+  // The whole body (config gate included) runs inside the catch, so the returned
+  // promise can never reject — call sites fire-and-forget without their own catch.
   private async runSafely(actionName: string, fn: () => Promise<void>): Promise<void> {
     try {
       await fn();
@@ -99,12 +96,17 @@ export class LlmEvalService {
     }
   }
 
+  private truncate(text: string, max: number): string {
+    return text.length > max ? `${text.slice(0, max)}… [truncated]` : text;
+  }
+
   // Chat/voice turns are high-volume → sampled via SAMPLE_RATE.
   async maybeEvaluate(params: MaybeEvaluateParams): Promise<void> {
-    if (!this.cfg.ENABLED || Math.random() >= this.cfg.SAMPLE_RATE) return;
-
     await this.runSafely(`maybeEvaluate chatId=${params.chatId} messageId=${params.messageId}`, async () => {
-      const { verdict, usage } = await judgeTurn(this.langGraphService, params.userMessage, params.assistantMessage, params.toolCalls);
+      const cfg = this.constantsService.private.LLM.EVAL;
+      if (!cfg.ENABLED || Math.random() >= cfg.SAMPLE_RATE) return;
+
+      const { verdict, usage, judgeModel } = await judgeTurn(this.langGraphService, params.userMessage, params.assistantMessage, params.toolCalls);
 
       const verdicts: DimensionVerdict[] = [];
       if (params.toolCalls.length && verdict.toolCall) {
@@ -112,17 +114,17 @@ export class LlmEvalService {
       }
       verdicts.push({ dimension: EvalDimension.RESPONSE_QUALITY, ...verdict.responseQuality });
 
-      await this.persistVerdicts(verdicts, usage, params);
+      await this.persistVerdicts(verdicts, usage, judgeModel, params);
     });
   }
 
   // Summaries are infrequent (token-threshold gated) → every one is judged.
   async maybeEvaluateSummary(params: MaybeEvaluateSummaryParams): Promise<void> {
-    if (!this.cfg.ENABLED) return;
-
     await this.runSafely(`maybeEvaluateSummary chatId=${params.chatId} messageId=${params.messageId}`, async () => {
-      const { verdict, usage } = await judgeSummary(this.langGraphService, params.previousSummary, params.foldedMessages, params.newSummary);
-      await this.persistVerdicts([{ dimension: EvalDimension.SUMMARY_ACCURACY, ...verdict.summaryAccuracy }], usage, params);
+      if (!this.constantsService.private.LLM.EVAL.ENABLED) return;
+
+      const { verdict, usage, judgeModel } = await judgeSummary(this.langGraphService, params.previousSummary, params.foldedMessages, params.newSummary);
+      await this.persistVerdicts([{ dimension: EvalDimension.SUMMARY_ACCURACY, ...verdict.summaryAccuracy }], usage, judgeModel, params);
     });
   }
 
@@ -130,18 +132,18 @@ export class LlmEvalService {
   // These are infrequent admin/setup flows → every one is judged. Input is
   // truncated so oversized sources (crawl dumps) can't blow up judge cost.
   async maybeEvaluateTask(params: MaybeEvaluateTaskParams): Promise<void> {
-    if (!this.cfg.ENABLED) return;
-
     await this.runSafely(`maybeEvaluateTask dimension=${params.dimension}`, async () => {
-      const max = this.cfg.TASK_INPUT_MAX_CHARS;
-      const { verdict, usage } = await judgeTask(
+      const cfg = this.constantsService.private.LLM.EVAL;
+      if (!cfg.ENABLED) return;
+
+      const { verdict, usage, judgeModel } = await judgeTask(
         this.langGraphService,
         params.taskDescription,
-        params.input.length > max ? `${params.input.slice(0, max)}… [truncated]` : params.input,
-        params.output.length > max ? `${params.output.slice(0, max)}… [truncated]` : params.output,
+        this.truncate(params.input, cfg.TASK_INPUT_MAX_CHARS),
+        this.truncate(params.output, cfg.TASK_INPUT_MAX_CHARS),
         params.imageUrls ?? [],
       );
-      await this.persistVerdicts([{ dimension: params.dimension, ...verdict.accuracy }], usage, params);
+      await this.persistVerdicts([{ dimension: params.dimension, ...verdict.accuracy }], usage, judgeModel, params);
     });
   }
 }

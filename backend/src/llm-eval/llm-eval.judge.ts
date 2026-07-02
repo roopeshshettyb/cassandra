@@ -21,24 +21,26 @@ export type Usage = { promptTokens: number; completionTokens: number; totalToken
 export interface JudgeResult {
   verdict: EvalVerdict;
   usage: Usage;
+  judgeModel: string;
 }
 
 export interface SummaryJudgeResult {
   verdict: z.infer<typeof SUMMARY_EVAL_SCHEMA>;
   usage: Usage;
+  judgeModel: string;
 }
 
-// Shared invoke: runs the judge model with structured output and extracts usage.
-async function runJudge<T>(langGraphService: LangGraphService, schema: z.ZodType<T>, name: string, messages: BaseMessage[]): Promise<{ verdict: T; usage: Usage }> {
-  const { raw, parsed } = await langGraphService
-    .createModel(0)
-    .withStructuredOutput(schema, { name, includeRaw: true })
-    .invoke(messages);
+// Shared invoke: runs the judge model with structured output, extracts usage, and
+// reports which model actually judged — so persistence can never drift from it.
+async function runJudge<T>(langGraphService: LangGraphService, schema: z.ZodType<T>, name: string, messages: BaseMessage[]): Promise<{ verdict: T; usage: Usage; judgeModel: string }> {
+  const model = langGraphService.createModel(0);
+  const { raw, parsed } = await model.withStructuredOutput(schema, { name, includeRaw: true }).invoke(messages);
 
   const u = (raw as AIMessage).usage_metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
   return {
     verdict: parsed as T,
     usage: { promptTokens: u?.input_tokens ?? 0, completionTokens: u?.output_tokens ?? 0, totalTokens: u?.total_tokens ?? 0 },
+    judgeModel: model.model,
   };
 }
 
@@ -62,7 +64,7 @@ export function judgeTask(
   input: string,
   output: string,
   imageUrls: string[] = [],
-): Promise<{ verdict: z.infer<typeof TASK_EVAL_SCHEMA>; usage: Usage }> {
+): Promise<{ verdict: z.infer<typeof TASK_EVAL_SCHEMA>; usage: Usage; judgeModel: string }> {
   return runJudge(langGraphService, TASK_EVAL_SCHEMA, 'TaskEval', buildTaskEvalMessages(taskDescription, input, output, imageUrls));
 }
 

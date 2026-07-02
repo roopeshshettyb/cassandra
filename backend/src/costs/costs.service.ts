@@ -59,14 +59,16 @@ export class CostsService {
     } catch {}
   }
 
+  // accountId/role/chatId are nullable: summary and extraction-flow evals record
+  // spend with no chat or account context (columns are nullable in the DB).
   async recordLlmCost(params: {
     type: CostType;
     usage: TokenUsage;
     bookingId: number | null;
     hotelId: number | null;
-    accountId: number;
-    role: string;
-    chatId: number;
+    accountId: number | null;
+    role: string | null;
+    chatId: number | null;
     messageId: number | null;
   }) {
     const llm = this.constantsService.private.LLM;

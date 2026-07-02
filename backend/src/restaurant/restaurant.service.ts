@@ -295,17 +295,15 @@ Rules:
 
     // Fire-and-forget: source images are temp-deleted above, so the judge grades
     // structural plausibility of the extracted items rather than visual fidelity.
-    this.llmEvalService
-      .maybeEvaluateTask({
-        dimension: EvalDimension.MENU_OCR,
-        taskDescription: `OCR-extract restaurant menu items from ${dataUrls.length} menu photo(s) (images not attached — judge whether the items look like a plausible, well-formed menu extraction: dish-like names, sane prices, valid categories, no OCR garbage).`,
-        input: `${dataUrls.length} menu image(s), source unavailable.`,
-        output: JSON.stringify(items),
-        hotelId: body.hotelId,
-        accountId: currentAccount.id,
-        role: currentAccount.role,
-      })
-      .catch(() => undefined);
+    this.llmEvalService.maybeEvaluateTask({
+      dimension: EvalDimension.MENU_OCR,
+      taskDescription: `OCR-extract restaurant menu items from ${dataUrls.length} menu photo(s) (images not attached — judge whether the items look like a plausible, well-formed menu extraction: dish-like names, sane prices, valid categories, no OCR garbage).`,
+      input: `${dataUrls.length} menu image(s), source unavailable.`,
+      output: JSON.stringify(items),
+      hotelId: body.hotelId,
+      accountId: currentAccount.id,
+      role: currentAccount.role,
+    });
 
     return { success: true, message: 'Menu extracted', data: { items } };
   }

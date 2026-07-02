@@ -284,14 +284,12 @@ ${crawlData}`;
 
     // Fire-and-forget: judge the main extraction against the crawl data it was
     // grounded on (the brand-color / name-match micro-calls are not worth judging).
-    this.llmEvalService
-      .maybeEvaluateTask({
-        dimension: EvalDimension.ONBOARDING_EXTRACTION,
-        taskDescription: `Extract hotel operational data (hours, check-in/out times, brand, colors) for "${details.name}" strictly from crawled website data — no fabrication, null when absent.`,
-        input: crawlData,
-        output: JSON.stringify(extracted),
-      })
-      .catch(() => undefined);
+    this.llmEvalService.maybeEvaluateTask({
+      dimension: EvalDimension.ONBOARDING_EXTRACTION,
+      taskDescription: `Extract hotel operational data (hours, check-in/out times, brand, colors) for "${details.name}" strictly from crawled website data — no fabrication, null when absent.`,
+      input: crawlData,
+      output: JSON.stringify(extracted),
+    });
 
     // Pass 2: If brand identified, apply brand-level knowledge for colors only (not operational data)
     if (extracted.brandName && !extracted.themeConfig?.primaryColor) {

@@ -105,18 +105,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const title = selected.join(' ');
     await this.chatService.updateChatName(session.chatId, title, session.account);
 
-    this.llmEvalService
-      .maybeEvaluateTask({
-        dimension: EvalDimension.CHAT_TITLE,
-        taskDescription: 'Generate a three-word title for a hotel-concierge conversation from its transcript.',
-        input: transcript,
-        output: title,
-        chatId: session.chatId,
-        accountId: session.account.id,
-        role: session.account.role,
-        bookingId: session.bookingId,
-      })
-      .catch((err) => this.logger.error('LLM eval failed for chat title', err as Error));
+    this.llmEvalService.maybeEvaluateTask({
+      dimension: EvalDimension.CHAT_TITLE,
+      taskDescription: 'Generate a three-word title for a hotel-concierge conversation from its transcript.',
+      input: transcript,
+      output: title,
+      chatId: session.chatId,
+      accountId: session.account.id,
+      role: session.account.role,
+      bookingId: session.bookingId,
+    });
   }
 
   async handleConnection(client: any) {

@@ -21,15 +21,13 @@ export class DocumentExtractionService {
 
     // Fire-and-forget: for images the judge re-reads the document; for PDFs
     // (which the judge can't ingest) it checks internal plausibility only.
-    this.llmEvalService
-      .maybeEvaluateTask({
-        dimension: EvalDimension.DOCUMENT_EXTRACTION,
-        taskDescription: `Extract booking/reservation fields (dates, guest name/email/phone, room, hotel) from a reservation ${isPdf ? 'PDF (source not attached — judge internal consistency and plausibility only)' : 'image (attached)'}.`,
-        input: 'Source: uploaded reservation document.',
-        output: JSON.stringify(extracted),
-        imageUrls: isPdf ? [] : [documentUrl],
-      })
-      .catch(() => undefined);
+    this.llmEvalService.maybeEvaluateTask({
+      dimension: EvalDimension.DOCUMENT_EXTRACTION,
+      taskDescription: `Extract booking/reservation fields (dates, guest name/email/phone, room, hotel) from a reservation ${isPdf ? 'PDF (source not attached — judge internal consistency and plausibility only)' : 'image (attached)'}.`,
+      input: 'Source: uploaded reservation document.',
+      output: JSON.stringify(extracted),
+      imageUrls: isPdf ? [] : [documentUrl],
+    });
 
     return extracted;
   }

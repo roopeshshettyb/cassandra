@@ -131,19 +131,17 @@ export class ChatLlmService {
       messageId: assistantMessage.id,
     });
 
-    this.llmEvalService
-      .maybeEvaluate({
-        chatId: session.chatId,
-        messageId: assistantMessage.id,
-        userMessage,
-        assistantMessage: fullContent,
-        toolCalls,
-        accountId: session.account.id,
-        role: session.account.role,
-        hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
-        bookingId: session.bookingId,
-      })
-      .catch((err) => this.logger.error(err));
+    this.llmEvalService.maybeEvaluate({
+      chatId: session.chatId,
+      messageId: assistantMessage.id,
+      userMessage,
+      assistantMessage: fullContent,
+      toolCalls,
+      accountId: session.account.id,
+      role: session.account.role,
+      hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
+      bookingId: session.bookingId,
+    });
 
     if (options.onEnd) {
       await options.onEnd({ fullContent, toolCalls });

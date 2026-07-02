@@ -14,7 +14,7 @@ import { ChatLlmService } from '../chat-llm.service';
 import { VoiceRealtimeService } from '../voice-realtime.service';
 import { DeepgramVoiceAgentService } from '../deepgram-voice-agent.service';
 import { MessagesService } from '../../messages/messages.service';
-import { Message, MessageRole } from '../../messages/message.model';
+import { Message, MessageRole, ToolCallRecord } from '../../messages/message.model';
 import { ChatContextService } from '../../chat-context/chat-context.service';
 import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
@@ -55,6 +55,31 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly costsService: CostsService,
     private readonly llmEvalService: LlmEvalService,
   ) {}
+
+  // Shared fire-and-forget eval hook for both voice pipelines. maybeEvaluate never
+  // rejects (guarded internally), so no catch is needed here.
+  private evaluateVoiceTurn(
+    session: ChatSession,
+    cleanUser: string | undefined,
+    cleanAssistant: string | undefined,
+    assistantMessage: Message | null,
+    toolCalls: ToolCallRecord[],
+  ): void {
+    if (!cleanAssistant || !assistantMessage) {
+      return;
+    }
+    this.llmEvalService.maybeEvaluate({
+      chatId: session.chatId,
+      messageId: assistantMessage.id,
+      userMessage: cleanUser ?? '',
+      assistantMessage: cleanAssistant,
+      toolCalls,
+      accountId: session.account.id,
+      role: session.account.role,
+      hotelId: session.booking ? session.booking.hotelId : null,
+      bookingId: session.bookingId,
+    });
+  }
 
   private isGptVoicePipeline(): boolean {
     return this.constantsService.private.LLM.VOICE_PIPELINE === 'gpt';
@@ -619,21 +644,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
         }
 
-        if (cleanAssistant && assistantMessage) {
-          this.llmEvalService
-            .maybeEvaluate({
-              chatId: session.chatId,
-              messageId: assistantMessage.id,
-              userMessage: cleanUser ?? '',
-              assistantMessage: cleanAssistant,
-              toolCalls,
-              accountId: session.account.id,
-              role: session.account.role,
-              hotelId: session.booking ? session.booking.hotelId : null,
-              bookingId: session.bookingId,
-            })
-            .catch((err) => this.logger.error('LLM eval failed for voice turn', err as Error));
-        }
+        this.evaluateVoiceTurn(session, cleanUser, cleanAssistant, assistantMessage, toolCalls);
 
         client.emit('voice_text_end', { text: finalAssistantText, toolCalls });
         break;
@@ -714,21 +725,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
         }
 
-        if (cleanAssistant && assistantMessage) {
-          this.llmEvalService
-            .maybeEvaluate({
-              chatId: session.chatId,
-              messageId: assistantMessage.id,
-              userMessage: cleanUser ?? '',
-              assistantMessage: cleanAssistant,
-              toolCalls,
-              accountId: session.account.id,
-              role: session.account.role,
-              hotelId: session.booking ? session.booking.hotelId : null,
-              bookingId: session.bookingId,
-            })
-            .catch((err) => this.logger.error('LLM eval failed for voice turn', err as Error));
-        }
+        this.evaluateVoiceTurn(session, cleanUser, cleanAssistant, assistantMessage, toolCalls);
 
         client.emit('voice_audio_end');
         client.emit('voice_text_end', { text: cleanAssistant ?? '', toolCalls });
