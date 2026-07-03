@@ -38,6 +38,17 @@ const HOTEL_EXTRACTION_SCHEMA = z.object({
   }).describe('Brand colors picked from extracted signals using brand-identity knowledge as judgment.'),
 });
 
+// Brand-template fields a hotel inherits when it belongs to a known brand.
+const BRAND_INHERIT_FIELDS = [
+  'checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
+  'wifiPassword', 'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
+  'houseKeepingHours', 'roomServiceHours', 'llmInstructions',
+  'avatarConfig', 'logoUrl', 'notificationTone', 'customToneUrl',
+];
+
+// Words too generic to identify a brand on their own when token-matching names.
+const GENERIC_BRAND_TOKENS = new Set(['hotel', 'hotels', 'group', 'resort', 'resorts', 'inn', 'suites', 'the', 'by', 'member', 'international']);
+
 @Injectable()
 export class OnboardingService {
   constructor(
@@ -214,6 +225,55 @@ export class OnboardingService {
     return bestSrc; // last resort: any header img we found
   }
 
+  private brandNameTokens(name: string): string[] {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t && !GENERIC_BRAND_TOKENS.has(t));
+  }
+
+  /**
+   * Match a hotel/brand name against existing brands without crawling.
+   * Token match first (free); one small name-only LLM call only to break ties
+   * or, when `llmOnNoCandidates` is set, as a fallback across all brands.
+   */
+  private async matchBrandByName(name: string, brands: HotelBrand[], llmOnNoCandidates: boolean): Promise<HotelBrand | null> {
+    if (!name || brands.length === 0) return null;
+
+    const nameTokens = new Set(this.brandNameTokens(name));
+    const candidates = brands.filter((b) => {
+      const tokens = this.brandNameTokens(b.name);
+      return tokens.length > 0 && tokens.every((t) => nameTokens.has(t));
+    });
+
+    if (candidates.length === 1) return candidates[0];
+    if (candidates.length === 0 && !llmOnNoCandidates) return null;
+
+    const pool = candidates.length > 1 ? candidates : brands;
+    const matchPrompt = `A hotel is named "${name}".
+    Here is a list of existing hotel brand names in our database:
+    ${pool.map((b) => b.name).join(', ')}
+
+    Does this hotel belong to any of these existing brands?
+    If more than one could apply (e.g. a sub-brand and its parent group), answer with the MOST SPECIFIC one (the sub-brand, not the parent group).
+    Answer ONLY with the exact matching name from the list, or "NEW" if none match.`;
+    const matchedName = (await this.langGraphService.invoke([new HumanMessage(matchPrompt)])).trim();
+    return pool.find((b) => b.name === matchedName) ?? null;
+  }
+
+  // Brand fields fill the hotel record; extracted colors (when present) beat the brand's.
+  private inheritBrandFields(finalData: any, brand: HotelBrand, extractedHasColors: boolean): void {
+    for (const field of BRAND_INHERIT_FIELDS) {
+      if (brand[field] !== null && brand[field] !== undefined) {
+        finalData[field] = brand[field];
+      }
+    }
+    if (!extractedHasColors && brand.themeConfig !== null && brand.themeConfig !== undefined) {
+      finalData.themeConfig = brand.themeConfig;
+    }
+  }
+
   async crawlAndExtract(placeId: string, manualWebsite?: string) {
     const details = await this.mapsService.getPlaceDetails(placeId);
     if (!details) throw new NotFoundException('Place not found');
@@ -221,6 +281,27 @@ export class OnboardingService {
     const website = details.website || manualWebsite;
     if (!website) {
       throw new BadRequestException('Website is required for deep analysis');
+    }
+
+    // Fast path: if the place name already identifies a known brand, inherit the
+    // brand template and skip crawling + extraction entirely — no Tavily calls,
+    // no LLM extraction, no logo scrape/upload. Brand data is the source of truth
+    // for template fields; the admin can still edit everything in the preview.
+    const existingBrands = await this.brandsRepository.findAll();
+    const preMatchedBrand = await this.matchBrandByName(details.name, existingBrands, false);
+    if (preMatchedBrand) {
+      const finalData: any = {
+        name: details.name,
+        address: details.address,
+        website,
+        phoneNumber: details.phoneNumber,
+        googleMapsUrl: this.buildGoogleMapsUrl(details.id ?? placeId, details.location),
+        brandName: preMatchedBrand.name,
+        brandFound: true,
+        brandId: preMatchedBrand.id,
+      };
+      this.inheritBrandFields(finalData, preMatchedBrand, false);
+      return { success: true, message: null, data: finalData };
     }
 
     // Step 1: Crawl — parallel: general info + policy search + dedicated operating-hours search + direct HTML fetch (logo + colors)
@@ -312,32 +393,9 @@ ${crawlData}`;
       }
     }
 
-    // Step 3: Fuzzy Brand Matching via LLM
-    let brand = null;
-    if (extracted.brandName) {
-      const existingBrands = await this.brandsRepository.findAll();
-      const brandNames = [];
-      for (let i = 0; i < existingBrands.length; i++) {
-        brandNames.push(existingBrands[i].name);
-      }
-
-      if (brandNames.length > 0) {
-        const matchPrompt = `The agent extracted the brand name "${extracted.brandName}" for the hotel "${details.name}".
-        Here is a list of existing brand names in our database:
-        ${brandNames.join(', ')}
-
-        Does "${extracted.brandName}" match any of these existing brands? 
-        Answer ONLY with the exact matching name from the list, or "NEW" if it is a new brand.`;
-
-        const matchedName = (await this.langGraphService.invoke([new HumanMessage(matchPrompt)])).trim();
-
-        if (matchedName !== 'NEW') {
-          for (let i = 0; i < existingBrands.length; i++) {
-            if (existingBrands[i].name === matchedName) { brand = existingBrands[i]; break; }
-          }
-        }
-      }
-    }
+    // Step 3: match the extracted brand name against existing brands (token match
+    // first, LLM fallback) — reuses the brand list fetched for the fast path.
+    const brand = extracted.brandName ? await this.matchBrandByName(extracted.brandName, existingBrands, true) : null;
 
     // Prepare final object
     const finalData = {
@@ -354,25 +412,7 @@ ${crawlData}`;
 
     // If brand found, apply inheritance — brand fields fill gaps, but extracted values take priority for themeConfig
     if (brand) {
-      const brandFields = [
-        'checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
-        'wifiPassword', 'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
-        'houseKeepingHours', 'roomServiceHours', 'llmInstructions',
-        'avatarConfig', 'logoUrl', 'notificationTone', 'customToneUrl',
-      ];
-
-      for (let i = 0; i < brandFields.length; i++) {
-        const field = brandFields[i];
-        if (brand[field] !== null && brand[field] !== undefined) {
-          finalData[field] = brand[field];
-        }
-      }
-
-      // Only inherit themeConfig from brand if extraction didn't produce colors
-      const extractedHasColors = extracted.themeConfig?.primaryColor;
-      if (!extractedHasColors && brand.themeConfig !== null && brand.themeConfig !== undefined) {
-        finalData['themeConfig'] = brand.themeConfig;
-      }
+      this.inheritBrandFields(finalData, brand, !!extracted.themeConfig?.primaryColor);
     }
 
     return {
@@ -404,37 +444,28 @@ ${crawlData}`;
       hotelData.logoUrl = await this.uploadLogoFromUrl(hotelData.logoUrl, hotelData.name);
     }
 
-    // 1. Handle Brand — upsert with extracted data
+    // 1. Handle Brand — link to an existing brand, or create a new one seeded
+    // from this (founding) hotel's data. Existing brands are NEVER modified by
+    // hotel onboarding; brand edits go through the brand-management endpoints.
     let brandId = hotelData.brandId;
-    if (hotelData.brandName) {
-      const brandTemplate = {
-        name: hotelData.brandName,
-        checkInTime: hotelData.checkInTime,
-        checkOutTime: hotelData.checkOutTime,
-        poolHours: hotelData.poolHours,
-        gymHours: hotelData.gymHours,
-        restaurantHours: hotelData.restaurantHours,
-        breakfastHours: hotelData.breakfastHours,
-        lunchHours: hotelData.lunchHours,
-        dinnerHours: hotelData.dinnerHours,
-        llmInstructions: hotelData.llmInstructions,
-        themeConfig: hotelData.themeConfig,
-        logoUrl: hotelData.logoUrl,
-      };
-
-      // Build upsert payload — only non-null extracted fields so we never
-      // overwrite existing brand data with nulls when the brand already exists.
-      const upsertPayload: any = { name: hotelData.brandName };
-      const templateKeys = Object.keys(brandTemplate);
-      for (let i = 0; i < templateKeys.length; i++) {
-        const key = templateKeys[i];
-        if (brandTemplate[key] !== null && brandTemplate[key] !== undefined) {
-          upsertPayload[key] = brandTemplate[key];
+    if (!brandId && hotelData.brandName) {
+      const existingBrand = await this.brandsRepository.findOne({ where: { name: hotelData.brandName } });
+      if (existingBrand) {
+        brandId = existingBrand.id;
+      } else {
+        const brandTemplate: any = { name: hotelData.brandName };
+        const templateFields = [
+          'checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
+          'breakfastHours', 'lunchHours', 'dinnerHours', 'llmInstructions', 'themeConfig', 'logoUrl',
+        ];
+        for (const field of templateFields) {
+          if (hotelData[field] !== null && hotelData[field] !== undefined) {
+            brandTemplate[field] = hotelData[field];
+          }
         }
+        const brand = await this.brandsRepository.create(brandTemplate);
+        brandId = brand.id;
       }
-      // upsert uses INSERT … ON CONFLICT DO UPDATE — atomic, no race condition
-      const [brand] = await this.brandsRepository.upsert(upsertPayload, { returning: true });
-      brandId = brand.id;
     }
 
     // 2. Upsert Hotel — update if same address exists, otherwise create
