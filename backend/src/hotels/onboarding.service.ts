@@ -38,16 +38,13 @@ const HOTEL_EXTRACTION_SCHEMA = z.object({
   }).describe('Brand colors picked from extracted signals using brand-identity knowledge as judgment.'),
 });
 
-// Brand-template fields a hotel inherits when it belongs to a known brand.
+// Brand-template model fields a hotel inherits when it belongs to a known brand.
 const BRAND_INHERIT_FIELDS = [
   'checkInTime', 'checkOutTime', 'poolHours', 'gymHours', 'restaurantHours',
   'wifiPassword', 'breakfastHours', 'lunchHours', 'dinnerHours', 'snacksHours',
   'houseKeepingHours', 'roomServiceHours', 'llmInstructions',
   'avatarConfig', 'logoUrl', 'notificationTone', 'customToneUrl',
 ];
-
-// Words too generic to identify a brand on their own when token-matching names.
-const GENERIC_BRAND_TOKENS = new Set(['hotel', 'hotels', 'group', 'resort', 'resorts', 'inn', 'suites', 'the', 'by', 'member', 'international']);
 
 @Injectable()
 export class OnboardingService {
@@ -225,12 +222,12 @@ export class OnboardingService {
     return bestSrc; // last resort: any header img we found
   }
 
-  private brandNameTokens(name: string): string[] {
+  private brandNameTokens(name: string, genericTokens: Set<string>): string[] {
     return name
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter((t) => t && !GENERIC_BRAND_TOKENS.has(t));
+      .filter((t) => t && !genericTokens.has(t));
   }
 
   /**
@@ -241,9 +238,11 @@ export class OnboardingService {
   private async matchBrandByName(name: string, brands: HotelBrand[], llmOnNoCandidates: boolean): Promise<HotelBrand | null> {
     if (!name || brands.length === 0) return null;
 
-    const nameTokens = new Set(this.brandNameTokens(name));
+    const cfg = this.constantsService.private.ONBOARDING;
+    const genericTokens = new Set<string>(cfg.GENERIC_BRAND_TOKENS);
+    const nameTokens = new Set(this.brandNameTokens(name, genericTokens));
     const candidates = brands.filter((b) => {
-      const tokens = this.brandNameTokens(b.name);
+      const tokens = this.brandNameTokens(b.name, genericTokens);
       return tokens.length > 0 && tokens.every((t) => nameTokens.has(t));
     });
 
@@ -251,13 +250,9 @@ export class OnboardingService {
     if (candidates.length === 0 && !llmOnNoCandidates) return null;
 
     const pool = candidates.length > 1 ? candidates : brands;
-    const matchPrompt = `A hotel is named "${name}".
-    Here is a list of existing hotel brand names in our database:
-    ${pool.map((b) => b.name).join(', ')}
-
-    Does this hotel belong to any of these existing brands?
-    If more than one could apply (e.g. a sub-brand and its parent group), answer with the MOST SPECIFIC one (the sub-brand, not the parent group).
-    Answer ONLY with the exact matching name from the list, or "NEW" if none match.`;
+    const matchPrompt = cfg.BRAND_MATCH_PROMPT
+      .replace('{HOTEL_NAME}', name)
+      .replace('{BRAND_LIST}', pool.map((b) => b.name).join(', '));
     const matchedName = (await this.langGraphService.invoke([new HumanMessage(matchPrompt)])).trim();
     return pool.find((b) => b.name === matchedName) ?? null;
   }

@@ -230,7 +230,7 @@ export class HotelsController {
   async search(@Query('query') query: string, @CurrentAccount() account: Account) {
     this.hotelsService.ensureCanAddHotel(account);
     const data = await this.mapsService.searchPlaces(query);
-    return { success: true, data };
+    return { success: true, message: null, data };
   }
 
   @Get('onboarding/analyze/:placeId')
