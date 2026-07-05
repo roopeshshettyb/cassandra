@@ -417,6 +417,19 @@ export class ConstantsService {
       /** Presigned PUT URL expiry for client-side document upload (seconds). */
       DOC_UPLOAD_URL_EXPIRY_SECONDS: parseInt(this.configService.get('DOC_UPLOAD_URL_EXPIRY_SECONDS') || '900', 10),
 
+      ONBOARDING: {
+        // Words too generic to identify a brand on their own when token-matching names.
+        GENERIC_BRAND_TOKENS: ['hotel', 'hotels', 'group', 'resort', 'resorts', 'inn', 'suites', 'the', 'by', 'member', 'international'],
+        // Placeholders {HOTEL_NAME} and {BRAND_LIST} are filled at call time.
+        BRAND_MATCH_PROMPT: `A hotel is named "{HOTEL_NAME}".
+Here is a list of existing hotel brand names in our database:
+{BRAND_LIST}
+
+Does this hotel belong to any of these existing brands?
+If more than one could apply (e.g. a sub-brand and its parent group), answer with the MOST SPECIFIC one (the sub-brand, not the parent group).
+Answer ONLY with the exact matching name from the list, or "NEW" if none match.`,
+      },
+
       // JWT Configuration
       JWT_SECRET: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
       JWT_EXPIRY_DAYS: this.configService.get<number>('JWT_EXPIRY_DAYS', 7),
