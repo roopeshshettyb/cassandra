@@ -49,5 +49,3 @@ lerna-debug.log*
 *service-account*.json
 firebase-service-account*.json
 firebase-service-account.b64*
-
-package-lock.json
