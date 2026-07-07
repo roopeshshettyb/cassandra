@@ -1,4 +1,4 @@
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { DynamicStructuredTool, StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
@@ -19,7 +19,7 @@ export function createAgentTools(
   chatService: ChatService,
   hotelsService: HotelsService,
   constantsService: ConstantsService,
-): DynamicStructuredTool[] {
+): StructuredToolInterface[] {
   const { account, chatId, languageCode } = ctx;
   let currentBookingId: number | null = ctx.bookingId;
   let currentHotel: Record<string, unknown> | null = ctx.hotel;
@@ -37,7 +37,7 @@ export function createAgentTools(
     account.role === AccountRole.HOTEL_OWNER ||
     account.role === AccountRole.HOTEL_STAFF;
 
-  type ToolDef = { allowedRoles: Partial<Record<AccountRole, boolean>>; tool: DynamicStructuredTool };
+  type ToolDef = { allowedRoles: Partial<Record<AccountRole, boolean>>; tool: StructuredToolInterface };
 
   const toolDefs: ToolDef[] = [
     {
@@ -317,6 +317,7 @@ export function createAgentTools(
       description:
         'Search the restaurant menu. Use when guests ask about menu items, food options, prices, vegetarian/vegan options, dietary restrictions, or what is available to order. Provide bookingId to search the menu of that booking\'s hotel, or hotelId to search a specific hotel. If neither is given, it searches the current booking\'s hotel when in a booking context, otherwise every hotel you have access to. Returns available menu items (name, description, price, category, dietary tags, available times).',
       schema: z.object({
+        bookingId: z.number().optional().describe("Search the menu of this booking's hotel"),
         hotelId: z.number().optional().describe('Search the menu of this specific hotel'),
         keywords: z
           .string()
