@@ -1,5 +1,5 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { StructuredToolInterface } from '@langchain/core/tools';
 import { convertToOpenAITool } from '@langchain/core/utils/function_calling';
 import { AgentToolContext } from './langgraph-tools.context';
 import { createAgentTools } from './langgraph.tools';
@@ -36,7 +36,7 @@ export class RealtimeToolsService {
   getToolsMetadata(ctx: AgentToolContext): RealtimeToolDefinition[] {
     const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
 
-    return tools.map((tool: DynamicStructuredTool) => {
+    return tools.map((tool: StructuredToolInterface) => {
       const openaiTool = convertToOpenAITool(tool);
 
       if (openaiTool.type !== 'function' || !openaiTool.function) {
@@ -59,7 +59,7 @@ export class RealtimeToolsService {
    */
   async executeTool(ctx: AgentToolContext, name: string, args: Record<string, unknown>): Promise<unknown> {
     const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
-    const tool = tools.find((t: DynamicStructuredTool) => t.name === name);
+    const tool = tools.find((t: StructuredToolInterface) => t.name === name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);
     }
