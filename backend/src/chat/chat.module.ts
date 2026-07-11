@@ -11,6 +11,8 @@ import { ChatService } from './chat.service';
 import { ChatLlmService } from './chat-llm.service';
 import { ChatGateway } from './gateway/chat.gateway';
 import { VoiceGateway } from './gateway/voice.gateway';
+import { PhoneGateway } from './gateway/phone.gateway';
+import { AccountsModule } from '../accounts/accounts.module';
 import { VoiceRealtimeService } from './voice-realtime.service';
 import { DeepgramVoiceAgentService } from './deepgram-voice-agent.service';
 import { CostsModule } from '../costs/costs.module';
@@ -31,8 +33,9 @@ import { LlmEvalModule } from '../llm-eval/llm-eval.module';
     SttModule,
     TtsModule,
     LlmEvalModule,
+    AccountsModule,
   ],
-  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService, DeepgramVoiceAgentService],
+  providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, PhoneGateway, VoiceRealtimeService, DeepgramVoiceAgentService],
   exports: [ChatRepository, ChatService],
 })
 export class ChatModule {}
