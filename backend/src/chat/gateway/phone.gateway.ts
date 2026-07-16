@@ -72,6 +72,13 @@ export class PhoneGateway implements OnApplicationBootstrap, OnApplicationShutdo
       this.logger.warn('HTTP server unavailable — phone voice bridge disabled');
       return;
     }
+    // Diagnostic-only, path-agnostic: the `ws` path option below silently drops any
+    // upgrade whose pathname doesn't match — this passive listener logs every upgrade
+    // attempt regardless, so a path/casing mismatch from the caller (e.g. Exotel) is
+    // visible instead of vanishing with zero trace.
+    server.on('upgrade', (req: any) => {
+      this.logger.log(`Upgrade request received: ${req?.url} remoteAddr=${req?.socket?.remoteAddress}`);
+    });
     // ws matches on pathname only, so the applet URL may carry query params (?token=…&sample-rate=…).
     this.wss = new WebSocketServer({ server, path: config.WS_PATH });
     this.wss.on('connection', (ws: WebSocket, req: any) => this.onConnection(ws, req));
@@ -84,11 +91,18 @@ export class PhoneGateway implements OnApplicationBootstrap, OnApplicationShutdo
 
   private onConnection(ws: WebSocket, req: any) {
     const config = this.phoneConfig;
-    const token = new URL(req?.url ?? '', 'http://localhost').searchParams.get('token');
+    const url = req?.url ?? '';
+    const token = new URL(url, 'http://localhost').searchParams.get('token');
     if (token !== config.WS_SECRET) {
+      // Diagnostic-only: lengths/prefixes, never the full secret, so a mismatch (bad
+      // URL-encoding, truncation, stale copy-paste) is visible without leaking WS_SECRET.
+      this.logger.warn(
+        `Rejected phone connection: token mismatch. path=${url.split('?')[0]} received="${(token ?? '').slice(0, 6)}…" (len ${token?.length ?? 0}) expected len ${config.WS_SECRET?.length ?? 0} remoteAddr=${req?.socket?.remoteAddress}`,
+      );
       ws.close(1008);
       return;
     }
+    this.logger.log(`Phone WebSocket connected: remoteAddr=${req?.socket?.remoteAddress}`);
 
     const state: PhoneCallState = {
       ws,
