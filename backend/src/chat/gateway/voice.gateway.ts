@@ -566,7 +566,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private async handleRealtimeEvent(client: any, event: any) {
+  // Public: PhoneGateway reuses this (with a socket-shaped shim) so persistence,
+  // cost logging and eval stay single-sourced across web and phone callers.
+  async handleRealtimeEvent(client: any, event: any) {
     const session = client.session as ChatSession | undefined;
     if (!session) return;
 
@@ -663,7 +665,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private async handleDeepgramEvent(client: any, event: any) {
+  // Public for PhoneGateway reuse — see handleRealtimeEvent.
+  async handleDeepgramEvent(client: any, event: any) {
     const session = client.session as ChatSession | undefined;
     if (!session) return;
 
