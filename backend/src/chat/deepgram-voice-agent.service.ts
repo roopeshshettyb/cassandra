@@ -7,6 +7,7 @@ import { buildSystemInstructions } from './chat-prompt.builder';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { VoiceSessionHandlers } from './voice-realtime.service';
+import { CostsService } from '../costs/costs.service';
 
 interface DeepgramVoiceSessionState {
   ws: WebSocket;
@@ -19,6 +20,7 @@ interface DeepgramVoiceSessionState {
   pendingAudio: Buffer[];
   sessionConfigured: boolean;
   thinkConfig: any;
+  connectedAt: number;
 }
 
 @Injectable()
@@ -30,6 +32,7 @@ export class DeepgramVoiceAgentService {
     private readonly chatContextService: ChatContextService,
     private readonly realtimeToolsService: RealtimeToolsService,
     private readonly constantsService: ConstantsService,
+    private readonly costsService: CostsService,
   ) {}
 
   async createSession(sessionId: string, ctx: AgentToolContext, handlers: VoiceSessionHandlers): Promise<void> {
@@ -51,6 +54,9 @@ export class DeepgramVoiceAgentService {
       pendingAudio: [],
       sessionConfigured: false,
       thinkConfig: null,
+      // Deepgram bills by websocket connection time — start the clock from socket
+      // creation, not 'open', since that's the same instant Deepgram's own billing clock starts.
+      connectedAt: Date.now(),
     };
 
     this.sessions.set(sessionId, state);
@@ -137,8 +143,29 @@ export class DeepgramVoiceAgentService {
     });
 
     ws.on('close', () => {
+      this.recordSessionCost(state);
       this.sessions.delete(sessionId);
       handlers.onClose?.();
+    });
+  }
+
+  // One cost row per call, covering the whole session's connection time — Deepgram
+  // bills that way, so there's no accurate way to split it across individual turns.
+  // ctx is read at close time (not session start) since tool calls can update
+  // ctx.bookingId/hotel mid-call (same shared-reference pattern the GPT pipeline
+  // uses), and the whole call's cost should follow wherever the call ended up.
+  private recordSessionCost(state: DeepgramVoiceSessionState): void {
+    const durationMs = Date.now() - state.connectedAt;
+    if (durationMs <= 0) return;
+    const account: any = state.ctx.account;
+    const hotel: any = state.ctx.hotel;
+    this.costsService.recordVoiceSessionDurationCost({
+      durationMs,
+      bookingId: state.ctx.bookingId,
+      hotelId: hotel?.id ?? null,
+      accountId: account?.id ?? null,
+      role: account?.role ?? null,
+      chatId: state.ctx.chatId,
     });
   }
 

@@ -117,7 +117,10 @@ export class ChatLlmService {
     this.syncSessionBookingFromToolCalls(session, toolCalls);
 
     this.costsService.recordLlmCost({
-      type: CostType.LLM_CHAT,
+      // This same LangGraph call path serves both text chat and the "custom"
+      // STT+LLM+TTS voice pipeline (mode: 'voice') — tag voice turns as LLM_VOICE
+      // so channel-level cost reporting isn't silently folded into chat spend.
+      type: isVoice ? CostType.LLM_VOICE : CostType.LLM_CHAT,
       usage: {
         promptTokens: usage && usage.promptTokens ? usage.promptTokens : 0,
         completionTokens: usage && usage.completionTokens ? usage.completionTokens : 0,
