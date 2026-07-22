@@ -632,11 +632,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (cleanAssistant) {
           this.costsService.recordLlmCost({
             type: CostType.LLM_VOICE,
-            usage: {
-              promptTokens: usage?.promptTokens ?? 0,
-              completionTokens: usage?.completionTokens ?? 0,
-              totalTokens: usage?.totalTokens ?? 0,
-            },
+            // Pass the full usage through (including audio/cached token breakdown) —
+            // recordLlmCost's realtime pricing branch needs it to price correctly.
+            usage: usage ?? {},
             bookingId: session.bookingId,
             hotelId: session.booking ? session.booking.hotelId : null,
             accountId: session.account.id,
@@ -715,18 +713,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.logger.error('Failed to persist Deepgram voice messages', err as Error);
         }
 
-        if (cleanAssistant) {
-          this.costsService.recordLlmCost({
-            type: CostType.LLM_VOICE,
-            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-            bookingId: session.bookingId,
-            hotelId: session.booking ? session.booking.hotelId : null,
-            accountId: session.account.id,
-            role: session.account.role,
-            chatId: session.chatId,
-            messageId: assistantMessage ? assistantMessage.id : null,
-          });
-        }
+        // Deepgram Voice Agent bills by connection time, not tokens — there's no
+        // real per-turn cost to attribute here. The whole call's cost is recorded
+        // once, at session close (see DeepgramVoiceAgentService), instead of a
+        // per-turn row that could only ever be a fabricated number.
 
         this.evaluateVoiceTurn(session, cleanUser, cleanAssistant, assistantMessage, toolCalls);
 

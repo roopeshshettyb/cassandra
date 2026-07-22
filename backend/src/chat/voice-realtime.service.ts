@@ -6,11 +6,20 @@ import { RealtimeToolsService, RealtimeToolDefinition } from '../langgraph/realt
 import { buildSystemInstructions } from './chat-prompt.builder';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 import { ConstantsService } from '../common/constants/constants.service';
+import { TokenUsage } from '../costs/costs.pricing';
 
 export interface VoiceSessionHandlers {
   onServerEvent?: (event: any) => void;
   onError?: (error: Error) => void;
   onClose?: () => void;
+}
+
+// Mirrors OpenAI Realtime's response.usage shape (response.done event).
+interface RealtimeUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  input_token_details?: { text_tokens?: number; audio_tokens?: number; cached_tokens?: number; cached_tokens_details?: { text_tokens?: number; audio_tokens?: number } };
+  output_token_details?: { text_tokens?: number; audio_tokens?: number };
 }
 
 interface VoiceSessionState {
@@ -26,6 +35,10 @@ interface VoiceSessionState {
   transcriptionModel: string;
   isResponding: boolean;
   pendingToolResponse: boolean;
+  // Real usage from the most recent response.done, consumed alongside the
+  // transcripts. Absent only if OpenAI ever omits it (e.g. an error/cancelled
+  // response) — countTokens() below is the fallback for that case only.
+  lastUsage?: RealtimeUsage;
 }
 
 @Injectable()
@@ -221,7 +234,7 @@ export class VoiceRealtimeService {
     userTranscript?: string;
     assistantText?: string;
     toolCalls: ToolCallRecord[];
-    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+    usage?: TokenUsage;
   } {
     const state = this.sessions.get(sessionId);
     if (!state) {
@@ -229,24 +242,64 @@ export class VoiceRealtimeService {
     }
     const snapshotUser = state.userTranscript;
     const snapshotAssistant = state.assistantText;
-    const promptTokens = this.countTokens(snapshotUser);
-    const completionTokens = this.countTokens(snapshotAssistant);
-    const totalTokens = promptTokens + completionTokens;
+    const usage = this.buildTokenUsage(state.lastUsage, snapshotUser, snapshotAssistant);
 
     const snapshot = {
       userTranscript: snapshotUser,
       assistantText: snapshotAssistant,
       toolCalls: [...state.toolCalls],
-      usage: {
-        promptTokens,
-        completionTokens,
-        totalTokens,
-      },
+      usage,
     };
     state.userTranscript = undefined;
     state.assistantText = undefined;
     state.toolCalls = [];
+    state.lastUsage = undefined;
     return snapshot;
+  }
+
+  // Real usage should be present on every completed response.done — countTokens()
+  // below only covers the case where OpenAI omits it entirely (e.g. a cancelled
+  // response), and is flagged `estimated` so it's never silently mistaken for real spend.
+  private buildTokenUsage(realUsage: RealtimeUsage | undefined, userTranscript?: string, assistantText?: string): TokenUsage {
+    if (!realUsage) {
+      this.logger.warn('Realtime response.done had no usage object — falling back to word-count estimate');
+      const promptTokens = this.countTokens(userTranscript);
+      const completionTokens = this.countTokens(assistantText);
+      return { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens, estimated: true };
+    }
+    const input = realUsage.input_token_details;
+    const output = realUsage.output_token_details;
+    return {
+      promptTokens: input?.text_tokens ?? 0,
+      completionTokens: output?.text_tokens ?? 0,
+      totalTokens: (realUsage.input_tokens ?? 0) + (realUsage.output_tokens ?? 0),
+      audioPromptTokens: input?.audio_tokens ?? 0,
+      audioCompletionTokens: output?.audio_tokens ?? 0,
+      cachedTextPromptTokens: input?.cached_tokens_details?.text_tokens ?? 0,
+      cachedAudioPromptTokens: input?.cached_tokens_details?.audio_tokens ?? 0,
+    };
+  }
+
+  // Sums a new response's usage into the turn-level running total, field by field.
+  private accumulateUsage(state: VoiceSessionState, newUsage: RealtimeUsage | undefined): void {
+    if (!newUsage) return;
+    const prev = state.lastUsage;
+    state.lastUsage = {
+      input_tokens: (prev?.input_tokens ?? 0) + (newUsage.input_tokens ?? 0),
+      output_tokens: (prev?.output_tokens ?? 0) + (newUsage.output_tokens ?? 0),
+      input_token_details: {
+        text_tokens: (prev?.input_token_details?.text_tokens ?? 0) + (newUsage.input_token_details?.text_tokens ?? 0),
+        audio_tokens: (prev?.input_token_details?.audio_tokens ?? 0) + (newUsage.input_token_details?.audio_tokens ?? 0),
+        cached_tokens_details: {
+          text_tokens: (prev?.input_token_details?.cached_tokens_details?.text_tokens ?? 0) + (newUsage.input_token_details?.cached_tokens_details?.text_tokens ?? 0),
+          audio_tokens: (prev?.input_token_details?.cached_tokens_details?.audio_tokens ?? 0) + (newUsage.input_token_details?.cached_tokens_details?.audio_tokens ?? 0),
+        },
+      },
+      output_token_details: {
+        text_tokens: (prev?.output_token_details?.text_tokens ?? 0) + (newUsage.output_token_details?.text_tokens ?? 0),
+        audio_tokens: (prev?.output_token_details?.audio_tokens ?? 0) + (newUsage.output_token_details?.audio_tokens ?? 0),
+      },
+    };
   }
 
   private countTokens(text?: string): number {
@@ -285,6 +338,11 @@ export class VoiceRealtimeService {
         break;
       }
       case 'response.done': {
+        // A single user turn can produce multiple response.done events (a
+        // tool-call round, then the final audio/text response) before
+        // consumeTranscriptsAndTools is next called — accumulate rather than
+        // overwrite, so the tool-call round's real tokens aren't dropped.
+        this.accumulateUsage(state, event.response?.usage);
         if (state.pendingToolResponse) {
           state.pendingToolResponse = false;
           event._skipVoiceTextEnd = true;
