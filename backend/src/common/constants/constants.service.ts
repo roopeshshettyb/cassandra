@@ -467,12 +467,24 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         TEXT_MODEL: 'google/gemini-3.1-flash-lite',
         MENU_OCR_MODEL: this.configService.get<string>('MENU_OCR_MODEL', 'google/gemini-2.5-flash-lite'),
         SUMMARY_MODEL: this.configService.get<string>('SUMMARY_MODEL', 'openai/gpt-4o-mini'),
-        PROVIDER: 'openai',
+        // Chat/summary/eval all run through OpenRouter (see OPENROUTER below), never OpenAI directly.
+        PROVIDER: 'openrouter',
         CURRENCY: 'usd',
         TEXT_INPUT_PRICE_PER_1K: 0.00025,
         TEXT_OUTPUT_PRICE_PER_1K: 0.0015,
         SUMMARY_INPUT_PRICE_PER_1K: 0.00015,
         SUMMARY_OUTPUT_PRICE_PER_1K: 0.0006,
+        // gpt-realtime-2 rates (per developers.openai.com/api/docs/models/gpt-realtime-2):
+        // realtime sessions bill text AND audio tokens separately, both far above
+        // standard chat rates — using TEXT_INPUT/OUTPUT_PRICE_PER_1K here would
+        // dramatically undercount voice-call spend.
+        REALTIME_PRICING: {
+          TEXT_INPUT_PRICE_PER_1K: 0.004,
+          TEXT_OUTPUT_PRICE_PER_1K: 0.024,
+          AUDIO_INPUT_PRICE_PER_1K: 0.032,
+          AUDIO_OUTPUT_PRICE_PER_1K: 0.064,
+          CACHED_INPUT_PRICE_PER_1K: 0.0004,
+        },
         CONTEXT_SUMMARY: {
           ENABLED: this.configService.get<string>('ENABLE_CONTEXT_SUMMARY', 'false') === 'true',
           TRIGGER_TOKENS: parseInt(this.configService.get('CONTEXT_SUMMARY_TRIGGER_TOKENS') || '4000', 10),
@@ -514,6 +526,11 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           THINK_MODEL: this.configService.get<string>('DEEPGRAM_AGENT_THINK_MODEL', 'gpt-4o-mini'),
           THINK_OPENAI_API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
           SPEAK_MODEL: this.configService.get<string>('DEEPGRAM_AGENT_SPEAK_MODEL', 'aura-2-thalia-en'),
+          // Deepgram Voice Agent bills by websocket connection time, not tokens.
+          // Default is the pay-as-you-go "Custom - BYO LLM" rate (deepgram.com/pricing) —
+          // matches this config: Deepgram STT + Deepgram TTS + our own OpenAI think step.
+          // Override if the account is on a different plan/tier.
+          PRICE_PER_MINUTE: parseFloat(this.configService.get('DEEPGRAM_VOICE_AGENT_PRICE_PER_MINUTE') || '0.059'),
         },
         OPENROUTER: {
           API_KEY: this.configService.get<string>('OPENROUTER_API_KEY'),

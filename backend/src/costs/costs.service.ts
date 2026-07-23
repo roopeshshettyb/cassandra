@@ -2,7 +2,7 @@ import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { COSTS_REPOSITORY } from './costs.repository';
 import { Cost, CostType } from './costs.model';
 import { ConstantsService } from '../common/constants/constants.service';
-import { PricingConfig, TokenUsage, calculateTextCost } from './costs.pricing';
+import { PricingConfig, TokenUsage, calculateTextCost, calculateRealtimeVoiceCost, calculateDurationCost } from './costs.pricing';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Booking } from '../bookings/bookings.model';
@@ -61,6 +61,13 @@ export class CostsService {
 
   // accountId/role/chatId are nullable: summary and extraction-flow evals record
   // spend with no chat or account context (columns are nullable in the DB).
+  //
+  // Pricing is selected by which model actually ran, not by `type` alone: LLM_VOICE
+  // covers BOTH the OpenAI Realtime pipeline (real audio+text tokens, priced far
+  // above plain chat) AND the "custom" STT+LLM+TTS pipeline's LLM step (a plain
+  // TEXT_MODEL completion with no audio tokens at all) — using `type` alone would
+  // price the latter's ordinary text tokens at Realtime's audio rates. Presence of
+  // the audio usage fields is what actually distinguishes them.
   async recordLlmCost(params: {
     type: CostType;
     usage: TokenUsage;
@@ -72,18 +79,32 @@ export class CostsService {
     messageId: number | null;
   }) {
     const llm = this.constantsService.private.LLM;
-    const pricingConfig: PricingConfig = {
-      currency: llm.CURRENCY,
-      textInputPricePer1K: llm.TEXT_INPUT_PRICE_PER_1K,
-      textOutputPricePer1K: llm.TEXT_OUTPUT_PRICE_PER_1K,
-    };
+    const isRealtimeVoice = params.usage.audioPromptTokens !== undefined || params.usage.audioCompletionTokens !== undefined;
 
-    const pricing = calculateTextCost({
-      model: llm.TEXT_MODEL,
-      provider: llm.PROVIDER,
-      usage: params.usage,
-      config: pricingConfig,
-    });
+    const pricing = isRealtimeVoice
+      ? calculateRealtimeVoiceCost({
+          model: llm.STT_CONFIG.OPENAI.REALTIME_MODEL,
+          provider: 'openai',
+          usage: params.usage,
+          config: {
+            currency: llm.CURRENCY,
+            textInputPricePer1K: llm.REALTIME_PRICING.TEXT_INPUT_PRICE_PER_1K,
+            textOutputPricePer1K: llm.REALTIME_PRICING.TEXT_OUTPUT_PRICE_PER_1K,
+            audioInputPricePer1K: llm.REALTIME_PRICING.AUDIO_INPUT_PRICE_PER_1K,
+            audioOutputPricePer1K: llm.REALTIME_PRICING.AUDIO_OUTPUT_PRICE_PER_1K,
+            cachedInputPricePer1K: llm.REALTIME_PRICING.CACHED_INPUT_PRICE_PER_1K,
+          },
+        })
+      : calculateTextCost({
+          model: params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_MODEL : llm.TEXT_MODEL,
+          provider: llm.PROVIDER,
+          usage: params.usage,
+          config: {
+            currency: llm.CURRENCY,
+            textInputPricePer1K: params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_INPUT_PRICE_PER_1K : llm.TEXT_INPUT_PRICE_PER_1K,
+            textOutputPricePer1K: params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_OUTPUT_PRICE_PER_1K : llm.TEXT_OUTPUT_PRICE_PER_1K,
+          } as PricingConfig,
+        });
 
     this.recordCost({
       type: params.type,
@@ -99,6 +120,41 @@ export class CostsService {
       role: params.role,
       chatId: params.chatId,
       messageId: params.messageId,
+    });
+  }
+
+  // Deepgram Voice Agent bills by websocket connection time, not tokens — one row
+  // per call, recorded at session close (see DeepgramVoiceAgentService).
+  async recordVoiceSessionDurationCost(params: {
+    durationMs: number;
+    bookingId: number | null;
+    hotelId: number | null;
+    accountId: number | null;
+    role: string | null;
+    chatId: number | null;
+  }) {
+    const llm = this.constantsService.private.LLM;
+    const pricing = calculateDurationCost({
+      model: llm.DEEPGRAM_VOICE_AGENT.LISTEN_MODEL,
+      provider: 'deepgram',
+      durationMs: params.durationMs,
+      config: {
+        currency: llm.CURRENCY,
+        pricePerMinute: llm.DEEPGRAM_VOICE_AGENT.PRICE_PER_MINUTE,
+      },
+    });
+
+    this.recordCost({
+      type: CostType.LLM_VOICE,
+      amount: pricing.amount,
+      currency: pricing.currency,
+      meta: { ...pricing.meta, chatId: params.chatId },
+      bookingId: params.bookingId,
+      hotelId: params.hotelId,
+      accountId: params.accountId,
+      role: params.role,
+      chatId: params.chatId,
+      messageId: null,
     });
   }
 
