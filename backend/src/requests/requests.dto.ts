@@ -90,6 +90,18 @@ export class UpdateRequestDto {
   readonly status?: RequestStatus;
 }
 
+// Structural shape for RequestsService.upsertByExternalId — implemented by
+// integrations/dto's UpsertRequestDto, which does the actual runtime validation
+// at the webhook controller boundary.
+export interface RequestExternalUpsertPayload {
+  externalId: string;
+  bookingExternalId: string;
+  requestType: RequestType;
+  urgency: RequestUrgency;
+  status?: RequestStatus;
+  userNotes?: any[];
+}
+
 export class AppendMessageDto {
   @IsString()
   @IsNotEmpty()

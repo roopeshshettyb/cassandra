@@ -360,7 +360,25 @@ export class ConstantsService {
       "value": "snacks",
       "label": "Snacks"
     }
-  ]
+  ],
+      INTEGRATIONS: {
+        TAB_LABEL: 'Integrations',
+        STATUS_ACTIVE_LABEL: 'Active',
+        STATUS_REVOKED_LABEL: 'Revoked',
+        STATUS_NOT_CONFIGURED_LABEL: 'Not configured',
+        GENERATE_BUTTON_LABEL: 'Generate Token',
+        ROTATE_BUTTON_LABEL: 'Rotate Token',
+        REVOKE_BUTTON_LABEL: 'Revoke Token',
+        COPY_TOKEN_BUTTON_LABEL: 'Copy Token',
+        COPY_BOOKINGS_URL_BUTTON_LABEL: 'Copy Bookings Webhook URL',
+        COPY_REQUESTS_URL_BUTTON_LABEL: 'Copy Requests Webhook URL',
+        TOKEN_ONE_TIME_WARNING: 'This token will not be shown again — copy it now and store it securely.',
+        REVOKE_CONFIRM_MESSAGE: 'Revoking this token will stop any connected PMS from syncing bookings and requests. Continue?',
+        BOOKINGS_WEBHOOK_LABEL: 'Bookings Webhook URL',
+        REQUESTS_WEBHOOK_LABEL: 'Requests Webhook URL',
+        TOKEN_PREFIX_LABEL: 'Token',
+        COPIED_MESSAGE: 'Copied to clipboard',
+      },
     };
   }
 
@@ -428,6 +446,28 @@ Here is a list of existing hotel brand names in our database:
 Does this hotel belong to any of these existing brands?
 If more than one could apply (e.g. a sub-brand and its parent group), answer with the MOST SPECIFIC one (the sub-brand, not the parent group).
 Answer ONLY with the exact matching name from the list, or "NEW" if none match.`,
+      },
+
+      // PMS/webhook integrations. Path values here must match the literal paths on
+      // the @Controller/@Post decorators in integrations.webhook.controller.ts —
+      // NestJS route decorators need compile-time string literals, so these can't be
+      // read from this service at the decorator site; they're used to build the
+      // absolute webhook URLs returned to the Hotel Details UI.
+      INTEGRATIONS: {
+        V1_BOOKINGS_PATH: '/integrations/v1/bookings',
+        V1_REQUESTS_PATH: '/integrations/v1/requests',
+        TOKEN_BYTE_LENGTH: 32,
+        TOKEN_PREFIX_LENGTH: 8,
+        TOKEN_HASH_ALGORITHM: 'sha256',
+        MSG_TOKEN_GENERATED: 'Integration token generated — copy it now, it will not be shown again',
+        MSG_TOKEN_ROTATED: 'Integration token rotated — copy the new token now, it will not be shown again',
+        MSG_TOKEN_REVOKED: 'Integration token revoked',
+        ERROR_INVALID_TOKEN: 'Invalid or revoked integration token',
+        ERROR_UNKNOWN_PROVIDER: 'Unknown integration provider',
+        ERROR_BOOKING_NOT_FOUND_FOR_REQUEST: 'bookingExternalId does not match any existing booking for this hotel',
+        ERROR_MALFORMED_CANONICAL_BODY: 'Body must be { type: "booking" | "request", data: {...} }',
+        MSG_BOOKING_UPSERTED: 'Booking upserted',
+        MSG_REQUEST_UPSERTED: 'Request upserted',
       },
 
       // JWT Configuration

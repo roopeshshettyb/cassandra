@@ -13,6 +13,8 @@ import { Chat, ChatType } from './chat/chat.model';
 import { ChatSummary } from './chat-summary/chat-summary.model';
 import { Message, MessageRole } from './messages/message.model';
 import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
+import { HotelIntegration, IntegrationStatus } from './integrations/hotel-integrations.model';
+import { createHash } from 'crypto';
 
 const nodeEnv = process.env.NODE_ENV;
 const envFile = nodeEnv === 'prod' ? 'prod.env' : 'dev.env';
@@ -36,7 +38,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -262,8 +264,9 @@ async function seed() {
   const d = (offsetDays: number, h = 15, m = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, h, m, 0);
 
   const bookingData = [
-    // Guest One is currently mid-stay so the guest portal/concierge is testable
-    { guestId: accounts[3].id, hotelId: hotels[0].id, startTime: d(-1), endTime: d(2, 11), roomNumber: '301' },
+    // Guest One is currently mid-stay so the guest portal/concierge is testable.
+    // externalId links this row to the seeded PMS integration test token below.
+    { guestId: accounts[3].id, hotelId: hotels[0].id, startTime: d(-1), endTime: d(2, 11), roomNumber: '301', externalId: 'pms-res-301' },
     { guestId: accounts[3].id, hotelId: hotels[1].id, startTime: d(14), endTime: d(16, 10), roomNumber: '512' },
     { guestId: accounts[4].id, hotelId: hotels[0].id, startTime: d(14), endTime: d(16, 10), roomNumber: '204' },
     { guestId: accounts[4].id, hotelId: hotels[2].id, startTime: d(21, 16), endTime: d(23, 11), roomNumber: '118' },
@@ -288,6 +291,7 @@ async function seed() {
       staffNotes: ['Delivered at 19:30'],
       data: [{ name: 'Club Sandwich', quantity: 1, notes: 'No mayo' }, { name: 'Mineral Water', quantity: 2 }],
       urgency: RequestUrgency.MEDIUM, status: RequestStatus.COMPLETED,
+      externalId: 'pms-req-301-room-service',
     },
     {
       hotelId: hotels[0].id, guestId: accounts[3].id, bookingId: bookings[0].id,
@@ -326,6 +330,24 @@ async function seed() {
     });
     await restoreIfSoftDeleted(request);
   }
+
+  // ── PMS Integration ──────────────────────────────────────────────────────────
+  // Fixed, documented dev/test token (never a real generated secret) so anyone
+  // running seed can immediately curl the webhook routes for hotels[0]. Hashed
+  // with the same algorithm HotelIntegrationsService uses, so it validates
+  // exactly like a real generated token would.
+  const devIntegrationToken = 'dev-test-integration-token-do-not-use-in-prod';
+  const devIntegrationTokenHash = createHash('sha256').update(devIntegrationToken).digest('hex');
+  await HotelIntegration.findOrCreate({
+    where: { hotelId: hotels[0].id },
+    defaults: {
+      hotelId: hotels[0].id,
+      tokenHash: devIntegrationTokenHash,
+      tokenPrefix: devIntegrationToken.slice(0, 8),
+      status: IntegrationStatus.ACTIVE,
+      createdByAccountId: accounts[1].id,
+    } as any,
+  });
 
   // ── Chats, Messages & LLM Evals ─────────────────────────────────────────────
   const judgeModel = 'google/gemini-3.1-flash-lite';
@@ -438,6 +460,7 @@ async function seed() {
     }
   }
 
+  console.log(`PMS integration test token for hotel "${hotels[0].name}" (id ${hotels[0].id}): ${devIntegrationToken}`);
   console.log('Seed completed.');
   process.exit(0);
 }

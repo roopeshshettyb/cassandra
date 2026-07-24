@@ -1,7 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+// Structural shape for BookingsService.upsertByExternalId — implemented by
+// integrations/dto's UpsertBookingDto, which does the actual runtime validation
+// at the webhook controller boundary.
+export interface BookingExternalUpsertPayload {
+  externalId: string;
+  startDate: string;
+  endDate: string;
+  roomNumber?: string;
+  guestEmail: string;
+  guestName?: string;
+  guestPhone?: string;
+}
 
 export class CreateBookingDto {
   @IsString()
