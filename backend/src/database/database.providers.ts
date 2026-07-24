@@ -16,6 +16,7 @@ import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { ChatSummary } from '../chat-summary/chat-summary.model';
 import { LlmEval } from '../llm-eval/llm-eval.model';
+import { HotelIntegration } from '../integrations/hotel-integrations.model';
 
 export const SEQUELIZE_DATABASE_PROVIDER = 'SEQUELIZE_DATABASE_PROVIDER';
 
@@ -26,7 +27,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval],
+        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration],
       });
       await sequelize.authenticate();
       try {
@@ -63,6 +64,10 @@ export const DATABASE_PROVIDERS = [
         "UPDATE hotel_accounts SET role = 'hotel_staff' WHERE role IS NULL",
         "UPDATE hotel_accounts SET status = 'active' WHERE status IS NULL",
         "UPDATE hotel_accounts ha SET role = 'hotel_owner' FROM accounts a WHERE ha.account_id = a.id AND a.role = 'hotel_owner'",
+        'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
+        'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
+        'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
+        'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
       ];
       for (let i = 0; i < migrations.length; i++) {
         try {
