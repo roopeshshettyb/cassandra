@@ -468,6 +468,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         ERROR_MALFORMED_CANONICAL_BODY: 'Body must be { type: "booking" | "request", data: {...} }',
         MSG_BOOKING_UPSERTED: 'Booking upserted',
         MSG_REQUEST_UPSERTED: 'Request upserted',
+        MSG_PROVIDER_WEBHOOK_PROCESSED: 'Provider webhook processed',
+        MSG_INTEGRATION_FETCHED: 'Integration fetched',
       },
 
       // JWT Configuration

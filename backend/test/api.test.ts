@@ -721,13 +721,15 @@ describe('Integrations', () => {
     firstUpsertedBookingId = data.id;
   });
 
-  it('POST /integrations/v1/bookings same externalId again → updates the same row, no duplicate', async () => {
+  // 200 (not 201) on re-delivery: a PMS re-sends the same reservation on every
+  // change, and must be able to tell an update from a new booking by status code.
+  it('POST /integrations/v1/bookings same externalId again → 200, updates the same row, no duplicate', async () => {
     const res = await webhookPost(
       '/integrations/v1/bookings',
       { externalId: `${TAG}-booking-1`, startDate: '2026-05-01', endDate: '2026-05-06', guestEmail: EMAILS.pmsGuest, roomNumber: '901' },
       integrationToken,
     );
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const data = res.data?.data ?? res.data;
     expect(data.id).toBe(firstUpsertedBookingId);
     expect(data.roomNumber).toBe('901');
@@ -743,6 +745,18 @@ describe('Integrations', () => {
     const data = res.data?.data ?? res.data;
     expect(data.bookingId).toBe(firstUpsertedBookingId);
     expect(data.hotelId).toBe(state.testHotelId);
+  });
+
+  it('POST /integrations/v1/requests same externalId again → 200, updates the same row, no duplicate', async () => {
+    const res = await webhookPost(
+      '/integrations/v1/requests',
+      { externalId: `${TAG}-request-1`, bookingExternalId: `${TAG}-booking-1`, requestType: 'laundry', urgency: 'high' },
+      integrationToken,
+    );
+    expect(res.status).toBe(200);
+    const data = res.data?.data ?? res.data;
+    expect(data.requestType).toBe('laundry');
+    expect(data.urgency).toBe('high');
   });
 
   it('POST /integrations/v1/requests with unknown bookingExternalId → 400', async () => {

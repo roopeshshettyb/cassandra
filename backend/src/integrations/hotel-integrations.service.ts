@@ -41,7 +41,7 @@ export class HotelIntegrationsService {
 
     return {
       success: true,
-      message: null,
+      message: this.constantsService.private.INTEGRATIONS.MSG_INTEGRATION_FETCHED,
       data: {
         status: integration?.status ?? null,
         tokenPrefix: integration?.tokenPrefix ?? null,
