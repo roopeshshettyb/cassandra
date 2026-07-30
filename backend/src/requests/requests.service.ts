@@ -144,7 +144,11 @@ export class RequestsService {
   //
   // Retries once on a unique-constraint conflict — see BookingsService.upsertByExternalId
   // for why find-then-create needs this under concurrent identical-externalId delivery.
-  async upsertByExternalId(hotelId: number, payload: RequestExternalUpsertPayload, isRetry = false): Promise<Request> {
+  async upsertByExternalId(
+    hotelId: number,
+    payload: RequestExternalUpsertPayload,
+    isRetry = false,
+  ): Promise<{ record: Request; created: boolean }> {
     try {
       const booking = await this.bookingsService.findByExternalId(hotelId, payload.bookingExternalId);
       if (!booking) {
@@ -160,10 +164,10 @@ export class RequestsService {
         if (payload.status) existing.status = payload.status;
         if (payload.userNotes) existing.userNotes = payload.userNotes;
         await existing.save();
-        return existing;
+        return { record: existing, created: false };
       }
 
-      return await this.requestsRepository.create({
+      const record = await this.requestsRepository.create({
         hotelId,
         guestId: booking.guestId,
         bookingId: booking.id,
@@ -173,6 +177,7 @@ export class RequestsService {
         userNotes: payload.userNotes ?? [],
         externalId: payload.externalId,
       });
+      return { record, created: true };
     } catch (err) {
       if (!isRetry && err instanceof UniqueConstraintError) {
         return this.upsertByExternalId(hotelId, payload, true);
