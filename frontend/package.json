@@ -1,6 +1,6 @@
 {
   "name": "profile-aura-frontend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "fetch-constants": "node scripts/fetch-constants.js",
