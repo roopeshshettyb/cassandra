@@ -144,7 +144,13 @@ export class BookingsService {
   // find nothing and both try to create (same race applies to the guest-email
   // lookup below). Retrying once on a unique-constraint conflict re-reads what the
   // winning request just created, instead of surfacing a 500 to the loser.
-  async upsertByExternalId(hotelId: number, payload: BookingExternalUpsertPayload, isRetry = false): Promise<Booking> {
+  // Returns `created` so the webhook layer can answer 201 on insert and 200 on
+  // update — PMS vendors distinguish the two by status code.
+  async upsertByExternalId(
+    hotelId: number,
+    payload: BookingExternalUpsertPayload,
+    isRetry = false,
+  ): Promise<{ record: Booking; created: boolean }> {
     try {
       const startDate = payload.startDate.trim();
       const endDate = payload.endDate.trim();
@@ -180,10 +186,10 @@ export class BookingsService {
         existing.guestId = guest.id;
         if (roomNumber) existing.roomNumber = roomNumber;
         await existing.save();
-        return existing;
+        return { record: existing, created: false };
       }
 
-      return await this.bookingsRepository.create({
+      const record = await this.bookingsRepository.create({
         hotelId,
         guestId: guest.id,
         startTime,
@@ -191,6 +197,7 @@ export class BookingsService {
         roomNumber: roomNumber || undefined,
         externalId: payload.externalId,
       });
+      return { record, created: true };
     } catch (err) {
       if (!isRetry && err instanceof UniqueConstraintError) {
         return this.upsertByExternalId(hotelId, payload, true);
