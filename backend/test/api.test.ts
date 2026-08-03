@@ -44,6 +44,8 @@ const EMAILS = {
   owner: `${TAG}_owner@cassandratest.local`,
   staff: `${TAG}_staff@cassandratest.local`,
   guest: `${TAG}_guest@cassandratest.local`,
+  pmsGuest: `${TAG}_pms_guest@cassandratest.local`,
+  pmsIsolationGuest: `${TAG}_pms_isolation_guest@cassandratest.local`,
 };
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -183,6 +185,8 @@ afterAll(async () => {
   await accountsService.delete({ email: EMAILS.owner }, true).catch(() => {});
   await accountsService.delete({ email: EMAILS.staff }, true).catch(() => {});
   await accountsService.delete({ email: EMAILS.guest }, true).catch(() => {});
+  await accountsService.delete({ email: EMAILS.pmsGuest }, true).catch(() => {});
+  await accountsService.delete({ email: EMAILS.pmsIsolationGuest }, true).catch(() => {});
 
   await moduleRef.close();
   nodeHttp.globalAgent.destroy();
@@ -660,5 +664,170 @@ describe('Permission Guards', () => {
         state.guestToken,
       ),
     );
+  });
+});
+
+describe('Integrations', () => {
+  // Webhook routes authenticate via Bearer <integration token>, never the
+  // session JWT — so these go through raw axios rather than the http helper
+  // (which always attaches a session Authorization header).
+  const webhookPost = (url: string, data: any, token?: string) =>
+    axios.post(`${state.BASE_URL}${url}`, data, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  let integrationToken = '';
+  let firstUpsertedBookingId = 0;
+
+  it('POST /hotels/:hotelId/integrations/token (owner) → generates token, plaintext returned once', async () => {
+    const res = await http.post(`/hotels/${state.testHotelId}/integrations/token`, {}, state.ownerToken);
+    expect(res.status).toBe(201);
+    const data = res.data?.data ?? res.data;
+    expect(data.token).toBeTruthy();
+    expect(data.status).toBe('active');
+    expect(data.webhookUrls?.bookings).toContain('/integrations/v1/bookings');
+    expect(data.webhookUrls?.requests).toContain('/integrations/v1/requests');
+    integrationToken = data.token;
+  });
+
+  it('GET /hotels/:hotelId/integrations (owner) → returns metadata, never the plaintext token', async () => {
+    const res = await http.get(`/hotels/${state.testHotelId}/integrations`, state.ownerToken);
+    expect(res.status).toBe(200);
+    const data = res.data?.data ?? res.data;
+    expect(data.status).toBe('active');
+    expect(data.tokenPrefix).toBeTruthy();
+    expect(data.token).toBeUndefined();
+    expect(JSON.stringify(res.data)).not.toContain(integrationToken);
+  });
+
+  it('GET /hotels/:hotelId/integrations (staff/guest) → 403', async () => {
+    await expectStatus(403, () => http.get(`/hotels/${state.testHotelId}/integrations`, state.staffToken));
+    await expectStatus(403, () => http.get(`/hotels/${state.testHotelId}/integrations`, state.guestToken));
+  });
+
+  it('POST /hotels/:hotelId/integrations/token (staff/guest) → 403', async () => {
+    await expectStatus(403, () => http.post(`/hotels/${state.testHotelId}/integrations/token`, {}, state.staffToken));
+    await expectStatus(403, () => http.post(`/hotels/${state.testHotelId}/integrations/token`, {}, state.guestToken));
+  });
+
+  it('POST /integrations/v1/bookings (valid token) → creates booking scoped to the token\'s hotel', async () => {
+    const res = await webhookPost(
+      '/integrations/v1/bookings',
+      { externalId: `${TAG}-booking-1`, startDate: '2026-05-01', endDate: '2026-05-03', guestEmail: EMAILS.pmsGuest, guestName: 'PMS Guest', roomNumber: '900' },
+      integrationToken,
+    );
+    expect(res.status).toBe(201);
+    const data = res.data?.data ?? res.data;
+    expect(data.hotelId).toBe(state.testHotelId);
+    expect(data.externalId).toBe(`${TAG}-booking-1`);
+    firstUpsertedBookingId = data.id;
+  });
+
+  // 200 (not 201) on re-delivery: a PMS re-sends the same reservation on every
+  // change, and must be able to tell an update from a new booking by status code.
+  it('POST /integrations/v1/bookings same externalId again → 200, updates the same row, no duplicate', async () => {
+    const res = await webhookPost(
+      '/integrations/v1/bookings',
+      { externalId: `${TAG}-booking-1`, startDate: '2026-05-01', endDate: '2026-05-06', guestEmail: EMAILS.pmsGuest, roomNumber: '901' },
+      integrationToken,
+    );
+    expect(res.status).toBe(200);
+    const data = res.data?.data ?? res.data;
+    expect(data.id).toBe(firstUpsertedBookingId);
+    expect(data.roomNumber).toBe('901');
+  });
+
+  it('POST /integrations/v1/requests resolves bookingExternalId → creates request linked to the upserted booking', async () => {
+    const res = await webhookPost(
+      '/integrations/v1/requests',
+      { externalId: `${TAG}-request-1`, bookingExternalId: `${TAG}-booking-1`, requestType: 'room_service', urgency: 'low' },
+      integrationToken,
+    );
+    expect(res.status).toBe(201);
+    const data = res.data?.data ?? res.data;
+    expect(data.bookingId).toBe(firstUpsertedBookingId);
+    expect(data.hotelId).toBe(state.testHotelId);
+  });
+
+  it('POST /integrations/v1/requests same externalId again → 200, updates the same row, no duplicate', async () => {
+    const res = await webhookPost(
+      '/integrations/v1/requests',
+      { externalId: `${TAG}-request-1`, bookingExternalId: `${TAG}-booking-1`, requestType: 'laundry', urgency: 'high' },
+      integrationToken,
+    );
+    expect(res.status).toBe(200);
+    const data = res.data?.data ?? res.data;
+    expect(data.requestType).toBe('laundry');
+    expect(data.urgency).toBe('high');
+  });
+
+  it('POST /integrations/v1/requests with unknown bookingExternalId → 400', async () => {
+    await expectStatus(400, () =>
+      webhookPost('/integrations/v1/requests', { externalId: `${TAG}-request-bad`, bookingExternalId: 'no-such-booking', requestType: 'room_service', urgency: 'low' }, integrationToken),
+    );
+  });
+
+  it('POST /integrations/v1/bookings without a token → 401', async () => {
+    await expectStatus(401, () =>
+      webhookPost('/integrations/v1/bookings', { externalId: 'x', startDate: '2026-01-01', endDate: '2026-01-02', guestEmail: 'x@cassandratest.local' }),
+    );
+  });
+
+  it('rotating the token invalidates the old one', async () => {
+    const rotateRes = await http.post(`/hotels/${state.testHotelId}/integrations/token`, {}, state.ownerToken);
+    const newToken = (rotateRes.data?.data ?? rotateRes.data).token;
+    expect(newToken).not.toBe(integrationToken);
+
+    await expectStatus(401, () =>
+      webhookPost('/integrations/v1/bookings', { externalId: 'old-token-test', startDate: '2026-01-01', endDate: '2026-01-02', guestEmail: 'x@cassandratest.local' }, integrationToken),
+    );
+
+    integrationToken = newToken;
+  });
+
+  it('DELETE /hotels/:hotelId/integrations/token (owner) → revokes; token then fails', async () => {
+    const res = await http.delete(`/hotels/${state.testHotelId}/integrations/token`, state.ownerToken);
+    expect(res.status).toBe(200);
+
+    await expectStatus(401, () =>
+      webhookPost('/integrations/v1/bookings', { externalId: 'revoked-test', startDate: '2026-01-01', endDate: '2026-01-02', guestEmail: 'x@cassandratest.local' }, integrationToken),
+    );
+  });
+
+  it('a token for one hotel cannot write data under a different hotel', async () => {
+    const hotelRes = await http.post('/hotels', { name: `Test Hotel B ${TAG}`, address: '2 Test St', checkInTime: '14:00', checkOutTime: '11:00' }, state.adminToken);
+    const secondHotelId = hotelRes.data?.data?.id ?? hotelRes.data?.id;
+    await http.post(`/hotels/${secondHotelId}/access`, { accountId: state.ownerAccountId }, state.adminToken);
+    const tokenRes = await http.post(`/hotels/${secondHotelId}/integrations/token`, {}, state.ownerToken);
+    const secondHotelToken = (tokenRes.data?.data ?? tokenRes.data).token;
+
+    const res = await webhookPost(
+      '/integrations/v1/bookings',
+      { externalId: `${TAG}-isolation-test`, startDate: '2026-06-01', endDate: '2026-06-02', guestEmail: EMAILS.pmsIsolationGuest },
+      secondHotelToken,
+    );
+    expect(res.status).toBe(201);
+    const data = res.data?.data ?? res.data;
+    expect(data.hotelId).toBe(secondHotelId);
+    expect(data.hotelId).not.toBe(state.testHotelId);
+
+    await hotelsService.deleteHotel(secondHotelId, state.adminAccount!, true).catch(() => {});
+  });
+
+  it('POST /integrations/providers/:provider/webhooks (canonical) → upserts via the envelope shape', async () => {
+    // integrationToken was revoked in the previous test — generate a fresh one.
+    const tokenRes = await http.post(`/hotels/${state.testHotelId}/integrations/token`, {}, state.ownerToken);
+    const freshToken = (tokenRes.data?.data ?? tokenRes.data).token;
+
+    const res = await webhookPost(
+      '/integrations/providers/canonical/webhooks',
+      { type: 'booking', data: { externalId: `${TAG}-canonical-1`, startDate: '2026-07-01', endDate: '2026-07-02', guestEmail: EMAILS.pmsGuest } },
+      freshToken,
+    );
+    expect(res.status).toBe(201);
+    const results = res.data?.data ?? res.data;
+    expect(Array.isArray(results)).toBe(true);
+    expect(results[0].hotelId).toBe(state.testHotelId);
+    expect(results[0].externalId).toBe(`${TAG}-canonical-1`);
+
+    await expectStatus(404, () => webhookPost('/integrations/providers/mews/webhooks', {}, freshToken));
   });
 });

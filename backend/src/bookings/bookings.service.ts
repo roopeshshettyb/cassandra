@@ -1,7 +1,7 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
-import { CreateBookingDto, UpdateBookingDto } from './bookings.dto';
+import { CreateBookingDto, UpdateBookingDto, BookingExternalUpsertPayload } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
@@ -14,7 +14,7 @@ import { ConstantsService, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from 
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Op, literal, Transaction } from 'sequelize';
+import { Op, literal, Transaction, UniqueConstraintError } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
@@ -128,6 +128,82 @@ export class BookingsService {
       message: 'Booking created',
       data: booking,
     };
+  }
+
+  async findByExternalId(hotelId: number, externalId: string): Promise<Booking | null> {
+    return this.bookingsRepository.findOne({ where: { hotelId, externalId } });
+  }
+
+  // Called only from the integrations webhook path (hotelId is already trusted,
+  // resolved from the integration token — never client-supplied here). Upserts by
+  // (hotelId, externalId): same externalId twice updates the same row instead of
+  // creating a duplicate.
+  //
+  // find-then-create isn't atomic, and PMS webhooks realistically deliver the same
+  // externalId concurrently (retries, duplicate delivery) — two requests can both
+  // find nothing and both try to create (same race applies to the guest-email
+  // lookup below). Retrying once on a unique-constraint conflict re-reads what the
+  // winning request just created, instead of surfacing a 500 to the loser.
+  // Returns `created` so the webhook layer can answer 201 on insert and 200 on
+  // update — PMS vendors distinguish the two by status code.
+  async upsertByExternalId(
+    hotelId: number,
+    payload: BookingExternalUpsertPayload,
+    isRetry = false,
+  ): Promise<{ record: Booking; created: boolean }> {
+    try {
+      const startDate = payload.startDate.trim();
+      const endDate = payload.endDate.trim();
+      if (endDate < startDate) {
+        throw new BadRequestException('endDate must be on or after startDate');
+      }
+
+      const hotel = await this.hotelsService.findById(hotelId);
+      const checkInTime = hotel.checkInTime || DEFAULT_CHECK_IN_TIME;
+      const checkOutTime = hotel.checkOutTime || DEFAULT_CHECK_OUT_TIME;
+
+      const normalizedEmail = payload.guestEmail.trim().toLowerCase();
+      let guest = await this.accountsService.findOne({ where: { email: normalizedEmail } });
+      if (!guest) {
+        guest = await this.accountsService.create({
+          uuid: `email:${normalizedEmail}`,
+          email: normalizedEmail,
+          name: payload.guestName,
+          phone: payload.guestPhone?.trim() || undefined,
+          oauthMeta: {},
+          role: AccountRole.GUEST,
+        });
+      }
+
+      const startTime = this.parseDateTime(startDate, checkInTime);
+      const endTime = this.parseDateTime(endDate, checkOutTime);
+      const roomNumber = payload.roomNumber?.trim();
+
+      const existing = await this.findByExternalId(hotelId, payload.externalId);
+      if (existing) {
+        existing.startTime = startTime;
+        existing.endTime = endTime;
+        existing.guestId = guest.id;
+        if (roomNumber) existing.roomNumber = roomNumber;
+        await existing.save();
+        return { record: existing, created: false };
+      }
+
+      const record = await this.bookingsRepository.create({
+        hotelId,
+        guestId: guest.id,
+        startTime,
+        endTime,
+        roomNumber: roomNumber || undefined,
+        externalId: payload.externalId,
+      });
+      return { record, created: true };
+    } catch (err) {
+      if (!isRetry && err instanceof UniqueConstraintError) {
+        return this.upsertByExternalId(hotelId, payload, true);
+      }
+      throw err;
+    }
   }
 
   /** Return presigned PUT URL and key for client-side reservation document upload. Key is prefix + temp/ + uuid + ext. */

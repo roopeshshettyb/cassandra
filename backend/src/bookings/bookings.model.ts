@@ -63,6 +63,15 @@ export class Booking extends Model<Booking> {
   })
   reservationDocumentS3Key: string;
 
+  // Source-of-truth id from the external PMS, for idempotent upserts via
+  // /integrations/v1/bookings. Unique per hotel when set (see database.providers.ts).
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'external_id',
+  })
+  externalId: string | null;
+
   @BelongsTo(() => Hotel, { foreignKey: 'hotelId', as: 'hotel' })
   hotel: Hotel;
 

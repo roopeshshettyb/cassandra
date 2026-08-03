@@ -17,6 +17,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { Notification } from '../notifications/notifications.model';
+import { HotelIntegration } from '../integrations/hotel-integrations.model';
 import { Op, literal } from 'sequelize';
 
 export interface HotelMemberRow {
@@ -240,6 +241,7 @@ export class HotelsService {
 
       await Notification.destroy({ where: { hotelId: id }, force, transaction });
       await Cost.destroy({ where: { hotelId: id }, force, transaction });
+      await HotelIntegration.destroy({ where: { hotelId: id }, force, transaction });
       await this.hotelAccountsRepository.destroy({ where: { hotelId: id }, force, transaction });
       await MenuItem.destroy({ where: { hotelId: id }, force, transaction });
       await this.hotelsRepository.destroy({ where: { id }, force, transaction });
@@ -274,7 +276,7 @@ export class HotelsService {
     return updatedHotels[0];
   }
 
-  private async ensureCanManageStaff(hotelId: number, currentAccount: Account): Promise<Hotel> {
+  async ensureCanManageHotelSettings(hotelId: number, currentAccount: Account): Promise<Hotel> {
     const hotel = await this.hotelsRepository.findByPk(hotelId);
     if (!hotel) {
       throw new NotFoundException();
@@ -304,7 +306,7 @@ export class HotelsService {
   }
 
   async listStaffForHotel(hotelId: number, currentAccount: Account): Promise<HotelMemberRow[]> {
-    await this.ensureCanManageStaff(hotelId, currentAccount);
+    await this.ensureCanManageHotelSettings(hotelId, currentAccount);
 
     const hotelAccounts = await this.hotelAccountsRepository.findAll({
       where: { hotelId },
@@ -337,7 +339,7 @@ export class HotelsService {
     role: AccountRole;
     status: HotelMemberStatus;
   }> {
-    const hotel = await this.ensureCanManageStaff(hotelId, currentAccount);
+    const hotel = await this.ensureCanManageHotelSettings(hotelId, currentAccount);
 
     const normalizedEmail = body.email?.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -416,7 +418,7 @@ export class HotelsService {
     body: UpdateHotelStaffStatusDto,
     currentAccount: Account,
   ): Promise<HotelMemberRow> {
-    await this.ensureCanManageStaff(hotelId, currentAccount);
+    await this.ensureCanManageHotelSettings(hotelId, currentAccount);
     if (body.status !== HotelMemberStatus.ACTIVE && body.status !== HotelMemberStatus.DISABLED) {
       throw new BadRequestException('Only active and disabled statuses can be set manually');
     }
@@ -443,7 +445,7 @@ export class HotelsService {
     body: ImportHotelMembersCsvDto,
     currentAccount: Account,
   ): Promise<{ imported: number; failed: number; failures: string[] }> {
-    await this.ensureCanManageStaff(hotelId, currentAccount);
+    await this.ensureCanManageHotelSettings(hotelId, currentAccount);
     const rows = this.parseCsvRows(body.csvContent || '');
     if (rows.length === 0) {
       throw new BadRequestException('No rows found in csv');

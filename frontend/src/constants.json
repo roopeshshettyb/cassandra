@@ -1,5 +1,6 @@
 {
   "APP_NAME": "Samantha",
+  "GOOGLE_MAPS_API": "AIzaSyCwWuMlCGlns0jRHwLfMUCp9ysTsoMYoAw",
   "TAGLINE": "With you, always",
   "DESCRIPTION": "Samantha is your personal concierge and will make your stay a breeze.",
   "X_API_URL": "https://api.twitter.com",
@@ -192,5 +193,23 @@
       "value": "snacks",
       "label": "Snacks"
     }
-  ]
+  ],
+  "INTEGRATIONS": {
+    "TAB_LABEL": "Integrations",
+    "STATUS_ACTIVE_LABEL": "Active",
+    "STATUS_REVOKED_LABEL": "Revoked",
+    "STATUS_NOT_CONFIGURED_LABEL": "Not configured",
+    "GENERATE_BUTTON_LABEL": "Generate Token",
+    "ROTATE_BUTTON_LABEL": "Rotate Token",
+    "REVOKE_BUTTON_LABEL": "Revoke Token",
+    "COPY_TOKEN_BUTTON_LABEL": "Copy Token",
+    "COPY_BOOKINGS_URL_BUTTON_LABEL": "Copy Bookings Webhook URL",
+    "COPY_REQUESTS_URL_BUTTON_LABEL": "Copy Requests Webhook URL",
+    "TOKEN_ONE_TIME_WARNING": "This token will not be shown again — copy it now and store it securely.",
+    "REVOKE_CONFIRM_MESSAGE": "Revoking this token will stop any connected PMS from syncing bookings and requests. Continue?",
+    "BOOKINGS_WEBHOOK_LABEL": "Bookings Webhook URL",
+    "REQUESTS_WEBHOOK_LABEL": "Requests Webhook URL",
+    "TOKEN_PREFIX_LABEL": "Token",
+    "COPIED_MESSAGE": "Copied to clipboard"
+  }
 }

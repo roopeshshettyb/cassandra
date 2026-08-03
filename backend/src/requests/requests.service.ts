@@ -1,7 +1,7 @@
 import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
 import { REQUESTS_REPOSITORY } from './requests.repository';
 import { Request, RequestStatus } from './requests.model';
-import { CreateRequestDto, UpdateRequestDto } from './requests.dto';
+import { CreateRequestDto, UpdateRequestDto, RequestExternalUpsertPayload } from './requests.dto';
 import { RequestQueryOptions } from './requests.query';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
@@ -10,7 +10,7 @@ import { Hotel } from '../hotels/hotels.model';
 import { Booking } from '../bookings/bookings.model';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConstantsService } from '../common/constants/constants.service';
-import { Op, literal } from 'sequelize';
+import { Op, literal, UniqueConstraintError } from 'sequelize';
 
 @Injectable()
 export class RequestsService {
@@ -136,6 +136,54 @@ export class RequestsService {
       message: 'Request created',
       data: request,
     };
+  }
+
+  // Called only from the integrations webhook path (hotelId is already trusted,
+  // resolved from the integration token). Upserts by (hotelId, externalId); the
+  // guest is resolved from the booking, never supplied directly by the PMS payload.
+  //
+  // Retries once on a unique-constraint conflict — see BookingsService.upsertByExternalId
+  // for why find-then-create needs this under concurrent identical-externalId delivery.
+  async upsertByExternalId(
+    hotelId: number,
+    payload: RequestExternalUpsertPayload,
+    isRetry = false,
+  ): Promise<{ record: Request; created: boolean }> {
+    try {
+      const booking = await this.bookingsService.findByExternalId(hotelId, payload.bookingExternalId);
+      if (!booking) {
+        throw new BadRequestException(this.constantsService.private.INTEGRATIONS.ERROR_BOOKING_NOT_FOUND_FOR_REQUEST);
+      }
+
+      const existing = await this.requestsRepository.findOne({ where: { hotelId, externalId: payload.externalId } });
+      if (existing) {
+        existing.bookingId = booking.id;
+        existing.guestId = booking.guestId;
+        existing.requestType = payload.requestType;
+        existing.urgency = payload.urgency;
+        if (payload.status) existing.status = payload.status;
+        if (payload.userNotes) existing.userNotes = payload.userNotes;
+        await existing.save();
+        return { record: existing, created: false };
+      }
+
+      const record = await this.requestsRepository.create({
+        hotelId,
+        guestId: booking.guestId,
+        bookingId: booking.id,
+        requestType: payload.requestType,
+        urgency: payload.urgency,
+        status: payload.status,
+        userNotes: payload.userNotes ?? [],
+        externalId: payload.externalId,
+      });
+      return { record, created: true };
+    } catch (err) {
+      if (!isRetry && err instanceof UniqueConstraintError) {
+        return this.upsertByExternalId(hotelId, payload, true);
+      }
+      throw err;
+    }
   }
 
   async update(id: number, dto: UpdateRequestDto, currentAccount: Account) {

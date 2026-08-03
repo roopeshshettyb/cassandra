@@ -4,7 +4,7 @@ import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogAct
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add,
+  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add, CableOutlined, ContentCopy,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -26,6 +26,7 @@ const TABS = [
   { key: 'ai',        label: 'Concierge AI',  Icon: AutoAwesome },
   { key: 'restaurant', label: 'Restaurant',    Icon: MenuBook },
   { key: 'staff',     label: 'Members',       Icon: PeopleOutline },
+  { key: 'integrations', label: constants.INTEGRATIONS.TAB_LABEL, Icon: CableOutlined },
   { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
 ];
 
@@ -128,6 +129,9 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [tab, setTab] = useState('identity');
   const [isDirty, setIsDirty] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [integration, setIntegration] = useState(null);
+  const [generatedToken, setGeneratedToken] = useState(null);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
   const logoInputRef = useRef(null);
   const imagesInputRef = useRef(null);
   const toneInputRef = useRef(null);
@@ -183,9 +187,19 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     request({ endpoint: `/hotels/${id}/staff`, method: 'GET', setLoading, setData: setStaff, defaultData: [], alertError });
   };
 
+  // Integration token management is owner-level — same permission bucket the
+  // backend uses (ensureCanManageHotelSettings covers both staff and integrations).
+  const canManageIntegrations = canManageStaff;
+
+  const fetchIntegration = () => {
+    if (!id || !canManageIntegrations) return;
+    request({ endpoint: `/hotels/${id}/integrations`, method: 'GET', setLoading, setData: setIntegration, defaultData: null, alertError });
+  };
+
   useEffect(() => {
     if (id) fetchHotel();
     if (canManageStaff) fetchStaff();
+    if (canManageIntegrations) fetchIntegration();
   }, [id, canManageStaff]);
 
   useEffect(() => { return () => setThemeConfig(null); }, [setThemeConfig]);
@@ -236,6 +250,29 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
       alertError,
     });
     if (ok?.success) fetchStaff();
+  };
+
+  const handleGenerateOrRotateToken = async () => {
+    const result = await request({ endpoint: `/hotels/${id}/integrations/token`, method: 'POST', setLoading, alertSuccess, alertError });
+    if (result?.success) {
+      setGeneratedToken(result.data.token);
+      setIntegration(result.data);
+    }
+  };
+
+  const handleRevokeToken = async () => {
+    setShowRevokeConfirm(false);
+    const result = await request({ endpoint: `/hotels/${id}/integrations/token`, method: 'DELETE', setLoading, alertSuccess, alertError });
+    if (result?.success) fetchIntegration();
+  };
+
+  const handleCopyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alertSuccess?.(constants.INTEGRATIONS.COPIED_MESSAGE);
+    } catch {
+      alertError?.('Copy failed');
+    }
   };
 
   const handleCsvSelect = async (event) => {
@@ -692,6 +729,73 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
             </FormCard>
           )}
 
+          {/* Integrations */}
+          {tab === 'integrations' && canManageIntegrations && (
+            <FormCard title={constants.INTEGRATIONS.TAB_LABEL} sub="Connect a PMS to automatically sync bookings and requests. One token per hotel.">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.75, bgcolor: BG, borderRadius: 1.5, mb: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: 1, minWidth: 160 }}>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>
+                    {integration?.status === 'active' ? constants.INTEGRATIONS.STATUS_ACTIVE_LABEL
+                      : integration?.status === 'revoked' ? constants.INTEGRATIONS.STATUS_REVOKED_LABEL
+                      : constants.INTEGRATIONS.STATUS_NOT_CONFIGURED_LABEL}
+                  </Typography>
+                  {integration?.tokenPrefix && (
+                    <Typography sx={{ fontSize: 11, color: MUTED, mt: 0.25 }}>
+                      {constants.INTEGRATIONS.TOKEN_PREFIX_LABEL}: {integration.tokenPrefix}…
+                    </Typography>
+                  )}
+                </Box>
+                <Box
+                  component="button"
+                  onClick={handleGenerateOrRotateToken}
+                  sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                >
+                  {integration?.status ? constants.INTEGRATIONS.ROTATE_BUTTON_LABEL : constants.INTEGRATIONS.GENERATE_BUTTON_LABEL}
+                </Box>
+                {integration?.status === 'active' && (
+                  <Box
+                    component="button"
+                    onClick={() => setShowRevokeConfirm(true)}
+                    sx={{ border: `1px solid ${STATUS_ERROR_BG}`, bgcolor: 'transparent', color: STATUS_ERROR, px: 1.5, py: 1, borderRadius: 1.5, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {constants.INTEGRATIONS.REVOKE_BUTTON_LABEL}
+                  </Box>
+                )}
+              </Box>
+
+              {integration?.webhookUrls && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box>
+                    <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.5 }}>{constants.INTEGRATIONS.BOOKINGS_WEBHOOK_LABEL}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField fullWidth size="small" value={integration.webhookUrls.bookings} InputProps={{ readOnly: true }} sx={inputSx} />
+                      <Box
+                        component="button"
+                        onClick={() => handleCopyToClipboard(integration.webhookUrls.bookings)}
+                        sx={{ border: `1px solid ${BORDER}`, bgcolor: 'background.paper', color: NAVY, px: 1.5, py: 1, borderRadius: 1.5, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap', flexShrink: 0 }}
+                      >
+                        <ContentCopy sx={{ fontSize: 13 }} />
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ ...LABEL_SX, fontSize: 10, mb: 0.5 }}>{constants.INTEGRATIONS.REQUESTS_WEBHOOK_LABEL}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField fullWidth size="small" value={integration.webhookUrls.requests} InputProps={{ readOnly: true }} sx={inputSx} />
+                      <Box
+                        component="button"
+                        onClick={() => handleCopyToClipboard(integration.webhookUrls.requests)}
+                        sx={{ border: `1px solid ${BORDER}`, bgcolor: 'background.paper', color: NAVY, px: 1.5, py: 1, borderRadius: 1.5, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap', flexShrink: 0 }}
+                      >
+                        <ContentCopy sx={{ fontSize: 13 }} />
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+            </FormCard>
+          )}
+
           {/* Danger zone */}
           {tab === 'danger' && (
             <FormCard title="Danger zone" sub="Destructive actions. Confirmation is always required.">
@@ -730,6 +834,40 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
         <DialogActions>
           <Button onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained">Delete forever</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generated/rotated token — shown once */}
+      <Dialog open={!!generatedToken} onClose={() => setGeneratedToken(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{constants.INTEGRATIONS.TAB_LABEL}</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>{constants.INTEGRATIONS.TOKEN_ONE_TIME_WARNING}</DialogContentText>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField fullWidth size="small" value={generatedToken || ''} InputProps={{ readOnly: true }} sx={inputSx} />
+            <Box
+              component="button"
+              onClick={() => handleCopyToClipboard(generatedToken)}
+              sx={{ border: `1px solid ${BORDER}`, bgcolor: 'background.paper', color: NAVY, px: 1.5, py: 1, borderRadius: 1.5, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              <ContentCopy sx={{ fontSize: 13 }} />
+              {constants.INTEGRATIONS.COPY_TOKEN_BUTTON_LABEL}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGeneratedToken(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Revoke confirmation */}
+      <Dialog open={showRevokeConfirm} onClose={() => setShowRevokeConfirm(false)}>
+        <DialogTitle>{constants.INTEGRATIONS.REVOKE_BUTTON_LABEL}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{constants.INTEGRATIONS.REVOKE_CONFIRM_MESSAGE}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowRevokeConfirm(false)}>Cancel</Button>
+          <Button onClick={handleRevokeToken} color="error" variant="contained">{constants.INTEGRATIONS.REVOKE_BUTTON_LABEL}</Button>
         </DialogActions>
       </Dialog>
     </Box>

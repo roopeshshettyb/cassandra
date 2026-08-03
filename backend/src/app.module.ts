@@ -24,6 +24,7 @@ import { LangGraphModule } from './langgraph/langgraph.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { CostsModule } from './costs/costs.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 
@@ -59,6 +60,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     RestaurantModule,
     CostsModule,
     DashboardModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
   providers: [
