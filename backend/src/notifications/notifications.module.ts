@@ -1,0 +1,29 @@
+import { Module, forwardRef } from '@nestjs/common';
+import { NotificationsController } from './notifications.controller';
+import { NotificationsRepository } from './notifications.repository';
+import { NotificationsService } from './notifications.service';
+import { NotificationsGateway } from './notifications.gateway';
+import { NotificationFactory } from './notification.factory';
+import { FcmPushService } from './fcm-push.service';
+import { DatabaseModule } from '../database/database.module';
+import { CommonModule } from '../common/common.module';
+import { AccountsModule } from '../accounts/accounts.module';
+import { AuthModule } from '../auth/auth.module';
+import { HotelsModule } from '../hotels/hotels.module';
+import { MailerModule } from '../mailer/mailer.module';
+import { Account } from '../accounts/accounts.model';
+
+@Module({
+  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, forwardRef(() => HotelsModule), MailerModule],
+  controllers: [NotificationsController],
+  providers: [
+    NotificationsRepository,
+    NotificationsService,
+    NotificationsGateway,
+    NotificationFactory,
+    FcmPushService,
+    { provide: 'ACCOUNTS_REPOSITORY', useValue: Account },
+  ],
+  exports: [NotificationsService, NotificationsGateway, NotificationFactory],
+})
+export class NotificationsModule {}

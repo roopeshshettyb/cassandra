@@ -1,0 +1,42 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - stage
+      # - main   # uncomment to enable prod deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+
+            BRANCH="${{ github.ref_name }}"
+            APP_DIR=~/cassandra
+
+            cd $APP_DIR
+            git fetch origin
+            git checkout $BRANCH
+            git reset --hard origin/$BRANCH
+
+            cd backend
+            npm install
+            npm run build:stage
+            npm prune --omit=dev
+
+            NODE_ENV=dev pm2 reload samantha-api-dev --update-env
+            pm2 save
+
+            echo "Deploy of $BRANCH complete"

@@ -1,0 +1,6 @@
+.claude/
+fp-one
+.env.docker
+backend/.env
+backend/.env.dev
+frontend/.env.development

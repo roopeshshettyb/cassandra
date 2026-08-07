@@ -1,0 +1,196 @@
+{
+  "APP_NAME": "Samantha",
+  "TAGLINE": "With you, always",
+  "DESCRIPTION": "Samantha is your personal concierge and will make your stay a breeze.",
+  "X_API_URL": "https://api.twitter.com",
+  "LOGO": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
+  "PROD_FRONTEND_URL": "https://samantha.flashpact.in",
+  "HERO": "https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg",
+  "CALENDLY_DEMO_URL": "https://calendly.com/roopesh-flashpact/samantha-demo",
+  "LANDING_DEMO_YOUTUBE_ID": "I9_GFTV5P2w",
+  "ACCOUNT_ROLES": {
+    "ADMIN": "admin",
+    "HOTEL_OWNER": "hotel_owner",
+    "GUEST": "guest",
+    "HOTEL_STAFF": "hotel_staff"
+  },
+  "HOTEL_MEMBER_ROLES": {
+    "hotel_owner": {
+      "key": "hotel_owner",
+      "label": "Hotel Owner"
+    },
+    "hotel_staff": {
+      "key": "hotel_staff",
+      "label": "Hotel Staff"
+    }
+  },
+  "HOTEL_MEMBER_STATUSES": {
+    "pending": {
+      "key": "pending",
+      "label": "Pending"
+    },
+    "active": {
+      "key": "active",
+      "label": "Active"
+    },
+    "disabled": {
+      "key": "disabled",
+      "label": "Disabled"
+    }
+  },
+  "PERMISSIONS": {
+    "CAN_CREATE_BOOKING": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_MANAGE_STAFF": {
+      "admin": true,
+      "hotel_owner": true
+    },
+    "CAN_EDIT_HOTEL": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_DELETE_HOTEL": {
+      "admin": true
+    },
+    "CAN_DELETE_BRAND": {
+      "admin": true
+    },
+    "CAN_ADD_HOTEL": {
+      "admin": true,
+      "hotel_owner": true
+    },
+    "CAN_VIEW_COSTS": {
+      "admin": true,
+      "hotel_owner": true
+    },
+    "CAN_SEND_INVITES": {
+      "admin": true
+    },
+    "CAN_EDIT_BOOKING": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_DELETE_BOOKING": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_MANAGE_RESTAURANT_MENU": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    }
+  },
+  "ERROR_CHAT_ONLY_DURING_STAY": "Chat is only available during your stay (check-in to check-out)",
+  "TTS_PLAYBACK_RATE": 1,
+  "PLATFORM_DATA_MAPPING": {
+    "google": {
+      "label": "Google",
+      "disabled": false,
+      "social": false
+    },
+    "email": {
+      "label": "Email",
+      "disabled": false,
+      "social": false
+    },
+    "general": {
+      "LOGIN_OPTIONS": [
+        {
+          "provider": "google",
+          "label": "Google",
+          "disabled": false,
+          "social": false
+        },
+        {
+          "provider": "email",
+          "label": "Email",
+          "disabled": false,
+          "social": false
+        }
+      ]
+    }
+  },
+  "NOTIFICATIONS_FETCHED": "Notifications fetched",
+  "PREFERENCES_FETCHED": "Preferences fetched",
+  "PREFERENCES_UPDATED": "Preferences updated",
+  "AI_ASSISTANT_TITLE": "AI Assistant",
+  "AI_ASSISTANT_ROLE_SUGGESTIONS": {
+    "guest": [
+      "I need room service",
+      "Request extra towels",
+      "Arrange a late checkout",
+      "I need a cab",
+      "Wake-up call please",
+      "What time is breakfast?"
+    ],
+    "hotel_staff": [
+      "Show pending requests",
+      "List today check-ins",
+      "High priority requests",
+      "Show unresolved complaints",
+      "List late check-outs",
+      "Show room service queue"
+    ],
+    "hotel_owner": [
+      "Hotel stats overview",
+      "Show pending requests",
+      "List my hotels",
+      "Show today's occupancy",
+      "Show unresolved complaints",
+      "Show revenue snapshot"
+    ],
+    "admin": [
+      "Hotel stats overview",
+      "List my hotels",
+      "Show costs",
+      "High priority requests",
+      "Show today's occupancy",
+      "Show unresolved complaints",
+      "Show platform health"
+    ]
+  },
+  "MENU_CATEGORIES": [
+    {
+      "value": "appetizer",
+      "label": "Appetizer"
+    },
+    {
+      "value": "main_course",
+      "label": "Main Course"
+    },
+    {
+      "value": "dessert",
+      "label": "Dessert"
+    },
+    {
+      "value": "beverage",
+      "label": "Beverage"
+    },
+    {
+      "value": "side",
+      "label": "Side"
+    },
+    {
+      "value": "breakfast",
+      "label": "Breakfast"
+    },
+    {
+      "value": "lunch",
+      "label": "Lunch"
+    },
+    {
+      "value": "dinner",
+      "label": "Dinner"
+    },
+    {
+      "value": "snacks",
+      "label": "Snacks"
+    }
+  ]
+}
