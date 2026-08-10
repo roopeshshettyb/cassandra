@@ -52,12 +52,14 @@ async function seed() {
   // uuid uses the `email:` form so seeded users can sign in via the email OTP flow.
   // Gmail plus-addressing: every OTP mail lands in the real flashpactone@gmail.com
   // inbox while each address stays a distinct account.
+  // phone drives the voice phone bridge: callers are matched to accounts by the
+  // trailing digits of their caller ID (see LLM.PHONE.CALLER_MATCH_DIGITS).
   const accountData = [
-    { uuid: 'email:flashpactone+admin@gmail.com',  email: 'flashpactone+admin@gmail.com',  name: 'Seed Admin',      role: AccountRole.ADMIN,       oauthMeta: {} },
-    { uuid: 'email:flashpactone+owner1@gmail.com', email: 'flashpactone+owner1@gmail.com', name: 'Hotel Owner One', role: AccountRole.HOTEL_OWNER, oauthMeta: {} },
-    { uuid: 'email:flashpactone+staff1@gmail.com', email: 'flashpactone+staff1@gmail.com', name: 'Staff One',       role: AccountRole.HOTEL_STAFF, oauthMeta: {} },
-    { uuid: 'email:flashpactone+guest1@gmail.com', email: 'flashpactone+guest1@gmail.com', name: 'Guest One',       role: AccountRole.GUEST,       oauthMeta: {} },
-    { uuid: 'email:flashpactone+guest2@gmail.com', email: 'flashpactone+guest2@gmail.com', name: 'Guest Two',       role: AccountRole.GUEST,       oauthMeta: {} },
+    { uuid: 'email:flashpactone+admin@gmail.com',  email: 'flashpactone+admin@gmail.com',  name: 'Seed Admin',      role: AccountRole.ADMIN,       phone: '+919800000001', oauthMeta: {} },
+    { uuid: 'email:flashpactone+owner1@gmail.com', email: 'flashpactone+owner1@gmail.com', name: 'Hotel Owner One', role: AccountRole.HOTEL_OWNER, phone: '+919800000002', oauthMeta: {} },
+    { uuid: 'email:flashpactone+staff1@gmail.com', email: 'flashpactone+staff1@gmail.com', name: 'Staff One',       role: AccountRole.HOTEL_STAFF, phone: '+919800000003', oauthMeta: {} },
+    { uuid: 'email:flashpactone+guest1@gmail.com', email: 'flashpactone+guest1@gmail.com', name: 'Guest One',       role: AccountRole.GUEST,       phone: '+919800000004', oauthMeta: {} },
+    { uuid: 'email:flashpactone+guest2@gmail.com', email: 'flashpactone+guest2@gmail.com', name: 'Guest Two',       role: AccountRole.GUEST,       phone: '+919800000005', oauthMeta: {} },
   ];
   const accounts: Account[] = [];
   for (const row of accountData) {
@@ -71,6 +73,7 @@ async function seed() {
     acc.uuid = row.uuid;
     acc.name = row.name;
     acc.role = row.role;
+    acc.phone = row.phone;
     await acc.save();
     accounts.push(acc);
   }

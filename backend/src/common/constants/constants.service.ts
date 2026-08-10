@@ -539,6 +539,26 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           INSTRUCTIONS: `You are maintaining the long-term memory of a hotel concierge AI chat. Produce one consolidated summary in approximately {TARGET_WORDS} words that captures every important fact the assistant should remember going forward.\n\nIf an existing summary is provided, merge it with the new messages — keep all standing information from the existing summary, then layer the new messages on top. Resolve contradictions in favour of the more recent information.\n\nPreserve:\n- Guest preferences (room, food, language, accessibility)\n- Outstanding and completed requests with their status\n- Confirmed bookings, reservations, special arrangements\n- Key facts (names, dates, room numbers, hotel info, costs)\n- Tool calls that produced lasting outcomes\n\nSkip pleasantries and small talk. Output plain prose only — no markdown, no headers, no bullet points. Refer to the guest as "the guest" and the AI as "the assistant".`,
         },
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
+        // Phone voice bridge — Exotel Voicebot applet streams call audio to our raw
+        // WebSocket. Requires VOICE_PIPELINE gpt or deepgram (both run 24kHz linear16,
+        // which Exotel matches when the applet URL carries ?sample-rate=24000).
+        PHONE: {
+          WS_PATH: '/phone-stream',
+          // Shared secret the Exotel applet URL must carry (?token=...). Secret — set in env; bridge stays disabled without it.
+          WS_SECRET: this.configService.get<string>('PHONE_WS_SECRET'),
+          SAMPLE_RATE: 24000,
+          // Exotel media payloads must be multiples of 320 bytes; 4800 = 100ms @ 24kHz mono 16-bit (their documented minimum chunk).
+          OUTBOUND_CHUNK_BYTES: 4800,
+          OUTBOUND_CHUNK_MULTIPLE: 320,
+          // Re-open the mic gate this long after the estimated playout of the assistant's audio ends.
+          PLAYBACK_DONE_GRACE_MS: 500,
+          // Caller ID is matched to accounts.phone by this many trailing digits (country-code agnostic).
+          CALLER_MATCH_DIGITS: 10,
+          GREETING_INSTRUCTIONS:
+            'The guest has just called {APP_NAME}, the hotel voice concierge, on the phone. Greet them briefly and warmly by name if known and ask how you can help. Keep it to one short sentence.',
+          ERROR_UNKNOWN_CALLER: 'Phone caller did not match any account',
+          ERROR_PIPELINE_UNSUPPORTED: 'Phone bridge requires VOICE_PIPELINE gpt or deepgram',
+        },
         STT_CONFIG: {
           // Common STT settings across providers
           PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
