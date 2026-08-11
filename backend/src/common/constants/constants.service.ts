@@ -294,11 +294,12 @@ export class ConstantsService {
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
       DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Samantha is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
-      LOGO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+      LOGO: this.configService.get<string>('LOGO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
       PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
-      HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
-      CALENDLY_DEMO_URL: 'https://calendly.com/roopesh-flashpact/samantha-demo',
+      HERO: this.configService.get<string>('HERO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
+      CALENDLY_DEMO_URL: this.configService.get<string>('CALENDLY_DEMO_URL', 'https://calendly.com/roopesh-flashpact/samantha-demo'),
       LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
+      PWA_ID: this.configService.get<string>('PWA_ID', '/samantha-concierge'),
 
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,
@@ -406,6 +407,8 @@ export class ConstantsService {
       ONBOARDING_FETCH_USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       ONBOARDING_FAVICON_BASE_URL: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL',
       AWS_S3_URL_DOMAIN: '.amazonaws.com',
+      // Comma-separated list of extra allowed CORS origins (e.g. prod + staging frontend URLs)
+      AWS_S3_CORS_ORIGINS: this.configService.get<string>('AWS_S3_CORS_ORIGINS'),
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 
       // Database Configuration

@@ -3,6 +3,7 @@ const path = require('path');
 
 const constantsPath = path.join(__dirname, '..', 'src', 'constants.json');
 const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+const manifestPath = path.join(__dirname, '..', 'public', 'manifest.json');
 
 const constants = JSON.parse(fs.readFileSync(constantsPath, 'utf8'));
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
@@ -30,3 +31,17 @@ let updatedHtml = indexHtml
 
 fs.writeFileSync(indexPath, updatedHtml);
 console.log('✓ Constants injected into index.html');
+
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+manifest.short_name = APP_NAME;
+manifest.name = `${APP_NAME} - ${TAGLINE}`;
+manifest.description = DESCRIPTION;
+if (constants.PWA_ID) manifest.id = constants.PWA_ID;
+if (Array.isArray(manifest.screenshots)) {
+  manifest.screenshots.forEach((s) => {
+    if (s.form_factor === 'narrow') s.label = `${APP_NAME} Mobile View`;
+    if (s.form_factor === 'wide') s.label = `${APP_NAME} Desktop View`;
+  });
+}
+fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+console.log('✓ Constants injected into manifest.json');

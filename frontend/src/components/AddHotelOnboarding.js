@@ -15,6 +15,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, NAVY_GRADIENT, SHADOW, BORDER } from '../theme';
+import constants from '../constants.json';
 
 const FADE = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 } };
 
@@ -234,7 +235,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                 <Box sx={{ p: 2, bgcolor: 'rgba(212,175,55,0.08)', borderRadius: 2, border: '1px solid rgba(212,175,55,0.2)', mb: 2.5 }}>
                   <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>Website not found on Google Maps</Typography>
                   <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>
-                    Enter the website URL for <strong>{selectedPlace?.name}</strong> so Samantha can crawl it for hotel details.
+                    Enter the website URL for <strong>{selectedPlace?.name}</strong> so {constants.APP_NAME} can crawl it for hotel details.
                   </Typography>
                 </Box>
                 <TextField fullWidth label="Hotel Website URL" value={manualWebsite}

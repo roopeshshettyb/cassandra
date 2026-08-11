@@ -10,7 +10,7 @@ const HERO_PHRASES = [
 ];
 
 const STATEMENT_PARTS = [
-  { type: 'word', text: 'Samantha' },
+  { type: 'word', text: constants.APP_NAME },
   { type: 'word', text: 'answers' },
   { type: 'hl', text: 'every guest' },
   { type: 'word', text: 'on' },
@@ -39,14 +39,14 @@ const FEATURE_SVGS = {
 
 const FEATURES = [
   { icon: 'phone', delay: '', title: 'Voice that picks up', body: 'Sub-second latency, native barge-in, and a brand-tuned voice your guests recognise call after call. Routes seamlessly to a human when needed.' },
-  { icon: 'chat',  delay: 'd1', title: 'Chat & SMS', body: 'The widget on your booking page, the SMS thread, the WhatsApp number, all answered by the same Samantha, with the same memory.' },
+  { icon: 'chat',  delay: 'd1', title: 'Chat & SMS', body: `The widget on your booking page, the SMS thread, the WhatsApp number, all answered by the same ${constants.APP_NAME}, with the same memory.` },
   { icon: 'ops',   delay: 'd2', title: 'Runs your back office', body: 'Every call becomes a logged action: housekeeping tickets, dining reservations, PMS updates, handed to your team as a clean morning digest.' },
 ];
 
 const STEPS = [
   { num: 'i.',   delay: '',   title: 'Connect', body: 'Plug into your PMS, telephony, and channel manager in a single afternoon. We support Opera, Mews, Cloudbeds, SiteMinder, Twilio, and more.' },
   { num: 'ii.',  delay: 'd1', title: 'Tune',    body: "Choose a voice and tone. Add hotel policies, signature phrases, and the wines you'd like recommended. Test on a private number first." },
-  { num: 'iii.', delay: 'd2', title: 'Go live', body: 'Switch your forwarding rule. Samantha picks up overflow first, then full coverage at the pace you choose. Full audit and rollback any time.' },
+  { num: 'iii.', delay: 'd2', title: 'Go live', body: `Switch your forwarding rule. ${constants.APP_NAME} picks up overflow first, then full coverage at the pace you choose. Full audit and rollback any time.` },
 ];
 
 function FeatureCard({ data }) {
@@ -247,7 +247,7 @@ export default function Landing({ openLoginPopup }) {
       <nav className={`l-top${menuOpen ? ' menu-open' : ''}`} ref={navRef}>
         <div className="nav-inner">
           <a className="brand" href="#top" onClick={() => setMenu(false)}>
-            <span className="name">Samantha</span>
+            <span className="name">{constants.APP_NAME}</span>
           </a>
           <div className="links">
             <a href="#features">Features</a>
@@ -312,9 +312,9 @@ export default function Landing({ openLoginPopup }) {
             </div>
 
             <div className="hero-block">
-              <div className="eyebrow"><strong>New</strong> Samantha 2.0 for hotels</div>
+              <div className="eyebrow"><strong>New</strong> {constants.APP_NAME} 2.0 for hotels</div>
               <h2>The voice AI built for <em>hospitality.</em></h2>
-              <p>Samantha picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your hotel, every hour of the night.</p>
+              <p>{constants.APP_NAME} picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your hotel, every hour of the night.</p>
               <div className="ctas">
                 <a className="l-btn l-btn-white" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
                 <a className="l-btn l-btn-glass" href="#videoSection">Hear her speak</a>
@@ -404,13 +404,13 @@ export default function Landing({ openLoginPopup }) {
               src={`https://www.youtube.com/embed/${constants.LANDING_DEMO_YOUTUBE_ID}?autoplay=1&rel=0&modestbranding=1&vq=hd1080&hd=1`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              title="Samantha product demo"
+              title={`${constants.APP_NAME} product demo`}
             />
           ) : (
             <div className="poster">
               <span className="badge"><span className="live-dot"></span>Product walkthrough</span>
               <div className="label">One minute</div>
-              <div className="title">See Samantha <em>in action.</em></div>
+              <div className="title">See {constants.APP_NAME} <em>in action.</em></div>
               <button className="play-btn" aria-label="Play product video">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l16 9-16 9V3z"/></svg>
               </button>
@@ -421,7 +421,7 @@ export default function Landing({ openLoginPopup }) {
 
       <section className="statement" id="statement" ref={statementRef}>
         <div className="l-container">
-          <div className="why"><span className="braces">{'{ '}</span>Why Samantha<span className="braces">{' }'}</span></div>
+          <div className="why"><span className="braces">{'{ '}</span>Why {constants.APP_NAME}<span className="braces">{' }'}</span></div>
           <h2>
             {STATEMENT_PARTS.map((p, i) => (
               <Fragment key={`s-${i}`}>
@@ -470,7 +470,7 @@ export default function Landing({ openLoginPopup }) {
             <div className="split-head">
               <div className="eb">What she does</div>
               <h2>One agent, every <em>channel.</em></h2>
-              <p>Train Samantha once on your hotel, your rates, your rooms, your manners, then put her on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
+              <p>Train {constants.APP_NAME} once on your hotel, your rates, your rooms, your manners, then put her on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
             </div>
             <div className="split-body">
               <MapComponent Component={FeatureCard} data={FEATURES} showNoDataAvailable={false} />
@@ -486,7 +486,7 @@ export default function Landing({ openLoginPopup }) {
             <div className="split-head">
               <div className="eb">By the numbers</div>
               <h2>Quiet results, in the <em>background.</em></h2>
-              <p>Hotels using Samantha typically see these shifts within ninety days.</p>
+              <p>Hotels using {constants.APP_NAME} typically see these shifts within ninety days.</p>
             </div>
             <div className="split-body">
               <div className="stats reveal-scale reveal">
@@ -507,7 +507,7 @@ export default function Landing({ openLoginPopup }) {
             <div className="split-head">
               <div className="eb">How it works</div>
               <h2>Live in <em>hours,</em> not days.</h2>
-              <p>No replatforming, no custom middleware. Samantha reads your existing systems and learns your hotel&apos;s manners.</p>
+              <p>No replatforming, no custom middleware. {constants.APP_NAME} reads your existing systems and learns your hotel&apos;s manners.</p>
             </div>
             <div className="split-body">
               <MapComponent Component={StepCard} data={STEPS} showNoDataAvailable={false} />
@@ -544,7 +544,7 @@ export default function Landing({ openLoginPopup }) {
       <section className="final" id="demo">
         <div className="l-container reveal">
           <h2>Hear her on a <em>real call.</em></h2>
-          <p>Twenty minutes is enough to know whether Samantha belongs on your line.</p>
+          <p>Twenty minutes is enough to know whether {constants.APP_NAME} belongs on your line.</p>
           <div className="ctas">
             <a className="l-btn l-btn-primary" href="#book" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
           </div>
@@ -555,7 +555,7 @@ export default function Landing({ openLoginPopup }) {
         <div className="l-container">
           <div className="row">
             <a className="brand" href="#top">
-              <span className="name">Samantha</span>
+              <span className="name">{constants.APP_NAME}</span>
             </a>
             <div className="links-foot">
               <a href="#features">Features</a>
@@ -564,7 +564,7 @@ export default function Landing({ openLoginPopup }) {
               <a href="/privacy-policy">Privacy</a>
               <a href="/terms-conditions">Terms</a>
             </div>
-            <div className="legal">© 2026 Samantha Hospitality Ltd.</div>
+            <div className="legal">© 2026 {constants.APP_NAME} Hospitality Ltd.</div>
           </div>
         </div>
       </footer>

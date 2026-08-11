@@ -126,7 +126,7 @@ function BrandDetails({ loading, setLoading, account, navigate, alertSuccess, al
       {tab === 'ai' && (
         <AiTab editValues={editValues} handleInputChange={handleInputChange}
           title="Brand AI instructions"
-          sub="Samantha uses these to answer guest questions across all properties."
+          sub={`${constants.APP_NAME} uses these to answer guest questions across all properties.`}
           placeholder="Ex. All properties offer complimentary breakfast. Recommend the spa on weekends." />
       )}
 
