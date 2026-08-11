@@ -486,7 +486,7 @@ export default function Landing({ openLoginPopup }) {
             <div className="split-head">
               <div className="eb">By the numbers</div>
               <h2>Quiet results, in the <em>background.</em></h2>
-              <p>Hotels using Samantha typically see these shifts within ninety days.</p>
+              <p>Hotels using {constants.APP_NAME} typically see these shifts within ninety days.</p>
             </div>
             <div className="split-body">
               <div className="stats reveal-scale reveal">

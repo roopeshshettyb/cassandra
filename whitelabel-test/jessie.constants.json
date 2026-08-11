@@ -1,0 +1,6 @@
+{
+  "APP_NAME": "Jessie",
+  "DESCRIPTION": "Jessie is your personal concierge and will make your stay a breeze.",
+  "PROD_FRONTEND_URL": "https://jessie.yourdomain.com",
+  "CALENDLY_DEMO_URL": "https://calendly.com/your-org/jessie-demo"
+}

@@ -36,7 +36,6 @@ jobs:
             npm run build:stage
             npm prune --omit=dev
 
-            NODE_ENV=dev pm2 reload samantha-api-dev --update-env
-            pm2 save
+             NODE_ENV=dev pm2 reload "${{ vars.PM2_APP_NAME || 'samantha-api-dev' }}" --update-env
 
             echo "Deploy of $BRANCH complete"

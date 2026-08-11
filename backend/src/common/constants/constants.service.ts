@@ -295,10 +295,10 @@ export class ConstantsService {
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
       DESCRIPTION: this.configService.get<string>('DESCRIPTION', `${appName} is your personal concierge and will make your stay a breeze.`),
       X_API_URL: 'https://api.twitter.com',
-      LOGO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+      LOGO: this.configService.get<string>('LOGO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
       PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
-      HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
-      CALENDLY_DEMO_URL: 'https://calendly.com/roopesh-flashpact/samantha-demo',
+      HERO: this.configService.get<string>('HERO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
+      CALENDLY_DEMO_URL: this.configService.get<string>('CALENDLY_DEMO_URL', 'https://calendly.com/roopesh-flashpact/samantha-demo'),
       LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
 
       ACCOUNT_ROLES,
@@ -409,6 +409,11 @@ export class ConstantsService {
       AWS_S3_PUBLIC_BUCKET_NAME: this.configService.get<string>('AWS_S3_PUBLIC_BUCKET_NAME', 'flashpact-public-bucket'),
       /** Prefix for private bucket keys (e.g. samantha/). All uploads use this prefix. */
       AWS_S3_KEY_PREFIX: this.configService.get<string>('AWS_S3_KEY_PREFIX', 'samantha/'),
+      /** Extra allowed origins for S3 bucket CORS (comma-separated), beyond the localhost dev origins. */
+      AWS_S3_CORS_ORIGINS: (this.configService.get<string>('AWS_S3_CORS_ORIGINS', '') || '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
 
       DOC_EXTRACTION_PROMPT: this.configService.get<string>(
         'DOC_EXTRACTION_PROMPT',

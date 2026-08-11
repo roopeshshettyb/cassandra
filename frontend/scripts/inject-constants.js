@@ -34,8 +34,10 @@ fs.writeFileSync(indexPath, updatedHtml);
 console.log('✓ Constants injected into index.html');
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const APP_SLUG = APP_NAME.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 manifest.short_name = APP_NAME;
 manifest.name = `${APP_NAME} - ${TAGLINE}`;
+manifest.id = `/${APP_SLUG}-concierge`;
 manifest.description = DESCRIPTION;
 for (const screenshot of manifest.screenshots || []) {
   screenshot.label = `${APP_NAME} ${screenshot.form_factor === 'wide' ? 'Desktop' : 'Mobile'} View`;

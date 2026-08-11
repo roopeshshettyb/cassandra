@@ -1,6 +1,7 @@
 // IndexedDB cache for notification tones
 import request from '../helper/api';
-const DB_NAME = 'samantha-cache';
+import constants from '../constants.json';
+const DB_NAME = `${(constants.APP_NAME || 'app').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-cache`;
 const STORE_NAME = 'notification-tones';
 
 let db = null;

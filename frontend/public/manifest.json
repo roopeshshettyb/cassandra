@@ -1,7 +1,7 @@
 {
-  "short_name": "Samantha",
-  "name": "Samantha - With you, always",
-  "id": "/samantha-concierge",
+  "short_name": "Jessie",
+  "name": "Jessie - With you, always",
+  "id": "/jessie-concierge",
   "icons": [
     {
       "src": "logo192.png",
@@ -34,14 +34,14 @@
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Samantha Mobile View"
+      "label": "Jessie Mobile View"
     },
     {
       "src": "https://placehold.jp/1920x1080.png",
       "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Samantha Desktop View"
+      "label": "Jessie Desktop View"
     }
   ],
   "start_url": "/",
@@ -50,7 +50,7 @@
   "orientation": "portrait-primary",
   "theme_color": "#1B2340",
   "background_color": "#ffffff",
-  "description": "Samantha is your personal concierge and will make your stay a breeze.",
+  "description": "Jessie is your personal concierge and will make your stay a breeze.",
   "categories": [
     "travel",
     "productivity",

@@ -8,11 +8,13 @@ import { ConstantsService } from '../constants/constants.service';
 export class AwsService {
   private s3Client: S3Client;
   private region: string;
+  private corsOrigins: string[];
 
   constructor(private constantsService: ConstantsService) {
     const privateConstants = this.constantsService.private;
     // Ensure region is set; default to ap-south-1 if not configured
     this.region = privateConstants.AWS_REGION || 'ap-south-1';
+    this.corsOrigins = privateConstants.AWS_S3_CORS_ORIGINS;
 
     this.s3Client = new S3Client({
       region: this.region,
@@ -45,9 +47,7 @@ export class AwsService {
           AllowedOrigins: [
             'http://localhost:7678',
             'http://localhost:3000',
-            'https://samantha.flashpact.in',
-            'https://samantha-stage.flashpact.in',
-            'https://stage.d3omcxqqht4w2k.amplifyapp.com',
+            ...this.corsOrigins,
           ],
           AllowedHeaders: ['*'],
           ExposeHeaders: ['ETag', 'x-amz-version-id'],
