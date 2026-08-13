@@ -472,6 +472,37 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         MSG_INTEGRATION_FETCHED: 'Integration fetched',
       },
 
+      // Browser-agent job queue. The agent drives a real browser through a PMS UI,
+      // which measured 20–120s per task in testing — orders of magnitude past
+      // conversational latency — so every action is queued and answered later.
+      AGENT_JOBS: {
+        // Shared secret the Python worker presents on the claim/complete routes.
+        // Secret — set in env; the worker routes stay closed without it.
+        WORKER_SECRET: this.configService.get<string>('AGENT_WORKER_SECRET'),
+        // A job still 'running' past this is treated as abandoned (worker crashed
+        // mid-task) and becomes claimable again.
+        STALE_RUNNING_MINUTES: 10,
+        MAX_ATTEMPTS: 2,
+        // Cap on jobs a single hotel can have waiting, so a misbehaving agent loop
+        // cannot queue unbounded paid browser work.
+        MAX_QUEUED_PER_HOTEL: 20,
+        MSG_JOB_QUEUED: 'Action queued — the result will follow shortly',
+        MSG_JOB_FETCHED: 'Agent job fetched',
+        MSG_JOB_CLAIMED: 'Agent job claimed',
+        MSG_JOB_COMPLETED: 'Agent job recorded',
+        MSG_NO_JOBS: 'No queued jobs',
+        ERROR_INVALID_WORKER_SECRET: 'Invalid agent worker credentials',
+        ERROR_JOB_NOT_FOUND: 'Agent job not found',
+        ERROR_JOB_NOT_RUNNING: 'Agent job is not in a running state',
+        ERROR_QUEUE_FULL: 'Too many actions already queued for this hotel — try again once they finish',
+        ERROR_UNKNOWN_ACTION: 'Unknown agent action',
+        // Returned to the guest-facing agent while a job is still in flight, so it
+        // never invents a result. Verification is what makes a result reportable:
+        // the browser agent's own success signal proved unreliable in testing.
+        MSG_JOB_STILL_RUNNING: 'Still working on it — no result yet',
+        MSG_JOB_UNVERIFIED: 'The action completed but could not be independently confirmed — do not report it as done',
+      },
+
       // JWT Configuration
       JWT_SECRET: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
       JWT_EXPIRY_DAYS: this.configService.get<number>('JWT_EXPIRY_DAYS', 7),

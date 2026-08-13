@@ -9,6 +9,7 @@ import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { ConstantsService } from '../common/constants/constants.service';
+import { AgentJobsService } from '../agent-jobs/agent-jobs.service';
 
 export interface RealtimeToolDefinition {
   type: 'function';
@@ -27,6 +28,8 @@ export class RealtimeToolsService {
     @Inject(forwardRef(() => HotelsService))
     private readonly hotelsService: HotelsService,
     private readonly constantsService: ConstantsService,
+    @Inject(forwardRef(() => AgentJobsService))
+    private readonly agentJobsService: AgentJobsService,
   ) {}
 
   /**
@@ -34,7 +37,7 @@ export class RealtimeToolsService {
    * OpenAI Realtime `session.tools`.
    */
   getToolsMetadata(ctx: AgentToolContext): RealtimeToolDefinition[] {
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService, this.agentJobsService);
 
     return tools.map((tool: StructuredToolInterface) => {
       const openaiTool = convertToOpenAITool(tool);
@@ -58,7 +61,7 @@ export class RealtimeToolsService {
    * text and voice paths.
    */
   async executeTool(ctx: AgentToolContext, name: string, args: Record<string, unknown>): Promise<unknown> {
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService, this.agentJobsService);
     const tool = tools.find((t: StructuredToolInterface) => t.name === name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);

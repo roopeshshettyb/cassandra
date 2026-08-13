@@ -6,10 +6,11 @@ import { HotelsModule } from '../hotels/hotels.module';
 import { LangGraphService } from './langgraph.service';
 import { RealtimeToolsService } from './realtime-tools.service';
 import { ChatModule } from '../chat/chat.module';
+import { AgentJobsModule } from '../agent-jobs/agent-jobs.module';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [forwardRef(() => BookingsModule), RequestsModule, RestaurantModule, forwardRef(() => HotelsModule), forwardRef(() => ChatModule), CommonModule],
+  imports: [forwardRef(() => BookingsModule), RequestsModule, RestaurantModule, forwardRef(() => HotelsModule), forwardRef(() => ChatModule), CommonModule, forwardRef(() => AgentJobsModule)],
   providers: [LangGraphService, RealtimeToolsService],
   exports: [LangGraphService, RealtimeToolsService],
 })

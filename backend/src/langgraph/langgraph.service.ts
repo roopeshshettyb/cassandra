@@ -13,6 +13,7 @@ import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { ConstantsService } from '../common/constants/constants.service';
+import { AgentJobsService } from '../agent-jobs/agent-jobs.service';
 
 export interface ExtractedBookingFields {
   startDate?: string | null;
@@ -75,6 +76,8 @@ export class LangGraphService {
     @Inject(forwardRef(() => HotelsService))
     private readonly hotelsService: HotelsService,
     private readonly constantsService: ConstantsService,
+    @Inject(forwardRef(() => AgentJobsService))
+    private readonly agentJobsService: AgentJobsService,
   ) {}
 
   createModel(temperature = 0, modelName?: string): ChatOpenAI {
@@ -236,7 +239,7 @@ export class LangGraphService {
     ctx: AgentToolContext,
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
+    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService, this.agentJobsService);
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 

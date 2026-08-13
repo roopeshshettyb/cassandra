@@ -14,6 +14,7 @@ import { ChatSummary } from './chat-summary/chat-summary.model';
 import { Message, MessageRole } from './messages/message.model';
 import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
 import { HotelIntegration, IntegrationStatus } from './integrations/hotel-integrations.model';
+import { AgentJob, AgentJobAction, AgentJobStatus } from './agent-jobs/agent-jobs.model';
 import { createHash } from 'crypto';
 
 const nodeEnv = process.env.NODE_ENV;
@@ -38,7 +39,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration, AgentJob],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -351,6 +352,75 @@ async function seed() {
       createdByAccountId: accounts[1].id,
     } as any,
   });
+
+  // ── Browser agent jobs ──────────────────────────────────────────────────────
+  // One row per terminal state so the admin view and the agent's status handling
+  // can both be exercised without running a browser. The unverified row matters
+  // most: it is the case where the browser agent believed it succeeded but a second
+  // independent read did not confirm it, so the guest-facing agent must NOT report
+  // it as done.
+  const agentJobData: any[] = [
+    {
+      hotelId: hotels[0].id,
+      requestedByAccountId: accounts[1].id,
+      action: AgentJobAction.PMS_LOOKUP_RESERVATION,
+      params: { confirmationNumber: 'PMS-RES-88213' },
+      status: AgentJobStatus.SUCCEEDED,
+      result: { answer: 'Guest Anita Rao, room 412, arriving 2026-09-10, departing 2026-09-13.', steps: 2 },
+      verifiedAt: new Date(),
+      durationMs: 18400,
+      costUsd: 0.0077,
+      attemptCount: 1,
+      claimedAt: new Date(),
+      finishedAt: new Date(),
+    },
+    {
+      hotelId: hotels[0].id,
+      requestedByAccountId: accounts[1].id,
+      action: AgentJobAction.PMS_LIST_ARRIVALS,
+      params: { date: '2026-09-11' },
+      status: AgentJobStatus.SUCCEEDED,
+      result: { answer: '6 arrivals expected.', steps: 3 },
+      verifiedAt: null, // second read disagreed — not reportable to a guest
+      durationMs: 41200,
+      costUsd: 0.0261,
+      attemptCount: 1,
+      claimedAt: new Date(),
+      finishedAt: new Date(),
+    },
+    {
+      hotelId: hotels[0].id,
+      requestedByAccountId: accounts[1].id,
+      action: AgentJobAction.PMS_LOOKUP_RESERVATION,
+      params: { confirmationNumber: 'PMS-RES-00000' },
+      status: AgentJobStatus.FAILED,
+      error: 'TimeoutError: reservation search returned no rows after 12 steps',
+      durationMs: 96500,
+      costUsd: 0.0463,
+      attemptCount: 2,
+      claimedAt: new Date(),
+      finishedAt: new Date(),
+    },
+    {
+      hotelId: hotels[0].id,
+      requestedByAccountId: accounts[1].id,
+      action: AgentJobAction.PMS_LIST_ARRIVALS,
+      params: { date: '2026-09-12' },
+      status: AgentJobStatus.QUEUED,
+    },
+  ];
+
+  for (let i = 0; i < agentJobData.length; i++) {
+    const row = agentJobData[i];
+    const [job] = await AgentJob.findOrCreate({
+      where: { hotelId: row.hotelId, action: row.action, params: row.params },
+      defaults: row,
+    });
+    // findOrCreate skips defaults on an existing row, so re-apply the terminal
+    // state to keep reseeding idempotent.
+    await AgentJob.update(row, { where: { id: job.id } });
+  }
+  console.log(`  Agent jobs: ${agentJobData.length}`);
 
   // ── Chats, Messages & LLM Evals ─────────────────────────────────────────────
   const judgeModel = 'google/gemini-3.1-flash-lite';

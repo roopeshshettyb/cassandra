@@ -25,6 +25,7 @@ import { RestaurantModule } from './restaurant/restaurant.module';
 import { CostsModule } from './costs/costs.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { AgentJobsModule } from './agent-jobs/agent-jobs.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
 
@@ -61,6 +62,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     CostsModule,
     DashboardModule,
     IntegrationsModule,
+    AgentJobsModule,
   ],
   controllers: [AppController],
   providers: [

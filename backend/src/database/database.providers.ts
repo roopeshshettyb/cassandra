@@ -17,6 +17,7 @@ import { Cost } from '../costs/costs.model';
 import { ChatSummary } from '../chat-summary/chat-summary.model';
 import { LlmEval } from '../llm-eval/llm-eval.model';
 import { HotelIntegration } from '../integrations/hotel-integrations.model';
+import { AgentJob } from '../agent-jobs/agent-jobs.model';
 
 export const SEQUELIZE_DATABASE_PROVIDER = 'SEQUELIZE_DATABASE_PROVIDER';
 
@@ -27,7 +28,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration],
+        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration, AgentJob],
       });
       await sequelize.authenticate();
       try {
@@ -68,6 +69,9 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
         'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
+        // The worker polls for the oldest queued job on every tick; without this
+        // the poll degrades into a table scan as finished jobs accumulate.
+        "CREATE INDEX IF NOT EXISTS agent_jobs_queued_created_idx ON agent_jobs (created_at) WHERE status = 'queued'",
       ];
       for (let i = 0; i < migrations.length; i++) {
         try {
