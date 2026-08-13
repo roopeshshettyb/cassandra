@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem } from '@mui/material';
+import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem, Chip, Tooltip } from '@mui/material';
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add, CableOutlined, ContentCopy,
+  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add, CableOutlined, ContentCopy, HistoryToggleOff,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
@@ -27,6 +27,7 @@ const TABS = [
   { key: 'restaurant', label: 'Restaurant',    Icon: MenuBook },
   { key: 'staff',     label: 'Members',       Icon: PeopleOutline },
   { key: 'integrations', label: constants.INTEGRATIONS.TAB_LABEL, Icon: CableOutlined },
+  { key: 'agentJobs', label: constants.AGENT_JOBS.TAB_LABEL, Icon: HistoryToggleOff },
   { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
 ];
 
@@ -132,6 +133,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
   const [integration, setIntegration] = useState(null);
   const [generatedToken, setGeneratedToken] = useState(null);
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [agentJobs, setAgentJobs] = useState([]);
   const logoInputRef = useRef(null);
   const imagesInputRef = useRef(null);
   const toneInputRef = useRef(null);
@@ -196,10 +198,16 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
     request({ endpoint: `/hotels/${id}/integrations`, method: 'GET', setLoading, setData: setIntegration, defaultData: null, alertError });
   };
 
+  const fetchAgentJobs = () => {
+    if (!id || !canManageIntegrations) return;
+    request({ endpoint: `/hotels/${id}/agent-jobs`, method: 'GET', setLoading, setData: setAgentJobs, defaultData: [], alertError });
+  };
+
   useEffect(() => {
     if (id) fetchHotel();
     if (canManageStaff) fetchStaff();
     if (canManageIntegrations) fetchIntegration();
+    if (canManageIntegrations) fetchAgentJobs();
   }, [id, canManageStaff]);
 
   useEffect(() => { return () => setThemeConfig(null); }, [setThemeConfig]);
@@ -791,6 +799,64 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
                       </Box>
                     </Box>
                   </Box>
+                </Box>
+              )}
+            </FormCard>
+          )}
+
+          {/* Agent activity — read-only audit of what the browser agent did */}
+          {tab === 'agentJobs' && canManageIntegrations && (
+            <FormCard
+              title={constants.AGENT_JOBS.TAB_LABEL}
+              sub={constants.AGENT_JOBS.DESCRIPTION}
+              action={(
+                <Button size="small" variant="outlined" onClick={fetchAgentJobs}>
+                  {constants.AGENT_JOBS.REFRESH_BUTTON_LABEL}
+                </Button>
+              )}
+            >
+              {agentJobs.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {constants.AGENT_JOBS.EMPTY_MESSAGE}
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {agentJobs.map((job) => {
+                    const isDone = job.status === 'succeeded';
+                    const confirmed = isDone && !!job.verifiedAt;
+                    return (
+                      <Box key={job.id} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.default' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 0.5 }}>
+                          <Typography variant="subtitle2">{job.action}</Typography>
+                          <Chip
+                            size="small"
+                            label={constants.AGENT_JOBS[`STATUS_${String(job.status).toUpperCase()}_LABEL`] || job.status}
+                            color={job.status === 'failed' ? 'error' : isDone ? 'success' : 'default'}
+                          />
+                          {/* Succeeded-but-unconfirmed is the case operators most need to
+                              see: the agent believed it worked, a second read disagreed,
+                              and nothing was relayed to the guest. */}
+                          {isDone && (
+                            <Tooltip title={confirmed ? '' : constants.AGENT_JOBS.UNVERIFIED_HELP}>
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                label={confirmed ? constants.AGENT_JOBS.VERIFIED_LABEL : constants.AGENT_JOBS.UNVERIFIED_LABEL}
+                                color={confirmed ? 'success' : 'warning'}
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
+                        {job.result?.answer && <Typography variant="body2" sx={{ mb: 0.5 }}>{job.result.answer}</Typography>}
+                        {job.error && <Typography variant="body2" color="error" sx={{ mb: 0.5 }}>{job.error}</Typography>}
+                        <Typography variant="caption" color="text.secondary">
+                          {constants.AGENT_JOBS.REQUESTED_LABEL}: {new Date(job.createdAt).toLocaleString()}
+                          {job.durationMs ? ` · ${constants.AGENT_JOBS.DURATION_LABEL} ${(job.durationMs / 1000).toFixed(1)}s` : ''}
+                          {job.costUsd ? ` · ${constants.AGENT_JOBS.COST_LABEL} $${Number(job.costUsd).toFixed(4)}` : ''}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
                 </Box>
               )}
             </FormCard>
