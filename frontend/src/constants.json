@@ -10,6 +10,9 @@
   "CALENDLY_DEMO_URL": "https://calendly.com/roopesh-flashpact/samantha-demo",
   "LANDING_DEMO_YOUTUBE_ID": "I9_GFTV5P2w",
   "PWA_ID": "/samantha-concierge",
+  "THEME_COLOR": "#1B2340",
+  "PWA_ICON_192": "logo192.png",
+  "PWA_ICON_512": "logo.png",
   "ACCOUNT_ROLES": {
     "ADMIN": "admin",
     "HOTEL_OWNER": "hotel_owner",

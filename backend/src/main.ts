@@ -8,7 +8,7 @@ async function bootstrap() {
   app.useWebSocketAdapter(new IoAdapter(app));
   const constantsService = app.get(ConstantsService);
   const frontendUrl = constantsService.private.FRONTEND_URL;
-  const extraCorsOrigins = (constantsService.private.AWS_S3_CORS_ORIGINS || '')
+  const extraCorsOrigins = constantsService.private.EXTRA_CORS_ORIGINS
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

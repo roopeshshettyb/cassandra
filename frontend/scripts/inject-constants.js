@@ -1,21 +1,40 @@
 const fs = require('fs');
 const path = require('path');
 
+// Injects branding into the BUILD OUTPUT, not into public/. public/index.html and
+// public/manifest.json are committed sources and stay untouched, so `npm start` and
+// `npm run build` never dirty the working tree with local branding.
+// Usage: node scripts/inject-constants.js [targetDir]   (default: build)
+const targetDir = path.join(__dirname, '..', process.argv[2] || 'build');
+
 const constantsPath = path.join(__dirname, '..', 'src', 'constants.json');
-const indexPath = path.join(__dirname, '..', 'public', 'index.html');
-const manifestPath = path.join(__dirname, '..', 'public', 'manifest.json');
+const indexPath = path.join(targetDir, 'index.html');
+const manifestPath = path.join(targetDir, 'manifest.json');
+// The service worker lives in public/ and is copied verbatim, so it cannot import
+// constants.json — its notification icon has to be injected here like the HTML.
+const serviceWorkerPath = path.join(targetDir, 'service-worker.js');
+
+for (const required of [indexPath, manifestPath]) {
+  if (!fs.existsSync(required)) {
+    console.error(`✗ ${required} not found. Run this after react-scripts build.`);
+    process.exit(1);
+  }
+}
 
 const constants = JSON.parse(fs.readFileSync(constantsPath, 'utf8'));
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
-const APP_NAME = constants.APP_NAME || 'Aura';
-const TAGLINE = constants.TAGLINE || 'Capture Social Media Aura';
-const DESCRIPTION = constants.DESCRIPTION || 'Transform profile pictures and headers into powerful advertising spaces. Reach millions where they engage most.';
-const PROD_FRONTEND_URL = constants.PROD_FRONTEND_URL;
+// No fallbacks here: defaults belong in the backend's constants.service.ts (CLAUDE.md General #3).
+const { APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR } = constants;
+
+// The build minifies `" />` down to `"/>`, so tag-closing whitespace has to be optional here.
+const selfClosing = (attrs) => new RegExp(`<${attrs}\\s*/?>`);
 
 let updatedHtml = indexHtml
   .replace(/<title>.*?<\/title>/, `<title>${APP_NAME} - ${TAGLINE}</title>`)
-  .replace(/<link rel="icon" href="[^"]*" \/>/, `<link rel="icon" href="${constants.HERO}" />`)
+  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${constants.HERO}"/>`)
+  .replace(selfClosing('link rel="apple-touch-icon" href="[^"]*"'), `<link rel="apple-touch-icon" href="${constants.LOGO}"/>`)
+  .replace(selfClosing('meta name="theme-color" content="[^"]*"'), `<meta name="theme-color" content="${THEME_COLOR}"/>`)
   .replace(/property="og:title" content="[^"]*"/, `property="og:title" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/property="og:description" content="[^"]*"/, `property="og:description" content="${DESCRIPTION}"`)
   .replace(/property="og:url" content="[^"]*"/, `property="og:url" content="${PROD_FRONTEND_URL}"`)
@@ -29,14 +48,44 @@ let updatedHtml = indexHtml
   .replace(/name="twitter:image:alt" content="[^"]*"/, `name="twitter:image:alt" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/name="description" content="[^"]*"/, `name="description" content="${DESCRIPTION}"`);
 
+// A regex that stops matching would silently ship stale branding — the exact failure this
+// whole change exists to prevent. Fail the build instead.
+const expected = [
+  [`<title>${APP_NAME} - ${TAGLINE}</title>`, 'title'],
+  [`href="${constants.HERO}"`, 'favicon'],
+  [`href="${constants.LOGO}"`, 'apple-touch-icon'],
+  [`content="${THEME_COLOR}"`, 'theme-color'],
+  [`content="${PROD_FRONTEND_URL}"`, 'og:url'],
+];
+const missed = expected.filter(([needle]) => !updatedHtml.includes(needle)).map(([, name]) => name);
+if (missed.length) {
+  console.error(`✗ Injection did not apply to: ${missed.join(', ')}. The index.html markup likely changed — update the patterns in this script.`);
+  process.exit(1);
+}
+
 fs.writeFileSync(indexPath, updatedHtml);
-console.log('✓ Constants injected into index.html');
+console.log(`✓ Constants injected into ${path.relative(path.join(__dirname, '..'), indexPath)}`);
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 manifest.short_name = APP_NAME;
 manifest.name = `${APP_NAME} - ${TAGLINE}`;
 manifest.description = DESCRIPTION;
 if (constants.PWA_ID) manifest.id = constants.PWA_ID;
+if (THEME_COLOR) manifest.theme_color = THEME_COLOR;
+// Install icons: sizes/purpose stay as declared, only the source swaps.
+const iconSources = { '192x192': constants.PWA_ICON_192, '512x512': constants.PWA_ICON_512 };
+if (Array.isArray(manifest.icons)) {
+  manifest.icons.forEach((icon) => {
+    const src = iconSources[icon.sizes];
+    if (!src) return;
+    icon.src = src;
+    const ext = src.split('?')[0].split('.').pop().toLowerCase();
+    if (ext === 'jpg' || ext === 'jpeg') icon.type = 'image/jpeg';
+    else if (ext === 'png') icon.type = 'image/png';
+    else if (ext === 'svg') icon.type = 'image/svg+xml';
+    else if (ext === 'webp') icon.type = 'image/webp';
+  });
+}
 if (Array.isArray(manifest.screenshots)) {
   manifest.screenshots.forEach((s) => {
     if (s.form_factor === 'narrow') s.label = `${APP_NAME} Mobile View`;
@@ -44,4 +93,23 @@ if (Array.isArray(manifest.screenshots)) {
   });
 }
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-console.log('✓ Constants injected into manifest.json');
+console.log(`✓ Constants injected into ${path.relative(path.join(__dirname, '..'), manifestPath)}`);
+
+// Push notifications shown from the service worker (background/mobile) get the brand logo
+// instead of the static favicon.
+if (fs.existsSync(serviceWorkerPath)) {
+  const originalSw = fs.readFileSync(serviceWorkerPath, 'utf8');
+  const updatedSw = originalSw
+    .replace(/icon: '[^']*'/, `icon: '${constants.LOGO}'`)
+    .replace(/badge: '[^']*'/, `badge: '${constants.LOGO}'`);
+
+  if (!updatedSw.includes(`icon: '${constants.LOGO}'`) || !updatedSw.includes(`badge: '${constants.LOGO}'`)) {
+    console.error('✗ Injection did not apply to the service worker notification icon/badge. Check the patterns in this script against service-worker.js.');
+    process.exit(1);
+  }
+
+  fs.writeFileSync(serviceWorkerPath, updatedSw);
+  console.log(`✓ Constants injected into ${path.relative(path.join(__dirname, '..'), serviceWorkerPath)}`);
+} else {
+  console.log('• No service-worker.js in build output, skipping notification icon injection');
+}

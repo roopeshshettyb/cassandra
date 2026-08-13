@@ -37,18 +37,25 @@ export class AwsService {
   private async setupCorsForBucket(bucketName: string): Promise<void> {
     if (!bucketName) return;
 
-    // Keep in sync with bucket CORS in AWS (browser PUT to presigned URL requires the app origin here).
+    // Browser PUT to a presigned URL requires the app origin here, so this list is driven by the
+    // same constants as the HTTP CORS in main.ts — a white-labeled deploy on a new domain works
+    // by setting FRONTEND_URL / PROD_FRONTEND_URL / EXTRA_CORS_ORIGINS, with no code change.
+    const privateConstants = this.constantsService.private;
+    const allowedOrigins = Array.from(
+      new Set(
+        [
+          privateConstants.FRONTEND_URL,
+          this.constantsService.public.PROD_FRONTEND_URL,
+          ...privateConstants.EXTRA_CORS_ORIGINS.split(',').map((origin) => origin.trim()),
+        ].filter(Boolean),
+      ),
+    );
+
     const corsConfiguration = {
       CORSRules: [
         {
           AllowedMethods: ['GET', 'PUT', 'POST', 'HEAD', 'DELETE'],
-          AllowedOrigins: [
-            'http://localhost:7678',
-            'http://localhost:3000',
-            'https://samantha.flashpact.in',
-            'https://samantha-stage.flashpact.in',
-            'https://stage.d3omcxqqht4w2k.amplifyapp.com',
-          ],
+          AllowedOrigins: allowedOrigins,
           AllowedHeaders: ['*'],
           ExposeHeaders: ['ETag', 'x-amz-version-id'],
           MaxAgeSeconds: 3000,

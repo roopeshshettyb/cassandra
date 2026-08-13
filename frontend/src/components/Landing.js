@@ -317,7 +317,7 @@ export default function Landing({ openLoginPopup }) {
               <p>{constants.APP_NAME} picks up on the first ring, books rooms, handles in-stay requests and speaks 38 languages, in the tone of your hotel, every hour of the night.</p>
               <div className="ctas">
                 <a className="l-btn l-btn-white" href="#demo" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>
-                <a className="l-btn l-btn-glass" href="#videoSection">Hear her speak</a>
+                <a className="l-btn l-btn-glass" href="#videoSection">Hear {constants.APP_NAME} speak</a>
               </div>
             </div>
           </div>
@@ -468,9 +468,9 @@ export default function Landing({ openLoginPopup }) {
         <div className="l-container">
           <div className="split">
             <div className="split-head">
-              <div className="eb">What she does</div>
+              <div className="eb">What {constants.APP_NAME} does</div>
               <h2>One agent, every <em>channel.</em></h2>
-              <p>Train {constants.APP_NAME} once on your hotel, your rates, your rooms, your manners, then put her on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
+              <p>Train {constants.APP_NAME} once on your hotel, your rates, your rooms, your manners, then put it on the line, on your booking page, and in the WhatsApp thread your guests already use.</p>
             </div>
             <div className="split-body">
               <MapComponent Component={FeatureCard} data={FEATURES} showNoDataAvailable={false} />
@@ -543,7 +543,7 @@ export default function Landing({ openLoginPopup }) {
 
       <section className="final" id="demo">
         <div className="l-container reveal">
-          <h2>Hear her on a <em>real call.</em></h2>
+          <h2>Hear {constants.APP_NAME} on a <em>real call.</em></h2>
           <p>Twenty minutes is enough to know whether {constants.APP_NAME} belongs on your line.</p>
           <div className="ctas">
             <a className="l-btn l-btn-primary" href="#book" onClick={openCalendly}>Book a demo <span className="arr">→</span></a>

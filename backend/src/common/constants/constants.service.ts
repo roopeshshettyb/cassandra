@@ -298,8 +298,13 @@ export class ConstantsService {
       PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
       HERO: this.configService.get<string>('HERO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
       CALENDLY_DEMO_URL: this.configService.get<string>('CALENDLY_DEMO_URL', 'https://calendly.com/roopesh-flashpact/samantha-demo'),
-      LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
+      LANDING_DEMO_YOUTUBE_ID: this.configService.get<string>('LANDING_DEMO_YOUTUBE_ID', 'I9_GFTV5P2w'),
       PWA_ID: this.configService.get<string>('PWA_ID', '/samantha-concierge'),
+      /** Browser/PWA theme colour, injected into index.html and manifest.json at build time. */
+      THEME_COLOR: this.configService.get<string>('THEME_COLOR', '#1B2340'),
+      /** PWA install icons. Relative names resolve inside frontend/public/, absolute URLs are used as-is. */
+      PWA_ICON_192: this.configService.get<string>('PWA_ICON_192', 'logo192.png'),
+      PWA_ICON_512: this.configService.get<string>('PWA_ICON_512', 'logo.png'),
 
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,
@@ -407,8 +412,9 @@ export class ConstantsService {
       ONBOARDING_FETCH_USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       ONBOARDING_FAVICON_BASE_URL: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL',
       AWS_S3_URL_DOMAIN: '.amazonaws.com',
-      // Comma-separated list of extra allowed CORS origins (e.g. prod + staging frontend URLs)
-      AWS_S3_CORS_ORIGINS: this.configService.get<string>('AWS_S3_CORS_ORIGINS'),
+      // Comma-separated list of extra allowed CORS origins (e.g. prod + staging frontend URLs).
+      // Applied to BOTH the Nest HTTP CORS (main.ts) and the S3 bucket CORS (aws.service.ts).
+      EXTRA_CORS_ORIGINS: this.configService.get<string>('EXTRA_CORS_ORIGINS', ''),
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 
       // Database Configuration
