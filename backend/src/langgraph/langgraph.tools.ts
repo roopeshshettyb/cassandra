@@ -10,6 +10,8 @@ import { ConstantsService } from '../common/constants/constants.service';
 import { RequestType, RequestUrgency, RequestStatus } from '../requests/requests.model';
 import { AccountRole } from '../common/constants/constants.service';
 import { CreateRequestDto } from '../requests/requests.dto';
+import { AgentJobsService } from '../agent-jobs/agent-jobs.service';
+import { AgentJobAction } from '../agent-jobs/agent-jobs.model';
 
 export function createAgentTools(
   ctx: AgentToolContext,
@@ -19,6 +21,7 @@ export function createAgentTools(
   chatService: ChatService,
   hotelsService: HotelsService,
   constantsService: ConstantsService,
+  agentJobsService: AgentJobsService,
 ): StructuredToolInterface[] {
   const { account, chatId, languageCode } = ctx;
   let currentBookingId: number | null = ctx.bookingId;
@@ -339,6 +342,58 @@ export function createAgentTools(
         return JSON.stringify(result.data);
       },
     }),
+    },
+    // ── Browser agent ──────────────────────────────────────────────────────────
+    // These two are deliberately a queue-and-poll pair rather than one blocking
+    // call. Driving a PMS UI measured 20–120s per task, so doing it inside a turn
+    // would leave a guest in silence; the agent acknowledges, then reports later.
+    {
+      allowedRoles: { [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'request_pms_action',
+        description:
+          'Queue an action for the browser agent to perform in the hotel\'s property management system. Returns immediately with a jobId — it does NOT wait for the work to finish. Tell the guest you are working on it, then use get_pms_action_status with the jobId to check. Never state the action is done based on this tool alone.',
+        schema: z.object({
+          action: z
+            .enum([AgentJobAction.PMS_LOOKUP_RESERVATION, AgentJobAction.PMS_LIST_ARRIVALS])
+            .describe('Which PMS action to perform. pms_lookup_reservation needs a confirmation number; pms_list_arrivals needs a date.'),
+          confirmationNumber: z.string().optional().describe('PMS confirmation/reservation number, for pms_lookup_reservation.'),
+          date: z.string().optional().describe('Date in YYYY-MM-DD, for pms_list_arrivals.'),
+        }),
+        func: async (args) => {
+          const hotelAny: any = currentHotel;
+          const hotelId: number | undefined = hotelAny?.id;
+          if (hotelId == null) {
+            return JSON.stringify({ success: false, error: 'No hotel context for this conversation' });
+          }
+          const params: Record<string, unknown> = {};
+          if (args.confirmationNumber) params.confirmationNumber = args.confirmationNumber;
+          if (args.date) params.date = args.date;
+
+          const job = await agentJobsService.enqueue(hotelId, args.action, params, account);
+          return JSON.stringify({
+            success: true,
+            jobId: job.id,
+            status: job.status,
+            message: constantsService.private.AGENT_JOBS.MSG_JOB_QUEUED,
+          });
+        },
+      }),
+    },
+    {
+      allowedRoles: { [AccountRole.HOTEL_OWNER]: true, [AccountRole.ADMIN]: true },
+      tool: new DynamicStructuredTool({
+        name: 'get_pms_action_status',
+        description:
+          'Check a queued PMS action by jobId. Only report a result to the user when "reportable" is true — that means it was independently confirmed. If reportable is false, say you are still working on it or that it could not be confirmed; never invent or assume the outcome.',
+        schema: z.object({
+          jobId: z.number().describe('The jobId returned by request_pms_action.'),
+        }),
+        func: async (args) => {
+          const job = await agentJobsService.findByIdForAccount(args.jobId, account);
+          return JSON.stringify(agentJobsService.buildAgentFacingStatus(job));
+        },
+      }),
     },
   ];
 
