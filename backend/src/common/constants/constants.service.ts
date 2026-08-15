@@ -472,6 +472,21 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         MSG_INTEGRATION_FETCHED: 'Integration fetched',
       },
 
+      // Auth failures. These are the messages a caller actually sees, so they say
+      // what is wrong without revealing whether an account exists — "invalid email
+      // or code" deliberately covers both the unknown-account and wrong-code cases.
+      OAUTH: {
+        ERROR_MISSING_AUTH_TYPE: 'authType is required',
+        ERROR_UNSUPPORTED_AUTH_TYPE: 'Unsupported auth type',
+        ERROR_EMAIL_REQUIRED: 'Email is required',
+        ERROR_MISSING_EMAIL_OR_OTP: 'Email and verification code are both required',
+        ERROR_INVALID_EMAIL_OR_OTP: 'Invalid email or verification code',
+        ERROR_OTP_EXPIRED: 'That verification code has expired — request a new one',
+        ERROR_MISSING_ID_TOKEN: 'id_token is required for Google sign-in',
+        ERROR_GOOGLE_TOKEN_REJECTED: 'Google rejected this sign-in token',
+        ERROR_ACCOUNT_NOT_FOUND: 'Account not found',
+      },
+
       // Browser-agent job queue. The agent drives a real browser through a PMS UI,
       // which measured 20–120s per task in testing — orders of magnitude past
       // conversational latency — so every action is queued and answered later.

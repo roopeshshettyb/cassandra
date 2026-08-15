@@ -206,10 +206,43 @@ describe('Auth', () => {
     await expectStatus(401, () => http.get('/accounts/me'));
   });
 
-  it('POST /oauth/callback with invalid authType → error', async () => {
-    await expectStatus(500, () =>
+  // These previously all answered 500. A caller could not tell a bad request from
+  // a broken server, which is how a client-id mismatch during a credential
+  // rotation looked like an outage.
+  it('POST /oauth/callback with invalid authType → 400', async () => {
+    await expectStatus(400, () =>
       http.post('/oauth/callback', { authType: 'invalid', email: EMAILS.admin }),
     );
+  });
+
+  it('POST /oauth/callback with no authType → 400', async () => {
+    await expectStatus(400, () => http.post('/oauth/callback', {}));
+  });
+
+  it('POST /oauth/callback email auth missing otp → 400', async () => {
+    await expectStatus(400, () => http.post('/oauth/callback', { authType: 'email', email: EMAILS.admin }));
+  });
+
+  it('POST /oauth/callback with a wrong OTP → 401, not 500', async () => {
+    const res = await expectStatus(401, () =>
+      http.post('/oauth/callback', { authType: 'email', email: EMAILS.admin, otp: '000000' }),
+    );
+    // Must not disclose whether the account exists — same answer either way.
+    expect(String(res.data?.message)).toMatch(/invalid email or verification code/i);
+  });
+
+  it('POST /oauth/callback google auth missing id_token → 400', async () => {
+    await expectStatus(400, () => http.post('/oauth/callback', { authType: 'google' }));
+  });
+
+  it('POST /oauth/callback with an unverifiable google id_token → 401', async () => {
+    await expectStatus(401, () =>
+      http.post('/oauth/callback', { authType: 'google', id_token: 'not-a-real-token' }),
+    );
+  });
+
+  it('POST /oauth/email/send-otp with no email → 400', async () => {
+    await expectStatus(400, () => http.post('/oauth/email/send-otp', {}));
   });
 });
 

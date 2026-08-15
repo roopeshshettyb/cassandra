@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { Account, AccountRole, AuthType } from '../accounts/accounts.model';
@@ -28,7 +28,7 @@ export class OAuthService {
 
     const providerService = serviceMap[authType];
     if (!providerService) {
-      throw new Error(`Unsupported auth type: ${authType}`);
+      throw new BadRequestException(`${this.constantsService.private.OAUTH.ERROR_UNSUPPORTED_AUTH_TYPE}: ${authType}`);
     }
 
     const providerData = await providerService.handleCallback(body);
@@ -39,7 +39,7 @@ export class OAuthService {
     if (existingAccount) {
       account = await this.accountsService.findByUuid(existingAccount.uuid);
       if (!account) {
-        throw new Error('Account not found');
+        throw new NotFoundException(this.constantsService.private.OAUTH.ERROR_ACCOUNT_NOT_FOUND);
       }
 
       const existingOauthMeta = account.oauthMeta || {};
@@ -51,7 +51,7 @@ export class OAuthService {
       const [affectedCount, updatedAccounts] = await this.accountsService.update({ oauthMeta: mergedOauthMeta }, { uuid: existingAccount.uuid });
 
       if (affectedCount === 0) {
-        throw new Error('Account not found after update');
+        throw new NotFoundException(this.constantsService.private.OAUTH.ERROR_ACCOUNT_NOT_FOUND);
       }
       account = updatedAccounts[0];
     } else {
