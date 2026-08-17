@@ -19,9 +19,10 @@ import { CostsModule } from '../costs/costs.module';
 import { SttModule } from '../stt/stt.module';
 import { TtsModule } from '../tts/tts.module';
 import { LlmEvalModule } from '../llm-eval/llm-eval.module';
+import { AgentJobsModule } from '../agent-jobs/agent-jobs.module';
 
 @Module({
-  imports: [
+  imports: [forwardRef(() => AgentJobsModule), 
     DatabaseModule,
     forwardRef(() => BookingsModule),
     AuthModule,

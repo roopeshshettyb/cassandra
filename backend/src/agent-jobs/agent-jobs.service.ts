@@ -5,7 +5,11 @@ import { AgentJob, AgentJobAction, AgentJobStatus } from './agent-jobs.model';
 import { CompleteAgentJobDto } from './agent-jobs.dto';
 import { Account } from '../accounts/accounts.model';
 import { HotelsService } from '../hotels/hotels.service';
+import { MessagesService } from '../messages/messages.service';
+import { MessageRole } from '../messages/message.model';
+import { AgentJobEvents } from './agent-job.events';
 import { ConstantsService } from '../common/constants/constants.service';
+import { LoggerService } from '../common/logger.service';
 
 @Injectable()
 export class AgentJobsService {
@@ -13,11 +17,20 @@ export class AgentJobsService {
     @Inject(AGENT_JOBS_REPOSITORY) private readonly agentJobsRepository: typeof AgentJob,
     private readonly hotelsService: HotelsService,
     private readonly constantsService: ConstantsService,
+    private readonly messagesService: MessagesService,
+    private readonly agentJobEvents: AgentJobEvents,
+    private readonly loggerService: LoggerService,
   ) {}
 
   // Enqueue is deliberately cheap: the guest-facing agent calls this mid-conversation
   // and must get an answer in milliseconds, so nothing here touches a browser.
-  async enqueue(hotelId: number, action: AgentJobAction, params: Record<string, unknown>, currentAccount: Account): Promise<AgentJob> {
+  async enqueue(
+    hotelId: number,
+    action: AgentJobAction,
+    params: Record<string, unknown>,
+    currentAccount: Account,
+    chatId: number | null = null,
+  ): Promise<AgentJob> {
     // Ownership: the caller must already have access to this hotel. Throws for
     // anyone else, so a job can never be queued against another property.
     await this.hotelsService.findByIdForAccount(hotelId, currentAccount);
@@ -34,6 +47,7 @@ export class AgentJobsService {
     return this.agentJobsRepository.create({
       hotelId,
       requestedByAccountId: currentAccount.id,
+      chatId,
       action,
       params,
       status: AgentJobStatus.QUEUED,
@@ -135,7 +149,42 @@ export class AgentJobsService {
     job.finishedAt = new Date();
     await job.save();
 
+    await this.deliverToChat(job);
+
     return job;
+  }
+
+  // A queued action is useless to a guest if nobody tells them the answer. The
+  // conversation has already moved on by the time a browser task finishes, so the
+  // result is posted back into the chat rather than waiting to be polled.
+  //
+  // What gets said depends on verification, not on success: an unconfirmed result
+  // is never spoken as fact, because a second independent read did not agree with
+  // the first.
+  private async deliverToChat(job: AgentJob): Promise<void> {
+    if (!job.chatId) {
+      return;
+    }
+    const config = this.constantsService.private.AGENT_JOBS;
+
+    let content: string;
+    if (job.status === AgentJobStatus.FAILED) {
+      content = config.CHAT_FAILED_MESSAGE;
+    } else if (!job.verifiedAt) {
+      content = config.CHAT_UNVERIFIED_MESSAGE;
+    } else {
+      const answer = typeof job.result?.answer === 'string' ? job.result.answer : JSON.stringify(job.result);
+      content = `${config.CHAT_RESULT_PREFIX} ${answer}`;
+    }
+
+    // Delivery must never fail the job — the work already happened and the row is
+    // the source of truth; a dropped message is recoverable, a lost result is not.
+    try {
+      const message = await this.messagesService.create(job.chatId, MessageRole.ASSISTANT, content);
+      this.agentJobEvents.emitChatMessage(job.chatId, message);
+    } catch (error) {
+      this.loggerService.error({ error, serviceName: 'AgentJobsService', actionName: `deliverToChat job ${job.id}` });
+    }
   }
 
   // Shaped for the conversational agent rather than the UI: it needs to know whether

@@ -370,7 +370,7 @@ export function createAgentTools(
           if (args.confirmationNumber) params.confirmationNumber = args.confirmationNumber;
           if (args.date) params.date = args.date;
 
-          const job = await agentJobsService.enqueue(hotelId, args.action, params, account);
+          const job = await agentJobsService.enqueue(hotelId, args.action, params, account, chatId ?? null);
           return JSON.stringify({
             success: true,
             jobId: job.id,

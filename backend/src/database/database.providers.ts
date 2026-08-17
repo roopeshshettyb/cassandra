@@ -72,6 +72,7 @@ export const DATABASE_PROVIDERS = [
         // The worker polls for the oldest queued job on every tick; without this
         // the poll degrades into a table scan as finished jobs accumulate.
         "CREATE INDEX IF NOT EXISTS agent_jobs_queued_created_idx ON agent_jobs (created_at) WHERE status = 'queued'",
+        'ALTER TABLE agent_jobs ADD COLUMN IF NOT EXISTS chat_id INTEGER',
       ];
       for (let i = 0; i < migrations.length; i++) {
         try {
