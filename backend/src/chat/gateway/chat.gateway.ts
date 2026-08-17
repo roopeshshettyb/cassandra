@@ -18,6 +18,7 @@ import { ChatLlmService } from '../chat-llm.service';
 import { LlmEvalService } from '../../llm-eval/llm-eval.service';
 import { EvalDimension } from '../../llm-eval/llm-eval.model';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { AgentJobEvents } from '../../agent-jobs/agent-job.events';
 
 @WebSocketGateway({ cors: true, namespace: '/chat' })
 @Injectable()
@@ -38,7 +39,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly costsService: CostsService,
     private readonly chatLlmService: ChatLlmService,
     private readonly llmEvalService: LlmEvalService,
-  ) {}
+    private readonly agentJobEvents: AgentJobEvents,
+  ) {
+    // A browser task finishes long after the turn that asked for it, so the answer
+    // arrives out of band. Push it into the room for that chat; anyone still on it
+    // sees the reply appear without asking again.
+    this.agentJobEvents.onChatMessage(({ chatId, message }) => {
+      this.server?.to(this.chatRoom(chatId)).emit('message', message);
+    });
+  }
+
+  private chatRoom(chatId: number): string {
+    return `chat:${chatId}`;
+  }
 
   private async emitChatHistory(client: any, session: ChatSession): Promise<void> {
     const chats = await this.chatService.listHistoryForSession(session.account, session.bookingId);
@@ -57,6 +70,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private async emitReadyAndHistory(client: any, session: ChatSession): Promise<void> {
+    // Re-join on every switch so a client only ever receives out-of-band results
+    // for the chat it is actually looking at.
+    for (const room of client.rooms || []) {
+      if (typeof room === 'string' && room.startsWith('chat:')) client.leave(room);
+    }
+    client.join(this.chatRoom(session.chatId));
     const messages = await this.messagesService.findRecentByChatId(session.chatId, 50);
     client.emit('ready', { chatId: session.chatId, messages });
     await this.emitChatHistory(client, session);

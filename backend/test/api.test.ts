@@ -34,6 +34,11 @@ import { AuthService } from '../src/auth/auth.service';
 import { ConstantsService, HotelMemberStatus } from '../src/common/constants/constants.service';
 import { AccountRole, Account } from '../src/accounts/accounts.model';
 import { HotelAccount } from '../src/hotels/hotel-accounts.model';
+import { AgentJobsModule } from '../src/agent-jobs/agent-jobs.module';
+import { AgentJobsService } from '../src/agent-jobs/agent-jobs.service';
+import { ChatModule } from '../src/chat/chat.module';
+import { ChatService } from '../src/chat/chat.service';
+import { MessagesService } from '../src/messages/messages.service';
 
 dotenv.config({ path: path.join(__dirname, '../dev.env') });
 
@@ -74,6 +79,10 @@ let hotelsService: HotelsService;
 let restaurantService: RestaurantService;
 let emailService: EmailService;
 let authService: AuthService;
+let agentJobsService: AgentJobsService;
+let chatService: ChatService;
+let messagesService: MessagesService;
+let constantsServiceRef: ConstantsService;
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 function authHeaders(token?: string) {
@@ -123,6 +132,8 @@ beforeAll(async () => {
       BookingsModule,
       HotelsModule,
       RestaurantModule,
+      AgentJobsModule,
+      ChatModule,
     ],
   }).compile();
 
@@ -132,7 +143,11 @@ beforeAll(async () => {
   restaurantService = moduleRef.get(RestaurantService);
   emailService    = moduleRef.get(EmailService);
   authService = moduleRef.get(AuthService);
+  agentJobsService = moduleRef.get(AgentJobsService);
+  chatService = moduleRef.get(ChatService);
+  messagesService = moduleRef.get(MessagesService);
   const constantsService = moduleRef.get(ConstantsService);
+  constantsServiceRef = constantsService;
   state.BASE_URL = `http://localhost:${constantsService.private.BACKEND_PORT}`;
 
   // Create test accounts with explicit roles
@@ -921,3 +936,65 @@ describe('Integrations', () => {
     );
   });
 });
+
+// The whole point of queueing a browser action is that the guest gets told the
+// answer later. These cover what actually reaches the conversation, and — more
+// importantly — what does not.
+describe('Agent job chat delivery', () => {
+  let workerSecret: string;
+  let chatId: number;
+
+  const workerPost = (url: string, body: any) =>
+    axios.post(`${state.BASE_URL}${url}`, body, { headers: { Authorization: `Bearer ${workerSecret}` } });
+
+  const queueJob = async (action: string) => {
+    const job = await agentJobsService.enqueue(state.testHotelId, action as any, {}, state.adminAccount as any, chatId);
+    const claimed = await workerPost('/agent-worker/claim', {});
+    return (claimed.data?.data ?? claimed.data).id ?? job.id;
+  };
+
+  const lastAssistantMessage = async () => {
+    const msgs = await messagesService.findRecentByChatId(chatId, 1);
+    return msgs[0]?.content ?? '';
+  };
+
+  beforeAll(async () => {
+    workerSecret = constantsServiceRef.private.AGENT_JOBS.WORKER_SECRET;
+    const chat = await chatService.findOrCreateGeneralForAccount(state.adminAccount as any);
+    chatId = chat.id;
+  });
+
+  it('a confirmed result is delivered into the chat with the answer', async () => {
+    const id = await queueJob('pms_lookup_reservation');
+    await workerPost(`/agent-worker/${id}/complete`, {
+      success: true, verified: true, result: { answer: 'Room 412, arriving 10 Sep.' },
+    });
+    expect(await lastAssistantMessage()).toContain('Room 412');
+  });
+
+  it('an unconfirmed result never states the answer', async () => {
+    const id = await queueJob('pms_list_arrivals');
+    await workerPost(`/agent-worker/${id}/complete`, {
+      success: true, verified: false, result: { answer: '6 arrivals' },
+    });
+    const content = await lastAssistantMessage();
+    // The number must not reach the guest — a second read did not agree with it.
+    expect(content).not.toContain('6 arrivals');
+    expect(content).toMatch(/could not confirm/i);
+  });
+
+  it('a failed job says so rather than going silent', async () => {
+    const id = await queueJob('pms_lookup_reservation');
+    await workerPost(`/agent-worker/${id}/complete`, { success: false, error: 'TimeoutError' });
+    expect(await lastAssistantMessage()).toMatch(/could not complete/i);
+  });
+
+  it('a job with no chat does not blow up completion', async () => {
+    const job = await agentJobsService.enqueue(state.testHotelId, 'pms_list_arrivals' as any, {}, state.adminAccount as any, null);
+    const claimed = await workerPost('/agent-worker/claim', {});
+    const id = (claimed.data?.data ?? claimed.data).id ?? job.id;
+    const res = await workerPost(`/agent-worker/${id}/complete`, { success: true, verified: true, result: { answer: 'x' } });
+    expect(res.status).toBe(201);
+  });
+});
+

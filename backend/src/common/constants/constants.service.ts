@@ -544,6 +544,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         // the browser agent's own success signal proved unreliable in testing.
         MSG_JOB_STILL_RUNNING: 'Still working on it — no result yet',
         MSG_JOB_UNVERIFIED: 'The action completed but could not be independently confirmed — do not report it as done',
+        // Delivered into the chat when a job finishes. Confirmed results carry the
+        // answer; unconfirmed ones deliberately do not, because a second read did
+        // not agree and we will not tell a guest something we cannot stand behind.
+        CHAT_RESULT_PREFIX: 'Here is what I found:',
+        CHAT_UNVERIFIED_MESSAGE: 'I looked into that but could not confirm the result, so I would rather not give you a number that might be wrong. Someone from the team will check and follow up.',
+        CHAT_FAILED_MESSAGE: 'Sorry — I could not complete that in the system. I have flagged it for the team.',
       },
 
       // JWT Configuration

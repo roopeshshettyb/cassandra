@@ -55,6 +55,15 @@ export class AgentJob extends Model<AgentJob> {
   @BelongsTo(() => Account)
   requestedBy: Account;
 
+  // The chat this was asked in, so the answer can be delivered back into the same
+  // conversation. Null for jobs raised outside a chat (e.g. a phone call).
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'chat_id',
+  })
+  chatId: number | null;
+
   @Column({
     type: DataType.ENUM(...Object.values(AgentJobAction)),
     allowNull: false,
