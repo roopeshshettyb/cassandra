@@ -1,2 +1,5 @@
 .claude/
 fp-one
+
+# python venv for the browser-agent worker
+agent-worker/venv/

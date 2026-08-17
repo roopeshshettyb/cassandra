@@ -98,8 +98,12 @@ async def run_agent(prompt: str, max_steps: int = 12) -> tuple[str, float, int]:
     text = (history.final_result() or "").strip()
     steps = len(history.history)
 
+    # Usage lives on the run history; `agent.token_cost_service` does not exist on
+    # this version, and reading only that silently reported every job as free.
     cost = 0.0
-    usage = getattr(getattr(agent, "token_cost_service", None), "usage", None)
+    usage = getattr(history, "usage", None)
+    if usage is None:
+        usage = getattr(getattr(agent, "token_cost_service", None), "usage", None)
     if usage is not None:
         tin = getattr(usage, "total_prompt_tokens", 0) or 0
         tout = getattr(usage, "total_completion_tokens", 0) or 0
