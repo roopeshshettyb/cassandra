@@ -379,6 +379,27 @@ export class ConstantsService {
         TOKEN_PREFIX_LABEL: 'Token',
         COPIED_MESSAGE: 'Copied to clipboard',
       },
+      AGENT_JOBS: {
+        TAB_LABEL: 'Agent Activity',
+        DESCRIPTION: 'Actions the browser agent has performed in this hotel\'s PMS on behalf of guests.',
+        EMPTY_MESSAGE: 'No agent activity yet.',
+        REFRESH_BUTTON_LABEL: 'Refresh',
+        STATUS_QUEUED_LABEL: 'Queued',
+        STATUS_RUNNING_LABEL: 'Running',
+        STATUS_SUCCEEDED_LABEL: 'Succeeded',
+        STATUS_FAILED_LABEL: 'Failed',
+        VERIFIED_LABEL: 'Confirmed',
+        // Shown when the agent reported success but a second independent read did
+        // not confirm it — the result exists but must not be relayed as done.
+        UNVERIFIED_LABEL: 'Unconfirmed',
+        UNVERIFIED_HELP: 'The agent reported success but a second check could not confirm it, so this was not relayed to the guest.',
+        ACTION_LABEL: 'Action',
+        STATUS_LABEL: 'Status',
+        RESULT_LABEL: 'Result',
+        DURATION_LABEL: 'Took',
+        COST_LABEL: 'Cost',
+        REQUESTED_LABEL: 'Requested',
+      },
     };
   }
 
