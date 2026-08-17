@@ -18,6 +18,8 @@ import { RequestsService } from '../../src/requests/requests.service';
 import { RestaurantService } from '../../src/restaurant/restaurant.service';
 import { ChatService } from '../../src/chat/chat.service';
 import { HotelsService } from '../../src/hotels/hotels.service';
+import { AgentJobsService } from '../../src/agent-jobs/agent-jobs.service';
+import { AgentJobStatus } from '../../src/agent-jobs/agent-jobs.model';
 import { AgentToolContext } from '../../src/langgraph/langgraph-tools.context';
 import { judgeTurn } from '../../src/llm-eval/llm-eval.judge';
 
@@ -76,7 +78,16 @@ function buildMocks() {
     setBookingForChat: jest.fn(async () => undefined),
     updateLanguageCode: jest.fn(async () => undefined),
   };
-  return { requestsService, bookingsService, restaurantService, hotelsService, chatService };
+  // The browser-agent tools only need the queue to answer; no browser is driven in
+  // a regression run. A queued job comes back not-reportable, which is what a real
+  // in-flight job looks like — so the agent is exercised on the "don't claim it's
+  // done yet" path rather than against a fabricated success.
+  const agentJobsService: any = {
+    enqueue: jest.fn(async () => ({ id: 1, status: AgentJobStatus.QUEUED })),
+    findByIdForAccount: jest.fn(async () => ({ id: 1, status: AgentJobStatus.QUEUED, verifiedAt: null, result: null, error: null })),
+    buildAgentFacingStatus: jest.fn((job: any) => ({ jobId: job.id, status: job.status, reportable: false })),
+  };
+  return { requestsService, bookingsService, restaurantService, hotelsService, chatService, agentJobsService };
 }
 
 export interface Harness {
@@ -96,6 +107,7 @@ export async function buildHarness(): Promise<Harness> {
       { provide: RestaurantService, useValue: mocks.restaurantService },
       { provide: ChatService, useValue: mocks.chatService },
       { provide: HotelsService, useValue: mocks.hotelsService },
+      { provide: AgentJobsService, useValue: mocks.agentJobsService },
     ],
   }).compile();
 
