@@ -487,6 +487,13 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         ERROR_UNKNOWN_PROVIDER: 'Unknown integration provider',
         ERROR_BOOKING_NOT_FOUND_FOR_REQUEST: 'bookingExternalId does not match any existing booking for this hotel',
         ERROR_MALFORMED_CANONICAL_BODY: 'Body must be { type: "booking" | "request", data: {...} }',
+        ERROR_MEWS_NO_RESERVATIONS: 'Body must contain a non-empty Reservations array',
+        ERROR_MEWS_RESERVATION_MISSING_ID: 'Every Mews reservation must have an Id',
+        ERROR_MEWS_RESERVATION_MISSING_DATES: 'Mews reservation is missing start or end date',
+        // Deliberately a hard failure: without a real address we would create junk
+        // guest accounts and attach real stays to them.
+        ERROR_MEWS_RESERVATION_NO_GUEST_EMAIL: 'Mews reservation has no matching customer with an email',
+        ERROR_MEWS_NO_ACTIVE_RESERVATIONS: 'Payload contained only cancelled or declined reservations',
         MSG_BOOKING_UPSERTED: 'Booking upserted',
         MSG_REQUEST_UPSERTED: 'Request upserted',
         MSG_PROVIDER_WEBHOOK_PROCESSED: 'Provider webhook processed',
