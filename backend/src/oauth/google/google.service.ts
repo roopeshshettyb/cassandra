@@ -1,13 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { OAuth2Client } from 'google-auth-library';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { LoginTicket, OAuth2Client } from 'google-auth-library';
 import { AuthType } from '../../accounts/accounts.model';
 import { ConstantsService } from '../../common/constants/constants.service';
+import { LoggerService } from '../../common/logger.service';
 
 @Injectable()
 export class GoogleService {
   private client: OAuth2Client;
 
-  constructor(private constantsService: ConstantsService) {
+  constructor(private constantsService: ConstantsService, private readonly loggerService: LoggerService) {
     const privateConstants = this.constantsService.private;
     this.client = new OAuth2Client(privateConstants.GOOGLE_CLIENT_ID);
   }
@@ -21,17 +22,27 @@ export class GoogleService {
     username: string;
     description: string;
   }> {
-    const { id_token } = body;
-    if (!id_token) {
-      throw new Error('Missing id_token for Google OAuth');
-    }
-
     const privateConstants = this.constantsService.private;
 
-    const ticket = await this.client.verifyIdToken({
-      idToken: id_token,
-      audience: privateConstants.GOOGLE_CLIENT_ID,
-    });
+    const { id_token } = body;
+    if (!id_token) {
+      throw new BadRequestException(privateConstants.OAUTH.ERROR_MISSING_ID_TOKEN);
+    }
+
+    // google-auth-library throws a bare Error on a bad or wrong-audience token.
+    // Left unwrapped that surfaces as a 500, which reads as "our server is broken"
+    // when the real cause is a client-id mismatch — exactly the case that made a
+    // credential rotation look like an outage.
+    let ticket: LoginTicket;
+    try {
+      ticket = await this.client.verifyIdToken({
+        idToken: id_token,
+        audience: privateConstants.GOOGLE_CLIENT_ID,
+      });
+    } catch (error) {
+      this.loggerService.error({ error, serviceName: 'GoogleService', actionName: 'verifyIdToken' });
+      throw new UnauthorizedException(privateConstants.OAUTH.ERROR_GOOGLE_TOKEN_REJECTED);
+    }
 
     const payload = ticket.getPayload();
     const email = payload.email;

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { AccountsService } from '../../accounts/accounts.service';
 import { MailerService } from '../../mailer/mailer.service';
 import { ConstantsService, OTP_EXPIRY_MINUTES, OTP_LENGTH } from '../../common/constants/constants.service';
@@ -18,7 +18,7 @@ export class EmailService {
   async sendOtp(email: string): Promise<void> {
     const normalized = normalizeEmail(email);
     if (!normalized) {
-      throw new Error('Email is required');
+      throw new BadRequestException(this.constantsService.private.OAUTH.ERROR_EMAIL_REQUIRED);
     }
     const uuid = `email:${normalized}`;
     let account = await this.accountsService.findByUuid(uuid);
@@ -50,19 +50,19 @@ export class EmailService {
   }> {
     const { email: rawEmail, otp } = body;
     if (!rawEmail || !otp) {
-      throw new Error('Missing email or otp for email auth');
+      throw new BadRequestException(this.constantsService.private.OAUTH.ERROR_MISSING_EMAIL_OR_OTP);
     }
     const normalized = normalizeEmail(rawEmail);
     const uuid = `email:${normalized}`;
     const account = await this.accountsService.findByUuid(uuid);
     if (!account) {
-      throw new Error('Invalid email or OTP');
+      throw new UnauthorizedException(this.constantsService.private.OAUTH.ERROR_INVALID_EMAIL_OR_OTP);
     }
     if (account.otp !== otp) {
-      throw new Error('Invalid email or OTP');
+      throw new UnauthorizedException(this.constantsService.private.OAUTH.ERROR_INVALID_EMAIL_OR_OTP);
     }
     if (!account.otpExpiresAt || new Date(account.otpExpiresAt) < new Date()) {
-      throw new Error('OTP has expired');
+      throw new UnauthorizedException(this.constantsService.private.OAUTH.ERROR_OTP_EXPIRED);
     }
     await this.accountsService.update({ otp: null, otpExpiresAt: null }, { uuid });
 
