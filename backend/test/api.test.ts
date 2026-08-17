@@ -828,6 +828,63 @@ describe('Integrations', () => {
     expect(results[0].hotelId).toBe(state.testHotelId);
     expect(results[0].externalId).toBe(`${TAG}-canonical-1`);
 
-    await expectStatus(404, () => webhookPost('/integrations/providers/mews/webhooks', {}, freshToken));
+    // 'mews' is a registered adapter now, so an unknown provider needs a name
+    // that will never be one.
+    await expectStatus(404, () => webhookPost('/integrations/providers/not-a-real-pms/webhooks', {}, freshToken));
+  });
+
+  it('POST /integrations/providers/mews/webhooks → maps a Mews payload to bookings', async () => {
+    const tokenRes = await http.post(`/hotels/${state.testHotelId}/integrations/token`, {}, state.ownerToken);
+    const freshToken = (tokenRes.data?.data ?? tokenRes.data).token;
+
+    // Real Mews Connector API shape: reservations, customers and resources arrive
+    // as parallel arrays joined by id, not as one nested object.
+    const mewsBody = {
+      Reservations: [
+        {
+          Id: `${TAG}-mews-res-1`,
+          Number: '102845',
+          State: 'Confirmed',
+          StartUtc: '2026-09-01T13:00:00Z',
+          EndUtc: '2026-09-03T10:00:00Z',
+          AccountId: `${TAG}-mews-cust-1`,
+          AssignedResourceId: `${TAG}-mews-room-1`,
+        },
+        // Cancelled stays must be skipped, not upserted — our booking model has no
+        // cancelled state and it must never show to a guest as active.
+        {
+          Id: `${TAG}-mews-res-2`,
+          State: 'Canceled',
+          StartUtc: '2026-09-05T13:00:00Z',
+          EndUtc: '2026-09-06T10:00:00Z',
+          AccountId: `${TAG}-mews-cust-1`,
+        },
+      ],
+      Customers: [{ Id: `${TAG}-mews-cust-1`, FirstName: 'Mews', LastName: 'Guest', Email: EMAILS.pmsGuest }],
+      Resources: [{ Id: `${TAG}-mews-room-1`, Name: 'SingHab02' }],
+    };
+
+    const res = await webhookPost('/integrations/providers/mews/webhooks', mewsBody, freshToken);
+    expect(res.status).toBe(201);
+    const results = res.data?.data ?? res.data;
+    expect(results).toHaveLength(1); // the cancelled one was skipped
+    expect(results[0].externalId).toBe(`${TAG}-mews-res-1`);
+    expect(results[0].roomNumber).toBe('SingHab02');
+    expect(results[0].hotelId).toBe(state.testHotelId);
+
+    // Re-delivery updates the same row and answers 200, as a PMS re-sends on every change.
+    const again = await webhookPost('/integrations/providers/mews/webhooks', mewsBody, freshToken);
+    expect(again.status).toBe(200);
+    expect((again.data?.data ?? again.data)[0].id).toBe(results[0].id);
+
+    // A reservation we cannot join to a customer email is rejected rather than
+    // guessed at — a placeholder would create junk guests attached to real stays.
+    await expectStatus(400, () =>
+      webhookPost(
+        '/integrations/providers/mews/webhooks',
+        { Reservations: [{ Id: 'x', AccountId: 'missing', StartUtc: '2026-09-01T13:00:00Z', EndUtc: '2026-09-02T10:00:00Z' }], Customers: [] },
+        freshToken,
+      ),
+    );
   });
 });
