@@ -481,6 +481,11 @@ export class BookingsService {
       where[Op.or] = [
         { '$guest.name$': { [Op.iLike]: pattern } },
         { '$guest.email$': { [Op.iLike]: pattern } },
+        // The confirmation number is how anyone holding a booking refers to it —
+        // it is what a guest reads off an email and what a PMS calls it. Leaving
+        // it out meant the only way to find a reservation was to already know
+        // whose it was.
+        { externalId: { [Op.iLike]: pattern } },
       ];
     }
 
