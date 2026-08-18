@@ -540,10 +540,14 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         MSG_NO_JOBS: 'No queued jobs',
         ERROR_INVALID_WORKER_SECRET: 'Invalid agent worker credentials',
         ERROR_JOB_NOT_FOUND: 'Agent job not found',
-        // Returned to the agent, not the guest: it is an instruction for what
-        // to do next, since only the agent can resolve which hotel is meant.
+        // Returned to the agent, not the guest, so it is written as instructions.
+        // Both halves are load-bearing. Without "end your turn" the model treats
+        // it as retryable and loops guessing hotel ids until the graph recursion
+        // limit kills the turn and the user gets nothing. Without the explicit
+        // "write out the names" it asks the user to choose from a list it never
+        // printed.
         NO_HOTEL_CONTEXT_ERROR:
-          'Which hotel is this for? Pick one from the hotels list below, confirm with the user if it is ambiguous, then call this tool again with hotelId.',
+          'STOP. This request needs a hotel and only the user can say which. Write out the names in the hotels field of this response as a numbered list, ask which one they mean, and end your turn. Do not call this tool again until the user has answered. Do not pick one yourself, and do not refer to a list you have not just written out.',
         ERROR_JOB_NOT_RUNNING: 'Agent job is not in a running state',
         ERROR_QUEUE_FULL: 'Too many actions already queued for this hotel — try again once they finish',
         ERROR_UNKNOWN_ACTION: 'Unknown agent action',

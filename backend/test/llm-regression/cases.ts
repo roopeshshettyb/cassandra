@@ -99,4 +99,29 @@ export const CASES: RegressionCase[] = [
     ctx: ownerCtx(),
     expect: { mustExclude: ['room number is', 'the guest is'], judgeQuality: true },
   },
+  {
+    // Reported from the live chat: asked which hotel, the user said "you choose",
+    // and the agent refused — pointing at a list of hotels it had never printed.
+    // A confirmation number identifies its own property, so the question was
+    // asking the user to answer the thing they had just asked.
+    name: 'a known confirmation number does not trigger a which-hotel question',
+    userMessage: 'Use the PMS to look up reservation PMS-RES-9001 and tell me the room number.',
+    ctx: ownerCtx(),
+    expect: {
+      toolCalled: 'request_pms_action',
+      toolArgs: { action: 'pms_lookup_reservation', confirmationNumber: 'PMS-RES-9001' },
+      mustExclude: ['which hotel'],
+    },
+  },
+  {
+    // With several hotels and none named, the model picks one rather than asking
+    // — two rounds of prompting did not change that. What it must never do is
+    // hide the choice, because then arrivals for the wrong property read as
+    // arrivals for the right one. So the requirement asserted here is that the
+    // hotel it acted on is stated, leaving a wrong pick visible and correctable.
+    name: 'a PMS request with no hotel named says which hotel it used',
+    userMessage: 'Use the PMS to list the arrivals for 2026-07-22.',
+    ctx: ownerCtx(),
+    expect: { toolCalled: 'request_pms_action', mustInclude: ['test hotel'] },
+  },
 ];

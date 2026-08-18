@@ -38,8 +38,18 @@ export const TEST_HOTEL = {
   phoneNumber: '+1-555-0100',
 };
 
+// A second property, so the "which hotel?" fallback is a live possibility in the
+// suite. With only one hotel every PMS case resolves trivially and the paths
+// that actually matter — resolving from a reference, or asking — never run.
+export const TEST_HOTEL_2 = {
+  id: 2,
+  name: 'The Second Test Hotel',
+  address: '2 Test Street, Test City',
+};
+
 export const TEST_BOOKING = {
   id: 555,
+  externalId: 'PMS-RES-9001',
   hotelId: 1,
   guestId: 42,
   roomNumber: '902',
@@ -65,14 +75,22 @@ function buildMocks() {
     appendStaffMessage: jest.fn(async () => ok({}, 'Note added')),
   };
   const bookingsService: any = {
-    findForAccountWithOptions: jest.fn(async () => ok([TEST_BOOKING])),
+    // Filters for real rather than always returning the row: resolving a hotel
+    // from a confirmation number depends on the search actually matching, and a
+    // mock that answers yes to everything would prove nothing.
+    findForAccountWithOptions: jest.fn(async (_account: any, options?: any) => {
+      const term = options?.guestKeywords?.toLowerCase();
+      if (!term) return ok([TEST_BOOKING]);
+      const haystack = [TEST_BOOKING.externalId, TEST_BOOKING.roomNumber].join(' ').toLowerCase();
+      return ok(haystack.includes(term) ? [TEST_BOOKING] : []);
+    }),
     findByIdForAccount: jest.fn(async () => ok(TEST_BOOKING)),
   };
   const restaurantService: any = {
     searchMenuItems: jest.fn(async () => ok(TEST_MENU)),
   };
   const hotelsService: any = {
-    findAllForAccount: jest.fn(async () => ok([TEST_HOTEL])),
+    findAllForAccount: jest.fn(async () => ok([TEST_HOTEL, TEST_HOTEL_2])),
   };
   const chatService: any = {
     setBookingForChat: jest.fn(async () => undefined),
