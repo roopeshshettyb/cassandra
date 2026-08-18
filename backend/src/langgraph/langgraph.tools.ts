@@ -362,7 +362,9 @@ export function createAgentTools(
           hotelId: z
             .number()
             .optional()
-            .describe('Which hotel to act on. Only needed when the conversation is not already about one hotel — use get_hotels to find the id.'),
+            .describe(
+              'Which hotel to act on. Omit it when the conversation is already about one hotel, or when you are giving a confirmation number — that identifies its own property. Otherwise, if the user manages more than one hotel and has not said which they mean, ask them first and pass the id they choose. Never pick a hotel for them: the wrong property returns a confident answer about the wrong guests.',
+            ),
         }),
         func: async (args) => {
           // A general chat carries no booking, so there is no hotel in context.
@@ -372,6 +374,20 @@ export function createAgentTools(
           // still ownership-checks whatever id arrives here.
           const hotelAny: any = currentHotel;
           let hotelId: number | undefined = args.hotelId ?? hotelAny?.id;
+
+          // A confirmation number already identifies its property — asking which
+          // hotel it belongs to is asking the user to answer the question they
+          // just asked. Resolve it from the reference before falling back.
+          if (hotelId == null && args.confirmationNumber) {
+            const matches = await bookingsService.findForAccountWithOptions(account, {
+              guestKeywords: args.confirmationNumber,
+            });
+            const rows: any[] = (matches as any)?.data ?? [];
+            const exact = rows.filter((b) => b.externalId === args.confirmationNumber);
+            if (exact.length === 1) {
+              hotelId = exact[0].hotelId ?? exact[0].hotel?.id;
+            }
+          }
 
           if (hotelId == null) {
             const owned = await hotelsService.findAllForAccount(account);
