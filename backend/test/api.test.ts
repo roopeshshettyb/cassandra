@@ -18,6 +18,7 @@ import { ConfigModule } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import * as jwt from 'jsonwebtoken';
 import * as nodeHttp from 'http';
 import * as nodeHttps from 'https';
 
@@ -995,6 +996,40 @@ describe('Agent job chat delivery', () => {
     const id = (claimed.data?.data ?? claimed.data).id ?? job.id;
     const res = await workerPost(`/agent-worker/${id}/complete`, { success: true, verified: true, result: { answer: 'x' } });
     expect(res.status).toBe(201);
+  });
+
+  // The worker drives a PMS through its web UI, so a claim has to carry a usable
+  // browser session with it. Our own portal signs in by emailed OTP, which a
+  // headless worker cannot complete, so the session is minted here instead.
+  it('a claimed job carries a session scoped to the requester, and it expires', async () => {
+    await agentJobsService.enqueue(state.testHotelId, 'pms_lookup_reservation' as any, {}, state.adminAccount as any, null);
+    const claimed = await workerPost('/agent-worker/claim', {});
+    const token = (claimed.data?.data ?? claimed.data).sessionToken;
+    expect(typeof token).toBe('string');
+
+    const decoded: any = jwt.decode(token);
+    // Scoped to the account that asked for the work — not a superuser session.
+    expect(decoded.id).toBe((state.adminAccount as any).id);
+    expect(decoded.agentSession).toBe(true);
+
+    // A credential that outlived its job would be a standing one. It must die
+    // with the job's own stale window, not linger.
+    const ttl = decoded.exp - decoded.iat;
+    expect(ttl).toBe(constantsServiceRef.private.AGENT_JOBS.SESSION_TOKEN_TTL_SECONDS);
+    expect(ttl).toBeLessThanOrEqual(constantsServiceRef.private.AGENT_JOBS.STALE_RUNNING_MINUTES * 60);
+  });
+
+  it('the session is a real credential the API accepts', async () => {
+    await agentJobsService.enqueue(state.testHotelId, 'pms_lookup_reservation' as any, {}, state.adminAccount as any, null);
+    const claimed = await workerPost('/agent-worker/claim', {});
+    const token = (claimed.data?.data ?? claimed.data).sessionToken;
+
+    // If the browser cannot actually use it, injecting it into localStorage is
+    // theatre — so check it against a route the PMS pages depend on.
+    const res = await axios.get(`${state.BASE_URL}/hotels/${state.testHotelId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
   });
 });
 

@@ -10,6 +10,8 @@ import { MessageRole } from '../messages/message.model';
 import { AgentJobEvents } from './agent-job.events';
 import { ConstantsService } from '../common/constants/constants.service';
 import { LoggerService } from '../common/logger.service';
+import { AccountsService } from '../accounts/accounts.service';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class AgentJobsService {
@@ -20,6 +22,8 @@ export class AgentJobsService {
     private readonly messagesService: MessagesService,
     private readonly agentJobEvents: AgentJobEvents,
     private readonly loggerService: LoggerService,
+    private readonly accountsService: AccountsService,
+    private readonly authService: AuthService,
   ) {}
 
   // Enqueue is deliberately cheap: the guest-facing agent calls this mid-conversation
@@ -75,7 +79,7 @@ export class AgentJobsService {
   // Claimed by the Python worker. Picks the oldest queued job and flips it to
   // running in one guarded update, so two workers polling at once cannot take the
   // same job — the UPDATE only matches rows still in 'queued'.
-  async claimNext(): Promise<AgentJob | null> {
+  async claimNext(): Promise<Record<string, unknown> | null> {
     await this.releaseStaleJobs();
 
     const candidate = await this.agentJobsRepository.findOne({
@@ -101,7 +105,40 @@ export class AgentJobsService {
       return null;
     }
 
-    return this.agentJobsRepository.findOne({ where: { id: candidate.id } });
+    const job = await this.agentJobsRepository.findOne({ where: { id: candidate.id } });
+    if (!job) {
+      return null;
+    }
+
+    return { ...job.toJSON(), sessionToken: await this.buildSessionToken(job) };
+  }
+
+  /**
+   * A browser session for the worker to run this one job with.
+   *
+   * Our PMS-facing portal signs in by emailed OTP, which a headless worker has
+   * no way to complete. Rather than parking a permanent token in the worker's
+   * config, the session is minted per claim and expires with the job's own
+   * stale window, so an abandoned job's credential dies with it.
+   *
+   * Null is a normal outcome, not an error: a PMS that takes a username and
+   * password needs no token, and the worker falls back to its configured
+   * credentials.
+   */
+  private async buildSessionToken(job: AgentJob): Promise<string | null> {
+    const config = this.constantsService.private.AGENT_JOBS;
+    try {
+      const account = await this.accountsService.findOne({ where: { id: job.requestedByAccountId } });
+      if (!account) {
+        return null;
+      }
+      return await this.authService.generateAgentSessionToken(account, config.SESSION_TOKEN_TTL_SECONDS);
+    } catch (error) {
+      // A session we could not mint must not sink the job — the worker can still
+      // attempt a form login, and an auth failure there is the clearer signal.
+      this.loggerService.error({ error, serviceName: 'AgentJobsService', actionName: `buildSessionToken job ${job.id}` });
+      return null;
+    }
   }
 
   // A worker that dies mid-task leaves its job stuck in 'running' forever. Anything

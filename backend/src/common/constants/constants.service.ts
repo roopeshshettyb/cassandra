@@ -525,6 +525,10 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         // A job still 'running' past this is treated as abandoned (worker crashed
         // mid-task) and becomes claimable again.
         STALE_RUNNING_MINUTES: 10,
+        // Browser session handed to the worker per claimed job. Matched to the
+        // stale window above so a credential never outlives the job it was cut
+        // for — an abandoned job's session expires exactly as the job is released.
+        SESSION_TOKEN_TTL_SECONDS: 10 * 60,
         MAX_ATTEMPTS: 2,
         // Cap on jobs a single hotel can have waiting, so a misbehaving agent loop
         // cannot queue unbounded paid browser work.
