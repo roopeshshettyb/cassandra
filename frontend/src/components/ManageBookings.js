@@ -5,7 +5,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
-import { PageHeader } from './cards/AppCards';
+import { PageHeader, SearchBar } from './cards/AppCards';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
 import constants from '../constants.json';
 
@@ -50,6 +50,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [editBooking, setEditBooking] = useState(null);
   const [editValues, setEditValues] = useState({ startDate: '', endDate: '', roomNumber: '' });
   const [deleteBooking, setDeleteBooking] = useState(null);
+  const [search, setSearch] = useState('');
 
   const fetchBookings = async () => {
     await request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError, delay: false });
@@ -306,12 +307,22 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </DialogActions>
       </Dialog>
 
+      <Box sx={{ mb: 3 }}>
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by confirmation number, guest, room or hotel…" />
+      </Box>
+
       <DataGrid CardComponent={BookingCard} data={(() => {
         const hotelMap = {};
         for (let i = 0; i < hotels.length; i++) hotelMap[hotels[i].id] = hotels[i];
+        const term = search.trim().toLowerCase();
         const enriched = [];
         for (let i = 0; i < bookings.length; i++) {
           const b = bookings[i];
+          // Confirmation number leads: it is what a guest reads off their email,
+          // and the only thing they can quote that identifies one booking.
+          const haystack = [b.externalId, b.guest?.name, b.guest?.email, b.roomNumber, b.hotel?.name]
+            .filter(Boolean).join(' ').toLowerCase();
+          if (term && !haystack.includes(term)) continue;
           const full = b.hotel?.id ? hotelMap[b.hotel.id] : null;
           const themeConfig = b.hotel?.themeConfig || full?.themeConfig || full?.brand?.themeConfig;
           enriched.push(themeConfig ? { ...b, hotel: { ...b.hotel, themeConfig } } : b);
