@@ -352,19 +352,39 @@ export function createAgentTools(
       tool: new DynamicStructuredTool({
         name: 'request_pms_action',
         description:
-          'Queue an action for the browser agent to perform in the hotel\'s property management system. Returns immediately with a jobId — it does NOT wait for the work to finish. Tell the guest you are working on it, then use get_pms_action_status with the jobId to check. Never state the action is done based on this tool alone.',
+          'Queue an action for the browser agent to perform in the hotel\'s property management system. Browser work takes 20-120s, so this returns a jobId immediately and does NOT wait. After calling it, STOP and reply to the user that you are working on it. Do NOT call get_pms_action_status in the same turn — the finished answer is posted into this chat automatically when it is ready. Never state the action is done based on this tool alone.',
         schema: z.object({
           action: z
             .enum([AgentJobAction.PMS_LOOKUP_RESERVATION, AgentJobAction.PMS_LIST_ARRIVALS])
             .describe('Which PMS action to perform. pms_lookup_reservation needs a confirmation number; pms_list_arrivals needs a date.'),
           confirmationNumber: z.string().optional().describe('PMS confirmation/reservation number, for pms_lookup_reservation.'),
           date: z.string().optional().describe('Date in YYYY-MM-DD, for pms_list_arrivals.'),
+          hotelId: z
+            .number()
+            .optional()
+            .describe('Which hotel to act on. Only needed when the conversation is not already about one hotel — use get_hotels to find the id.'),
         }),
         func: async (args) => {
+          // A general chat carries no booking, so there is no hotel in context.
+          // Rather than refusing outright, take an explicit hotelId, and fall back
+          // to the only hotel the user has when there is exactly one — asking
+          // "which hotel?" of someone who has one is pure friction. enqueue()
+          // still ownership-checks whatever id arrives here.
           const hotelAny: any = currentHotel;
-          const hotelId: number | undefined = hotelAny?.id;
+          let hotelId: number | undefined = args.hotelId ?? hotelAny?.id;
+
           if (hotelId == null) {
-            return JSON.stringify({ success: false, error: 'No hotel context for this conversation' });
+            const owned = await hotelsService.findAllForAccount(account);
+            const list: any[] = owned?.data ?? [];
+            if (list.length === 1) {
+              hotelId = list[0].id;
+            } else {
+              return JSON.stringify({
+                success: false,
+                error: constantsService.private.AGENT_JOBS.NO_HOTEL_CONTEXT_ERROR,
+                hotels: list.map((h) => ({ id: h.id, name: h.name })),
+              });
+            }
           }
           const params: Record<string, unknown> = {};
           if (args.confirmationNumber) params.confirmationNumber = args.confirmationNumber;
@@ -385,7 +405,7 @@ export function createAgentTools(
       tool: new DynamicStructuredTool({
         name: 'get_pms_action_status',
         description:
-          'Check a queued PMS action by jobId. Only report a result to the user when "reportable" is true — that means it was independently confirmed. If reportable is false, say you are still working on it or that it could not be confirmed; never invent or assume the outcome.',
+          'Check a queued PMS action by jobId. Use this ONLY when the user asks again in a later turn about a job you queued earlier — never immediately after request_pms_action, and never twice in one turn. Only report a result when "reportable" is true, meaning it was independently confirmed. If reportable is false, say it is still in progress or could not be confirmed; never invent or assume the outcome.',
         schema: z.object({
           jobId: z.number().describe('The jobId returned by request_pms_action.'),
         }),

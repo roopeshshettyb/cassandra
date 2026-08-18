@@ -8,7 +8,7 @@
  *   - judgeQuality: when true (default), the LLM judge must pass response quality
  */
 import { AgentToolContext } from '../../src/langgraph/langgraph-tools.context';
-import { guestCtx } from './harness';
+import { guestCtx, ownerCtx } from './harness';
 
 export interface RegressionCase {
   name: string;
@@ -79,5 +79,20 @@ export const CASES: RegressionCase[] = [
     userMessage: 'Send a bottle of water to my room.',
     ctx: guestCtx({ bookingId: null, booking: null, hotel: null }),
     expect: { judgeQuality: true },
+  },
+  {
+    // Regression: an owner chatting with no booking open had no hotel in context,
+    // so this tool refused outright instead of resolving the one hotel they have.
+    name: 'owner PMS lookup works with no booking in context',
+    userMessage: 'Look up reservation ABC-123 in the PMS and tell me the room number.',
+    ctx: ownerCtx(),
+    expect: { toolCalled: 'request_pms_action', toolArgs: { action: 'pms_lookup_reservation', confirmationNumber: 'ABC-123' } },
+  },
+  {
+    // The queued result arrives later, so the reply must not assert an answer now.
+    name: 'queued PMS action is acknowledged, not answered',
+    userMessage: 'Check the PMS for reservation XYZ-999.',
+    ctx: ownerCtx(),
+    expect: { mustExclude: ['room number is', 'the guest is'], judgeQuality: true },
   },
 ];
