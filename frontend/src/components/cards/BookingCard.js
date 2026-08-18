@@ -6,6 +6,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import NightsStayIcon from '@mui/icons-material/NightsStay';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import DescriptionIcon from '@mui/icons-material/Description';
+import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -131,6 +132,14 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.5, borderRadius: 1.5, bgcolor: `${accent}12`, border: `1px solid ${accent}28` }}>
                 <MeetingRoomIcon sx={{ fontSize: 12, color: accent }} />
                 <Typography sx={{ fontSize: 11, fontWeight: 700, color: accent }}>Room {booking.roomNumber}</Typography>
+              </Box>
+            )}
+            {booking.externalId && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.5, borderRadius: 1.5, bgcolor: BG, border: `1px solid ${BORDER}`, minWidth: 0, maxWidth: '100%' }}>
+                <ConfirmationNumberIcon sx={{ fontSize: 12, color: MUTED, flexShrink: 0 }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 600, color: MUTED, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {booking.externalId}
+                </Typography>
               </Box>
             )}
             {hasDoc && (
