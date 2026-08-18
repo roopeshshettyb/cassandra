@@ -75,43 +75,52 @@ def _origin(url: str) -> str:
     return f"{parts[0]}//{parts[2]}" if len(parts) > 2 else url
 
 
-def storage_state() -> dict[str, Any] | None:
-    """Pre-seed the browser with an authenticated session, Playwright-style."""
-    if not (PMS_AUTH_TOKEN and PMS_BASE_URL):
+def storage_state(token: str = "") -> dict[str, Any] | None:
+    """Pre-seed the browser with an authenticated session, Playwright-style.
+
+    The token normally arrives on the claimed job: the backend mints one per
+    claim, scoped to the account that asked for the work and expiring with the
+    job's stale window. PMS_AUTH_TOKEN is the standing fallback for a PMS we
+    hold a fixed credential for.
+    """
+    token = token or PMS_AUTH_TOKEN
+    if not (token and PMS_BASE_URL):
         return None
     return {
         "cookies": [],
         "origins": [
             {
                 "origin": _origin(PMS_BASE_URL),
-                "localStorage": [{"name": PMS_AUTH_STORAGE_KEY, "value": PMS_AUTH_TOKEN}],
+                "localStorage": [{"name": PMS_AUTH_STORAGE_KEY, "value": token}],
             }
         ],
     }
 
 
-# Only true when we hand the browser a ready session. Telling the agent this
-# when it is not signed in would send it hunting for a login form it should be
-# filling in instead.
-SIGNED_IN_NOTE = " You are already signed in; do not try to log in." if PMS_AUTH_TOKEN else ""
+def signed_in_note(token: str = "") -> str:
+    """Only claim a session when we actually injected one. Saying it otherwise
+    sends the agent hunting for a login form it should be filling in instead."""
+    return " You are already signed in; do not try to log in." if (token or PMS_AUTH_TOKEN) else ""
 
 
-def build_task(action: str, params: dict[str, Any]) -> tuple[str, str | None]:
+def build_task(action: str, params: dict[str, Any], token: str = "") -> tuple[str, str | None]:
     """Return (task_prompt, verify_prompt). verify_prompt is a second, independent
     read used to confirm the first answer; None means no verification is possible
     for this action, which forces the job to come back unverified."""
 
+    note = signed_in_note(token)
+
     if action == "pms_lookup_reservation":
         ref = params.get("confirmationNumber", "")
         task = (
-            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Go to {PMS_RESERVATIONS_URL} .{note} "
             f"Find the reservation with confirmation number '{ref}', using the page's search or filter if there is one. "
             "Report the guest name, room number, arrival date and departure date. "
             "If no such reservation exists, say exactly that. "
             "Do not click anything that changes data."
         )
         verify = (
-            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Go to {PMS_RESERVATIONS_URL} .{note} "
             f"Look up confirmation number '{ref}' again from a fresh page load. "
             "Report only the guest name and room number, or that it does not exist."
         )
@@ -120,13 +129,13 @@ def build_task(action: str, params: dict[str, Any]) -> tuple[str, str | None]:
     if action == "pms_list_arrivals":
         date = params.get("date", "")
         task = (
-            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Go to {PMS_RESERVATIONS_URL} .{note} "
             f"Find the reservations arriving on {date}. "
             "Report the number of arrivals and the guest names. Read only."
         )
         # A list read is idempotent, so re-reading it is a genuine check.
         verify = (
-            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Go to {PMS_RESERVATIONS_URL} .{note} "
             f"Count the reservations arriving on {date} again and report only the count."
         )
         return task, verify
@@ -135,12 +144,12 @@ def build_task(action: str, params: dict[str, Any]) -> tuple[str, str | None]:
 
 
 # ── Browser run ───────────────────────────────────────────────────────────────
-async def run_agent(prompt: str, max_steps: int = 12) -> tuple[str, float, int]:
+async def run_agent(prompt: str, max_steps: int = 12, token: str = "") -> tuple[str, float, int]:
     """Run one browser task. Returns (result_text, cost_usd, steps)."""
     profile = BrowserProfile(
         headless=HEADLESS,
         highlight_elements=not HEADLESS,
-        storage_state=storage_state(),
+        storage_state=storage_state(token),
     )
     agent = Agent(task=prompt, llm=ChatOpenAI(model=MODEL, api_key=OPENAI_KEY), browser_profile=profile)
 
@@ -209,22 +218,25 @@ async def handle(client: httpx.AsyncClient, job: dict[str, Any]) -> None:
     job_id = job["id"]
     action = job["action"]
     params = job.get("params") or {}
-    print(f"  job {job_id}: {action} {params}", flush=True)
+    # Minted by the backend for this claim and scoped to the account that asked
+    # for the work. Absent for a PMS we log into with a form instead.
+    token = job.get("sessionToken") or ""
+    print(f"  job {job_id}: {action} {params}{' [session]' if token else ''}", flush=True)
 
     started = time.time()
     try:
-        task_prompt, verify_prompt = build_task(action, params)
+        task_prompt, verify_prompt = build_task(action, params, token)
     except ValueError as exc:
         await complete(client, job_id, {"success": False, "error": str(exc)})
         print(f"  job {job_id}: rejected — {exc}", flush=True)
         return
 
     try:
-        primary, cost, steps = await run_agent(task_prompt)
+        primary, cost, steps = await run_agent(task_prompt, token=token)
 
         verified = False
         if verify_prompt:
-            check, vcost, _ = await run_agent(verify_prompt, max_steps=8)
+            check, vcost, _ = await run_agent(verify_prompt, max_steps=8, token=token)
             cost += vcost
             verified = confirms(primary, check)
 

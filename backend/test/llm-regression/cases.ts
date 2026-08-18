@@ -38,7 +38,11 @@ export const CASES: RegressionCase[] = [
   {
     name: 'breakfast hours answered from hotel info',
     userMessage: 'What time is breakfast served?',
-    expect: { toolCalled: 'get_hotel', mustInclude: ['07:00'], judgeQuality: true },
+    // Deliberately does not pin the tool. get_booking embeds the same hotel, so
+    // reaching the hours through it is correct and one call cheaper — the model
+    // picks either, and this flaked in CI for choosing the cheaper one. What has
+    // to hold is that the time comes from the fixture rather than invention.
+    expect: { mustInclude: ['07:00'], judgeQuality: true },
   },
   {
     name: 'wifi password answered from hotel info',
