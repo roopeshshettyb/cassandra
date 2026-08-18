@@ -489,6 +489,38 @@ describe('Bookings', () => {
     expect(res.status).toBe(200);
   });
 
+  // Samantha's get_bookings tool is the only caller of guestKeywords, and a guest
+  // quoting a confirmation number is the obvious way to ask about a reservation.
+  // Searching only guest name and email meant she could not answer that.
+  it('booking search finds a reservation by its confirmation number', async () => {
+    const ref = `${TAG}-searchable-ref`;
+    // Only the integration upsert sets a confirmation number — the HTTP create
+    // DTO has no such field, which is itself why nothing could be found by one.
+    const { record } = await bookingsService.upsertByExternalId(state.testHotelId, {
+      externalId: ref,
+      startDate: '2026-05-01',
+      endDate: '2026-05-03',
+      guestEmail: `${TAG}_searchguest@cassandratest.local`,
+      guestName: 'Search Target',
+      roomNumber: '4242',
+    } as any);
+    const bookingId = record.id;
+
+    const found = await bookingsService.findForAccountWithOptions(state.adminAccount as any, { guestKeywords: ref });
+    const rows = (found as any)?.data ?? found;
+    expect(rows.some((b: any) => b.id === bookingId)).toBe(true);
+
+    // And the filter has to actually filter — a search that matches nothing must
+    // return nothing, or the assertion above would pass on an unfiltered list.
+    const none = await bookingsService.findForAccountWithOptions(state.adminAccount as any, {
+      guestKeywords: `${TAG}-no-such-reference`,
+    });
+    expect(((none as any)?.data ?? none).length).toBe(0);
+
+    await bookingsService.deleteBooking({ id: bookingId }, undefined, true).catch(() => {});
+    await accountsService.delete({ email: `${TAG}_searchguest@cassandratest.local` }, true).catch(() => {});
+  });
+
   it('POST /bookings (hotel_staff) → creates booking', async () => {
     const res = await http.post(
       '/bookings',

@@ -30,8 +30,11 @@ and the agent is instructed not to claim success.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import os
 import sys
+import tempfile
 import time
 from typing import Any
 
@@ -97,6 +100,55 @@ def storage_state(token: str = "") -> dict[str, Any] | None:
     }
 
 
+@contextlib.contextmanager
+def storage_state_file(token: str = ""):
+    """Yield a path to the storage state, or None when there is no session.
+
+    browser-use only reads storage_state from a file. Handing it the dict it
+    also accepts does nothing at all: the watchdog does str() on the value and
+    treats the result as a path, which never exists, so the session is dropped
+    without a word. That silence cost a debugging cycle -- the agent simply got
+    a 404 from our SPA and reported the page was broken.
+    """
+    state = storage_state(token)
+    if state is None:
+        yield None
+        return
+
+    handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+    try:
+        json.dump(state, handle)
+        handle.close()
+        yield handle.name
+    finally:
+        # It holds a live credential, so it does not outlive the run.
+        os.unlink(handle.name)
+
+
+# Phrases that mean the agent never reached the data, as opposed to reaching it
+# and finding nothing. "No such reservation" is a real answer; "I could not open
+# the page" is not, and must never be dressed up as one.
+_NO_READ_MARKERS = (
+    "could not access",
+    "couldn't access",
+    "unable to access",
+    "could not load",
+    "failed to load",
+    "stuck",
+    "404",
+    "not found error",
+    "page did not load",
+    "no data was visible",
+    "please let me know",
+)
+
+
+def reads_as_failure(text: str) -> bool:
+    """True when the answer is really a report that the read did not happen."""
+    lowered = text.lower()
+    return any(marker in lowered for marker in _NO_READ_MARKERS)
+
+
 def signed_in_note(token: str = "") -> str:
     """Only claim a session when we actually injected one. Saying it otherwise
     sends the agent hunting for a login form it should be filling in instead."""
@@ -146,14 +198,16 @@ def build_task(action: str, params: dict[str, Any], token: str = "") -> tuple[st
 # ── Browser run ───────────────────────────────────────────────────────────────
 async def run_agent(prompt: str, max_steps: int = 12, token: str = "") -> tuple[str, float, int]:
     """Run one browser task. Returns (result_text, cost_usd, steps)."""
-    profile = BrowserProfile(
-        headless=HEADLESS,
-        highlight_elements=not HEADLESS,
-        storage_state=storage_state(token),
-    )
-    agent = Agent(task=prompt, llm=ChatOpenAI(model=MODEL, api_key=OPENAI_KEY), browser_profile=profile)
+    with storage_state_file(token) as state_path:
+        profile = BrowserProfile(
+            headless=HEADLESS,
+            highlight_elements=not HEADLESS,
+            storage_state=state_path,
+        )
+        agent = Agent(task=prompt, llm=ChatOpenAI(model=MODEL, api_key=OPENAI_KEY), browser_profile=profile)
 
-    history = await agent.run(max_steps=max_steps)
+        history = await agent.run(max_steps=max_steps)
+
     text = (history.final_result() or "").strip()
     steps = len(history.history)
 
@@ -234,11 +288,30 @@ async def handle(client: httpx.AsyncClient, job: dict[str, Any]) -> None:
     try:
         primary, cost, steps = await run_agent(task_prompt, token=token)
 
+        # A read that never happened is a failed job, not a successful one with an
+        # apology in it. Skipping this let a job come back "succeeded (verified)"
+        # carrying "I could not open the page" -- the second read had failed the
+        # same way, and two identical failures agree with each other perfectly.
+        if reads_as_failure(primary):
+            await complete(
+                client,
+                job_id,
+                {
+                    "success": False,
+                    "error": f"could not read the PMS: {primary[:400]}",
+                    "durationMs": int((time.time() - started) * 1000),
+                    "costUsd": round(cost, 6),
+                },
+            )
+            print(f"  job {job_id}: failed — never reached the data", flush=True)
+            return
+
         verified = False
         if verify_prompt:
             check, vcost, _ = await run_agent(verify_prompt, max_steps=8, token=token)
             cost += vcost
-            verified = confirms(primary, check)
+            # The check failing to read is not agreement either.
+            verified = not reads_as_failure(check) and confirms(primary, check)
 
         await complete(
             client,
