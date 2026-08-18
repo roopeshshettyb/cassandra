@@ -21,6 +21,10 @@ and the agent is instructed not to claim success.
   OPENAI_API_KEY       model key for browser-use               (required)
   AGENT_POLL_SECONDS   idle poll interval                      (default 5)
   AGENT_HEADLESS       "false" to watch the browser            (default true)
+  PMS_BASE_URL         PMS root url
+  PMS_RESERVATIONS_URL page listing reservations   (default PMS_BASE_URL)
+  PMS_AUTH_TOKEN       session token for localStorage, if the PMS uses one
+  PMS_AUTH_STORAGE_KEY localStorage key for it                 (default "token")
 """
 
 from __future__ import annotations
@@ -55,6 +59,41 @@ IN_PER_M, OUT_PER_M = 0.40, 1.60
 # `pms_base_url` is per-hotel config; until credential storage lands these read
 # from env so the worker can be exercised end to end.
 PMS_BASE_URL = os.environ.get("PMS_BASE_URL", "")
+# Page that lists reservations. Pinning the agent straight at it is the single
+# biggest latency lever we have (see the note above), so prefer setting this.
+PMS_RESERVATIONS_URL = os.environ.get("PMS_RESERVATIONS_URL", "") or PMS_BASE_URL
+# Some PMS UIs -- including our own portal -- authenticate with a token in
+# localStorage rather than a login form. Where that is true we hand the browser
+# a ready session instead of teaching the agent to log in: OTP-based sign-in
+# needs a mailbox, which a headless worker does not have.
+PMS_AUTH_TOKEN = os.environ.get("PMS_AUTH_TOKEN", "")
+PMS_AUTH_STORAGE_KEY = os.environ.get("PMS_AUTH_STORAGE_KEY", "token")
+
+
+def _origin(url: str) -> str:
+    parts = url.split("/")
+    return f"{parts[0]}//{parts[2]}" if len(parts) > 2 else url
+
+
+def storage_state() -> dict[str, Any] | None:
+    """Pre-seed the browser with an authenticated session, Playwright-style."""
+    if not (PMS_AUTH_TOKEN and PMS_BASE_URL):
+        return None
+    return {
+        "cookies": [],
+        "origins": [
+            {
+                "origin": _origin(PMS_BASE_URL),
+                "localStorage": [{"name": PMS_AUTH_STORAGE_KEY, "value": PMS_AUTH_TOKEN}],
+            }
+        ],
+    }
+
+
+# Only true when we hand the browser a ready session. Telling the agent this
+# when it is not signed in would send it hunting for a login form it should be
+# filling in instead.
+SIGNED_IN_NOTE = " You are already signed in; do not try to log in." if PMS_AUTH_TOKEN else ""
 
 
 def build_task(action: str, params: dict[str, Any]) -> tuple[str, str | None]:
@@ -65,24 +104,31 @@ def build_task(action: str, params: dict[str, Any]) -> tuple[str, str | None]:
     if action == "pms_lookup_reservation":
         ref = params.get("confirmationNumber", "")
         task = (
-            f"Go to {PMS_BASE_URL} . Find the reservation with confirmation number '{ref}'. "
+            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Find the reservation with confirmation number '{ref}', using the page's search or filter if there is one. "
             "Report the guest name, room number, arrival date and departure date. "
+            "If no such reservation exists, say exactly that. "
             "Do not click anything that changes data."
         )
         verify = (
-            f"Go to {PMS_BASE_URL} . Look up confirmation number '{ref}' again from a fresh page load. "
-            "Report only the guest name and room number."
+            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Look up confirmation number '{ref}' again from a fresh page load. "
+            "Report only the guest name and room number, or that it does not exist."
         )
         return task, verify
 
     if action == "pms_list_arrivals":
         date = params.get("date", "")
         task = (
-            f"Go to {PMS_BASE_URL} . Open the arrivals list for {date}. "
+            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Find the reservations arriving on {date}. "
             "Report the number of arrivals and the guest names. Read only."
         )
         # A list read is idempotent, so re-reading it is a genuine check.
-        verify = f"Go to {PMS_BASE_URL} . Open arrivals for {date} again and report only the count."
+        verify = (
+            f"Go to {PMS_RESERVATIONS_URL} .{SIGNED_IN_NOTE} "
+            f"Count the reservations arriving on {date} again and report only the count."
+        )
         return task, verify
 
     raise ValueError(f"worker does not implement action '{action}'")
@@ -91,7 +137,11 @@ def build_task(action: str, params: dict[str, Any]) -> tuple[str, str | None]:
 # ── Browser run ───────────────────────────────────────────────────────────────
 async def run_agent(prompt: str, max_steps: int = 12) -> tuple[str, float, int]:
     """Run one browser task. Returns (result_text, cost_usd, steps)."""
-    profile = BrowserProfile(headless=HEADLESS, highlight_elements=not HEADLESS)
+    profile = BrowserProfile(
+        headless=HEADLESS,
+        highlight_elements=not HEADLESS,
+        storage_state=storage_state(),
+    )
     agent = Agent(task=prompt, llm=ChatOpenAI(model=MODEL, api_key=OPENAI_KEY), browser_profile=profile)
 
     history = await agent.run(max_steps=max_steps)
