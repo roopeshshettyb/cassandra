@@ -536,6 +536,10 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         MSG_NO_JOBS: 'No queued jobs',
         ERROR_INVALID_WORKER_SECRET: 'Invalid agent worker credentials',
         ERROR_JOB_NOT_FOUND: 'Agent job not found',
+        // Returned to the agent, not the guest: it is an instruction for what
+        // to do next, since only the agent can resolve which hotel is meant.
+        NO_HOTEL_CONTEXT_ERROR:
+          'Which hotel is this for? Pick one from the hotels list below, confirm with the user if it is ambiguous, then call this tool again with hotelId.',
         ERROR_JOB_NOT_RUNNING: 'Agent job is not in a running state',
         ERROR_QUEUE_FULL: 'Too many actions already queued for this hotel — try again once they finish',
         ERROR_UNKNOWN_ACTION: 'Unknown agent action',

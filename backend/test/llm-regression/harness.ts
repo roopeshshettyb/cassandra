@@ -148,6 +148,25 @@ export async function judgeQuality(
 // A guest account stub — tools only read account.role and account.id.
 export const GUEST_ACCOUNT: any = { id: 42, role: 'guest', name: 'Test Guest', email: 'guest@test.com', uuid: 'email:guest@test.com' };
 
+export const OWNER_ACCOUNT: any = { id: 7, role: 'hotel_owner', name: 'Test Owner', email: 'owner@test.com', uuid: 'email:owner@test.com' };
+
+/**
+ * Owner-side context. The PMS tools are owner/admin only, and unlike a guest an
+ * owner usually chats with no booking open — which is exactly the situation that
+ * used to make request_pms_action refuse for want of a hotel.
+ */
+export function ownerCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
+  return {
+    account: OWNER_ACCOUNT,
+    bookingId: null,
+    chatId: 1,
+    hotel: null,
+    booking: null,
+    languageCode: 'en',
+    ...overrides,
+  };
+}
+
 export function guestCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
   return {
     account: GUEST_ACCOUNT,
