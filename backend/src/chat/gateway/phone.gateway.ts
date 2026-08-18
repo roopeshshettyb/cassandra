@@ -72,16 +72,35 @@ export class PhoneGateway implements OnApplicationBootstrap, OnApplicationShutdo
       this.logger.warn('HTTP server unavailable — phone voice bridge disabled');
       return;
     }
-    // Diagnostic-only, path-agnostic: the `ws` path option below silently drops any
-    // upgrade whose pathname doesn't match — this passive listener logs every upgrade
-    // attempt regardless, so a path/casing mismatch from the caller (e.g. Exotel) is
-    // visible instead of vanishing with zero trace.
-    server.on('upgrade', (req: any) => {
-      this.logger.log(`Upgrade request received: ${req?.url} remoteAddr=${req?.socket?.remoteAddress}`);
-    });
-    // ws matches on pathname only, so the applet URL may carry query params (?token=…&sample-rate=…).
-    this.wss = new WebSocketServer({ server, path: config.WS_PATH });
+    // noServer, not { server }: socket.io is already attached to this same HTTP
+    // server for chat and notifications. Handing `ws` the server makes both
+    // libraries register their own 'upgrade' listener, and `ws` tears down sockets
+    // whose path it does not own before socket.io can finish its handshake — the
+    // browser sees "Invalid frame header" and chat never connects at all. Owning a
+    // single listener and routing on pathname keeps the two out of each other's way.
+    this.wss = new WebSocketServer({ noServer: true });
     this.wss.on('connection', (ws: WebSocket, req: any) => this.onConnection(ws, req));
+
+    server.on('upgrade', (req: any, socket: any, head: any) => {
+      let pathname: string;
+      try {
+        // Match on pathname only, so the applet URL may carry query params
+        // (?token=…&sample-rate=…).
+        pathname = new URL(req.url, 'http://localhost').pathname;
+      } catch {
+        return; // unparseable — not ours, leave it to whoever else is listening
+      }
+      // Anything that is not the phone bridge is left completely untouched, so
+      // socket.io's own listener handles it as normal.
+      if (pathname !== config.WS_PATH) {
+        return;
+      }
+      this.logger.log(`Phone upgrade accepted: ${req?.url} remoteAddr=${req?.socket?.remoteAddress}`);
+      this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
+        this.wss.emit('connection', ws, req);
+      });
+    });
+
     this.logger.log(`Phone voice bridge listening on ${config.WS_PATH}`);
   }
 
