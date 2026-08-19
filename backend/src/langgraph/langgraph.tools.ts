@@ -418,6 +418,15 @@ export function createAgentTools(
           if (args.date) params.date = args.date;
 
           const job = await agentJobsService.enqueue(hotelId, args.action, params, account, chatId ?? null);
+
+          // Name the hotel on every path, not just the two that happened to know
+          // it. Left unset it comes back undefined while reportHotel still tells
+          // the model to state it, which puts us back to narrating a guess.
+          if (!resolvedHotelName) {
+            const hotel: any = await hotelsService.findByIdForAccount(hotelId, account);
+            resolvedHotelName = hotel?.name;
+          }
+
           return JSON.stringify({
             success: true,
             jobId: job.id,

@@ -91,6 +91,11 @@ function buildMocks() {
   };
   const hotelsService: any = {
     findAllForAccount: jest.fn(async () => ok([TEST_HOTEL, TEST_HOTEL_2])),
+    // Returns the model, not an envelope — matches the real service, which the
+    // PMS tool relies on to name the hotel it actually queued against.
+    findByIdForAccount: jest.fn(async (id: number) =>
+      [TEST_HOTEL, TEST_HOTEL_2].find((h) => h.id === id) ?? TEST_HOTEL,
+    ),
   };
   const chatService: any = {
     setBookingForChat: jest.fn(async () => undefined),
