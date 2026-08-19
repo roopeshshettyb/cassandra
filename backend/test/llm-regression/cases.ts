@@ -114,6 +114,21 @@ export const CASES: RegressionCase[] = [
     },
   },
   {
+    // Job 65 in the wild: told to look up PMS-RES-5001, the model guessed the
+    // hotel from its name and queued against "JW Marriott Sahar" when the booking
+    // was at "JW Marriott Marquis". The answer came back right only because our
+    // bookings page lists every property at once. Here the named hotel is the
+    // wrong one for the reference, and the reply must still name the right one.
+    name: 'a confirmation number overrides the hotel the model picked',
+    userMessage: 'Use the PMS to look up reservation PMS-RES-9001 at The Second Test Hotel.',
+    ctx: ownerCtx(),
+    expect: {
+      toolCalled: 'request_pms_action',
+      mustInclude: ['grand test hotel'],
+      mustExclude: ['second test hotel'],
+    },
+  },
+  {
     // With several hotels and none named, the model picks one rather than asking
     // — two rounds of prompting did not change that. What it must never do is
     // hide the choice, because then arrivals for the wrong property read as
