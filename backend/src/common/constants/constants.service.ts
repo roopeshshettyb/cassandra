@@ -548,6 +548,15 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         // printed.
         NO_HOTEL_CONTEXT_ERROR:
           'STOP. This request needs a hotel and only the user can say which. Write out the names in the hotels field of this response as a numbered list, ask which one they mean, and end your turn. Do not call this tool again until the user has answered. Do not pick one yourself, and do not refer to a list you have not just written out.',
+        // Testing only: strips the agent down to the PMS tools so every question
+        // has to go through the browser instead of being answered from the
+        // database. Leaves the assistant close to useless for anything else, so
+        // it stays off unless the env var is explicitly set to 'true'.
+        PMS_ONLY_MODE: this.configService.get<string>('AGENT_PMS_ONLY') === 'true',
+        // The model guesses hotels from names and will otherwise tell the user it
+        // queued against the one it guessed rather than the one we used.
+        REPORT_HOTEL_INSTRUCTION:
+          'Tell the user the hotel named in hotelName, exactly as written. If it differs from the hotel you asked for, this one is correct — it comes from the reservation itself.',
         ERROR_JOB_NOT_RUNNING: 'Agent job is not in a running state',
         ERROR_QUEUE_FULL: 'Too many actions already queued for this hotel — try again once they finish',
         ERROR_UNKNOWN_ACTION: 'Unknown agent action',

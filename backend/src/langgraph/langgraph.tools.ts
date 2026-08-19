@@ -13,6 +13,10 @@ import { CreateRequestDto } from '../requests/requests.dto';
 import { AgentJobsService } from '../agent-jobs/agent-jobs.service';
 import { AgentJobAction } from '../agent-jobs/agent-jobs.model';
 
+// The two tools that drive a real browser, kept together because PMS_ONLY_MODE
+// narrows the agent down to exactly these.
+const PMS_TOOL_NAMES = ['request_pms_action', 'get_pms_action_status'];
+
 export function createAgentTools(
   ctx: AgentToolContext,
   bookingsService: BookingsService,
@@ -374,11 +378,16 @@ export function createAgentTools(
           // still ownership-checks whatever id arrives here.
           const hotelAny: any = currentHotel;
           let hotelId: number | undefined = args.hotelId ?? hotelAny?.id;
+          let resolvedHotelName: string | undefined;
 
-          // A confirmation number already identifies its property — asking which
-          // hotel it belongs to is asking the user to answer the question they
-          // just asked. Resolve it from the reference before falling back.
-          if (hotelId == null && args.confirmationNumber) {
+          // A resolvable confirmation number outranks every other source, including
+          // an id the model supplied. It guesses from hotel names: asked for
+          // PMS-RES-5001 it picked "JW Marriott Sahar" over the "JW Marriott
+          // Marquis" the booking is actually at, and only the shape of our
+          // bookings page — which lists every property at once — stopped that
+          // becoming a confident answer about the wrong hotel. The reference says
+          // where the booking is; nothing else gets a vote.
+          if (args.confirmationNumber) {
             const matches = await bookingsService.findForAccountWithOptions(account, {
               guestKeywords: args.confirmationNumber,
             });
@@ -386,6 +395,7 @@ export function createAgentTools(
             const exact = rows.filter((b) => b.externalId === args.confirmationNumber);
             if (exact.length === 1) {
               hotelId = exact[0].hotelId ?? exact[0].hotel?.id;
+              resolvedHotelName = exact[0].hotel?.name;
             }
           }
 
@@ -394,6 +404,7 @@ export function createAgentTools(
             const list: any[] = owned?.data ?? [];
             if (list.length === 1) {
               hotelId = list[0].id;
+              resolvedHotelName = list[0].name;
             } else {
               return JSON.stringify({
                 success: false,
@@ -411,7 +422,13 @@ export function createAgentTools(
             success: true,
             jobId: job.id,
             status: job.status,
+            // The hotel actually used, which is not always the one the model asked
+            // for. Telling it here is what stops the reply naming a hotel we never
+            // queued against — the user has no other way to catch that.
+            hotelId,
+            hotelName: resolvedHotelName,
             message: constantsService.private.AGENT_JOBS.MSG_JOB_QUEUED,
+            reportHotel: constantsService.private.AGENT_JOBS.REPORT_HOTEL_INSTRUCTION,
           });
         },
       }),
@@ -433,5 +450,20 @@ export function createAgentTools(
     },
   ];
 
-  return toolDefs.filter(({ allowedRoles }) => !!allowedRoles[account.role]).map(({ tool }) => tool);
+  const permitted = toolDefs.filter(({ allowedRoles }) => !!allowedRoles[account.role]);
+
+  // Testing switch. The agent can answer most reservation questions straight from
+  // the database, which is the right default and also means the browser path
+  // almost never runs when you are trying to watch it. Turning this on leaves
+  // only the PMS tools, so every question has to go through the browser.
+  // Off unless the env var is set; it degrades the assistant badly for anything
+  // that is not a PMS lookup.
+  if (constantsService.private.AGENT_JOBS.PMS_ONLY_MODE) {
+    const pmsOnly = permitted.filter(({ tool }) => PMS_TOOL_NAMES.includes(tool.name));
+    if (pmsOnly.length) {
+      return pmsOnly.map(({ tool }) => tool);
+    }
+  }
+
+  return permitted.map(({ tool }) => tool);
 }
