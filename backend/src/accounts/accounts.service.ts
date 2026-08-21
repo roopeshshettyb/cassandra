@@ -35,6 +35,32 @@ export class AccountsService {
     return this.count(countOptions);
   }
 
+  /**
+   * Member counts for many organisations at once, keyed by organisation id.
+   *
+   * One grouped query rather than a count per row: the organisations list shows
+   * this for every entry, and per-row counting turns the page into an N+1 as the
+   * customer list grows. Ids absent from the result have no members, so callers
+   * should treat a missing key as zero.
+   */
+  async countByOrganisation(organisationIds: number[]): Promise<Record<number, number>> {
+    if (!organisationIds.length) {
+      return {};
+    }
+    const rows = await this.accountsRepository.findAll({
+      attributes: ['organisationId', [literal('COUNT(*)'), 'count']],
+      where: { organisationId: organisationIds },
+      group: ['organisation_id'],
+      raw: true,
+    });
+    const counts: Record<number, number> = {};
+    for (let i = 0; i < rows.length; i++) {
+      const row: any = rows[i];
+      counts[row.organisationId] = parseInt(row.count, 10);
+    }
+    return counts;
+  }
+
   async update(data: any, filter: any): Promise<[number, Account[]]> {
     return this.accountsRepository.update(data, { where: filter, returning: true });
   }

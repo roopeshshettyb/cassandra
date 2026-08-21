@@ -16,6 +16,7 @@ import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { ChatSummary } from '../chat-summary/chat-summary.model';
 import { LlmEval } from '../llm-eval/llm-eval.model';
+import { Organisation } from '../organisations/organisations.model';
 import { HotelIntegration } from '../integrations/hotel-integrations.model';
 
 export const SEQUELIZE_DATABASE_PROVIDER = 'SEQUELIZE_DATABASE_PROVIDER';
@@ -27,7 +28,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration],
+        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration, Organisation],
       });
       await sequelize.authenticate();
       try {
@@ -68,6 +69,18 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
         'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
+        // Organisations. sync() creates the table where it is absent, but this
+        // database already had an `organisations` table (id, name, description)
+        // from work that never reached this repo, and sync() never alters an
+        // existing table — hence the explicit columns.
+        'ALTER TABLE organisations ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)',
+        'ALTER TABLE organisations ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255)',
+        "DO $$ BEGIN CREATE TYPE enum_organisations_status AS ENUM ('active', 'disabled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$",
+        "ALTER TABLE organisations ADD COLUMN IF NOT EXISTS status enum_organisations_status NOT NULL DEFAULT 'active'",
+        // Without this column every account query selects a column that is not
+        // there, so nobody can log in. It is the one migration here that is not
+        // merely additive in effect.
+        'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id INTEGER REFERENCES organisations(id)',
       ];
       for (let i = 0; i < migrations.length; i++) {
         try {

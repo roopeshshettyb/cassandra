@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
-import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent } from '@mui/icons-material';
+import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent, CorporateFare } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
@@ -65,12 +65,17 @@ const ROLE_SPECIFIC_ITEMS = {
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
     { key: 'Manage Costs', icon: AttachMoney, text: 'Manage Costs', link: '/costs', protectedNavItem: true },
+    { key: 'Manage Organisations', icon: CorporateFare, text: 'Manage Organisations', link: '/organisations', protectedNavItem: true },
   ],
   hotel_owner: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
+    // Same page as the admin's, labelled for what an owner can actually do with
+    // it: the Organisations tab is read-only for them and the Users tab is
+    // narrowed by the backend to their own organisation.
+    { key: 'Manage Users', icon: CorporateFare, text: 'Manage Users', link: '/organisations', protectedNavItem: true },
   ],
   hotel_staff: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },

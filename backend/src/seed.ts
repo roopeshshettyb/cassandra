@@ -14,6 +14,7 @@ import { ChatSummary } from './chat-summary/chat-summary.model';
 import { Message, MessageRole } from './messages/message.model';
 import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
 import { HotelIntegration, IntegrationStatus } from './integrations/hotel-integrations.model';
+import { Organisation, OrganisationStatus } from './organisations/organisations.model';
 import { createHash } from 'crypto';
 
 const nodeEnv = process.env.NODE_ENV;
@@ -38,7 +39,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration, Organisation],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -48,16 +49,49 @@ async function seed() {
   await sequelize.authenticate();
   await sequelize.sync();
 
+  // ── Organisations ───────────────────────────────────────────────────────────
+  // Seeded before accounts because owners and staff reference one. Three of them,
+  // with staff spread across two, so the owner-scoping rule is actually testable:
+  // an owner in one must not see the other's people.
+  const organisationData = [
+    { name: 'Taj Group',            description: 'Luxury hotels and palaces across India.', contactEmail: 'ops@tajgroup.test',      contactPhone: '+91-22-6665-3366', status: OrganisationStatus.ACTIVE },
+    { name: 'Marriott India',       description: 'Marriott-operated properties in India.',  contactEmail: 'ops@marriottindia.test', contactPhone: '+91-22-6882-8888', status: OrganisationStatus.ACTIVE },
+    { name: 'Independent Hotels Co', description: 'Single-property independent operators.', contactEmail: 'hello@indiehotels.test', contactPhone: '+91-80-4123-4567', status: OrganisationStatus.DISABLED },
+  ];
+  const organisations: Organisation[] = [];
+  for (const row of organisationData) {
+    const [org] = await Organisation.findOrCreate({ where: { name: row.name } as any, defaults: row as any, paranoid: false });
+    await restoreIfSoftDeleted(org);
+    org.description = row.description;
+    org.contactEmail = row.contactEmail;
+    org.contactPhone = row.contactPhone;
+    org.status = row.status;
+    await org.save();
+    organisations.push(org);
+  }
+
   // ── Accounts ────────────────────────────────────────────────────────────────
   // uuid uses the `email:` form so seeded users can sign in via the email OTP flow.
   // Gmail plus-addressing: every OTP mail lands in the real flashpactone@gmail.com
   // inbox while each address stays a distinct account.
+  // organisationId is null for the admin by design, not by omission: admins are
+  // platform staff who sit outside every organisation. Guests get theirs from a
+  // booking, so they carry none either.
+  // Order matters: later sections index this array (accounts[3] and accounts[4]
+  // are the guests that own the seeded bookings, chats and requests), so new
+  // rows go on the end rather than in the middle.
   const accountData = [
-    { uuid: 'email:flashpactone+admin@gmail.com',  email: 'flashpactone+admin@gmail.com',  name: 'Seed Admin',      role: AccountRole.ADMIN,       oauthMeta: {} },
-    { uuid: 'email:flashpactone+owner1@gmail.com', email: 'flashpactone+owner1@gmail.com', name: 'Hotel Owner One', role: AccountRole.HOTEL_OWNER, oauthMeta: {} },
-    { uuid: 'email:flashpactone+staff1@gmail.com', email: 'flashpactone+staff1@gmail.com', name: 'Staff One',       role: AccountRole.HOTEL_STAFF, oauthMeta: {} },
-    { uuid: 'email:flashpactone+guest1@gmail.com', email: 'flashpactone+guest1@gmail.com', name: 'Guest One',       role: AccountRole.GUEST,       oauthMeta: {} },
-    { uuid: 'email:flashpactone+guest2@gmail.com', email: 'flashpactone+guest2@gmail.com', name: 'Guest Two',       role: AccountRole.GUEST,       oauthMeta: {} },
+    { uuid: 'email:flashpactone+admin@gmail.com',   email: 'flashpactone+admin@gmail.com',   name: 'Seed Admin',        role: AccountRole.ADMIN,       oauthMeta: {}, organisationId: null },
+    { uuid: 'email:flashpactone+owner1@gmail.com',  email: 'flashpactone+owner1@gmail.com',  name: 'Hotel Owner One',   role: AccountRole.HOTEL_OWNER, oauthMeta: {}, organisationId: organisations[0].id },
+    { uuid: 'email:flashpactone+staff1@gmail.com',  email: 'flashpactone+staff1@gmail.com',  name: 'Staff One',         role: AccountRole.HOTEL_STAFF, oauthMeta: {}, organisationId: organisations[0].id },
+    { uuid: 'email:flashpactone+guest1@gmail.com',  email: 'flashpactone+guest1@gmail.com',  name: 'Guest One',         role: AccountRole.GUEST,       oauthMeta: {}, organisationId: null },
+    { uuid: 'email:flashpactone+guest2@gmail.com',  email: 'flashpactone+guest2@gmail.com',  name: 'Guest Two',         role: AccountRole.GUEST,       oauthMeta: {}, organisationId: null },
+    // Extra staff-side users so the Users screen has something to show, spread
+    // across organisations so owner scoping is visible rather than theoretical.
+    { uuid: 'email:flashpactone+staff2@gmail.com',  email: 'flashpactone+staff2@gmail.com',  name: 'Staff Two',         role: AccountRole.HOTEL_STAFF, oauthMeta: {}, organisationId: organisations[0].id },
+    { uuid: 'email:flashpactone+owner2@gmail.com',  email: 'flashpactone+owner2@gmail.com',  name: 'Hotel Owner Two',   role: AccountRole.HOTEL_OWNER, oauthMeta: {}, organisationId: organisations[1].id },
+    { uuid: 'email:flashpactone+staff3@gmail.com',  email: 'flashpactone+staff3@gmail.com',  name: 'Staff Three',       role: AccountRole.HOTEL_STAFF, oauthMeta: {}, organisationId: organisations[1].id },
+    { uuid: 'email:flashpactone+owner3@gmail.com',  email: 'flashpactone+owner3@gmail.com',  name: 'Hotel Owner Three', role: AccountRole.HOTEL_OWNER, oauthMeta: {}, organisationId: organisations[2].id },
   ];
   const accounts: Account[] = [];
   for (const row of accountData) {
@@ -71,6 +105,7 @@ async function seed() {
     acc.uuid = row.uuid;
     acc.name = row.name;
     acc.role = row.role;
+    acc.organisationId = row.organisationId;
     await acc.save();
     accounts.push(acc);
   }
