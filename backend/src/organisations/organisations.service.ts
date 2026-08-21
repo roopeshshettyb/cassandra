@@ -75,7 +75,6 @@ export class OrganisationsService {
       where[Op.or] = [
         { name: { [Op.iLike]: pattern } },
         { description: { [Op.iLike]: pattern } },
-        { contactEmail: { [Op.iLike]: pattern } },
       ];
     }
 
@@ -114,9 +113,6 @@ export class OrganisationsService {
     const data = await this.organisationsRepository.create({
       name: dto.name.trim(),
       description: dto.description ?? null,
-      contactEmail: dto.contactEmail ?? null,
-      contactPhone: dto.contactPhone ?? null,
-      ...(dto.status && { status: dto.status }),
     } as any);
     return { success: true, message: this.config.MSG_CREATED, data };
   }
@@ -130,9 +126,6 @@ export class OrganisationsService {
       {
         ...(dto.name && { name: dto.name.trim() }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.contactEmail !== undefined && { contactEmail: dto.contactEmail }),
-        ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
-        ...(dto.status && { status: dto.status }),
       },
       { where: { id } },
     );

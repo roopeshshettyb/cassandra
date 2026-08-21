@@ -368,7 +368,6 @@ export class ConstantsService {
   ],
       INTEGRATIONS: {
         TAB_LABEL: 'Integrations',
-        STATUS_ACTIVE_LABEL: 'Active',
         STATUS_REVOKED_LABEL: 'Revoked',
         STATUS_NOT_CONFIGURED_LABEL: 'Not configured',
         GENERATE_BUTTON_LABEL: 'Generate Token',
@@ -389,7 +388,7 @@ export class ConstantsService {
         PAGE_TITLE: 'Organisations',
         TAB_ORGANISATIONS: 'Organisations',
         TAB_USERS: 'Users',
-        SEARCH_PLACEHOLDER: 'Search by name, contact or description…',
+        SEARCH_PLACEHOLDER: 'Search by name or description…',
         EMPTY_MESSAGE: 'No organisations yet.',
         ADD_BUTTON_LABEL: 'Add Organisation',
         CREATE_TITLE: 'Add Organisation',
@@ -400,11 +399,7 @@ export class ConstantsService {
         DELETE_CONFIRM_SUFFIX: 'This cannot be undone.',
         NAME_LABEL: 'Name',
         DESCRIPTION_LABEL: 'Description',
-        CONTACT_EMAIL_LABEL: 'Contact Email',
-        CONTACT_PHONE_LABEL: 'Contact Phone',
-        STATUS_LABEL: 'Status',
         STATUS_ACTIVE_LABEL: 'Active',
-        STATUS_DISABLED_LABEL: 'Disabled',
         MEMBERS_LABEL: 'Members',
         NAME_REQUIRED_MESSAGE: 'Name is required',
         USERS: {

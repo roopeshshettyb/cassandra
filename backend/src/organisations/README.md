@@ -40,33 +40,33 @@ leave those accounts with a dangling `organisationId`, which reads as *unscoped*
 
 ## Schema
 
-The column migrations live in `src/database/database.providers.ts` alongside the
-existing ones, so they run on boot and are idempotent:
+Only `name` and `description`, matching the `organisations` table this database
+already had. Contact details and an active/disabled flag were here and came out
+again: nothing asked for them, and each one needed an `ALTER` on a table the
+application does not own — turning a one-statement deployment into a
+four-statement one for no gain. They are cheap to add once ownership is sorted.
+
+`sync()` creates the table complete where it is absent. Where it already exists,
+the columns line up, so nothing needs altering.
+
+One migration, in `database.providers.ts` with the others:
 
 ```sql
-ALTER TABLE organisations ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255);
-ALTER TABLE organisations ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255);
--- enum_organisations_status created if absent
-ALTER TABLE organisations ADD COLUMN IF NOT EXISTS status ... DEFAULT 'active';
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id INTEGER REFERENCES organisations(id);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id
+  INTEGER REFERENCES organisations(id);
 ```
 
-`sync()` creates `organisations` complete where it does not exist. This database
-already had one (`id`, `name`, `description`) from work that never reached this
-repo, and `sync()` never alters an existing table — hence the explicit columns.
-
-**The `accounts` migration must succeed before this ships.** Every account query
-selects `organisation_id` once the model declares it, so if the `ALTER` is skipped
-nobody can log in. The runner deliberately logs and continues on failure, which
-means a permission error here is quiet rather than loud — check the boot log for
+**This one must actually succeed.** Once the model declares `organisationId`,
+every account query selects it, so if the `ALTER` is skipped nobody can log in.
+The runner logs and continues on failure by design, which makes a permission
+error here quiet rather than loud — check the boot log for
 `Migration skipped: ALTER TABLE accounts` before trusting a deploy.
 
-On the shared dev database every table is owned by `postgres` while the app
-connects as `flashpactone`, so *all* of these are skipped, along with the
-pre-existing ones for `hotels`, `bookings` and `requests`. That is an environment
-problem rather than a code one, but it does mean the module cannot be exercised
-there until someone with owner rights runs them.
+On the shared database every table is owned by `postgres` while the application
+connects as `flashpactone`, so it will be skipped there until someone with owner
+rights runs it. That affects the pre-existing migrations for `hotels`, `bookings`
+and `requests` too; the difference is that those are additive and this one is not.
 
-The dev database also holds 13 rows left by that uncommitted work — one
+The database also holds 13 rows left by that uncommitted work — one
 `Park Hotel Company` and six `ctest_*` pairs from an API-test run. They are inert
 and were left alone rather than deleted, since they are not ours to remove.

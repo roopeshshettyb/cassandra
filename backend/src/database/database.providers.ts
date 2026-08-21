@@ -69,17 +69,12 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
         'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
-        // Organisations. sync() creates the table where it is absent, but this
-        // database already had an `organisations` table (id, name, description)
-        // from work that never reached this repo, and sync() never alters an
-        // existing table — hence the explicit columns.
-        'ALTER TABLE organisations ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)',
-        'ALTER TABLE organisations ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255)',
-        "DO $$ BEGIN CREATE TYPE enum_organisations_status AS ENUM ('active', 'disabled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$",
-        "ALTER TABLE organisations ADD COLUMN IF NOT EXISTS status enum_organisations_status NOT NULL DEFAULT 'active'",
-        // Without this column every account query selects a column that is not
-        // there, so nobody can log in. It is the one migration here that is not
-        // merely additive in effect.
+        // Organisations. sync() creates the table where it is absent. This
+        // database already had one (id, name, description) from work that never
+        // reached this repo, and the module deliberately uses only those columns,
+        // so nothing needs altering there. The accounts column is the one
+        // unavoidable change: once the model declares it, every account query
+        // selects it, so if this is skipped nobody can log in.
         'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id INTEGER REFERENCES organisations(id)',
       ];
       for (let i = 0; i < migrations.length; i++) {

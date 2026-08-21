@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { OrganisationStatus } from './organisations.model';
 import { AccountRole } from '../common/constants/constants.service';
 
 export class CreateOrganisationDto {
@@ -13,21 +12,6 @@ export class CreateOrganisationDto {
   @IsString()
   @ApiPropertyOptional()
   readonly description?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @ApiPropertyOptional({ example: 'ops@tajgroup.com' })
-  readonly contactEmail?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ example: '+91-22-6665-3366' })
-  readonly contactPhone?: string;
-
-  @IsOptional()
-  @IsEnum(OrganisationStatus)
-  @ApiPropertyOptional({ enum: OrganisationStatus })
-  readonly status?: OrganisationStatus;
 }
 
 export class UpdateOrganisationDto {
@@ -41,21 +25,6 @@ export class UpdateOrganisationDto {
   @IsString()
   @ApiPropertyOptional()
   readonly description?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @ApiPropertyOptional()
-  readonly contactEmail?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional()
-  readonly contactPhone?: string;
-
-  @IsOptional()
-  @IsEnum(OrganisationStatus)
-  @ApiPropertyOptional({ enum: OrganisationStatus })
-  readonly status?: OrganisationStatus;
 }
 
 /**

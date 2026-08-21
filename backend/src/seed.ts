@@ -14,7 +14,7 @@ import { ChatSummary } from './chat-summary/chat-summary.model';
 import { Message, MessageRole } from './messages/message.model';
 import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
 import { HotelIntegration, IntegrationStatus } from './integrations/hotel-integrations.model';
-import { Organisation, OrganisationStatus } from './organisations/organisations.model';
+import { Organisation } from './organisations/organisations.model';
 import { createHash } from 'crypto';
 
 const nodeEnv = process.env.NODE_ENV;
@@ -54,18 +54,16 @@ async function seed() {
   // with staff spread across two, so the owner-scoping rule is actually testable:
   // an owner in one must not see the other's people.
   const organisationData = [
-    { name: 'Taj Group',            description: 'Luxury hotels and palaces across India.', contactEmail: 'ops@tajgroup.test',      contactPhone: '+91-22-6665-3366', status: OrganisationStatus.ACTIVE },
-    { name: 'Marriott India',       description: 'Marriott-operated properties in India.',  contactEmail: 'ops@marriottindia.test', contactPhone: '+91-22-6882-8888', status: OrganisationStatus.ACTIVE },
-    { name: 'Independent Hotels Co', description: 'Single-property independent operators.', contactEmail: 'hello@indiehotels.test', contactPhone: '+91-80-4123-4567', status: OrganisationStatus.DISABLED },
+    { name: 'Taj Group', description: 'Luxury hotels and palaces across India.' },
+    { name: 'Marriott India', description: 'Marriott-operated properties in India.' },
+    { name: 'Independent Hotels Co', description: 'Single-property independent operators.' },
   ];
+
   const organisations: Organisation[] = [];
   for (const row of organisationData) {
     const [org] = await Organisation.findOrCreate({ where: { name: row.name } as any, defaults: row as any, paranoid: false });
     await restoreIfSoftDeleted(org);
     org.description = row.description;
-    org.contactEmail = row.contactEmail;
-    org.contactPhone = row.contactPhone;
-    org.status = row.status;
     await org.save();
     organisations.push(org);
   }

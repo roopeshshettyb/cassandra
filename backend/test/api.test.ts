@@ -849,7 +849,7 @@ describe('Organisations', () => {
   };
 
   it('admin creates organisations; a duplicate name is rejected', async () => {
-    const a = await http.post('/organisations', { name: `Org A ${TAG}`, contactEmail: `a_${TAG}@x.test` }, state.adminToken);
+    const a = await http.post('/organisations', { name: `Org A ${TAG}` }, state.adminToken);
     expect(a.status).toBe(201);
     created.orgA = (a.data?.data ?? a.data).id;
 

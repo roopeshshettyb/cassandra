@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, MenuItem, Tab, Tabs, TextField } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Tab, Tabs, TextField } from '@mui/material';
 import { motion } from 'framer-motion';
 import AddIcon from '@mui/icons-material/Add';
 import request from '../helper/api';
@@ -12,18 +12,12 @@ import { BRAND_GRADIENT, MUTED, PRIMARY_CONTRAST, SHADOW } from '../theme';
 import constants from '../constants.json';
 
 const labels = constants.ORGANISATIONS;
-const STATUSES = [
-  { value: 'active', label: labels.STATUS_ACTIVE_LABEL },
-  { value: 'disabled', label: labels.STATUS_DISABLED_LABEL },
-];
 
-const emptyOrganisation = { name: '', description: '', contactEmail: '', contactPhone: '', status: 'active' };
+const emptyOrganisation = { name: '', description: '' };
 
 const FIELDS = [
   { field: 'name', label: labels.NAME_LABEL, required: true },
   { field: 'description', label: labels.DESCRIPTION_LABEL, multiline: true },
-  { field: 'contactEmail', label: labels.CONTACT_EMAIL_LABEL, type: 'email' },
-  { field: 'contactPhone', label: labels.CONTACT_PHONE_LABEL },
 ];
 
 function OrganisationFieldRow({ data: config, values, handleInput }) {
@@ -78,13 +72,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
   };
 
   const openEdit = (organisation) => {
-    setValues({
-      name: organisation.name ?? '',
-      description: organisation.description ?? '',
-      contactEmail: organisation.contactEmail ?? '',
-      contactPhone: organisation.contactPhone ?? '',
-      status: organisation.status ?? 'active',
-    });
+    setValues({ name: organisation.name ?? '', description: organisation.description ?? '' });
     setEditing(organisation);
   };
 
@@ -98,13 +86,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
     const result = await request({
       endpoint: isUpdate ? `/organisations/${editing.id}` : '/organisations',
       method: isUpdate ? 'PATCH' : 'POST',
-      data: {
-        name: values.name.trim(),
-        description: values.description?.trim() || undefined,
-        contactEmail: values.contactEmail?.trim() || undefined,
-        contactPhone: values.contactPhone?.trim() || undefined,
-        status: values.status,
-      },
+      data: { name: values.name.trim(), description: values.description?.trim() || undefined },
       setLoading,
       alertSuccess,
       alertError,
@@ -129,7 +111,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
   const term = search.trim().toLowerCase();
   const visibleOrganisations = term
     ? organisations.filter((o) =>
-        [o.name, o.description, o.contactEmail, o.contactPhone].filter(Boolean).join(' ').toLowerCase().includes(term),
+        [o.name, o.description].filter(Boolean).join(' ').toLowerCase().includes(term),
       )
     : organisations;
 
@@ -202,21 +184,6 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
               showNoDataAvailable={false}
               isLoading={false}
             />
-            <TextField
-              fullWidth
-              select
-              label={labels.STATUS_LABEL}
-              value={values.status}
-              onChange={handleInput('status')}
-              InputLabelProps={{ shrink: true }}
-              sx={inputSx}
-            >
-              {STATUSES.map((s) => (
-                <MenuItem key={s.value} value={s.value}>
-                  {s.label}
-                </MenuItem>
-              ))}
-            </TextField>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>
             <Button onClick={() => setEditing(null)} sx={{ color: MUTED, textTransform: 'none' }}>
