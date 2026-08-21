@@ -28,6 +28,8 @@ import { RestaurantModule } from '../src/restaurant/restaurant.module';
 import { AccountsService } from '../src/accounts/accounts.service';
 import { BookingsService } from '../src/bookings/bookings.service';
 import { HotelsService } from '../src/hotels/hotels.service';
+import { OrganisationsService } from '../src/organisations/organisations.service';
+import { OrganisationsModule } from '../src/organisations/organisations.module';
 import { RestaurantService } from '../src/restaurant/restaurant.service';
 import { EmailService } from '../src/oauth/email/email.service';
 import { AuthService } from '../src/auth/auth.service';
@@ -74,6 +76,7 @@ let hotelsService: HotelsService;
 let restaurantService: RestaurantService;
 let emailService: EmailService;
 let authService: AuthService;
+let organisationsService: OrganisationsService;
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 function authHeaders(token?: string) {
@@ -123,12 +126,14 @@ beforeAll(async () => {
       BookingsModule,
       HotelsModule,
       RestaurantModule,
+      OrganisationsModule,
     ],
   }).compile();
 
   accountsService = moduleRef.get(AccountsService);
   bookingsService = moduleRef.get(BookingsService);
   hotelsService = moduleRef.get(HotelsService);
+  organisationsService = moduleRef.get(OrganisationsService);
   restaurantService = moduleRef.get(RestaurantService);
   emailService    = moduleRef.get(EmailService);
   authService = moduleRef.get(AuthService);
@@ -962,5 +967,9 @@ describe('Organisations', () => {
       await accountsService.delete({ email }, true).catch(() => {});
     }
     await accountsService.delete({ email: `${TAG}_outsider@cassandratest.local` }, true).catch(() => {});
+    // Force-delete the organisations too. Soft deletes would leave rows behind,
+    // and a run per day quietly becomes a table nobody dares clean — this
+    // database still carries such litter from an earlier, unrelated attempt.
+    await organisationsService.hardDeleteByNamePrefix(TAG).catch(() => {});
   });
 });

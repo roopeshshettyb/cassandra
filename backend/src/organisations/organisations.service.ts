@@ -32,19 +32,42 @@ export class OrganisationsService {
     return this.constantsService.private.ORGANISATIONS;
   }
 
+  /**
+   * The caller as the database sees them now, not as their token claims.
+   *
+   * The JWT carries id, uuid, email, name, role and picture — not organisationId
+   * — and JwtStrategy hands that payload back as the Account, so reading the
+   * organisation off it yields undefined for everyone and every owner falls into
+   * the "no organisation" branch.
+   *
+   * Adding it to the token would fix that and introduce something worse: a token
+   * outlives an admin moving someone between organisations, so the holder would
+   * keep reaching the organisation they were moved out of until they happened to
+   * sign in again. Role has the same problem. Both are permission inputs, so both
+   * are read fresh, at the cost of one indexed lookup per request.
+   */
+  private async currentUser(account: Account): Promise<Account> {
+    const fresh = await this.accountsService.findOne({ where: { id: account.id } });
+    if (!fresh) {
+      throw new ForbiddenException(this.userConfig.ERROR_NOT_FOUND);
+    }
+    return fresh;
+  }
+
   // ── Organisations ──────────────────────────────────────────────────────────
 
   async findAllForAccount(currentAccount: Account, keywords?: string) {
+    const user = await this.currentUser(currentAccount);
     const where: any = {};
 
     // An owner is not allowed to enumerate the platform's customers, only their
     // own. Admins are the only role with no organisation, so this is not a
     // "missing value" branch — it is the permission.
-    if (currentAccount.role !== AccountRole.ADMIN) {
-      if (currentAccount.organisationId == null) {
+    if (user.role !== AccountRole.ADMIN) {
+      if (user.organisationId == null) {
         return { success: true, message: this.config.MSG_FETCHED, data: [] };
       }
-      where.id = currentAccount.organisationId;
+      where.id = user.organisationId;
     }
 
     if (keywords) {
@@ -73,13 +96,14 @@ export class OrganisationsService {
   }
 
   async findByIdForAccount(id: number, currentAccount: Account): Promise<Organisation> {
+    const user = await this.currentUser(currentAccount);
     const organisation = await this.organisationsRepository.findOne({ where: { id } });
     if (!organisation) {
       throw new NotFoundException(this.config.ERROR_NOT_FOUND);
     }
     // Deliberately the same error as "does not exist": telling an owner that an
     // organisation exists but is not theirs leaks the customer list.
-    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.organisationId !== organisation.id) {
+    if (user.role !== AccountRole.ADMIN && user.organisationId !== organisation.id) {
       throw new NotFoundException(this.config.ERROR_NOT_FOUND);
     }
     return organisation;
@@ -130,6 +154,21 @@ export class OrganisationsService {
     return { success: true, message: this.config.MSG_DELETED, data: null };
   }
 
+  /**
+   * Hard-delete every organisation whose name carries a given prefix.
+   *
+   * Test-support only, and deliberately force: the API test suite tags rows with
+   * a run id, and a soft delete would leave them accumulating. This database
+   * still holds such litter from an earlier attempt, which is the argument for
+   * cleaning up properly rather than the argument for not bothering.
+   */
+  async hardDeleteByNamePrefix(prefix: string): Promise<number> {
+    return this.organisationsRepository.destroy({
+      where: { name: { [Op.iLike]: `%${prefix}%` } },
+      force: true,
+    });
+  }
+
   private async assertNameFree(name: string): Promise<void> {
     const existing = await this.organisationsRepository.findOne({
       where: { name: { [Op.iLike]: name.trim() } },
@@ -149,18 +188,19 @@ export class OrganisationsService {
    * The organisation a write is allowed to touch, or null for an admin (meaning
    * "any"). Centralised so every user-facing mutation narrows the same way.
    */
-  private scopeOrganisationId(currentAccount: Account): number | null {
-    if (currentAccount.role === AccountRole.ADMIN) {
+  private async scopeOrganisationId(currentAccount: Account): Promise<number | null> {
+    const user = await this.currentUser(currentAccount);
+    if (user.role === AccountRole.ADMIN) {
       return null;
     }
-    if (currentAccount.organisationId == null) {
+    if (user.organisationId == null) {
       throw new ForbiddenException(this.userConfig.ERROR_NO_ORGANISATION);
     }
-    return currentAccount.organisationId;
+    return user.organisationId;
   }
 
   async findUsersForAccount(currentAccount: Account, keywords?: string) {
-    const scoped = this.scopeOrganisationId(currentAccount);
+    const scoped = await this.scopeOrganisationId(currentAccount);
     const where: any = {
       // Guests are booking-side accounts and there are far more of them than
       // staff; listing them here would bury the people this screen is about.
@@ -190,8 +230,9 @@ export class OrganisationsService {
   }
 
   async createUser(dto: CreateOrganisationUserDto, currentAccount: Account) {
-    const scoped = this.scopeOrganisationId(currentAccount);
-    const organisationId = this.resolveOrganisationForRole(dto.role, dto.organisationId ?? null, scoped, currentAccount);
+    const actor = await this.currentUser(currentAccount);
+    const scoped = await this.scopeOrganisationId(currentAccount);
+    const organisationId = this.resolveOrganisationForRole(dto.role, dto.organisationId ?? null, scoped, actor);
 
     const email = dto.email.trim().toLowerCase();
     const existing = await this.accountsService.findOne({ where: { email } });
@@ -214,7 +255,7 @@ export class OrganisationsService {
   }
 
   async updateUser(id: number, dto: UpdateOrganisationUserDto, currentAccount: Account) {
-    const scoped = this.scopeOrganisationId(currentAccount);
+    const scoped = await this.scopeOrganisationId(currentAccount);
 
     const target = await this.accountsService.findOne({ where: { id } });
     if (!target) {
@@ -228,9 +269,10 @@ export class OrganisationsService {
       throw new ForbiddenException(this.userConfig.ERROR_OUTSIDE_ORGANISATION);
     }
 
+    const actor = await this.currentUser(currentAccount);
     const role = dto.role ?? target.role;
     const requestedOrganisationId = dto.organisationId !== undefined ? dto.organisationId : target.organisationId;
-    const organisationId = this.resolveOrganisationForRole(role, requestedOrganisationId, scoped, currentAccount);
+    const organisationId = this.resolveOrganisationForRole(role, requestedOrganisationId, scoped, actor);
 
     await this.accountsService.update(
       {
