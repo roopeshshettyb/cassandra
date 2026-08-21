@@ -41,15 +41,19 @@ function OrganisationFieldRow({ data: config, values, handleInput }) {
 function ManageOrganisations({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [organisations, setOrganisations] = useState([]);
   const [users, setUsers] = useState([]);
-  // An owner reaches this page from a "Manage Users" nav item and cannot edit
-  // organisations, so open on the tab they came for.
-  const [tab, setTab] = useState(account && constants.PERMISSIONS.CAN_MANAGE_ORGANISATIONS[account.role] ? 0 : 1);
+  // Null until the user picks one, so the default can follow the account once it
+  // arrives. useState would freeze the initial value, and account is still null
+  // on first render — which landed admins on Users instead of Organisations.
+  const [chosenTab, setChosenTab] = useState(null);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
   const [values, setValues] = useState(emptyOrganisation);
   const [deleting, setDeleting] = useState(null);
 
   const CAN_MANAGE_ORGANISATIONS = account && !!constants.PERMISSIONS.CAN_MANAGE_ORGANISATIONS[account.role];
+  // An owner reaches this page from a "Manage Users" nav item and cannot edit
+  // organisations, so open on the tab they actually came for.
+  const tab = chosenTab ?? (CAN_MANAGE_ORGANISATIONS ? 0 : 1);
 
   const fetchOrganisations = async () => {
     await request({ endpoint: '/organisations', method: 'GET', setLoading, setData: setOrganisations, defaultData: [], alertError, delay: false });
@@ -136,7 +140,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
         />
       </motion.div>
 
-      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2.5, minHeight: 0 }}>
+      <Tabs value={tab} onChange={(_e, v) => setChosenTab(v)} sx={{ mb: 2.5, minHeight: 0 }}>
         <Tab label={labels.TAB_ORGANISATIONS} sx={{ textTransform: 'none', fontWeight: 700, fontSize: 13 }} />
         <Tab label={labels.TAB_USERS} sx={{ textTransform: 'none', fontWeight: 700, fontSize: 13 }} />
       </Tabs>
