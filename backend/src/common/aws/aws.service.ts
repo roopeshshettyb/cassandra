@@ -24,7 +24,12 @@ export class AwsService {
     });
 
     // Skip CORS setup in test envs to avoid noisy logs/open handles during suite bootstrap.
-    if (privateConstants.NODE_ENV !== privateConstants.NODE_ENV_AUTOMATION_TEST) {
+    // MANAGE_BUCKET_CORS gates the rest: PutBucketCors replaces the bucket's whole CORS config
+    // and the buckets are shared, so a laptop boot would otherwise drop the deployed origins.
+    if (
+      privateConstants.NODE_ENV !== privateConstants.NODE_ENV_AUTOMATION_TEST &&
+      privateConstants.MANAGE_BUCKET_CORS
+    ) {
       this.setupCorsForBucket(privateConstants.AWS_S3_PUBLIC_BUCKET_NAME).catch((err) =>
         console.warn('⚠️  Failed to setup CORS on public bucket:', err.message),
       );
@@ -37,19 +42,11 @@ export class AwsService {
   private async setupCorsForBucket(bucketName: string): Promise<void> {
     if (!bucketName) return;
 
-    // Browser PUT to a presigned URL requires the app origin here, so this list is driven by the
-    // same constants as the HTTP CORS in main.ts — a white-labeled deploy on a new domain works
-    // by setting FRONTEND_URL / PROD_FRONTEND_URL / EXTRA_CORS_ORIGINS, with no code change.
-    const privateConstants = this.constantsService.private;
-    const allowedOrigins = Array.from(
-      new Set(
-        [
-          privateConstants.FRONTEND_URL,
-          this.constantsService.public.PROD_FRONTEND_URL,
-          ...privateConstants.EXTRA_CORS_ORIGINS.split(',').map((origin) => origin.trim()),
-        ].filter(Boolean),
-      ),
-    );
+    // Browser PUT to a presigned URL requires the app origin here. The buckets are shared and
+    // only one deployment writes their CORS, so this is the union across environments — wider
+    // than the API's own list. A white-labeled deploy on a new domain works by setting
+    // FRONTEND_URL / PROD_FRONTEND_URL / EXTRA_CORS_ORIGINS, with no code change.
+    const allowedOrigins = this.constantsService.bucketCorsOrigins;
 
     const corsConfiguration = {
       CORSRules: [

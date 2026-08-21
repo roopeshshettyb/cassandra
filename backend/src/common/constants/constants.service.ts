@@ -388,6 +388,32 @@ export class ConstantsService {
     };
   }
 
+  /** Dedupes, drops empties, and appends EXTRA_CORS_ORIGINS — which applies to every list. */
+  private buildCorsOrigins(...origins: (string | undefined)[]): string[] {
+    const extra = this.private.EXTRA_CORS_ORIGINS.split(',').map((origin) => origin.trim());
+    return Array.from(new Set([...origins, ...extra].filter(Boolean) as string[]));
+  }
+
+  /**
+   * Origins the API accepts requests from — this deployment's own frontend only.
+   * Deliberately narrower than bucketCorsOrigins: a stage or local backend has no
+   * reason to serve the production frontend, so PROD_FRONTEND_URL is excluded (it
+   * also carries a hardcoded default, which would widen every unconfigured env).
+   */
+  get apiCorsOrigins(): string[] {
+    return this.buildCorsOrigins(this.private.FRONTEND_URL);
+  }
+
+  /**
+   * Origins written into the S3 buckets' CORS rules. The buckets are shared across
+   * environments and only one deployment writes them (MANAGE_BUCKET_CORS), so this
+   * list must be the union of every frontend that uploads via a presigned URL —
+   * hence PROD_FRONTEND_URL even when this process is not production.
+   */
+  get bucketCorsOrigins(): string[] {
+    return this.buildCorsOrigins(this.private.FRONTEND_URL, this.public.PROD_FRONTEND_URL);
+  }
+
   get private() {
     return {
       // Environment Configuration
@@ -415,6 +441,9 @@ export class ConstantsService {
       // Comma-separated list of extra allowed CORS origins (e.g. prod + staging frontend URLs).
       // Applied to BOTH the Nest HTTP CORS (main.ts) and the S3 bucket CORS (aws.service.ts).
       EXTRA_CORS_ORIGINS: this.configService.get<string>('EXTRA_CORS_ORIGINS', ''),
+      // PutBucketCors REPLACES a bucket's entire CORS config and the buckets are shared across
+      // environments, so only the deployed backend may write them. Off everywhere else.
+      MANAGE_BUCKET_CORS: this.configService.get<string>('MANAGE_BUCKET_CORS', 'false') === 'true',
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 
       // Database Configuration

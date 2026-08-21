@@ -27,6 +27,16 @@ const indexHtml = fs.readFileSync(indexPath, 'utf8');
 // No fallbacks here: defaults belong in the backend's constants.service.ts (CLAUDE.md General #3).
 const { APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR } = constants;
 
+// A key the backend has not shipped yet would inject the literal string "undefined" — and the
+// validation gate below would still pass, since content="undefined" is a match. Catch it here.
+const missingConstants = Object.entries({ APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR })
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+if (missingConstants.length) {
+  console.error(`✗ constants.json is missing: ${missingConstants.join(', ')}. Is the backend up to date?`);
+  process.exit(1);
+}
+
 // The build minifies `" />` down to `"/>`, so tag-closing whitespace has to be optional here.
 const selfClosing = (attrs) => new RegExp(`<${attrs}\\s*/?>`);
 
