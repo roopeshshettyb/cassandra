@@ -93,6 +93,11 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_EDIT_BOOKING:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_DELETE_BOOKING:         { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
+  // Creating and editing organisations is platform work, so it stays with admins.
+  CAN_MANAGE_ORGANISATIONS:   { [AccountRole.ADMIN]: true },
+  // Owners get this too, but scoped: the service narrows them to their own
+  // organisation, so the permission grants the screen, not the reach.
+  CAN_MANAGE_USERS:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true },
 };
 
 const PLATFORM_DATA: any = {
@@ -363,7 +368,6 @@ export class ConstantsService {
   ],
       INTEGRATIONS: {
         TAB_LABEL: 'Integrations',
-        STATUS_ACTIVE_LABEL: 'Active',
         STATUS_REVOKED_LABEL: 'Revoked',
         STATUS_NOT_CONFIGURED_LABEL: 'Not configured',
         GENERATE_BUTTON_LABEL: 'Generate Token',
@@ -378,6 +382,56 @@ export class ConstantsService {
         REQUESTS_WEBHOOK_LABEL: 'Requests Webhook URL',
         TOKEN_PREFIX_LABEL: 'Token',
         COPIED_MESSAGE: 'Copied to clipboard',
+      },
+      ORGANISATIONS: {
+        PAGE_EYEBROW: 'Platform',
+        PAGE_TITLE: 'Organisations',
+        TAB_ORGANISATIONS: 'Organisations',
+        TAB_USERS: 'Users',
+        SEARCH_PLACEHOLDER: 'Search by name or description…',
+        EMPTY_MESSAGE: 'No organisations yet.',
+        ADD_BUTTON_LABEL: 'Add Organisation',
+        CREATE_TITLE: 'Add Organisation',
+        EDIT_TITLE: 'Edit Organisation',
+        DELETE_TITLE: 'Delete Organisation',
+        DELETE_BUTTON_LABEL: 'Delete',
+        DELETE_CONFIRM_PREFIX: 'Delete organisation',
+        DELETE_CONFIRM_SUFFIX: 'This cannot be undone.',
+        NAME_LABEL: 'Name',
+        DESCRIPTION_LABEL: 'Description',
+        STATUS_ACTIVE_LABEL: 'Active',
+        MEMBERS_LABEL: 'Members',
+        NAME_REQUIRED_MESSAGE: 'Name is required',
+        USERS: {
+          PAGE_TITLE: 'Users',
+          SEARCH_PLACEHOLDER: 'Search by name, email or role…',
+          EMPTY_MESSAGE: 'No users yet.',
+          ADD_BUTTON_LABEL: 'Add User',
+          CREATE_TITLE: 'Add User',
+          EDIT_TITLE: 'Edit User',
+          NAME_LABEL: 'Name',
+          EMAIL_LABEL: 'Email',
+          ROLE_LABEL: 'Role',
+          ORGANISATION_LABEL: 'Organisation',
+          NO_ORGANISATION_LABEL: 'No organisation',
+          JOINED_LABEL: 'Joined',
+          ACTIONS_LABEL: 'Actions',
+          SAVE_BUTTON_LABEL: 'Save',
+          CANCEL_BUTTON_LABEL: 'Cancel',
+          EMAIL_REQUIRED_MESSAGE: 'Email is required',
+          ROLE_REQUIRED_MESSAGE: 'Role is required',
+          // Guest is deliberately absent: guest accounts come from bookings, so
+          // offering it here would create an account the booking flow then can't
+          // reconcile. Admin is filtered out for owners at the call site.
+          ROLE_OPTIONS: [
+            { value: 'admin', label: 'Admin' },
+            { value: 'hotel_owner', label: 'Hotel Owner' },
+            { value: 'hotel_staff', label: 'Hotel Staff' },
+          ],
+          // Owners cannot move people between organisations, so rather than
+          // showing them a picker that would be rejected, the copy says why.
+          ORGANISATION_FIXED_HELP: 'Users you create join your organisation.',
+        },
       },
     };
   }
@@ -620,6 +674,39 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           TASK_SAMPLE_RATE: parseFloat(this.configService.get('LLM_EVAL_TASK_SAMPLE_RATE') || '0.3'),
           // Cap on input/output text sent to the task judge (crawl dumps can be huge).
           TASK_INPUT_MAX_CHARS: 8000,
+        },
+      },
+      ORGANISATIONS: {
+        MSG_FETCHED: 'Organisations fetched',
+        MSG_ONE_FETCHED: 'Organisation fetched',
+        MSG_CREATED: 'Organisation created',
+        MSG_UPDATED: 'Organisation updated',
+        MSG_DELETED: 'Organisation deleted',
+        ERROR_NOT_FOUND: 'Organisation not found',
+        ERROR_NAME_TAKEN: 'An organisation with that name already exists',
+        // Deleting an organisation with people in it would orphan their accounts,
+        // and a silently unscoped user is worse than a refused delete.
+        ERROR_HAS_MEMBERS: 'Move or remove this organisation\'s users before deleting it',
+        USERS: {
+          MSG_FETCHED: 'Users fetched',
+          MSG_CREATED: 'User created',
+          MSG_UPDATED: 'User updated',
+          ERROR_NOT_FOUND: 'User not found',
+          ERROR_EMAIL_TAKEN: 'An account with that email already exists',
+          // An owner may only act inside their own organisation. Both halves matter:
+          // they cannot reach another organisation's users, and they cannot hand
+          // someone an organisation other than their own.
+          ERROR_OUTSIDE_ORGANISATION: 'You can only manage users in your own organisation',
+          ERROR_NO_ORGANISATION: 'Your account is not linked to an organisation yet',
+          // Only an admin may mint another admin. Otherwise an owner could promote
+          // themselves out of their own scope, which is the whole boundary gone.
+          ERROR_CANNOT_CREATE_ADMIN: 'Only an admin can create an admin user',
+          ERROR_ADMIN_HAS_NO_ORGANISATION: 'An admin account cannot belong to an organisation',
+          ERROR_ORGANISATION_REQUIRED: 'Hotel owners and staff must belong to an organisation',
+          // Guests get their hotel from their booking, so an organisation on a
+          // guest would be a second, conflicting source of truth.
+          ERROR_GUEST_NOT_MANAGEABLE: 'Guest accounts are created from bookings, not here',
+          DEFAULT_LIST_LIMIT: 200,
         },
       },
     };

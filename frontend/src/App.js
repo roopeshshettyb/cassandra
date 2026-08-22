@@ -26,6 +26,7 @@ import BookingDetails from './components/BookingDetails';
 import ManageRequests from './components/ManageRequests';
 import RequestDetails from './components/RequestDetails';
 import ManageCosts from './components/ManageCosts';
+import ManageOrganisations from './components/ManageOrganisations';
 import Rooms from './components/Rooms';
 import request from './helper/api';
 import logger from './services/logger.service';
@@ -360,6 +361,7 @@ const AppContent = () => {
     { path: '/requests', component: ManageRequests, isProtected: true },
     { path: '/requests/:id', component: RequestDetails, isProtected: true },
     { path: '/costs', component: ManageCosts, isProtected: true, guestRestricted: true },
+    { path: '/organisations', component: ManageOrganisations, isProtected: true, guestRestricted: true },
   ];
 
   const smoothScrollToTop = () => {

@@ -28,6 +28,8 @@ import { RestaurantModule } from '../src/restaurant/restaurant.module';
 import { AccountsService } from '../src/accounts/accounts.service';
 import { BookingsService } from '../src/bookings/bookings.service';
 import { HotelsService } from '../src/hotels/hotels.service';
+import { OrganisationsService } from '../src/organisations/organisations.service';
+import { OrganisationsModule } from '../src/organisations/organisations.module';
 import { RestaurantService } from '../src/restaurant/restaurant.service';
 import { EmailService } from '../src/oauth/email/email.service';
 import { AuthService } from '../src/auth/auth.service';
@@ -74,6 +76,7 @@ let hotelsService: HotelsService;
 let restaurantService: RestaurantService;
 let emailService: EmailService;
 let authService: AuthService;
+let organisationsService: OrganisationsService;
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 function authHeaders(token?: string) {
@@ -123,12 +126,14 @@ beforeAll(async () => {
       BookingsModule,
       HotelsModule,
       RestaurantModule,
+      OrganisationsModule,
     ],
   }).compile();
 
   accountsService = moduleRef.get(AccountsService);
   bookingsService = moduleRef.get(BookingsService);
   hotelsService = moduleRef.get(HotelsService);
+  organisationsService = moduleRef.get(OrganisationsService);
   restaurantService = moduleRef.get(RestaurantService);
   emailService    = moduleRef.get(EmailService);
   authService = moduleRef.get(AuthService);
@@ -829,5 +834,142 @@ describe('Integrations', () => {
     expect(results[0].externalId).toBe(`${TAG}-canonical-1`);
 
     await expectStatus(404, () => webhookPost('/integrations/providers/mews/webhooks', {}, freshToken));
+  });
+});
+
+// The module's whole point is that an owner is confined to their own company, so
+// these lean on the boundary rather than the happy path: what an owner cannot
+// see, cannot reach, and cannot promote themselves into.
+describe('Organisations', () => {
+  const created: { orgA: number; orgB: number; userId: number } = { orgA: 0, orgB: 0, userId: 0 };
+  const emails = {
+    staff: `${TAG}_orgstaff@cassandratest.local`,
+    other: `${TAG}_orgother@cassandratest.local`,
+    admin: `${TAG}_orgadmin@cassandratest.local`,
+  };
+
+  it('admin creates organisations; a duplicate name is rejected', async () => {
+    const a = await http.post('/organisations', { name: `Org A ${TAG}` }, state.adminToken);
+    expect(a.status).toBe(201);
+    created.orgA = (a.data?.data ?? a.data).id;
+
+    const b = await http.post('/organisations', { name: `Org B ${TAG}` }, state.adminToken);
+    created.orgB = (b.data?.data ?? b.data).id;
+
+    await expectStatus(400, () => http.post('/organisations', { name: `Org A ${TAG}` }, state.adminToken));
+  });
+
+  it('an owner cannot create, edit or delete an organisation', async () => {
+    await expectStatus(403, () => http.post('/organisations', { name: `Sneaky ${TAG}` }, state.ownerToken));
+    await expectStatus(403, () => http.patch(`/organisations/${created.orgA}`, { name: 'Renamed' }, state.ownerToken));
+    await expectStatus(403, () => http.delete(`/organisations/${created.orgA}`, state.ownerToken));
+  });
+
+  it('admin creates a user into a chosen organisation', async () => {
+    const res = await http.post(
+      '/organisation-users',
+      { email: emails.staff, name: 'Org Staff', role: 'hotel_staff', organisationId: created.orgA },
+      state.adminToken,
+    );
+    expect(res.status).toBe(201);
+    const user = res.data?.data ?? res.data;
+    created.userId = user.id;
+    expect(user.organisationId).toBe(created.orgA);
+
+    await expectStatus(400, () =>
+      http.post('/organisation-users', { email: emails.staff, role: 'hotel_staff', organisationId: created.orgA }, state.adminToken),
+    );
+  });
+
+  it('an owner or staff member must have an organisation', async () => {
+    await expectStatus(400, () =>
+      http.post('/organisation-users', { email: emails.other, role: 'hotel_staff' }, state.adminToken),
+    );
+  });
+
+  it('an admin user carries no organisation, and cannot be given one', async () => {
+    await expectStatus(400, () =>
+      http.post('/organisation-users', { email: emails.admin, role: 'admin', organisationId: created.orgA }, state.adminToken),
+    );
+    const res = await http.post('/organisation-users', { email: emails.admin, role: 'admin' }, state.adminToken);
+    expect(res.status).toBe(201);
+    expect((res.data?.data ?? res.data).organisationId).toBeNull();
+  });
+
+  it('guests are not created here — they come from bookings', async () => {
+    await expectStatus(400, () =>
+      http.post('/organisation-users', { email: `${TAG}_orgguest@cassandratest.local`, role: 'guest' }, state.adminToken),
+    );
+  });
+
+  // The seeded owner has no organisation, which is exactly the state that must
+  // fail closed rather than silently listing every user on the platform.
+  it('an owner with no organisation is refused rather than shown everything', async () => {
+    await expectStatus(403, () => http.get('/organisation-users', state.ownerToken));
+  });
+
+  it('an owner is confined to their own organisation', async () => {
+    await http.patch(`/organisation-users/${state.ownerAccountId}`, { organisationId: created.orgA }, state.adminToken);
+    const ownerToken = await loginViaOtp(EMAILS.owner);
+
+    // Sees org A's people, and only those.
+    const list = await http.get('/organisation-users', ownerToken);
+    expect(list.status).toBe(200);
+    const rows = list.data?.data ?? list.data;
+    for (const row of rows) {
+      expect(row.organisationId).toBe(created.orgA);
+    }
+
+    // Cannot hand a new user to another organisation, nor mint an admin.
+    await expectStatus(403, () =>
+      http.post('/organisation-users', { email: emails.other, role: 'hotel_staff', organisationId: created.orgB }, ownerToken),
+    );
+    await expectStatus(403, () => http.post('/organisation-users', { email: emails.other, role: 'admin' }, ownerToken));
+
+    // Cannot move one of their own out of the organisation either.
+    await expectStatus(403, () =>
+      http.patch(`/organisation-users/${created.userId}`, { organisationId: created.orgB }, ownerToken),
+    );
+
+    // Omitting the organisation is fine — it is forced to theirs, not left null.
+    const ok = await http.post('/organisation-users', { email: emails.other, name: 'Owner Made', role: 'hotel_staff' }, ownerToken);
+    expect(ok.status).toBe(201);
+    expect((ok.data?.data ?? ok.data).organisationId).toBe(created.orgA);
+  });
+
+  it('an owner cannot reach a user in another organisation', async () => {
+    const outsider = await http.post(
+      '/organisation-users',
+      { email: `${TAG}_outsider@cassandratest.local`, role: 'hotel_staff', organisationId: created.orgB },
+      state.adminToken,
+    );
+    const outsiderId = (outsider.data?.data ?? outsider.data).id;
+    const ownerToken = await loginViaOtp(EMAILS.owner);
+    await expectStatus(403, () => http.patch(`/organisation-users/${outsiderId}`, { name: 'Hijacked' }, ownerToken));
+    await accountsService.delete({ id: outsiderId }, true).catch(() => {});
+  });
+
+  it('an organisation with members cannot be deleted', async () => {
+    await expectStatus(400, () => http.delete(`/organisations/${created.orgA}`, state.adminToken));
+  });
+
+  it('an empty organisation deletes cleanly', async () => {
+    const res = await http.post('/organisations', { name: `Org Empty ${TAG}` }, state.adminToken);
+    const id = (res.data?.data ?? res.data).id;
+    const del = await http.delete(`/organisations/${id}`, state.adminToken);
+    expect(del.status).toBe(200);
+  });
+
+  afterAll(async () => {
+    // Detach the seeded owner so later runs start from the same state.
+    await accountsService.update({ organisationId: null }, { id: state.ownerAccountId }).catch(() => {});
+    for (const email of Object.values(emails)) {
+      await accountsService.delete({ email }, true).catch(() => {});
+    }
+    await accountsService.delete({ email: `${TAG}_outsider@cassandratest.local` }, true).catch(() => {});
+    // Force-delete the organisations too. Soft deletes would leave rows behind,
+    // and a run per day quietly becomes a table nobody dares clean — this
+    // database still carries such litter from an earlier, unrelated attempt.
+    await organisationsService.hardDeleteByNamePrefix(TAG).catch(() => {});
   });
 });
