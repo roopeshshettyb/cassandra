@@ -57,10 +57,21 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id
 ```
 
 **This one must actually succeed.** Once the model declares `organisationId`,
-every account query selects it, so if the `ALTER` is skipped nobody can log in.
+every account query selects it, so if the column is absent nobody can log in.
 The runner logs and continues on failure by design, which makes a permission
-error here quiet rather than loud — check the boot log for
-`Migration skipped: ALTER TABLE accounts` before trusting a deploy.
+error here quiet rather than loud.
+
+Do not use the log line to check. Postgres tests table ownership *before*
+`IF NOT EXISTS`, so on a database the application does not own this migration
+fails on every boot whether or not the column is there — the line is permanent
+and, once the column exists, meaningless. Ask the schema instead:
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'accounts' AND column_name = 'organisation_id';
+```
+
+One row back and the deploy is sound.
 
 On the shared database every table is owned by `postgres` while the application
 connects as `flashpactone`, so it will be skipped there until someone with owner
