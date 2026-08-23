@@ -61,7 +61,8 @@ async function seed() {
 
   const organisations: Organisation[] = [];
   for (const row of organisationData) {
-    const [org] = await Organisation.findOrCreate({ where: { name: row.name } as any, defaults: row as any, paranoid: false });
+    const orgLookup: any = { where: { name: row.name }, defaults: row, paranoid: false };
+    const [org] = await Organisation.findOrCreate(orgLookup);
     await restoreIfSoftDeleted(org);
     org.description = row.description;
     await org.save();

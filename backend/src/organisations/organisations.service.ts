@@ -110,10 +110,10 @@ export class OrganisationsService {
 
   async create(dto: CreateOrganisationDto) {
     await this.assertNameFree(dto.name);
-    const data = await this.organisationsRepository.create({
-      name: dto.name.trim(),
-      description: dto.description ?? null,
-    } as any);
+    // `: any` rather than a cast — Sequelize's create() types want every model
+    // attribute, including the generated ones.
+    const attributes: any = { name: dto.name.trim(), description: dto.description ?? null };
+    const data = await this.organisationsRepository.create(attributes);
     return { success: true, message: this.config.MSG_CREATED, data };
   }
 
@@ -235,14 +235,15 @@ export class OrganisationsService {
 
     // Same shape the staff-invite path uses, so a user created here and one
     // invited to a hotel are the same kind of account.
-    const [account] = await this.accountsService.upsert({
+    const newAccount: any = {
       uuid: `email:${email}`,
       email,
       name: dto.name,
       oauthMeta: {},
       role: dto.role,
       organisationId,
-    } as any);
+    };
+    const [account] = await this.accountsService.upsert(newAccount);
 
     return { success: true, message: this.userConfig.MSG_CREATED, data: account };
   }
