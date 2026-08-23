@@ -64,8 +64,10 @@ export class UpdateOrganisationUserDto {
   @ApiPropertyOptional({ enum: AccountRole })
   readonly role?: AccountRole;
 
-  // Nullable so an admin can detach a user from an organisation, which is a
-  // distinct intent from leaving the field out.
+  // Nullable, and null is a distinct intent from omitting the field. Note that
+  // detaching only succeeds alongside a role change to admin: owners and staff
+  // must belong to one, so clearing it on them is refused rather than leaving
+  // somebody unscoped.
   @IsOptional()
   @IsInt()
   @ApiPropertyOptional({ nullable: true })
