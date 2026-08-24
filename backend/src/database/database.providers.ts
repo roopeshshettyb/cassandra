@@ -75,6 +75,13 @@ export const DATABASE_PROVIDERS = [
         // so nothing needs altering there. The accounts column is the one
         // unavoidable change: once the model declares it, every account query
         // selects it, so if this is skipped nobody can log in.
+        //
+        // Do not use the log line above to check whether it applied. Postgres
+        // tests table ownership before IF NOT EXISTS, so where the app is not the
+        // table owner this fails on every boot whether or not the column exists —
+        // permanently noisy and, once it does exist, meaningless. Ask the schema:
+        //   SELECT column_name FROM information_schema.columns
+        //    WHERE table_name = 'accounts' AND column_name = 'organisation_id';
         'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id INTEGER REFERENCES organisations(id)',
       ];
       for (let i = 0; i < migrations.length; i++) {
