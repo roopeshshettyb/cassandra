@@ -12,8 +12,6 @@ import constants from '../constants.json';
 const labels = constants.ORGANISATIONS.USERS;
 const ROLES = constants.ACCOUNT_ROLES;
 
-// Email column hides on mobile; Actions stays last so the row never reflows away
-// from its controls.
 const COLS = { xs: '1fr 100px auto', sm: '1fr 1.2fr 110px 1fr auto' };
 
 const emptyUser = { email: '', name: '', role: ROLES.HOTEL_STAFF, organisationId: '' };
@@ -35,13 +33,8 @@ function HeaderCell({ data: header }) {
   );
 }
 
-/**
- * The Users tab: staff-side accounts as a table, in the shape Manage Costs uses.
- *
- * An owner sees only their own organisation's people — the backend narrows the
- * list, and this hides the organisation picker so the UI does not offer a choice
- * the API would refuse.
- */
+// Owners see only their own organisation's people; the picker is hidden for them
+// because the API would refuse another.
 function OrganisationUsersTable({ users, organisations, organisationId, account, loading, setLoading, alertSuccess, alertError, onChanged }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
@@ -64,8 +57,6 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
   const handleInput = (field) => (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const openCreate = () => {
-    // Defaults to the organisation being viewed — this table now always lives
-    // inside one, so an empty picker would just be a step backwards.
     setValues({ ...emptyUser, organisationId: organisationId ?? (isAdmin ? '' : account?.organisationId ?? '') });
     setEditing({});
   };
@@ -92,8 +83,6 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
       return;
     }
 
-    // An admin carries no organisation by design, so send null rather than a
-    // stale id left in the form when the role was switched.
     const organisationId = values.role === ROLES.ADMIN ? null : Number(values.organisationId) || null;
 
     const result = await request({
@@ -210,8 +199,7 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
               label={labels.EMAIL_LABEL}
               type="email"
               required={!editing?.id}
-              // An email is the account's identity, so it is set once at creation
-              // rather than edited underneath everything that references it.
+              // The email is the account uuid, so it is set once at creation.
               disabled={!!editing?.id}
               value={values.email}
               onChange={handleInput('email')}

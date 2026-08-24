@@ -117,17 +117,9 @@ export class Account extends Model<Account> {
   })
   expoPushTokens: string[];
 
-  // Nullable on purpose, and null is meaningful rather than missing: admins are
-  // platform staff who sit outside every organisation, and guests belong to a
-  // hotel through their booking rather than to a company. Owners and staff have
-  // one, and it is what scopes which users they may manage.
-  //
-  // Requires the column on the accounts table. sync() does not alter existing
-  // tables, so on deploy run:
-  //   ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id INTEGER REFERENCES organisations(id);
-  // (needs owner rights — the shared dev DB is owned by postgres, not the app
-  // user, so account queries will 500 until someone privileged runs it).
-  // See src/organisations/README.md for the full set.
+  // Null for admins (platform staff) and guests (scoped by booking instead).
+  // Requires: ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id
+  //   INTEGER REFERENCES organisations(id);   -- needs table-owner rights
   @ForeignKey(() => Organisation)
   @Column({
     type: DataType.INTEGER,

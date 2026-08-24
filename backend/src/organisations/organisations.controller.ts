@@ -32,8 +32,7 @@ export class OrganisationsController {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  // Readable by an owner as well as an admin, because the users screen needs the
-  // organisation name to label rows. The service narrows an owner to their own.
+  // Owners may read their own; the service narrows them.
   @Get()
   async findAll(@CurrentAccount() account: Account, @Query('keywords') keywords?: string) {
     return this.organisationsService.findAllForAccount(account, keywords);
@@ -45,7 +44,6 @@ export class OrganisationsController {
     return { success: true, message: this.constantsService.private.ORGANISATIONS.MSG_ONE_FETCHED, data };
   }
 
-  // Creating and reshaping customer companies is platform work.
   @Post()
   @AdminOnly()
   async create(@Body(ValidationPipe) dto: CreateOrganisationDto) {
@@ -69,21 +67,14 @@ export class OrganisationsController {
   }
 }
 
-/**
- * Staff-side user administration.
- *
- * Separate from /accounts, which is self-service (me, count). These routes are
- * about administering other people, and are guarded by role inside the service
- * rather than by AdminOnly, because owners are allowed in — narrowed to their own
- * organisation.
- */
+// Separate from /accounts, which is self-service. Guarded in the service rather
+// than by AdminOnly, because owners are allowed in but narrowed to their own.
 @Controller('organisation-users')
 @UseGuards(JwtAuthGuard)
 export class OrganisationUsersController {
   constructor(private readonly organisationsService: OrganisationsService) {}
 
-  // organisationId narrows to one organisation, for the organisation detail page.
-  // An owner is still pinned to their own regardless of what they ask for.
+  // organisationId narrows for the detail page; an owner stays pinned to theirs.
   @Get()
   async findAll(
     @CurrentAccount() account: Account,

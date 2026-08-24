@@ -35,14 +35,8 @@ export class AccountsService {
     return this.count(countOptions);
   }
 
-  /**
-   * Member counts for many organisations at once, keyed by organisation id.
-   *
-   * One grouped query rather than a count per row: the organisations list shows
-   * this for every entry, and per-row counting turns the page into an N+1 as the
-   * customer list grows. Ids absent from the result have no members, so callers
-   * should treat a missing key as zero.
-   */
+  // Member counts keyed by organisation id, in one grouped query. A missing key
+  // means no members.
   async countByOrganisation(organisationIds: number[]): Promise<Record<number, number>> {
     if (!organisationIds.length) {
       return {};

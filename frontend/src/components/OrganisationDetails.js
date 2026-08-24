@@ -19,8 +19,6 @@ const TABS = [
   { key: 'danger', label: labels.TAB_DANGER, Icon: DeleteOutline },
 ];
 
-// Every editable field on an organisation. The detail form covers all of them —
-// there is no second, shorter edit surface to fall out of step with this one.
 const FIELDS = [
   { field: 'name', label: labels.NAME_LABEL, required: true },
   { field: 'description', label: labels.DESCRIPTION_LABEL, multiline: true },
@@ -45,10 +43,6 @@ function OrganisationField({ data: config, values, handleInput }) {
   );
 }
 
-/**
- * One organisation, with its members inside it — the same relationship a hotel
- * has to its staff, reached the same way.
- */
 function OrganisationDetails({ loading, setLoading, account, navigate, alertSuccess, alertError }) {
   const { id } = useParams();
   const [organisation, setOrganisation] = useState(null);

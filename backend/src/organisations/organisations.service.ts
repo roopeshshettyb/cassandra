@@ -12,14 +12,8 @@ import { Account } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AccountRole, ConstantsService } from '../common/constants/constants.service';
 
-/**
- * Organisations, and the staff-side user administration that hangs off them.
- *
- * The scoping rule the whole module turns on: an admin is platform staff with no
- * organisation and sees everything; an owner sees exactly their own. Every read
- * and write here goes through that narrowing rather than trusting an id from the
- * request, so an owner cannot reach another company's users by guessing.
- */
+// Admins are platform staff with no organisation and see everything; owners see
+// only their own. Every read and write narrows through that.
 @Injectable()
 export class OrganisationsService {
   constructor(
@@ -32,20 +26,9 @@ export class OrganisationsService {
     return this.constantsService.private.ORGANISATIONS;
   }
 
-  /**
-   * The caller as the database sees them now, not as their token claims.
-   *
-   * The JWT carries id, uuid, email, name, role and picture — not organisationId
-   * — and JwtStrategy hands that payload back as the Account, so reading the
-   * organisation off it yields undefined for everyone and every owner falls into
-   * the "no organisation" branch.
-   *
-   * Adding it to the token would fix that and introduce something worse: a token
-   * outlives an admin moving someone between organisations, so the holder would
-   * keep reaching the organisation they were moved out of until they happened to
-   * sign in again. Role has the same problem. Both are permission inputs, so both
-   * are read fresh, at the cost of one indexed lookup per request.
-   */
+  // CurrentAccount is the decoded JWT, which carries no organisationId, so it has
+  // to be read from the database. Doing the same for role avoids a stale token
+  // keeping access after an admin moves someone.
   private async currentUser(account: Account): Promise<Account> {
     const fresh = await this.accountsService.findOne({ where: { id: account.id } });
     if (!fresh) {
@@ -60,9 +43,6 @@ export class OrganisationsService {
     const user = await this.currentUser(currentAccount);
     const where: any = {};
 
-    // An owner is not allowed to enumerate the platform's customers, only their
-    // own. Admins are the only role with no organisation, so this is not a
-    // "missing value" branch — it is the permission.
     if (user.role !== AccountRole.ADMIN) {
       if (user.organisationId == null) {
         return { success: true, message: this.config.MSG_FETCHED, data: [] };
@@ -83,8 +63,7 @@ export class OrganisationsService {
       order: [['name', 'ASC']],
     });
 
-    // Member counts are what the list is actually judged on, and doing them in
-    // one grouped query keeps this off an N+1 as the customer list grows.
+    // One grouped query rather than a count per row.
     const counts = await this.accountsService.countByOrganisation(data.map((o) => o.id));
     const withCounts = data.map((organisation) => ({
       ...organisation.toJSON(),
@@ -100,8 +79,7 @@ export class OrganisationsService {
     if (!organisation) {
       throw new NotFoundException(this.config.ERROR_NOT_FOUND);
     }
-    // Deliberately the same error as "does not exist": telling an owner that an
-    // organisation exists but is not theirs leaks the customer list.
+    // Same error as "does not exist", so ids cannot be probed.
     if (user.role !== AccountRole.ADMIN && user.organisationId !== organisation.id) {
       throw new NotFoundException(this.config.ERROR_NOT_FOUND);
     }
@@ -136,8 +114,7 @@ export class OrganisationsService {
   async delete(id: number, currentAccount: Account) {
     await this.findByIdForAccount(id, currentAccount);
 
-    // Refuse rather than orphan. A user left with a dangling organisationId reads
-    // as unscoped, which is a quiet privilege change instead of a loud error.
+    // Refuse rather than orphan: a dangling organisationId reads as unscoped.
     const members = await this.accountsService.count({ where: { organisationId: id } });
     if (members.count > 0) {
       throw new BadRequestException(this.config.ERROR_HAS_MEMBERS);
@@ -147,14 +124,8 @@ export class OrganisationsService {
     return { success: true, message: this.config.MSG_DELETED, data: null };
   }
 
-  /**
-   * Hard-delete every organisation whose name carries a given prefix.
-   *
-   * Test-support only, and deliberately force: the API test suite tags rows with
-   * a run id, and a soft delete would leave them accumulating. This database
-   * still holds such litter from an earlier attempt, which is the argument for
-   * cleaning up properly rather than the argument for not bothering.
-   */
+  // Test support: the API suite tags rows with a run id and force-deletes them,
+  // since soft deletes would accumulate.
   async hardDeleteByNamePrefix(prefix: string): Promise<number> {
     return this.organisationsRepository.destroy({
       where: { name: { [Op.iLike]: `%${prefix}%` } },
@@ -177,10 +148,7 @@ export class OrganisationsService {
     return this.config.USERS;
   }
 
-  /**
-   * The organisation a write is allowed to touch, or null for an admin (meaning
-   * "any"). Centralised so every user-facing mutation narrows the same way.
-   */
+  // The organisation a write may touch; null for an admin, meaning any.
   private async scopeOrganisationId(currentAccount: Account): Promise<number | null> {
     const user = await this.currentUser(currentAccount);
     if (user.role === AccountRole.ADMIN) {
@@ -194,14 +162,10 @@ export class OrganisationsService {
 
   async findUsersForAccount(currentAccount: Account, keywords?: string, organisationId?: number) {
     const scoped = await this.scopeOrganisationId(currentAccount);
-    const where: any = {
-      // Guests are booking-side accounts and there are far more of them than
-      // staff; listing them here would bury the people this screen is about.
-      role: { [Op.ne]: AccountRole.GUEST },
-    };
+    // Guests are booking-side accounts and would bury the staff this screen is for.
+    const where: any = { role: { [Op.ne]: AccountRole.GUEST } };
     if (scoped != null) {
-      // An owner's own organisation always wins over a requested one, so asking
-      // for someone else's returns theirs rather than leaking.
+      // An owner's own always wins over a requested one.
       where.organisationId = scoped;
     } else if (organisationId != null) {
       where.organisationId = organisationId;
@@ -237,8 +201,6 @@ export class OrganisationsService {
       throw new BadRequestException(this.userConfig.ERROR_EMAIL_TAKEN);
     }
 
-    // Same shape the staff-invite path uses, so a user created here and one
-    // invited to a hotel are the same kind of account.
     const newAccount: any = {
       uuid: `email:${email}`,
       email,
@@ -262,7 +224,6 @@ export class OrganisationsService {
     if (target.role === AccountRole.GUEST) {
       throw new BadRequestException(this.userConfig.ERROR_GUEST_NOT_MANAGEABLE);
     }
-    // Reach check on the user as they are now, before any requested change.
     if (scoped != null && target.organisationId !== scoped) {
       throw new ForbiddenException(this.userConfig.ERROR_OUTSIDE_ORGANISATION);
     }
@@ -285,13 +246,8 @@ export class OrganisationsService {
     return { success: true, message: this.userConfig.MSG_UPDATED, data };
   }
 
-  /**
-   * The one place the role/organisation rules live.
-   *
-   * Admins are platform staff and carry no organisation; owners and staff must
-   * carry one. An owner may only ever write their own, and may not mint an admin
-   * — that would let them promote themselves out of the scope that contains them.
-   */
+  // Admins carry no organisation; owners and staff must. An owner may not mint an
+  // admin, which would promote them out of their own scope.
   private resolveOrganisationForRole(
     role: AccountRole,
     requestedOrganisationId: number | null,
@@ -312,7 +268,6 @@ export class OrganisationsService {
       return null;
     }
 
-    // Owner or staff from here on, so an organisation is mandatory.
     if (scoped != null) {
       if (requestedOrganisationId != null && requestedOrganisationId !== scoped) {
         throw new ForbiddenException(this.userConfig.ERROR_OUTSIDE_ORGANISATION);

@@ -27,11 +27,8 @@ export class UpdateOrganisationDto {
   readonly description?: string;
 }
 
-/**
- * Creating a staff-side user. organisationId is optional here because who may set
- * it depends on the caller: an admin chooses, an owner has it forced to their own.
- * The service decides; the DTO only says what may arrive.
- */
+// organisationId is optional because the service decides it: an admin chooses,
+// an owner has their own forced.
 export class CreateOrganisationUserDto {
   @IsEmail()
   @IsNotEmpty()
@@ -64,10 +61,7 @@ export class UpdateOrganisationUserDto {
   @ApiPropertyOptional({ enum: AccountRole })
   readonly role?: AccountRole;
 
-  // Nullable, and null is a distinct intent from omitting the field. Note that
-  // detaching only succeeds alongside a role change to admin: owners and staff
-  // must belong to one, so clearing it on them is refused rather than leaving
-  // somebody unscoped.
+  // null detaches, which only succeeds alongside a role change to admin.
   @IsOptional()
   @IsInt()
   @ApiPropertyOptional({ nullable: true })

@@ -37,11 +37,6 @@ function OrganisationFieldRow({ data: config, values, handleInput }) {
   );
 }
 
-/**
- * Same shape as ManageHotels: gallery/table toggle, filter rail, cards that open
- * a detail page. Members live on that detail page, the way a hotel's staff do,
- * rather than as a second tab here.
- */
 function ManageOrganisations({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [organisations, setOrganisations] = useState([]);
   const [view, setView] = useState('gallery');
