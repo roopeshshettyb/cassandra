@@ -199,6 +199,32 @@ export function FormField({ label, hint, children }) {
   );
 }
 
+/**
+ * MapComponent-compatible form field driven by a config row: `{ field, label,
+ * type, required, multiline, minRows, getInputProps }`. Wrap in FormField by
+ * passing `withLabel` for detail-page forms.
+ */
+export function FormFieldRow({ data, values, onChange, withLabel }) {
+  const { field, label, type, required, multiline, minRows, getInputProps } = data;
+  const input = (
+    <TextField
+      fullWidth
+      size={withLabel ? 'small' : undefined}
+      label={withLabel ? undefined : label}
+      type={type}
+      required={!!required}
+      multiline={!!multiline}
+      minRows={multiline ? minRows || 2 : undefined}
+      value={values[field] ?? ''}
+      onChange={onChange(field)}
+      InputLabelProps={{ shrink: true }}
+      inputProps={getInputProps ? getInputProps(values) : undefined}
+      sx={inputSx}
+    />
+  );
+  return withLabel ? <FormField label={label}>{input}</FormField> : input;
+}
+
 /** Page-level header — eyebrow + bold title + optional right slot. */
 export function PageHeader({ eyebrow = 'Management', title, right }) {
   return (

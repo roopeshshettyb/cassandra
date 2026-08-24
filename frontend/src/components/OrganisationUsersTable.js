@@ -1,20 +1,41 @@
 import React, { useState } from 'react';
 import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, TextField, Typography } from '@mui/material';
-import { motion } from 'framer-motion';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import { SearchBar, inputSx } from './cards/AppCards';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, HOVER_BG, PRIMARY_CONTRAST } from '../theme';
+import { MemberRow } from './cards/MemberRow';
+import { BRAND_GRADIENT, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, PRIMARY_CONTRAST } from '../theme';
 import constants from '../constants.json';
 
 const labels = constants.ORGANISATIONS.USERS;
 const ROLES = constants.ACCOUNT_ROLES;
 
-const COLS = { xs: '1fr 100px auto', sm: '1fr 1.2fr 110px 1fr auto' };
 
 const emptyUser = { email: '', name: '', role: ROLES.HOTEL_STAFF, organisationId: '' };
+
+const COLS = '40px 1fr 110px 1fr auto';
+
+function UserRow({ data: user, canManage, roleLabel, onEdit }) {
+  return (
+    <MemberRow
+      name={user.name}
+      email={user.email}
+      gridTemplateColumns={COLS}
+      hover
+      columns={[
+        { value: roleLabel(user.role), strong: true },
+        { value: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—', hideOnMobile: true },
+      ]}
+      trailing={canManage && (
+        <IconButton size="small" onClick={() => onEdit(user)} aria-label={labels.EDIT_TITLE}>
+          <EditIcon sx={{ fontSize: 16, color: MUTED }} />
+        </IconButton>
+      )}
+    />
+  );
+}
 
 function HeaderCell({ data: header }) {
   return (
@@ -47,8 +68,8 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
   const roleOptions = isAdmin ? labels.ROLE_OPTIONS : labels.ROLE_OPTIONS.filter((r) => r.value !== ROLES.ADMIN);
 
   const headers = [
+    { key: 'avatar', label: '' },
     { key: 'name', label: labels.NAME_LABEL },
-    { key: 'email', label: labels.EMAIL_LABEL, hideOnMobile: true },
     { key: 'role', label: labels.ROLE_LABEL },
     { key: 'joined', label: labels.JOINED_LABEL, hideOnMobile: true },
     { key: 'actions', label: labels.ACTIONS_LABEL },
@@ -144,45 +165,15 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
             <CircularProgress />
           </Box>
         ) : visible.length > 0 ? (
-          visible.map((user, i) => (
-            <motion.div key={user.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: COLS,
-                  gap: { xs: 1, sm: 2 },
-                  px: { xs: 2, sm: 3 },
-                  py: 2,
-                  alignItems: 'center',
-                  borderBottom: i < visible.length - 1 ? `1px solid ${BORDER}` : 'none',
-                  '&:hover': { bgcolor: HOVER_BG },
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user.name || '—'}
-                  </Typography>
-                  <Typography sx={{ fontSize: 11, color: MUTED, display: { xs: 'block', sm: 'none' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user.email}
-                  </Typography>
-                </Box>
-                <Typography sx={{ fontSize: 13, color: MUTED, display: { xs: 'none', sm: 'block' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user.email}
-                </Typography>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{roleLabel(user.role)}</Typography>
-                <Typography sx={{ fontSize: 13, color: MUTED, display: { xs: 'none', sm: 'block' }, whiteSpace: 'nowrap' }}>
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}
-                </Typography>
-                <Box>
-                  {CAN_MANAGE_USERS && (
-                    <IconButton size="small" onClick={() => openEdit(user)} aria-label={labels.EDIT_TITLE}>
-                      <EditIcon sx={{ fontSize: 16, color: MUTED }} />
-                    </IconButton>
-                  )}
-                </Box>
-              </Box>
-            </motion.div>
-          ))
+          <MapComponent
+            Component={UserRow}
+            data={visible}
+            showNoDataAvailable={false}
+            isLoading={false}
+            canManage={CAN_MANAGE_USERS}
+            roleLabel={roleLabel}
+            onEdit={openEdit}
+          />
         ) : (
           <Box sx={{ py: 8, textAlign: 'center' }}>
             <Typography sx={{ fontSize: 14, color: MUTED }}>{labels.EMPTY_MESSAGE}</Typography>

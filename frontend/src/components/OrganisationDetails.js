@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, Typography } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { BusinessOutlined, PeopleOutline, DeleteOutline } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import OrganisationUsersTable from './OrganisationUsersTable';
-import { FormCard, FormField, inputSx } from './cards/AppCards';
+import { FormCard, FormFieldRow } from './cards/AppCards';
 import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar } from './DetailShell';
 import { MUTED, NAVY_GRADIENT, TEXT_MUTED_LIGHT } from '../theme';
 import constants from '../constants.json';
@@ -21,27 +21,8 @@ const TABS = [
 
 const FIELDS = [
   { field: 'name', label: labels.NAME_LABEL, required: true },
-  { field: 'description', label: labels.DESCRIPTION_LABEL, multiline: true },
+  { field: 'description', label: labels.DESCRIPTION_LABEL, multiline: true, minRows: 3 },
 ];
-
-function OrganisationField({ data: config, values, handleInput }) {
-  const { field, label, required, multiline } = config;
-  return (
-    <FormField label={label}>
-      <TextField
-        fullWidth
-        size="small"
-        required={!!required}
-        multiline={!!multiline}
-        minRows={multiline ? 3 : undefined}
-        value={values[field] || ''}
-        onChange={handleInput(field)}
-        InputLabelProps={{ shrink: true }}
-        sx={inputSx}
-      />
-    </FormField>
-  );
-}
 
 function OrganisationDetails({ loading, setLoading, account, navigate, alertSuccess, alertError }) {
   const { id } = useParams();
@@ -133,14 +114,7 @@ function OrganisationDetails({ loading, setLoading, account, navigate, alertSucc
 
       {tab === 'details' && CAN_MANAGE_ORGANISATIONS && (
         <FormCard title={labels.DETAILS_CARD_TITLE} sub={labels.DETAILS_CARD_SUB}>
-          <MapComponent
-            Component={OrganisationField}
-            data={FIELDS}
-            values={values}
-            handleInput={handleInput}
-            showNoDataAvailable={false}
-            isLoading={false}
-          />
+          <MapComponent Component={FormFieldRow} data={FIELDS} values={values} onChange={handleInput} withLabel showNoDataAvailable={false} isLoading={false} />
         </FormCard>
       )}
 

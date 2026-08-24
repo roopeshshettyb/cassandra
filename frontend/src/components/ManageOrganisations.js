@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton } from '@mui/material';
 import { GridView, TableRows } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import { motion } from 'framer-motion';
@@ -7,7 +7,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import MapComponent from './MapComponent';
 import OrganisationCard, { OrganisationTableRow } from './cards/OrganisationCard';
-import { ColumnLabel, CARD_SX, PageHeader, SearchBar, inputSx } from './cards/AppCards';
+import { ColumnLabel, CARD_SX, FormFieldRow, PageHeader, SearchBar } from './cards/AppCards';
 import { BRAND_GRADIENT, NAVY, BORDER, SHADOW, MUTED, PRIMARY_CONTRAST, BG } from '../theme';
 import constants from '../constants.json';
 
@@ -19,23 +19,6 @@ const FIELDS = [
   { field: 'name', label: labels.NAME_LABEL, required: true },
   { field: 'description', label: labels.DESCRIPTION_LABEL, multiline: true },
 ];
-
-function OrganisationFieldRow({ data: config, values, handleInput }) {
-  const { field, label, required, multiline } = config;
-  return (
-    <TextField
-      fullWidth
-      label={label}
-      required={!!required}
-      multiline={!!multiline}
-      minRows={multiline ? 2 : undefined}
-      value={values[field] || ''}
-      onChange={handleInput(field)}
-      InputLabelProps={{ shrink: true }}
-      sx={inputSx}
-    />
-  );
-}
 
 function ManageOrganisations({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
   const [organisations, setOrganisations] = useState([]);
@@ -131,14 +114,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
         <DialogTitle sx={{ fontWeight: 800 }}>{labels.CREATE_TITLE}</DialogTitle>
         <form onSubmit={handleCreate}>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <MapComponent
-              Component={OrganisationFieldRow}
-              data={FIELDS}
-              values={values}
-              handleInput={handleInput}
-              showNoDataAvailable={false}
-              isLoading={false}
-            />
+            <MapComponent Component={FormFieldRow} data={FIELDS} values={values} onChange={handleInput} showNoDataAvailable={false} isLoading={false} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>
             <Button onClick={() => setCreating(false)} sx={{ color: MUTED, textTransform: 'none' }}>
