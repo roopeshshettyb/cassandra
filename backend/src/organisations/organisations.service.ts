@@ -195,21 +195,14 @@ export class OrganisationsService {
     const scoped = await this.scopeOrganisationId(currentAccount);
     const organisationId = this.resolveOrganisationForRole(dto.role, dto.organisationId ?? null, scoped, actor);
 
-    const email = dto.email.trim().toLowerCase();
-    const existing = await this.accountsService.findOne({ where: { email } });
-    if (existing) {
-      throw new BadRequestException(this.userConfig.ERROR_EMAIL_TAKEN);
-    }
-
-    const newAccount: any = {
-      uuid: `email:${email}`,
-      email,
+    const { account, created } = await this.accountsService.findOrCreateByEmail(dto.email, {
       name: dto.name,
-      oauthMeta: {},
       role: dto.role,
       organisationId,
-    };
-    const [account] = await this.accountsService.upsert(newAccount);
+    } as any);
+    if (!created) {
+      throw new BadRequestException(this.userConfig.ERROR_EMAIL_TAKEN);
+    }
 
     return { success: true, message: this.userConfig.MSG_CREATED, data: account };
   }

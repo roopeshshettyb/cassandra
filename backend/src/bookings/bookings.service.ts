@@ -68,26 +68,16 @@ export class BookingsService {
     const checkInTime = hotel.checkInTime || DEFAULT_CHECK_IN_TIME;
     const checkOutTime = hotel.checkOutTime || DEFAULT_CHECK_OUT_TIME;
 
-    const normalizedEmail = dto.guestEmail.trim().toLowerCase();
-    if (!normalizedEmail) {
+    if (!dto.guestEmail?.trim()) {
       throw new BadRequestException('Guest email is required');
     }
 
-    let guest = await this.accountsService.findOne({
-      where: { email: normalizedEmail },
-    });
-
-    if (!guest) {
-      const uuid = `email:${normalizedEmail}`;
-      guest = await this.accountsService.create({
-        uuid,
-        email: normalizedEmail,
-        name: dto.guestName,
-        phone: dto.guestPhone?.trim() || undefined,
-        oauthMeta: {},
-        role: AccountRole.GUEST,
-      });
-    }
+    const guestAttributes: any = {
+      name: dto.guestName,
+      phone: dto.guestPhone?.trim() || undefined,
+      role: AccountRole.GUEST,
+    };
+    const { account: guest } = await this.accountsService.findOrCreateByEmail(dto.guestEmail, guestAttributes);
 
     const startTime = this.parseDateTime(startDate, checkInTime);
     const endTime = this.parseDateTime(endDate, checkOutTime);
@@ -162,18 +152,12 @@ export class BookingsService {
       const checkInTime = hotel.checkInTime || DEFAULT_CHECK_IN_TIME;
       const checkOutTime = hotel.checkOutTime || DEFAULT_CHECK_OUT_TIME;
 
-      const normalizedEmail = payload.guestEmail.trim().toLowerCase();
-      let guest = await this.accountsService.findOne({ where: { email: normalizedEmail } });
-      if (!guest) {
-        guest = await this.accountsService.create({
-          uuid: `email:${normalizedEmail}`,
-          email: normalizedEmail,
-          name: payload.guestName,
-          phone: payload.guestPhone?.trim() || undefined,
-          oauthMeta: {},
-          role: AccountRole.GUEST,
-        });
-      }
+      const guestAttributes: any = {
+        name: payload.guestName,
+        phone: payload.guestPhone?.trim() || undefined,
+        role: AccountRole.GUEST,
+      };
+      const { account: guest } = await this.accountsService.findOrCreateByEmail(payload.guestEmail, guestAttributes);
 
       const startTime = this.parseDateTime(startDate, checkInTime);
       const endTime = this.parseDateTime(endDate, checkOutTime);

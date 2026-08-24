@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ACCOUNTS_REPOSITORY } from './accounts.repository';
 import { Account } from './accounts.model';
 import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
@@ -72,6 +72,23 @@ export class AccountsService {
 
   async delete(filter: any, force = false): Promise<number> {
     return this.accountsRepository.destroy({ where: filter, force });
+  }
+
+  // The `email:` uuid convention lives here so callers do not each rebuild it.
+  // Returns created=false when the account already existed, which the staff and
+  // organisation-user flows branch on.
+  async findOrCreateByEmail(rawEmail: string, defaults: Partial<Account> = {}): Promise<{ account: Account; created: boolean }> {
+    const email = rawEmail?.trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+    const existing = await this.findOne({ where: { email } });
+    if (existing) {
+      return { account: existing, created: false };
+    }
+    const attributes: any = { uuid: `email:${email}`, email, oauthMeta: {}, ...defaults };
+    const [account] = await this.upsert(attributes);
+    return { account, created: true };
   }
 
   async upsert(data: Partial<Account>): Promise<[Account, boolean]> {
