@@ -192,7 +192,7 @@ export class OrganisationsService {
     return user.organisationId;
   }
 
-  async findUsersForAccount(currentAccount: Account, keywords?: string) {
+  async findUsersForAccount(currentAccount: Account, keywords?: string, organisationId?: number) {
     const scoped = await this.scopeOrganisationId(currentAccount);
     const where: any = {
       // Guests are booking-side accounts and there are far more of them than
@@ -200,7 +200,11 @@ export class OrganisationsService {
       role: { [Op.ne]: AccountRole.GUEST },
     };
     if (scoped != null) {
+      // An owner's own organisation always wins over a requested one, so asking
+      // for someone else's returns theirs rather than leaking.
       where.organisationId = scoped;
+    } else if (organisationId != null) {
+      where.organisationId = organisationId;
     }
 
     if (keywords) {

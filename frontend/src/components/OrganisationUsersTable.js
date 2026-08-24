@@ -42,7 +42,7 @@ function HeaderCell({ data: header }) {
  * list, and this hides the organisation picker so the UI does not offer a choice
  * the API would refuse.
  */
-function OrganisationUsersTable({ users, organisations, account, loading, setLoading, alertSuccess, alertError, onChanged }) {
+function OrganisationUsersTable({ users, organisations, organisationId, account, loading, setLoading, alertSuccess, alertError, onChanged }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
   const [values, setValues] = useState(emptyUser);
@@ -57,14 +57,16 @@ function OrganisationUsersTable({ users, organisations, account, loading, setLoa
     { key: 'name', label: labels.NAME_LABEL },
     { key: 'email', label: labels.EMAIL_LABEL, hideOnMobile: true },
     { key: 'role', label: labels.ROLE_LABEL },
-    { key: 'organisation', label: labels.ORGANISATION_LABEL, hideOnMobile: true },
+    { key: 'joined', label: labels.JOINED_LABEL, hideOnMobile: true },
     { key: 'actions', label: labels.ACTIONS_LABEL },
   ];
 
   const handleInput = (field) => (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const openCreate = () => {
-    setValues({ ...emptyUser, organisationId: isAdmin ? '' : account?.organisationId ?? '' });
+    // Defaults to the organisation being viewed — this table now always lives
+    // inside one, so an empty picker would just be a step backwards.
+    setValues({ ...emptyUser, organisationId: organisationId ?? (isAdmin ? '' : account?.organisationId ?? '') });
     setEditing({});
   };
 
@@ -111,11 +113,10 @@ function OrganisationUsersTable({ users, organisations, account, loading, setLoa
   };
 
   const roleLabel = (role) => labels.ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
-  const organisationName = (user) => user.organisation?.name || labels.NO_ORGANISATION_LABEL;
 
   const term = search.trim().toLowerCase();
   const visible = term
-    ? users.filter((u) => [u.name, u.email, roleLabel(u.role), u.organisation?.name].filter(Boolean).join(' ').toLowerCase().includes(term))
+    ? users.filter((u) => [u.name, u.email, roleLabel(u.role)].filter(Boolean).join(' ').toLowerCase().includes(term))
     : users;
 
   return (
@@ -180,8 +181,8 @@ function OrganisationUsersTable({ users, organisations, account, loading, setLoa
                   {user.email}
                 </Typography>
                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{roleLabel(user.role)}</Typography>
-                <Typography sx={{ fontSize: 13, color: MUTED, display: { xs: 'none', sm: 'block' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {organisationName(user)}
+                <Typography sx={{ fontSize: 13, color: MUTED, display: { xs: 'none', sm: 'block' }, whiteSpace: 'nowrap' }}>
+                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}
                 </Typography>
                 <Box>
                   {CAN_MANAGE_USERS && (

@@ -82,9 +82,16 @@ export class OrganisationsController {
 export class OrganisationUsersController {
   constructor(private readonly organisationsService: OrganisationsService) {}
 
+  // organisationId narrows to one organisation, for the organisation detail page.
+  // An owner is still pinned to their own regardless of what they ask for.
   @Get()
-  async findAll(@CurrentAccount() account: Account, @Query('keywords') keywords?: string) {
-    return this.organisationsService.findUsersForAccount(account, keywords);
+  async findAll(
+    @CurrentAccount() account: Account,
+    @Query('keywords') keywords?: string,
+    @Query('organisationId') organisationId?: string,
+  ) {
+    const scopedTo = organisationId ? Number(organisationId) : undefined;
+    return this.organisationsService.findUsersForAccount(account, keywords, scopedTo);
   }
 
   @Post()
