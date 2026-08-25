@@ -3,7 +3,7 @@ import { Avatar, Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { NAVY, NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, NAVY_CONTRAST } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, SHADOW, SHADOW_HOVER, NAVY_CONTRAST, TEXT_FAINT_LIGHT } from '../../theme';
 import { CARD_SX, ROW_SX, LABEL_SX, StatBox } from './AppCards';
 
 // Gallery card shared by hotels and organisations; callers map their record onto
@@ -57,7 +57,7 @@ export function EntityCard({
           </Box>
         ) : (
           <Box sx={{ height: 150, background: gradient || NAVY_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography sx={{ fontSize: 56, fontWeight: 900, color: 'rgba(255,255,255,0.35)', userSelect: 'none' }}>
+            <Typography sx={{ fontSize: 56, fontWeight: 900, color: TEXT_FAINT_LIGHT, userSelect: 'none' }}>
               {title?.[0]?.toUpperCase()}
             </Typography>
           </Box>

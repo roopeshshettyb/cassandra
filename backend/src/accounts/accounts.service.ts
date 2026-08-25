@@ -3,11 +3,15 @@ import { ACCOUNTS_REPOSITORY } from './accounts.repository';
 import { Account } from './accounts.model';
 import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
 import { FindOptions, CountOptions } from 'sequelize';
+import { ConstantsService } from '../common/constants/constants.service';
 import { literal } from 'sequelize';
 
 @Injectable()
 export class AccountsService {
-  constructor(@Inject(ACCOUNTS_REPOSITORY) private readonly accountsRepository: typeof Account) {}
+  constructor(
+    @Inject(ACCOUNTS_REPOSITORY) private readonly accountsRepository: typeof Account,
+    private readonly constantsService: ConstantsService,
+  ) {}
 
   async create(createAccountDto: any): Promise<Account> {
     return this.accountsRepository.create<Account>(createAccountDto);
@@ -80,7 +84,7 @@ export class AccountsService {
   async findOrCreateByEmail(rawEmail: string, defaults: Partial<Account> = {}): Promise<{ account: Account; created: boolean }> {
     const email = rawEmail?.trim().toLowerCase();
     if (!email) {
-      throw new BadRequestException('Email is required');
+      throw new BadRequestException(this.constantsService.private.ACCOUNTS.ERROR_EMAIL_REQUIRED);
     }
     const existing = await this.findOne({ where: { email } });
     if (existing) {

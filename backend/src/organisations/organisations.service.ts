@@ -192,11 +192,8 @@ export class OrganisationsService {
     const scoped = this.scopeOrganisationId(currentAccount);
     const organisationId = this.resolveOrganisationForRole(dto.role, dto.organisationId ?? null, scoped, currentAccount);
 
-    const { account, created } = await this.accountsService.findOrCreateByEmail(dto.email, {
-      name: dto.name,
-      role: dto.role,
-      organisationId,
-    } as any);
+    const attributes: any = { name: dto.name, role: dto.role, organisationId };
+    const { account, created } = await this.accountsService.findOrCreateByEmail(dto.email, attributes);
     if (!created) {
       throw new BadRequestException(this.userConfig.ERROR_EMAIL_TAKEN);
     }

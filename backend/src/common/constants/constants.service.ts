@@ -687,6 +687,9 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           TASK_INPUT_MAX_CHARS: 8000,
         },
       },
+      ACCOUNTS: {
+        ERROR_EMAIL_REQUIRED: 'Email is required',
+      },
       ORGANISATIONS: {
         MSG_FETCHED: 'Organisations fetched',
         MSG_ONE_FETCHED: 'Organisation fetched',

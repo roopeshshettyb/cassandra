@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR, TEXT_FAINT_LIGHT } from '../../theme';
 import { ROW_SX, StatusChip } from './AppCards';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
@@ -70,7 +70,7 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
             <Box sx={{
               width: 42, height: 42, borderRadius: 1.5, flexShrink: 0,
               overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.18)',
-              border: '2px solid rgba(255,255,255,0.35)',
+              border: `2px solid ${TEXT_FAINT_LIGHT}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
             }}>
