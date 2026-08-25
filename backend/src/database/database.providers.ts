@@ -69,19 +69,9 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
         'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
-        // Organisations. sync() creates the table where it is absent. This
-        // database already had one (id, name, description) from work that never
-        // reached this repo, and the module deliberately uses only those columns,
-        // so nothing needs altering there. The accounts column is the one
-        // unavoidable change: once the model declares it, every account query
-        // selects it, so if this is skipped nobody can log in.
-        //
-        // Do not use the log line above to check whether it applied. Postgres
-        // tests table ownership before IF NOT EXISTS, so where the app is not the
-        // table owner this fails on every boot whether or not the column exists —
-        // permanently noisy and, once it does exist, meaningless. Ask the schema:
-        //   SELECT column_name FROM information_schema.columns
-        //    WHERE table_name = 'accounts' AND column_name = 'organisation_id';
+        // Skipping this locks everyone out — the model declares the column, so
+        // every account query selects it. Check information_schema, not the log
+        // above: ownership is tested before IF NOT EXISTS, so it errors regardless.
         'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id INTEGER REFERENCES organisations(id)',
       ];
       for (let i = 0; i < migrations.length; i++) {
