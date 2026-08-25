@@ -15,6 +15,7 @@ export class AuthService {
       name: accountData.name,
       role: accountData.role,
       profilePicUrl: accountData.profilePicUrl,
+      organisationId: accountData.organisationId ?? null,
     });
   }
 
@@ -40,6 +41,7 @@ export class AuthService {
       name: accountData.name,
       role: accountData.role,
       profilePicUrl: accountData.profilePicUrl,
+      organisationId: accountData.organisationId ?? null,
       invite: true,
       ...(extraPayload || {}),
     };

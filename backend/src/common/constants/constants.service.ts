@@ -709,6 +709,11 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           // someone an organisation other than their own.
           ERROR_OUTSIDE_ORGANISATION: 'You can only manage users in your own organisation',
           ERROR_NO_ORGANISATION: 'Your account is not linked to an organisation yet',
+          // Tokens issued before organisationId was added to the payload have the
+          // key absent rather than null, and last up to JWT_EXPIRY_DAYS. Saying
+          // "not linked" to someone who is linked would send them chasing the
+          // wrong problem for a week.
+          ERROR_STALE_SESSION: 'Please sign out and sign in again to continue',
           // Only an admin may mint another admin. Otherwise an owner could promote
           // themselves out of their own scope, which is the whole boundary gone.
           ERROR_CANNOT_CREATE_ADMIN: 'Only an admin can create an admin user',

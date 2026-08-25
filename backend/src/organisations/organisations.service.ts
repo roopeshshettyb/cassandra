@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Op } from 'sequelize';
 import { ORGANISATIONS_REPOSITORY } from './organisations.repository';
 import { Organisation } from './organisations.model';
@@ -26,28 +26,18 @@ export class OrganisationsService {
     return this.constantsService.private.ORGANISATIONS;
   }
 
-  // CurrentAccount is the decoded JWT, which carries no organisationId, so it has
-  // to be read from the database. Doing the same for role avoids a stale token
-  // keeping access after an admin moves someone.
-  private async currentUser(account: Account): Promise<Account> {
-    const fresh = await this.accountsService.findOne({ where: { id: account.id } });
-    if (!fresh) {
-      throw new ForbiddenException(this.userConfig.ERROR_NOT_FOUND);
-    }
-    return fresh;
-  }
 
   // ── Organisations ──────────────────────────────────────────────────────────
 
   async findAllForAccount(currentAccount: Account, keywords?: string) {
-    const user = await this.currentUser(currentAccount);
     const where: any = {};
 
-    if (user.role !== AccountRole.ADMIN) {
-      if (user.organisationId == null) {
+    if (currentAccount.role !== AccountRole.ADMIN) {
+      this.assertSessionCarriesOrganisation(currentAccount);
+      if (currentAccount.organisationId == null) {
         return { success: true, message: this.config.MSG_FETCHED, data: [] };
       }
-      where.id = user.organisationId;
+      where.id = currentAccount.organisationId;
     }
 
     if (keywords) {
@@ -74,13 +64,12 @@ export class OrganisationsService {
   }
 
   async findByIdForAccount(id: number, currentAccount: Account): Promise<Organisation> {
-    const user = await this.currentUser(currentAccount);
     const organisation = await this.organisationsRepository.findOne({ where: { id } });
     if (!organisation) {
       throw new NotFoundException(this.config.ERROR_NOT_FOUND);
     }
     // Same error as "does not exist", so ids cannot be probed.
-    if (user.role !== AccountRole.ADMIN && user.organisationId !== organisation.id) {
+    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.organisationId !== organisation.id) {
       throw new NotFoundException(this.config.ERROR_NOT_FOUND);
     }
     return organisation;
@@ -149,19 +138,28 @@ export class OrganisationsService {
   }
 
   // The organisation a write may touch; null for an admin, meaning any.
-  private async scopeOrganisationId(currentAccount: Account): Promise<number | null> {
-    const user = await this.currentUser(currentAccount);
-    if (user.role === AccountRole.ADMIN) {
+  private scopeOrganisationId(currentAccount: Account): number | null {
+    if (currentAccount.role === AccountRole.ADMIN) {
       return null;
     }
-    if (user.organisationId == null) {
+    this.assertSessionCarriesOrganisation(currentAccount);
+    if (currentAccount.organisationId == null) {
       throw new ForbiddenException(this.userConfig.ERROR_NO_ORGANISATION);
     }
-    return user.organisationId;
+    return currentAccount.organisationId;
+  }
+
+  // Absent means the token predates organisationId; null means genuinely unscoped.
+  private assertSessionCarriesOrganisation(currentAccount: Account): void {
+    const carriesField = Object.prototype.hasOwnProperty.call(currentAccount, 'organisationId');
+    const mustHaveOne = currentAccount.role === AccountRole.HOTEL_OWNER || currentAccount.role === AccountRole.HOTEL_STAFF;
+    if (!carriesField && mustHaveOne) {
+      throw new UnauthorizedException(this.userConfig.ERROR_STALE_SESSION);
+    }
   }
 
   async findUsersForAccount(currentAccount: Account, keywords?: string, organisationId?: number) {
-    const scoped = await this.scopeOrganisationId(currentAccount);
+    const scoped = this.scopeOrganisationId(currentAccount);
     // Guests are booking-side accounts and would bury the staff this screen is for.
     const where: any = { role: { [Op.ne]: AccountRole.GUEST } };
     if (scoped != null) {
@@ -191,9 +189,8 @@ export class OrganisationsService {
   }
 
   async createUser(dto: CreateOrganisationUserDto, currentAccount: Account) {
-    const actor = await this.currentUser(currentAccount);
-    const scoped = await this.scopeOrganisationId(currentAccount);
-    const organisationId = this.resolveOrganisationForRole(dto.role, dto.organisationId ?? null, scoped, actor);
+    const scoped = this.scopeOrganisationId(currentAccount);
+    const organisationId = this.resolveOrganisationForRole(dto.role, dto.organisationId ?? null, scoped, currentAccount);
 
     const { account, created } = await this.accountsService.findOrCreateByEmail(dto.email, {
       name: dto.name,
@@ -208,7 +205,7 @@ export class OrganisationsService {
   }
 
   async updateUser(id: number, dto: UpdateOrganisationUserDto, currentAccount: Account) {
-    const scoped = await this.scopeOrganisationId(currentAccount);
+    const scoped = this.scopeOrganisationId(currentAccount);
 
     const target = await this.accountsService.findOne({ where: { id } });
     if (!target) {
@@ -221,10 +218,9 @@ export class OrganisationsService {
       throw new ForbiddenException(this.userConfig.ERROR_OUTSIDE_ORGANISATION);
     }
 
-    const actor = await this.currentUser(currentAccount);
     const role = dto.role ?? target.role;
     const requestedOrganisationId = dto.organisationId !== undefined ? dto.organisationId : target.organisationId;
-    const organisationId = this.resolveOrganisationForRole(role, requestedOrganisationId, scoped, actor);
+    const organisationId = this.resolveOrganisationForRole(role, requestedOrganisationId, scoped, currentAccount);
 
     await this.accountsService.update(
       {

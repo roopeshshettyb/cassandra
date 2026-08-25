@@ -18,6 +18,7 @@ import { ConfigModule } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import * as jwt from 'jsonwebtoken';
 import * as nodeHttp from 'http';
 import * as nodeHttps from 'https';
 
@@ -971,5 +972,51 @@ describe('Organisations', () => {
     // and a run per day quietly becomes a table nobody dares clean — this
     // database still carries such litter from an earlier, unrelated attempt.
     await organisationsService.hardDeleteByNamePrefix(TAG).catch(() => {});
+  });
+});
+
+// organisationId now travels in the JWT rather than being read per request, so
+// these pin the two things that makes fragile: that the token actually carries
+// it, and that a token minted before it existed fails loudly rather than
+// looking like an account with no organisation.
+describe('Organisation scoping via the JWT', () => {
+  it('a freshly issued token carries organisationId', async () => {
+    const org = await http.post('/organisations', { name: `Org JWT ${TAG}` }, state.adminToken);
+    const orgId = (org.data?.data ?? org.data).id;
+    await http.patch(`/organisation-users/${state.ownerAccountId}`, { organisationId: orgId }, state.adminToken);
+
+    const token = await loginViaOtp(EMAILS.owner);
+    const payload: any = jwt.decode(token);
+    expect(payload.organisationId).toBe(orgId);
+
+    // And the scoping actually works off it.
+    const list = await http.get('/organisation-users', token);
+    expect(list.status).toBe(200);
+    for (const row of (list.data?.data ?? list.data)) {
+      expect(row.organisationId).toBe(orgId);
+    }
+
+    await accountsService.update({ organisationId: null }, { id: state.ownerAccountId }).catch(() => {});
+    await organisationsService.hardDeleteByNamePrefix(TAG).catch(() => {});
+  });
+
+  it('an admin token carries organisationId as null, not missing', async () => {
+    const payload: any = jwt.decode(state.adminToken);
+    expect(payload).toHaveProperty('organisationId');
+    expect(payload.organisationId).toBeNull();
+  });
+
+  // A pre-upgrade token: same signature, no organisationId. An owner holding one
+  // must be told to sign in again rather than that they have no organisation.
+  it('a token predating the field is rejected as a stale session, not as unscoped', async () => {
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    const owner = await accountsService.findOne({ where: { id: state.ownerAccountId } });
+    const legacy = jwt.sign(
+      { id: owner.id, uuid: owner.uuid, email: owner.email, name: owner.name, role: 'hotel_owner', profilePicUrl: null },
+      secret,
+      { expiresIn: '1h' },
+    );
+    const res = await expectStatus(401, () => http.get('/organisation-users', legacy));
+    expect(String(res.data?.message)).toMatch(/sign in again/i);
   });
 });
