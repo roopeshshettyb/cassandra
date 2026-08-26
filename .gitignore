@@ -1,2 +1,13 @@
 .claude/
 fp-one
+.gstack/
+
+# React Native app, and the copy recovered from the shipped sourcemaps.
+# Both are large (2.2G and 750M) and deliberately outside this repo's history —
+# ignored so they are never picked up by `git add .` and never swept by
+# `git clean`, which is the one command that would take untracked files with it.
+mobile/
+mobile-recovered/
+
+# Local scratch
+demo-pms-webhook.sh

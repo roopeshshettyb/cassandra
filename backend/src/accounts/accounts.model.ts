@@ -1,5 +1,6 @@
-import { Table, Model, Column, DataType } from 'sequelize-typescript';
+import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { AccountRole } from '../common/constants/constants.service';
+import { Organisation } from '../organisations/organisations.model';
 
 export enum AuthType {
   GOOGLE = 'google',
@@ -115,6 +116,20 @@ export class Account extends Model<Account> {
     field: 'expo_push_tokens',
   })
   expoPushTokens: string[];
+
+  // Null for admins (platform staff) and guests (scoped by booking instead).
+  // Requires: ALTER TABLE accounts ADD COLUMN IF NOT EXISTS organisation_id
+  //   INTEGER REFERENCES organisations(id);   -- needs table-owner rights
+  @ForeignKey(() => Organisation)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'organisation_id',
+  })
+  organisationId: number | null;
+
+  @BelongsTo(() => Organisation)
+  organisation: Organisation;
 }
 
 export { AccountRole };

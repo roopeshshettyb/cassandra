@@ -341,27 +341,11 @@ export class HotelsService {
   }> {
     const hotel = await this.ensureCanManageHotelSettings(hotelId, currentAccount);
 
-    const normalizedEmail = body.email?.trim().toLowerCase();
-    if (!normalizedEmail) {
-      throw new BadRequestException('Email is required');
-    }
     const selectedRole = body.role;
+    const attributes: any = { name: body.name, role: selectedRole };
+    const { account, created } = await this.accountsService.findOrCreateByEmail(body.email, attributes);
 
-    let account = await this.accountsService.findOne({
-      where: { email: normalizedEmail },
-    });
-
-    if (!account) {
-      const uuid = `email:${normalizedEmail}`;
-      const [createdAccount] = await this.accountsService.upsert({
-        uuid,
-        email: normalizedEmail,
-        name: body.name,
-        oauthMeta: {},
-        role: selectedRole,
-      });
-      account = createdAccount;
-    } else {
+    if (!created) {
       if (account.role === AccountRole.GUEST || account.role === AccountRole.HOTEL_STAFF || account.role === AccountRole.HOTEL_OWNER) {
         await this.accountsService.update(
           { role: selectedRole },

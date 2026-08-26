@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
-import { GridView, TableRows } from '@mui/icons-material';
+import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
 import MapComponent from './MapComponent';
 import HotelCard, { HotelTableRow } from './cards/HotelCard';
-import { ColumnLabel, CARD_SX, PageHeader, SearchBar } from './cards/AppCards';
+import { ColumnLabel, CARD_SX, PageHeader, SearchBar, ViewToggle } from './cards/AppCards';
 import { BRAND_GRADIENT, NAVY, BORDER, SHADOW, MUTED, PRIMARY_CONTRAST, BG } from '../theme';
 
 import constants from '../constants.json';
@@ -62,14 +61,7 @@ function ManageHotels({ loading, setLoading, account, navigate, alertSuccess, al
         {/* Filter rail */}
         <Box sx={{ display: 'flex', gap: 1.5, mb: 3, alignItems: 'center' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Search by name or address…" />
-          <Box sx={{ display: 'flex', gap: 0.5, bgcolor: BG, borderRadius: 2, p: 0.5, flexShrink: 0 }}>
-            <IconButton size="small" onClick={() => setView('gallery')} sx={{ borderRadius: 1.5, bgcolor: view === 'gallery' ? 'background.paper' : 'transparent', boxShadow: view === 'gallery' ? SHADOW : 'none' }}>
-              <GridView sx={{ fontSize: 18, color: view === 'gallery' ? NAVY : MUTED }} />
-            </IconButton>
-            <IconButton size="small" onClick={() => setView('table')} sx={{ borderRadius: 1.5, bgcolor: view === 'table' ? 'background.paper' : 'transparent', boxShadow: view === 'table' ? SHADOW : 'none' }}>
-              <TableRows sx={{ fontSize: 18, color: view === 'table' ? NAVY : MUTED }} />
-            </IconButton>
-          </Box>
+        <ViewToggle view={view} onChange={setView} />
         </Box>
       </motion.div>
 

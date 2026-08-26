@@ -14,6 +14,7 @@ import constants from '../constants.json';
 import { generateAndPlayTone } from '../utils/audioToneGenerator';
 import { getNotificationTone, createAudioFromBlob } from '../utils/notificationToneCache';
 import { CARD_SX, ROW_SX, LABEL_SX, FormCard, FormField, inputSx } from './cards/AppCards';
+import { MemberRow, StatusPill } from './cards/MemberRow';
 import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar, HoursTab, AiTab, BasicThemePicker, buildThemePayload } from './DetailShell';
 import { NAVY, NAVY_GRADIENT, BRAND_GRADIENT, MUTED, BORDER, BG, TEXT_MUTED_LIGHT, STATUS_ERROR_BG, STATUS_ERROR } from '../theme';
 
@@ -46,7 +47,6 @@ const COLOR_PRESETS = [
 
 
 const StaffRow = ({ data: s, canManage, onToggleStatus }) => {
-  const initials = s.name ? s.name.trim().slice(0, 2).toUpperCase() : '?';
   const statusMeta = constants.HOTEL_MEMBER_STATUSES[s.status];
   const isActive = s.status === constants.HOTEL_MEMBER_STATUSES.active.key;
   const isPending = s.status === constants.HOTEL_MEMBER_STATUSES.pending.key;
@@ -54,19 +54,20 @@ const StaffRow = ({ data: s, canManage, onToggleStatus }) => {
   const statusColor = isDisabled ? STATUS_ERROR : isPending ? '#B26A00' : '#2E7D32';
   const statusBackground = isDisabled ? STATUS_ERROR_BG : isPending ? 'rgba(178,106,0,0.14)' : 'rgba(46,125,50,0.12)';
   return (
-    <Box sx={{ ...ROW_SX, display: 'grid', gridTemplateColumns: '40px 1fr 150px 90px 90px', alignItems: 'center', px: 2, py: 1.5, gap: 1.5 }}>
-      <Avatar sx={{ width: 34, height: 34, fontSize: 12, fontWeight: 800, background: NAVY_GRADIENT }}>{initials}</Avatar>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name || '—'}</Typography>
-        <Typography sx={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email || '—'}</Typography>
-      </Box>
-      <Typography sx={{ fontSize: 12, fontWeight: 700, color: NAVY }}>
-        {s.role === constants.HOTEL_MEMBER_ROLES.hotel_owner.key ? constants.HOTEL_MEMBER_ROLES.hotel_owner.label : constants.HOTEL_MEMBER_ROLES.hotel_staff.label}
-      </Typography>
-      <Box sx={{ borderRadius: 999, px: 1, py: 0.4, fontSize: 11, fontWeight: 700, textAlign: 'center', color: statusColor, bgcolor: statusBackground }}>
-        {statusMeta.label}
-      </Box>
-      {canManage && !isPending && (
+    <MemberRow
+      name={s.name}
+      email={s.email}
+      gridTemplateColumns="40px 1fr 150px 90px 90px"
+      columns={[
+        {
+          value: s.role === constants.HOTEL_MEMBER_ROLES.hotel_owner.key
+            ? constants.HOTEL_MEMBER_ROLES.hotel_owner.label
+            : constants.HOTEL_MEMBER_ROLES.hotel_staff.label,
+          strong: true,
+        },
+        { value: <StatusPill label={statusMeta.label} color={statusColor} background={statusBackground} /> },
+      ]}
+      trailing={canManage && !isPending && (
         <Box
           component="button"
           onClick={e => { e.stopPropagation(); onToggleStatus?.(s.id, isActive ? constants.HOTEL_MEMBER_STATUSES.disabled.key : constants.HOTEL_MEMBER_STATUSES.active.key); }}
@@ -75,7 +76,7 @@ const StaffRow = ({ data: s, canManage, onToggleStatus }) => {
           {isActive ? 'Disable' : 'Activate'}
         </Box>
       )}
-    </Box>
+    />
   );
 };
 

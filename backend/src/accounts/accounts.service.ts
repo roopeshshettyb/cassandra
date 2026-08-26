@@ -1,13 +1,17 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ACCOUNTS_REPOSITORY } from './accounts.repository';
 import { Account } from './accounts.model';
 import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
 import { FindOptions, CountOptions } from 'sequelize';
+import { ConstantsService } from '../common/constants/constants.service';
 import { literal } from 'sequelize';
 
 @Injectable()
 export class AccountsService {
-  constructor(@Inject(ACCOUNTS_REPOSITORY) private readonly accountsRepository: typeof Account) {}
+  constructor(
+    @Inject(ACCOUNTS_REPOSITORY) private readonly accountsRepository: typeof Account,
+    private readonly constantsService: ConstantsService,
+  ) {}
 
   async create(createAccountDto: any): Promise<Account> {
     return this.accountsRepository.create<Account>(createAccountDto);
@@ -35,6 +39,26 @@ export class AccountsService {
     return this.count(countOptions);
   }
 
+  // Member counts keyed by organisation id, in one grouped query. A missing key
+  // means no members.
+  async countByOrganisation(organisationIds: number[]): Promise<Record<number, number>> {
+    if (!organisationIds.length) {
+      return {};
+    }
+    const rows = await this.accountsRepository.findAll({
+      attributes: ['organisationId', [literal('COUNT(*)'), 'count']],
+      where: { organisationId: organisationIds },
+      group: ['organisation_id'],
+      raw: true,
+    });
+    const counts: Record<number, number> = {};
+    for (let i = 0; i < rows.length; i++) {
+      const row: any = rows[i];
+      counts[row.organisationId] = parseInt(row.count, 10);
+    }
+    return counts;
+  }
+
   async update(data: any, filter: any): Promise<[number, Account[]]> {
     return this.accountsRepository.update(data, { where: filter, returning: true });
   }
@@ -52,6 +76,23 @@ export class AccountsService {
 
   async delete(filter: any, force = false): Promise<number> {
     return this.accountsRepository.destroy({ where: filter, force });
+  }
+
+  // The `email:` uuid convention lives here so callers do not each rebuild it.
+  // Returns created=false when the account already existed, which the staff and
+  // organisation-user flows branch on.
+  async findOrCreateByEmail(rawEmail: string, defaults: Partial<Account> = {}): Promise<{ account: Account; created: boolean }> {
+    const email = rawEmail?.trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException(this.constantsService.private.ACCOUNTS.ERROR_EMAIL_REQUIRED);
+    }
+    const existing = await this.findOne({ where: { email } });
+    if (existing) {
+      return { account: existing, created: false };
+    }
+    const attributes: any = { uuid: `email:${email}`, email, oauthMeta: {}, ...defaults };
+    const [account] = await this.upsert(attributes);
+    return { account, created: true };
   }
 
   async upsert(data: Partial<Account>): Promise<[Account, boolean]> {
