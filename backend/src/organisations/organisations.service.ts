@@ -27,7 +27,6 @@ export class OrganisationsService {
   }
 
 
-  // ── Organisations ──────────────────────────────────────────────────────────
 
   async findAllForAccount(currentAccount: Account, keywords?: string) {
     const where: any = {};
@@ -77,8 +76,6 @@ export class OrganisationsService {
 
   async create(dto: CreateOrganisationDto) {
     await this.assertNameFree(dto.name);
-    // `: any` rather than a cast — Sequelize's create() types want every model
-    // attribute, including the generated ones.
     const attributes: any = { name: dto.name.trim(), description: dto.description ?? null };
     const data = await this.organisationsRepository.create(attributes);
     return { success: true, message: this.config.MSG_CREATED, data };
@@ -131,7 +128,6 @@ export class OrganisationsService {
     }
   }
 
-  // ── Users ──────────────────────────────────────────────────────────────────
 
   private get userConfig() {
     return this.config.USERS;

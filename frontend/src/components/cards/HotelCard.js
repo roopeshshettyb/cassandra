@@ -1,8 +1,7 @@
 import { Avatar, Box, Chip, Typography } from '@mui/material';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
-import { NAVY, MUTED, STATUS_ERROR_BG, STATUS_ERROR } from '../../theme';
+import { NAVY, MUTED, STATUS_ERROR_BG, STATUS_ERROR, STATUS_WARNING_BG, STATUS_WARNING } from '../../theme';
 import { ROW_SX } from './AppCards';
 import { EntityCard, EntityTableRow } from './EntityCard';
 

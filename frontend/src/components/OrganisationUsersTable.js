@@ -4,9 +4,9 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
-import { SearchBar, inputSx } from './cards/AppCards';
+import { ColumnLabel, PrimaryButton, SearchBar, inputSx } from './cards/AppCards';
 import { MemberRow } from './cards/MemberRow';
-import { BRAND_GRADIENT, MUTED, BORDER, SHADOW, TEXT_MUTED_LIGHT, PRIMARY_CONTRAST } from '../theme';
+import { MUTED, BORDER, SHADOW } from '../theme';
 import constants from '../constants.json';
 
 const labels = constants.ORGANISATIONS.USERS;
@@ -37,23 +37,6 @@ function UserRow({ data: user, canManage, roleLabel, onEdit }) {
   );
 }
 
-function HeaderCell({ data: header }) {
-  return (
-    <Typography
-      sx={{
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: TEXT_MUTED_LIGHT,
-        display: header.hideOnMobile ? { xs: 'none', sm: 'block' } : 'block',
-      }}
-    >
-      {header.label}
-    </Typography>
-  );
-}
-
 // Owners see only their own organisation's people; the picker is hidden for them
 // because the API would refuse another.
 function OrganisationUsersTable({ users, organisations, organisationId, account, loading, setLoading, alertSuccess, alertError, onChanged }) {
@@ -68,11 +51,11 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
   const roleOptions = isAdmin ? labels.ROLE_OPTIONS : labels.ROLE_OPTIONS.filter((r) => r.value !== ROLES.ADMIN);
 
   const headers = [
-    { key: 'avatar', label: '' },
-    { key: 'name', label: labels.NAME_LABEL },
-    { key: 'role', label: labels.ROLE_LABEL },
-    { key: 'joined', label: labels.JOINED_LABEL, hideOnMobile: true },
-    { key: 'actions', label: labels.ACTIONS_LABEL },
+    { label: '', onDark: true },
+    { label: labels.NAME_LABEL, onDark: true },
+    { label: labels.ROLE_LABEL, onDark: true },
+    { label: labels.JOINED_LABEL, onDark: true, hideOnMobile: true },
+    { label: labels.ACTIONS_LABEL, onDark: true },
   ];
 
   const handleInput = (field) => (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
@@ -134,14 +117,9 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
       <Box sx={{ display: 'flex', gap: 1.5, mb: 3, alignItems: 'center' }}>
         <SearchBar value={search} onChange={setSearch} placeholder={labels.SEARCH_PLACEHOLDER} />
         {CAN_MANAGE_USERS && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={openCreate}
-            sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW, borderRadius: 2, textTransform: 'none', fontWeight: 700, flexShrink: 0 }}
-          >
+          <PrimaryButton startIcon={<AddIcon />} onClick={openCreate} sx={{ boxShadow: SHADOW, flexShrink: 0 }}>
             {labels.ADD_BUTTON_LABEL}
-          </Button>
+          </PrimaryButton>
         )}
       </Box>
 
@@ -157,7 +135,7 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
             background: 'var(--app-navy-gradient)',
           }}
         >
-          <MapComponent Component={HeaderCell} data={headers} showNoDataAvailable={false} isLoading={false} />
+          <MapComponent Component={ColumnLabel} data={headers} showNoDataAvailable={false} isLoading={false} />
         </Box>
 
         {loading ? (
@@ -238,14 +216,7 @@ function OrganisationUsersTable({ users, organisations, organisationId, account,
             <Button onClick={() => setEditing(null)} sx={{ color: MUTED, textTransform: 'none' }}>
               {labels.CANCEL_BUTTON_LABEL}
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading}
-              sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-            >
-              {labels.SAVE_BUTTON_LABEL}
-            </Button>
+            <PrimaryButton type="submit" disabled={loading}>{labels.SAVE_BUTTON_LABEL}</PrimaryButton>
           </DialogActions>
         </form>
       </Dialog>

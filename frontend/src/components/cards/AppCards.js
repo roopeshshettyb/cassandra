@@ -4,13 +4,15 @@
  * Domain-specific rows live in their own card files (RequestCard, BookingCard, HotelCard).
  */
 import React, { useEffect } from 'react';
-import { Box, Chip, Grid, Typography, TextField, InputAdornment } from '@mui/material';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, IconButton, Typography, TextField, InputAdornment } from '@mui/material';
 import {
   Search, AccessTime, Login, Logout, FreeBreakfast, LunchDining, DinnerDining,
   LocalCafe, Pool, FitnessCenter, Restaurant, RoomService, CleaningServices, Wifi,
+  GridView,
+  TableRows,
 } from '@mui/icons-material';
 import { motion, animate, useMotionValue, useTransform } from 'framer-motion';
-import { NAVY, MUTED, BORDER, SHADOW, HOVER_BG, BG } from '../../theme';
+import { NAVY, MUTED, BORDER, SHADOW, HOVER_BG, BG, TEXT_MUTED_LIGHT, BRAND_GRADIENT, PRIMARY_CONTRAST } from '../../theme';
 import { REQUEST_STATUS } from '../../constants/requestConfig';
 
 // ── Style constants ─────────────────────────────────────────────────────────
@@ -117,8 +119,22 @@ export function StatCard({ data: k, index }) {
 }
 
 /** Column header label for table headers. data = string. */
+// Accepts a plain string, or `{ label, hideOnMobile, onDark }` for headers that
+// sit on the navy gradient.
 export function ColumnLabel({ data: h }) {
-  return <Typography sx={{ ...LABEL_SX, fontSize: 10 }}>{h}</Typography>;
+  const { label, hideOnMobile, onDark } = typeof h === 'string' ? { label: h } : h;
+  return (
+    <Typography
+      sx={{
+        ...LABEL_SX,
+        fontSize: 10,
+        ...(onDark && { color: TEXT_MUTED_LIGHT }),
+        display: hideOnMobile ? { xs: 'none', sm: 'block' } : 'block',
+      }}
+    >
+      {label}
+    </Typography>
+  );
 }
 
 /** Stat box — label, large value, optional sub-label. Used in HotelCard and BrandCard. */
@@ -234,6 +250,55 @@ export function PageHeader({ eyebrow = 'Management', title, right }) {
         <Typography sx={{ fontSize: 26, fontWeight: 700, color: NAVY }}>{title}</Typography>
       </Box>
       {right}
+    </Box>
+  );
+}
+
+/** Brand-gradient action button — the "Add X" / "Save" affordance. */
+export function PrimaryButton({ children, sx, ...props }) {
+  return (
+    <Button
+      variant="contained"
+      {...props}
+      sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, borderRadius: 2, textTransform: 'none', fontWeight: 700, ...sx }}
+    >
+      {children}
+    </Button>
+  );
+}
+
+/** Confirmation before something irreversible. */
+export function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel, onCancel, onConfirm, maxWidth = 'xs' }) {
+  return (
+    <Dialog open={open} onClose={onCancel} fullWidth maxWidth={maxWidth}>
+      <DialogTitle sx={{ fontWeight: 800 }}>{title}</DialogTitle>
+      <DialogContent>
+        <DialogContentText>{children}</DialogContentText>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onCancel} sx={{ color: MUTED, textTransform: 'none' }}>{cancelLabel}</Button>
+        <Button onClick={onConfirm} variant="contained" color="error" sx={{ textTransform: 'none', fontWeight: 700 }}>
+          {confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/** Gallery/table switch used by the list pages. */
+export function ViewToggle({ view, onChange }) {
+  return (
+    <Box sx={{ display: 'flex', gap: 0.5, bgcolor: BG, borderRadius: 2, p: 0.5, flexShrink: 0 }}>
+      {[{ key: 'gallery', Icon: GridView }, { key: 'table', Icon: TableRows }].map(({ key, Icon }) => (
+        <IconButton
+          key={key}
+          size="small"
+          onClick={() => onChange(key)}
+          sx={{ borderRadius: 1.5, bgcolor: view === key ? 'background.paper' : 'transparent', boxShadow: view === key ? SHADOW : 'none' }}
+        >
+          <Icon sx={{ fontSize: 18, color: view === key ? NAVY : MUTED }} />
+        </IconButton>
+      ))}
     </Box>
   );
 }

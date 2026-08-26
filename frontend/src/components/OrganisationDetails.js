@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { BusinessOutlined, PeopleOutline, DeleteOutline } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import OrganisationUsersTable from './OrganisationUsersTable';
-import { FormCard, FormFieldRow } from './cards/AppCards';
+import { ConfirmDialog, FormCard, FormFieldRow } from './cards/AppCards';
 import { DetailBreadcrumb, DetailHero, DetailTabBar, UnsavedChangesBar } from './DetailShell';
 import { MUTED, NAVY_GRADIENT, TEXT_MUTED_LIGHT } from '../theme';
 import constants from '../constants.json';
@@ -150,22 +150,16 @@ function OrganisationDetails({ loading, setLoading, account, navigate, alertSucc
 
       {dirty && <UnsavedChangesBar onDiscard={() => applyOrganisation(organisation)} onSave={handleSave} />}
 
-      <Dialog open={confirmingDelete} onClose={() => setConfirmingDelete(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 800 }}>{labels.DELETE_TITLE}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {labels.DELETE_CONFIRM_PREFIX} <strong>{organisation.name}</strong>? {labels.DELETE_CONFIRM_SUFFIX}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setConfirmingDelete(false)} sx={{ color: MUTED, textTransform: 'none' }}>
-            {labels.USERS.CANCEL_BUTTON_LABEL}
-          </Button>
-          <Button onClick={handleDelete} variant="contained" color="error" sx={{ textTransform: 'none', fontWeight: 700 }}>
-            {labels.DELETE_BUTTON_LABEL}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={labels.DELETE_TITLE}
+        confirmLabel={labels.DELETE_BUTTON_LABEL}
+        cancelLabel={labels.USERS.CANCEL_BUTTON_LABEL}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={handleDelete}
+      >
+        {labels.DELETE_CONFIRM_PREFIX} <strong>{organisation.name}</strong>? {labels.DELETE_CONFIRM_SUFFIX}
+      </ConfirmDialog>
     </Box>
   );
 }

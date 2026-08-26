@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton } from '@mui/material';
-import { GridView, TableRows } from '@mui/icons-material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import DataGrid from './DataGrid';
 import MapComponent from './MapComponent';
 import OrganisationCard, { OrganisationTableRow } from './cards/OrganisationCard';
-import { ColumnLabel, CARD_SX, FormFieldRow, PageHeader, SearchBar } from './cards/AppCards';
-import { BRAND_GRADIENT, NAVY, BORDER, SHADOW, MUTED, PRIMARY_CONTRAST, BG } from '../theme';
+import { ColumnLabel, CARD_SX, FormFieldRow, PageHeader, PrimaryButton, SearchBar, ViewToggle } from './cards/AppCards';
+import { BORDER, SHADOW, MUTED } from '../theme';
 import constants from '../constants.json';
 
 const labels = constants.ORGANISATIONS;
@@ -73,14 +72,9 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
           title={labels.PAGE_TITLE}
           right={
             CAN_MANAGE_ORGANISATIONS ? (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => { setValues(emptyOrganisation); setCreating(true); }}
-                sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-              >
+              <PrimaryButton startIcon={<AddIcon />} onClick={() => { setValues(emptyOrganisation); setCreating(true); }} sx={{ boxShadow: SHADOW }}>
                 {labels.ADD_BUTTON_LABEL}
-              </Button>
+              </PrimaryButton>
             ) : null
           }
         />
@@ -89,14 +83,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
       {/* Filter rail */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 3, alignItems: 'center' }}>
         <SearchBar value={search} onChange={setSearch} placeholder={labels.SEARCH_PLACEHOLDER} />
-        <Box sx={{ display: 'flex', gap: 0.5, bgcolor: BG, borderRadius: 2, p: 0.5, flexShrink: 0 }}>
-          <IconButton size="small" onClick={() => setView('gallery')} sx={{ borderRadius: 1.5, bgcolor: view === 'gallery' ? 'background.paper' : 'transparent', boxShadow: view === 'gallery' ? SHADOW : 'none' }}>
-            <GridView sx={{ fontSize: 18, color: view === 'gallery' ? NAVY : MUTED }} />
-          </IconButton>
-          <IconButton size="small" onClick={() => setView('table')} sx={{ borderRadius: 1.5, bgcolor: view === 'table' ? 'background.paper' : 'transparent', boxShadow: view === 'table' ? SHADOW : 'none' }}>
-            <TableRows sx={{ fontSize: 18, color: view === 'table' ? NAVY : MUTED }} />
-          </IconButton>
-        </Box>
+        <ViewToggle view={view} onChange={setView} />
       </Box>
 
       {view === 'gallery' ? (
@@ -120,14 +107,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
             <Button onClick={() => setCreating(false)} sx={{ color: MUTED, textTransform: 'none' }}>
               {labels.USERS.CANCEL_BUTTON_LABEL}
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading}
-              sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-            >
-              {labels.USERS.SAVE_BUTTON_LABEL}
-            </Button>
+            <PrimaryButton type="submit" disabled={loading}>{labels.USERS.SAVE_BUTTON_LABEL}</PrimaryButton>
           </DialogActions>
         </form>
       </Dialog>
