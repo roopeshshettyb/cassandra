@@ -388,30 +388,37 @@ export class ConstantsService {
     };
   }
 
-  /** Dedupes, drops empties, and appends EXTRA_CORS_ORIGINS — which applies to every list. */
-  private buildCorsOrigins(...origins: (string | undefined)[]): string[] {
-    const extra = this.private.EXTRA_CORS_ORIGINS.split(',').map((origin) => origin.trim());
-    return Array.from(new Set([...origins, ...extra].filter(Boolean) as string[]));
+  /** Dedupes and drops empties. `extra` is the comma-separated env value for this list. */
+  private buildCorsOrigins(extra: string, ...origins: (string | undefined)[]): string[] {
+    const parsed = extra.split(',').map((origin) => origin.trim());
+    return Array.from(new Set([...origins, ...parsed].filter(Boolean) as string[]));
   }
 
   /**
-   * Origins the API accepts requests from — this deployment's own frontend only.
-   * Deliberately narrower than bucketCorsOrigins: a stage or local backend has no
-   * reason to serve the production frontend, so PROD_FRONTEND_URL is excluded (it
-   * also carries a hardcoded default, which would widen every unconfigured env).
+   * Origins the API accepts requests from. main.ts sets credentials: true, so anything
+   * here can make authenticated cross-origin calls — keep it to this deployment's own
+   * frontend. PROD_FRONTEND_URL is excluded on purpose: a stage or local backend has no
+   * reason to serve the production frontend, and it carries a hardcoded default that
+   * would widen every unconfigured env. Its extra list is separate from the bucket's and
+   * empty by default, so the dev origins the buckets need never reach a deployed API.
    */
   get apiCorsOrigins(): string[] {
-    return this.buildCorsOrigins(this.private.FRONTEND_URL);
+    return this.buildCorsOrigins(this.private.EXTRA_API_CORS_ORIGINS, this.private.FRONTEND_URL);
   }
 
   /**
    * Origins written into the S3 buckets' CORS rules. The buckets are shared across
    * environments and only one deployment writes them (MANAGE_BUCKET_CORS), so this
    * list must be the union of every frontend that uploads via a presigned URL —
-   * hence PROD_FRONTEND_URL even when this process is not production.
+   * hence PROD_FRONTEND_URL even when this process is not production, and hence the
+   * dev origins belong in EXTRA_BUCKET_CORS_ORIGINS on the deployed backend.
    */
   get bucketCorsOrigins(): string[] {
-    return this.buildCorsOrigins(this.private.FRONTEND_URL, this.public.PROD_FRONTEND_URL);
+    return this.buildCorsOrigins(
+      this.private.EXTRA_BUCKET_CORS_ORIGINS,
+      this.private.FRONTEND_URL,
+      this.public.PROD_FRONTEND_URL,
+    );
   }
 
   get private() {
@@ -438,9 +445,17 @@ export class ConstantsService {
       ONBOARDING_FETCH_USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       ONBOARDING_FAVICON_BASE_URL: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL',
       AWS_S3_URL_DOMAIN: '.amazonaws.com',
-      // Comma-separated list of extra allowed CORS origins (e.g. prod + staging frontend URLs).
-      // Applied to BOTH the Nest HTTP CORS (main.ts) and the S3 bucket CORS (aws.service.ts).
-      EXTRA_CORS_ORIGINS: this.configService.get<string>('EXTRA_CORS_ORIGINS', ''),
+      // Extra allowed CORS origins, comma-separated. The two lists are deliberately separate:
+      // the API grants credentialed access so it stays empty by default, while the S3 buckets
+      // need the union of every origin that uploads via a presigned URL — including the dev
+      // origins, which only the deployed backend can put there (see MANAGE_BUCKET_CORS).
+      EXTRA_API_CORS_ORIGINS: this.configService.get<string>('EXTRA_API_CORS_ORIGINS', ''),
+      // Falls back to the pre-split EXTRA_CORS_ORIGINS so a deploy that lands before the env is
+      // updated keeps writing the origins already configured instead of dropping stage.
+      EXTRA_BUCKET_CORS_ORIGINS: this.configService.get<string>(
+        'EXTRA_BUCKET_CORS_ORIGINS',
+        this.configService.get<string>('EXTRA_CORS_ORIGINS', ''),
+      ),
       // PutBucketCors REPLACES a bucket's entire CORS config and the buckets are shared across
       // environments, so only the deployed backend may write them. Off everywhere else.
       MANAGE_BUCKET_CORS: this.configService.get<string>('MANAGE_BUCKET_CORS', 'false') === 'true',

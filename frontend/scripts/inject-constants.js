@@ -5,7 +5,8 @@ const path = require('path');
 // public/manifest.json are committed sources and stay untouched, so `npm start` and
 // `npm run build` never dirty the working tree with local branding.
 // Usage: node scripts/inject-constants.js [targetDir]   (default: build)
-const targetDir = path.join(__dirname, '..', process.argv[2] || 'build');
+// path.resolve so an absolute targetDir works too — path.join would glue it onto the app dir.
+const targetDir = path.resolve(path.join(__dirname, '..'), process.argv[2] || 'build');
 
 const constantsPath = path.join(__dirname, '..', 'src', 'constants.json');
 const indexPath = path.join(targetDir, 'index.html');
@@ -25,11 +26,13 @@ const constants = JSON.parse(fs.readFileSync(constantsPath, 'utf8'));
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 // No fallbacks here: defaults belong in the backend's constants.service.ts (CLAUDE.md General #3).
-const { APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR } = constants;
+const { APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR, LOGO, HERO } = constants;
 
 // A key the backend has not shipped yet would inject the literal string "undefined" — and the
 // validation gate below would still pass, since content="undefined" is a match. Catch it here.
-const missingConstants = Object.entries({ APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR })
+// LOGO and HERO are injected unguarded below, so they belong here too: a payload without
+// them would ship href="undefined" and still satisfy the gate.
+const missingConstants = Object.entries({ APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR, LOGO, HERO })
   .filter(([, value]) => !value)
   .map(([key]) => key);
 if (missingConstants.length) {
@@ -42,30 +45,33 @@ const selfClosing = (attrs) => new RegExp(`<${attrs}\\s*/?>`);
 
 let updatedHtml = indexHtml
   .replace(/<title>.*?<\/title>/, `<title>${APP_NAME} - ${TAGLINE}</title>`)
-  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${constants.HERO}"/>`)
-  .replace(selfClosing('link rel="apple-touch-icon" href="[^"]*"'), `<link rel="apple-touch-icon" href="${constants.LOGO}"/>`)
+  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${HERO}"/>`)
+  .replace(selfClosing('link rel="apple-touch-icon" href="[^"]*"'), `<link rel="apple-touch-icon" href="${LOGO}"/>`)
   .replace(selfClosing('meta name="theme-color" content="[^"]*"'), `<meta name="theme-color" content="${THEME_COLOR}"/>`)
   .replace(/property="og:title" content="[^"]*"/, `property="og:title" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/property="og:description" content="[^"]*"/, `property="og:description" content="${DESCRIPTION}"`)
   .replace(/property="og:url" content="[^"]*"/, `property="og:url" content="${PROD_FRONTEND_URL}"`)
-  .replace(/property="og:image" content="[^"]*"/, `property="og:image" content="${constants.HERO}"`)
-  .replace(/property="og:image:secure_url" content="[^"]*"/, `property="og:image:secure_url" content="${constants.HERO}"`)
+  .replace(/property="og:image" content="[^"]*"/, `property="og:image" content="${HERO}"`)
+  .replace(/property="og:image:secure_url" content="[^"]*"/, `property="og:image:secure_url" content="${HERO}"`)
   .replace(/property="og:image:alt" content="[^"]*"/, `property="og:image:alt" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/property="og:site_name" content="[^"]*"/, `property="og:site_name" content="${APP_NAME}"`)
   .replace(/name="twitter:title" content="[^"]*"/, `name="twitter:title" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/name="twitter:description" content="[^"]*"/, `name="twitter:description" content="${DESCRIPTION}"`)
-  .replace(/name="twitter:image" content="[^"]*"/, `name="twitter:image" content="${constants.HERO}"`)
+  .replace(/name="twitter:image" content="[^"]*"/, `name="twitter:image" content="${HERO}"`)
   .replace(/name="twitter:image:alt" content="[^"]*"/, `name="twitter:image:alt" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/name="description" content="[^"]*"/, `name="description" content="${DESCRIPTION}"`);
 
 // A regex that stops matching would silently ship stale branding — the exact failure this
 // whole change exists to prevent. Fail the build instead.
+// Each needle must be unique to its tag. LOGO and HERO carry the same default, so checking
+// bare href="..." would let a successful favicon swap vouch for a failed apple-touch-icon.
 const expected = [
   [`<title>${APP_NAME} - ${TAGLINE}</title>`, 'title'],
-  [`href="${constants.HERO}"`, 'favicon'],
-  [`href="${constants.LOGO}"`, 'apple-touch-icon'],
-  [`content="${THEME_COLOR}"`, 'theme-color'],
-  [`content="${PROD_FRONTEND_URL}"`, 'og:url'],
+  [`<link rel="icon" href="${HERO}"/>`, 'favicon'],
+  [`<link rel="apple-touch-icon" href="${LOGO}"/>`, 'apple-touch-icon'],
+  [`<meta name="theme-color" content="${THEME_COLOR}"/>`, 'theme-color'],
+  [`property="og:url" content="${PROD_FRONTEND_URL}"`, 'og:url'],
+  [`property="og:image" content="${HERO}"`, 'og:image'],
 ];
 const missed = expected.filter(([needle]) => !updatedHtml.includes(needle)).map(([, name]) => name);
 if (missed.length) {
@@ -110,10 +116,10 @@ console.log(`✓ Constants injected into ${path.relative(path.join(__dirname, '.
 if (fs.existsSync(serviceWorkerPath)) {
   const originalSw = fs.readFileSync(serviceWorkerPath, 'utf8');
   const updatedSw = originalSw
-    .replace(/icon: '[^']*'/, `icon: '${constants.LOGO}'`)
-    .replace(/badge: '[^']*'/, `badge: '${constants.LOGO}'`);
+    .replace(/icon: '[^']*'/, `icon: '${LOGO}'`)
+    .replace(/badge: '[^']*'/, `badge: '${LOGO}'`);
 
-  if (!updatedSw.includes(`icon: '${constants.LOGO}'`) || !updatedSw.includes(`badge: '${constants.LOGO}'`)) {
+  if (!updatedSw.includes(`icon: '${LOGO}'`) || !updatedSw.includes(`badge: '${LOGO}'`)) {
     console.error('✗ Injection did not apply to the service worker notification icon/badge. Check the patterns in this script against service-worker.js.');
     process.exit(1);
   }

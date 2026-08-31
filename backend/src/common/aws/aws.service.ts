@@ -45,7 +45,7 @@ export class AwsService {
     // Browser PUT to a presigned URL requires the app origin here. The buckets are shared and
     // only one deployment writes their CORS, so this is the union across environments — wider
     // than the API's own list. A white-labeled deploy on a new domain works by setting
-    // FRONTEND_URL / PROD_FRONTEND_URL / EXTRA_CORS_ORIGINS, with no code change.
+    // FRONTEND_URL / PROD_FRONTEND_URL / EXTRA_BUCKET_CORS_ORIGINS, with no code change.
     const allowedOrigins = this.constantsService.bucketCorsOrigins;
 
     const corsConfiguration = {
