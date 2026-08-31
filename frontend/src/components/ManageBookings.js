@@ -5,7 +5,7 @@ import request from '../helper/api';
 import DataGrid from './DataGrid';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
-import { PageHeader } from './cards/AppCards';
+import { FormFieldRow, PageHeader } from './cards/AppCards';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW } from '../theme';
 import constants from '../constants.json';
 
@@ -23,11 +23,6 @@ const editBookingFieldConfigs = [
   { field: 'endDate', label: 'End Date', type: 'date', required: true, getInputProps: (values) => ({ min: values.startDate }) },
   { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
-
-function CreateFieldRow({ data, createValues, handleCreateInput }) {
-  const { field, label, type, required, getInputProps } = data;
-  return <TextField fullWidth label={label} type={type} value={createValues[field] ?? ''} onChange={handleCreateInput(field)} InputLabelProps={{ shrink: true }} required={!!required} inputProps={getInputProps ? getInputProps(createValues) : undefined} />;
-}
 
 const initialCreateValues = {
   startDate: '',
@@ -231,10 +226,10 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                 {uploadedFileName && <Typography sx={{ fontSize: 12, color: 'primary.main', mt: 0.5 }}>Uploaded: {uploadedFileName}</Typography>}
               </Box>
               <MapComponent
-                Component={CreateFieldRow}
+                Component={FormFieldRow}
                 data={createBookingFieldConfigs}
-                createValues={createValues}
-                handleCreateInput={handleCreateInput}
+                values={createValues}
+                onChange={handleCreateInput}
                 showNoDataAvailable={false}
                 isLoading={false}
               />
@@ -284,7 +279,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         <Box component="form" onSubmit={handleEditBooking}>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <MapComponent Component={CreateFieldRow} data={editBookingFieldConfigs} createValues={editValues} handleCreateInput={handleEditInput} showNoDataAvailable={false} isLoading={false} />
+              <MapComponent Component={FormFieldRow} data={editBookingFieldConfigs} values={editValues} onChange={handleEditInput} showNoDataAvailable={false} isLoading={false} />
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>

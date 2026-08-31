@@ -38,6 +38,8 @@ export const STATUS_ERROR_BG = 'rgba(220,38,38,0.1)';
 export const BACKDROP_BG = 'rgba(0,0,0,0.5)';
 export const HOVER_BG = 'rgba(0,0,0,0.04)';
 export const TEXT_MUTED_LIGHT = 'rgba(255,255,255,0.7)';
+// Fainter still — watermark letters and hairlines on a dark hero.
+export const TEXT_FAINT_LIGHT = 'rgba(255,255,255,0.35)';
 export const TEXT_MUTED_DARK = 'rgba(136,136,136,0.7)';
 
 // Legacy alias to prevent immediate breakage
