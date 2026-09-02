@@ -9,7 +9,7 @@ async function bootstrap() {
   const constantsService = app.get(ConstantsService);
   // Only this deployment's own frontend. The S3 bucket CORS list (aws.service.ts) is
   // deliberately wider — it is a union across environments. See constants.service.ts.
-  const allowedOrigins = constantsService.apiCorsOrigins;
+  const allowedOrigins = constantsService.apiAllowedOrigins;
 
   // Allow local development IPs for mobile testing
   const isDev = process.env.NODE_ENV !== 'production';

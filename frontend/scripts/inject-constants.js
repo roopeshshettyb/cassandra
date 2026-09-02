@@ -45,7 +45,9 @@ const selfClosing = (attrs) => new RegExp(`<${attrs}\\s*/?>`);
 
 let updatedHtml = indexHtml
   .replace(/<title>.*?<\/title>/, `<title>${APP_NAME} - ${TAGLINE}</title>`)
-  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${HERO}"/>`)
+  // Both icons take LOGO, not HERO: they render as small squares, and HERO is a wide social
+  // card that would be squashed. HERO stays on og:/twitter: image only.
+  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${LOGO}"/>`)
   .replace(selfClosing('link rel="apple-touch-icon" href="[^"]*"'), `<link rel="apple-touch-icon" href="${LOGO}"/>`)
   .replace(selfClosing('meta name="theme-color" content="[^"]*"'), `<meta name="theme-color" content="${THEME_COLOR}"/>`)
   .replace(/property="og:title" content="[^"]*"/, `property="og:title" content="${APP_NAME} - ${TAGLINE}"`)
@@ -63,11 +65,11 @@ let updatedHtml = indexHtml
 
 // A regex that stops matching would silently ship stale branding — the exact failure this
 // whole change exists to prevent. Fail the build instead.
-// Each needle must be unique to its tag. LOGO and HERO carry the same default, so checking
-// bare href="..." would let a successful favicon swap vouch for a failed apple-touch-icon.
+// Each needle carries its own rel/name, so a successful favicon swap cannot vouch for a
+// failed apple-touch-icon even though both now inject the same LOGO value.
 const expected = [
   [`<title>${APP_NAME} - ${TAGLINE}</title>`, 'title'],
-  [`<link rel="icon" href="${HERO}"/>`, 'favicon'],
+  [`<link rel="icon" href="${LOGO}"/>`, 'favicon'],
   [`<link rel="apple-touch-icon" href="${LOGO}"/>`, 'apple-touch-icon'],
   [`<meta name="theme-color" content="${THEME_COLOR}"/>`, 'theme-color'],
   [`property="og:url" content="${PROD_FRONTEND_URL}"`, 'og:url'],
