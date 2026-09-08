@@ -220,6 +220,7 @@
   },
   "ORGANISATIONS": {
     "PAGE_EYEBROW": "Platform",
+    "PAGE_EYEBROW_MEMBER": "Your organisation",
     "PAGE_TITLE": "Organisations",
     "TAB_USERS": "Users",
     "TAB_DETAILS": "Details",
