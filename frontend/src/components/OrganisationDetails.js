@@ -28,12 +28,16 @@ function OrganisationDetails({ loading, setLoading, account, navigate, alertSucc
   const { id } = useParams();
   const [organisation, setOrganisation] = useState(null);
   const [users, setUsers] = useState([]);
-  const [tab, setTab] = useState('details');
+  const [tab, setTab] = useState(null);
   const [values, setValues] = useState({ name: '', description: '' });
   const [dirty, setDirty] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const CAN_MANAGE_ORGANISATIONS = account && !!constants.PERMISSIONS.CAN_MANAGE_ORGANISATIONS[account.role];
+  // Resolved per render rather than frozen by useState: account is null on the
+  // first paint, and owners only get the members tab, so a frozen default
+  // strands them on a tab that renders nothing.
+  const activeTab = tab ?? (CAN_MANAGE_ORGANISATIONS ? 'details' : 'members');
 
   const applyOrganisation = (data) => {
     setOrganisation(data);
@@ -109,16 +113,16 @@ function OrganisationDetails({ loading, setLoading, account, navigate, alertSucc
           }
         />
 
-        <DetailTabBar tabs={CAN_MANAGE_ORGANISATIONS ? TABS : TABS.filter((t) => t.key === 'members')} active={tab} onChange={setTab} />
+        <DetailTabBar tabs={CAN_MANAGE_ORGANISATIONS ? TABS : TABS.filter((t) => t.key === 'members')} active={activeTab} onChange={setTab} />
       </motion.div>
 
-      {tab === 'details' && CAN_MANAGE_ORGANISATIONS && (
+      {activeTab === 'details' && CAN_MANAGE_ORGANISATIONS && (
         <FormCard title={labels.DETAILS_CARD_TITLE} sub={labels.DETAILS_CARD_SUB}>
           <MapComponent Component={FormFieldRow} data={FIELDS} values={values} onChange={handleInput} withLabel showNoDataAvailable={false} isLoading={false} />
         </FormCard>
       )}
 
-      {tab === 'members' && (
+      {activeTab === 'members' && (
         <OrganisationUsersTable
           users={users}
           organisations={[organisation]}
@@ -135,7 +139,7 @@ function OrganisationDetails({ loading, setLoading, account, navigate, alertSucc
         />
       )}
 
-      {tab === 'danger' && CAN_MANAGE_ORGANISATIONS && (
+      {activeTab === 'danger' && CAN_MANAGE_ORGANISATIONS && (
         <FormCard title={labels.DANGER_CARD_TITLE} sub={labels.DANGER_CARD_SUB}>
           <Button
             variant="contained"
