@@ -72,10 +72,9 @@ const ROLE_SPECIFIC_ITEMS = {
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
-    // Same page as the admin's, labelled for what an owner can actually do with
-    // it: the Organisations tab is read-only for them and the Users tab is
-    // narrowed by the backend to their own organisation.
-    { key: 'Manage Users', icon: CorporateFare, text: 'Manage Users', link: '/organisations', protectedNavItem: true },
+    // Same page as the admin's, narrowed by the backend to their own row. Named
+    // for where it lands rather than for the Users tab one click further in.
+    { key: 'Manage Organisation', icon: CorporateFare, text: 'Manage Organisation', link: '/organisations', protectedNavItem: true },
   ],
   hotel_staff: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },

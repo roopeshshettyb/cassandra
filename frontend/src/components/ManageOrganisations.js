@@ -68,7 +68,7 @@ function ManageOrganisations({ loading, setLoading, account, navigate, alertSucc
     <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: '4vh', sm: 1.5 }, pb: 6, maxWidth: 1200, mx: 'auto' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <PageHeader
-          eyebrow={labels.PAGE_EYEBROW}
+          eyebrow={CAN_MANAGE_ORGANISATIONS ? labels.PAGE_EYEBROW : labels.PAGE_EYEBROW_MEMBER}
           title={labels.PAGE_TITLE}
           right={
             CAN_MANAGE_ORGANISATIONS ? (
