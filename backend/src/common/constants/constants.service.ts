@@ -391,6 +391,8 @@ export class ConstantsService {
       },
       ORGANISATIONS: {
         PAGE_EYEBROW: 'Platform',
+        // Owners are not platform staff; they only ever see their own row.
+        PAGE_EYEBROW_MEMBER: 'Your organisation',
         PAGE_TITLE: 'Organisations',
         TAB_USERS: 'Users',
         TAB_DETAILS: 'Details',
