@@ -22,6 +22,10 @@ export class RequestsService {
     private readonly constantsService: ConstantsService,
   ) {}
 
+  private get requestsConfig() {
+    return this.constantsService.private.REQUESTS;
+  }
+
   private async getWhereForAccount(currentAccount: Account): Promise<{ [key: string]: any } | null> {
     if (currentAccount.role === AccountRole.ADMIN) {
       return null;
@@ -195,15 +199,16 @@ export class RequestsService {
       throw new NotFoundException();
     }
 
-    // Only hotel staff/owner (or admin) can change request status.
-    if (dto.status !== undefined) {
+    // Only hotel staff/owner (or admin) can change request status or urgency:
+    // a guest who could raise their own urgency would jump the queue.
+    if (dto.status !== undefined || dto.urgency !== undefined) {
       const isStaffOrOwner =
         currentAccount.role === AccountRole.ADMIN ||
         currentAccount.role === AccountRole.HOTEL_OWNER ||
         currentAccount.role === AccountRole.HOTEL_STAFF;
 
       if (!isStaffOrOwner) {
-        throw new ForbiddenException('Only hotel staff or owner can change request status');
+        throw new ForbiddenException(this.requestsConfig.ERROR_STAFF_ONLY_FIELDS);
       }
     }
 
@@ -220,7 +225,7 @@ export class RequestsService {
 
     return {
       success: true,
-      message: 'Request updated',
+      message: this.requestsConfig.MSG_UPDATED,
       data: request,
     };
   }

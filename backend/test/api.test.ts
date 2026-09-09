@@ -519,6 +519,20 @@ describe('Requests', () => {
     expect(res.status).toBe(200);
   });
 
+  it('PATCH /requests/:id (staff) → updates request urgency to high', async () => {
+    const res = await http.patch(`/requests/${state.testRequestId}`, { urgency: 'high' }, state.staffToken);
+    expect(res.status).toBe(200);
+    expect((res.data?.data ?? res.data).urgency).toBe('high');
+  });
+
+  it('PATCH /requests/:id (guest) → 403 changing urgency on own request', async () => {
+    await expectStatus(403, () =>
+      http.patch(`/requests/${state.testRequestId}`, { urgency: 'low' }, state.guestToken),
+    );
+    const res = await http.get(`/requests/${state.testRequestId}`, state.staffToken);
+    expect((res.data?.data ?? res.data).urgency).toBe('high');
+  });
+
   it('POST /requests/:id/append-message (guest) → appends user message', async () => {
     const res = await http.post(`/requests/${state.testRequestId}/append-message`, { message: 'Please also bring extra towels', role: 'user' }, state.guestToken);
     expect(res.status).toBe(201);
