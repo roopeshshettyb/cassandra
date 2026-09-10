@@ -7,15 +7,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useWebSocketAdapter(new IoAdapter(app));
   const constantsService = app.get(ConstantsService);
-  // Only this deployment's own frontend. The S3 bucket CORS list (aws.service.ts) is
-  // deliberately wider — it is a union across environments. See constants.service.ts.
-  const allowedOrigins = constantsService.apiAllowedOrigins;
+  const frontendUrl = constantsService.private.FRONTEND_URL;
 
   // Allow local development IPs for mobile testing
   const isDev = process.env.NODE_ENV !== 'production';
-  const corsOrigin = isDev
-    ? [...allowedOrigins, /^http:\/\/172\.21\.\d+\.\d+:\d+$/]
-    : allowedOrigins;
+  const corsOrigin = isDev ? [frontendUrl, /^http:\/\/172\.21\.\d+\.\d+:\d+$/] : frontendUrl;
 
   app.enableCors({
     origin: corsOrigin,
