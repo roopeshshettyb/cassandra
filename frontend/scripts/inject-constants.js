@@ -32,9 +32,44 @@ const { APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR, LOGO, HE
 // validation gate below would still pass, since content="undefined" is a match. Catch it here.
 // LOGO and HERO are injected unguarded below, so they belong here too: a payload without
 // them would ship href="undefined" and still satisfy the gate.
-const missingConstants = Object.entries({ APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR, LOGO, HERO })
+const missingConstants = Object.entries({
+  APP_NAME,
+  TAGLINE,
+  DESCRIPTION,
+  PROD_FRONTEND_URL,
+  THEME_COLOR,
+  LOGO,
+  HERO,
+  // Not injected here, but the bundle reads them: LANDING_HERO_* would render a broken
+  // src, and theme/index.js dereferences THEME_DEFAULTS at import time, so a payload
+  // without it white-screens the app. Fail the build instead of shipping that.
+  LANDING_HERO_VIDEO: constants.LANDING_HERO_VIDEO,
+  LANDING_HERO_POSTER: constants.LANDING_HERO_POSTER,
+  THEME_DEFAULTS: constants.THEME_DEFAULTS,
+})
   .filter(([, value]) => !value)
   .map(([key]) => key);
+
+// A half-populated THEME_DEFAULTS is as fatal as a missing one — every key below is
+// dereferenced somewhere in App.js or theme/index.js.
+const THEME_KEYS = [
+  'PRIMARY_COLOR',
+  'SECONDARY_COLOR',
+  'NAVY_COLOR',
+  'NAVY_LIGHT_COLOR',
+  'PRIMARY_HOVER_COLOR',
+  'BACKGROUND_DEFAULT_LIGHT',
+  'BACKGROUND_DEFAULT_DARK',
+  'BACKGROUND_PAPER_LIGHT',
+  'BACKGROUND_PAPER_DARK',
+  'FONT_FAMILY',
+];
+if (constants.THEME_DEFAULTS) {
+  for (const key of THEME_KEYS) {
+    if (!constants.THEME_DEFAULTS[key]) missingConstants.push(`THEME_DEFAULTS.${key}`);
+  }
+}
+
 if (missingConstants.length) {
   console.error(`✗ constants.json is missing: ${missingConstants.join(', ')}. Is the backend up to date?`);
   process.exit(1);

@@ -310,6 +310,30 @@ export class ConstantsService {
       /** PWA install icons. Relative names resolve inside frontend/public/, absolute URLs are used as-is. */
       PWA_ICON_192: this.configService.get<string>('PWA_ICON_192', 'logo192.png'),
       PWA_ICON_512: this.configService.get<string>('PWA_ICON_512', 'logo.png'),
+      /** Landing page hero video and its poster frame. Bare filenames resolve inside frontend/public/, absolute URLs are used as-is. */
+      LANDING_HERO_VIDEO: this.configService.get<string>('LANDING_HERO_VIDEO', 'landingpage-hero.mp4'),
+      LANDING_HERO_POSTER: this.configService.get<string>('LANDING_HERO_POSTER', 'landingpage-hero-poster.png'),
+
+      /**
+       * Fallback palette and font for the whole app UI. A hotel's own themeConfig overrides
+       * these per brand; this is what a deployment looks like before anyone configures one,
+       * so a white-labeled tenant is not left in the default gold and navy.
+       */
+      THEME_DEFAULTS: {
+        PRIMARY_COLOR: this.configService.get<string>('THEME_PRIMARY_COLOR', '#D4AF37'),
+        SECONDARY_COLOR: this.configService.get<string>('THEME_SECONDARY_COLOR', '#C5A022'),
+        NAVY_COLOR: this.configService.get<string>('THEME_NAVY_COLOR', '#1B2340'),
+        NAVY_LIGHT_COLOR: this.configService.get<string>('THEME_NAVY_LIGHT_COLOR', '#263462'),
+        PRIMARY_HOVER_COLOR: this.configService.get<string>('THEME_PRIMARY_HOVER_COLOR', '#B8860B'),
+        BACKGROUND_DEFAULT_LIGHT: this.configService.get<string>('THEME_BACKGROUND_DEFAULT_LIGHT', '#F8F7F4'),
+        BACKGROUND_DEFAULT_DARK: this.configService.get<string>('THEME_BACKGROUND_DEFAULT_DARK', '#000000'),
+        BACKGROUND_PAPER_LIGHT: this.configService.get<string>('THEME_BACKGROUND_PAPER_LIGHT', '#FFFFFF'),
+        BACKGROUND_PAPER_DARK: this.configService.get<string>('THEME_BACKGROUND_PAPER_DARK', '#121212'),
+        FONT_FAMILY: this.configService.get<string>(
+          'THEME_FONT_FAMILY',
+          '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
+        ),
+      },
 
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,
@@ -455,41 +479,6 @@ export class ConstantsService {
     };
   }
 
-  /** Dedupes and drops empties. `extra` is the comma-separated env value for this list. */
-  private buildAllowedOrigins(extra: string, ...origins: (string | undefined)[]): string[] {
-    const parsed = extra.split(',').map((origin) => origin.trim());
-    return Array.from(new Set([...origins, ...parsed].filter(Boolean) as string[]));
-  }
-
-  /**
-   * Browser origins the API accepts cross-origin requests from — the client pages, not
-   * this API's own address. main.ts sets credentials: true, so anything here can make
-   * authenticated calls: keep it to this deployment's own frontend. PROD_FRONTEND_URL is
-   * excluded on purpose — a stage or local backend has no reason to serve the production
-   * frontend, and its hardcoded default would widen every unconfigured env. This extra
-   * list is separate from the buckets' and empty by default, so the dev origins the
-   * buckets need never reach a deployed API.
-   */
-  get apiAllowedOrigins(): string[] {
-    return this.buildAllowedOrigins(this.private.EXTRA_API_ALLOWED_ORIGINS, this.private.FRONTEND_URL);
-  }
-
-  /**
-   * Browser origins written into the S3 buckets' AllowedOrigins — again the client pages
-   * uploading to a presigned URL, not the buckets' own hostnames. The buckets are shared
-   * across environments and only one deployment writes them (MANAGE_BUCKET_CORS), so this
-   * list must be the union of every frontend that uploads — hence PROD_FRONTEND_URL even
-   * when this process is not production, and hence the dev origins belong in
-   * EXTRA_BUCKET_ALLOWED_ORIGINS on the deployed backend.
-   */
-  get bucketAllowedOrigins(): string[] {
-    return this.buildAllowedOrigins(
-      this.private.EXTRA_BUCKET_ALLOWED_ORIGINS,
-      this.private.FRONTEND_URL,
-      this.public.PROD_FRONTEND_URL,
-    );
-  }
-
   get private() {
     return {
       // Environment Configuration
@@ -514,20 +503,6 @@ export class ConstantsService {
       ONBOARDING_FETCH_USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       ONBOARDING_FAVICON_BASE_URL: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL',
       AWS_S3_URL_DOMAIN: '.amazonaws.com',
-      // Extra CLIENT origins (the browser pages calling in), comma-separated. The two lists are
-      // deliberately separate: the API grants credentialed access so it stays empty by default,
-      // while the S3 buckets need the union of every origin that uploads via a presigned URL —
-      // including the dev origins, which only the deployed backend can put there (MANAGE_BUCKET_CORS).
-      EXTRA_API_ALLOWED_ORIGINS: this.configService.get<string>('EXTRA_API_ALLOWED_ORIGINS', ''),
-      // Falls back to the pre-split EXTRA_CORS_ORIGINS so a deploy that lands before the env is
-      // updated keeps writing the origins already configured instead of dropping stage.
-      EXTRA_BUCKET_ALLOWED_ORIGINS: this.configService.get<string>(
-        'EXTRA_BUCKET_ALLOWED_ORIGINS',
-        this.configService.get<string>('EXTRA_CORS_ORIGINS', ''),
-      ),
-      // PutBucketCors REPLACES a bucket's entire CORS config and the buckets are shared across
-      // environments, so only the deployed backend may write them. Off everywhere else.
-      MANAGE_BUCKET_CORS: this.configService.get<string>('MANAGE_BUCKET_CORS', 'false') === 'true',
       X_CLIENT_ID: this.configService.get<string>('X_CLIENT_ID'),
 
       // Database Configuration

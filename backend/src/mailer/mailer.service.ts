@@ -45,6 +45,9 @@ export class MailerService {
       TAGLINE: pub.TAGLINE || '',
       FRONTEND_URL: frontendUrl,
       LOGO_URL: pub.LOGO,
+      PRIMARY_COLOR: pub.THEME_DEFAULTS.PRIMARY_COLOR,
+      SECONDARY_COLOR: pub.THEME_DEFAULTS.SECONDARY_COLOR,
+      PRIMARY_HOVER_COLOR: pub.THEME_DEFAULTS.PRIMARY_HOVER_COLOR,
       YEAR: `${new Date().getFullYear()}`,
       CONTENT: contentHtml,
       ...extraVars,
@@ -58,6 +61,7 @@ export class MailerService {
     const inner = this.readTemplate('otpEmailTemplate.html');
     const contentHtml = this.render(inner, {
       APP_NAME: pub.APP_NAME,
+      PRIMARY_COLOR: pub.THEME_DEFAULTS.PRIMARY_COLOR,
       OTP: params.otp,
       OTP_EXPIRY_MINUTES: `${params.otpExpiryMinutes}`,
     });

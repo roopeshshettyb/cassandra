@@ -31,6 +31,11 @@ const STATEMENT_PARTS = [
   { type: 'word', text: 'human.' },
 ];
 
+// Landing media is configurable per tenant: an absolute URL is used as-is, anything else is
+// treated as a filename in public/.
+const mediaSrc = (value) =>
+  /^https?:\/\//.test(value) ? value : `${process.env.PUBLIC_URL || ''}/${value}`;
+
 const FEATURE_SVGS = {
   phone: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92V21a1 1 0 0 1-1.1 1 19 19 0 0 1-8.3-3.06 18.9 18.9 0 0 1-6-6 19 19 0 0 1-3-8.3A1 1 0 0 1 4.6 3h4.1a1 1 0 0 1 1 .76 12 12 0 0 0 .57 2.6 1 1 0 0 1-.23 1L8.5 9a16 16 0 0 0 6 6l1.65-1.55a1 1 0 0 1 1-.23 12 12 0 0 0 2.6.57 1 1 0 0 1 .76 1Z"/></svg>,
   chat: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>,
@@ -103,8 +108,9 @@ export default function Landing({ openLoginPopup }) {
   const [exitingPhrase, setExitingPhrase] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const heroVideoSrc = `${process.env.PUBLIC_URL || ''}/landingpage-hero.mp4`;
-  const heroPosterSrc = `${process.env.PUBLIC_URL || ''}/landingpage-hero-poster.png`;
+  // Bare filenames resolve inside public/; a tenant may point these at an absolute URL instead.
+  const heroVideoSrc = mediaSrc(constants.LANDING_HERO_VIDEO);
+  const heroPosterSrc = mediaSrc(constants.LANDING_HERO_POSTER);
 
   const setMenu = (next) => {
     setMenuOpen(next);
@@ -446,8 +452,8 @@ export default function Landing({ openLoginPopup }) {
             <svg className="asterisk" viewBox="0 0 100 100" fill="none">
               <defs>
                 <linearGradient id="l-astGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#D4AF37"/>
-                  <stop offset="1" stopColor="#B8860B"/>
+                  <stop offset="0" stopColor="var(--app-primary)"/>
+                  <stop offset="1" stopColor="var(--app-primary-hover)"/>
                 </linearGradient>
               </defs>
               <g stroke="url(#l-astGrad)" strokeWidth="9" strokeLinecap="round">
