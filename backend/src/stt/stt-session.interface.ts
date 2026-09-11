@@ -10,6 +10,16 @@ export interface ISttSession {
   destroy(): void;
 }
 
+/** Per-session overrides. Omitted fields fall back to the global STT config. */
+export interface SttSessionOptions {
+  /**
+   * Silence in ms that ends a turn. The public reservation call wants a snappier
+   * value than the in-stay concierge, so it is set per session rather than
+   * globally.
+   */
+  utteranceEndMs?: number;
+}
+
 export interface SttSessionFactory {
-  createSession(): ISttSession;
+  createSession(options?: SttSessionOptions): ISttSession;
 }

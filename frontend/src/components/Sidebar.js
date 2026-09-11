@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
-import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent, CorporateFare } from '@mui/icons-material';
+import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent, CorporateFare, AutoAwesome } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
@@ -65,6 +65,7 @@ const ROLE_SPECIFIC_ITEMS = {
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
     { key: 'Manage Costs', icon: AttachMoney, text: 'Manage Costs', link: '/costs', protectedNavItem: true },
+    { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
     { key: 'Manage Organisations', icon: CorporateFare, text: 'Manage Organisations', link: '/organisations', protectedNavItem: true },
   ],
   hotel_owner: [
@@ -72,6 +73,7 @@ const ROLE_SPECIFIC_ITEMS = {
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
+    { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
     // Same page as the admin's, narrowed by the backend to their own row.
     { key: 'Manage Organisations', icon: CorporateFare, text: 'Manage Organisations', link: '/organisations', protectedNavItem: true },
   ],
@@ -80,6 +82,7 @@ const ROLE_SPECIFIC_ITEMS = {
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
+    { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
   ],
   guest: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },

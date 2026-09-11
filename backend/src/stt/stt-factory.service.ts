@@ -14,8 +14,14 @@ export class SttFactoryService {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  getFactory(): SttSessionFactory {
-    const provider = this.constantsService.private.LLM.STT_CONFIG.PROVIDER.toLowerCase() as SttProviderId;
+  /**
+   * `override` lets one surface pick a provider without moving everyone —
+   * the public reservation call and the in-stay concierge can differ. Omitted,
+   * it resolves the global STT_PROVIDER exactly as before.
+   */
+  getFactory(override?: string | null): SttSessionFactory {
+    const configured = override && override.length > 0 ? override : this.constantsService.private.LLM.STT_CONFIG.PROVIDER;
+    const provider = configured.toLowerCase() as SttProviderId;
     if (provider === 'openai') return this.openai;
     return this.deepgram;
   }

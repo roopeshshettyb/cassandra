@@ -20,7 +20,14 @@ export function createAgentTools(
   hotelsService: HotelsService,
   constantsService: ConstantsService,
 ): StructuredToolInterface[] {
-  const { account, chatId, languageCode } = ctx;
+  const account = ctx.account;
+  // Every tool below acts as an account. Without one there is nothing safe to
+  // hand the model here — the public reservation agent uses
+  // createReservationTools instead.
+  if (!account) {
+    return [];
+  }
+  const { chatId, languageCode } = ctx;
   let currentBookingId: number | null = ctx.bookingId;
   let currentHotel: Record<string, unknown> | null = ctx.hotel;
   let currentBooking: Record<string, unknown> | null = ctx.booking;

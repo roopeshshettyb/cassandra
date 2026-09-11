@@ -16,6 +16,20 @@ export class MessagesService {
     return rows.reverse();
   }
 
+  /**
+   * Messages across several chats in one query, chronological. Lets a caller
+   * summarise a page of chats without a query per chat.
+   */
+  async findByChatIds(chatIds: number[]): Promise<Message[]> {
+    if (chatIds.length === 0) {
+      return [];
+    }
+    return this.messageRepository.findAll({
+      where: { chatId: { [Op.in]: chatIds } },
+      order: [['id', 'asc']],
+    });
+  }
+
   async create(chatId: number, role: MessageRole, content: string, toolCalls?: ToolCallRecord[]): Promise<Message> {
     return this.messageRepository.create({
       chatId,

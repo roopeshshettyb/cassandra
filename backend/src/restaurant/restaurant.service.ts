@@ -125,13 +125,26 @@ export class RestaurantService {
     let hotelIds: number[] | null;
     if (options.hotelId != null) {
       if (accessibleHotelIds !== null && !accessibleHotelIds.includes(options.hotelId)) {
-        throw new ForbiddenException('No access to this hotel menu');
+        throw new ForbiddenException(this.constantsService.public.ERROR_NO_ACCESS_TO_HOTEL_MENU);
       }
       hotelIds = [options.hotelId];
     } else {
       hotelIds = accessibleHotelIds;
     }
 
+    return this.queryAvailableMenuItems(hotelIds, options.keywords);
+  }
+
+  /**
+   * Menu for a single hotel with no account behind it — what the public
+   * reservation agent can quote. Reads only rows already marked available, and
+   * the caller decides which hotel, so there is nothing here to widen.
+   */
+  async searchPublicMenuItems(hotelId: number, keywords?: string) {
+    return this.queryAvailableMenuItems([hotelId], keywords);
+  }
+
+  private async queryAvailableMenuItems(hotelIds: number[] | null, keywordsInput?: string) {
     if (hotelIds !== null && hotelIds.length === 0) {
       return { success: true, message: 'Menu items fetched', data: [] };
     }
@@ -140,8 +153,8 @@ export class RestaurantService {
 
     const escapeLike = (s: string) => s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
     const keywords: string[] = [];
-    if (options.keywords) {
-      const parts = options.keywords.split(',');
+    if (keywordsInput) {
+      const parts = keywordsInput.split(',');
       for (const part of parts) {
         const trimmed = part.trim();
         if (trimmed) {

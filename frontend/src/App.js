@@ -17,6 +17,8 @@ import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
 import GuestConcierge from './components/GuestPortal/GuestConcierge';
 import ChatPage from './components/ChatPage';
+import ReservationPage from './components/Reservation/ReservationPage';
+import AiBookings from './components/Reservation/AiBookings';
 import ManageHotels from './components/ManageHotels';
 import HotelDetails from './components/HotelDetails';
 import ManageBrands from './components/ManageBrands';
@@ -65,6 +67,14 @@ const NO_LOADING_PATHS = {
   '/404': true,
 };
 
+// The public reservation page renders without waiting on /profiles too, but it
+// carries a hotel id, so it matches by prefix rather than exact path.
+const RESERVATION_PATH_PREFIX = '/reservation';
+const NO_LOADING_PATH_PREFIXES = [RESERVATION_PATH_PREFIX];
+
+const isNoLoadingPath = (pathname) =>
+  !!NO_LOADING_PATHS[pathname] || NO_LOADING_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+
 const getContrastText = (hexcolor) => {
   if (!hexcolor || typeof hexcolor !== 'string') return '#000000';
   const hex = hexcolor.replace('#', '');
@@ -84,7 +94,7 @@ const AppContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [account, setAccount] = useState(null);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
-  const [loading, setLoading] = useState(!NO_LOADING_PATHS[window.location.pathname]);
+  const [loading, setLoading] = useState(!isNoLoadingPath(window.location.pathname));
   const [currentNav, setCurrentNav] = useState('404');
   const [conciergeOpen, setConciergeOpen] = useState(false);
   const [conciergeMode, setConciergeMode] = useState('voice');
@@ -187,8 +197,15 @@ const AppContent = () => {
           const accountData = result?.data;
           setAccount(accountData);
 
-          // Guests: redirect to their active booking on login
-          if (accountData?.role === constants.ACCOUNT_ROLES.GUEST && !pathname.startsWith('/bookings/')) {
+          // Guests: redirect to their active booking on login. The public
+          // reservation page is exempt — a past guest who is still signed in
+          // and follows a property's booking link wants to enquire about a new
+          // stay, not be dropped back into an old one.
+          if (
+            accountData?.role === constants.ACCOUNT_ROLES.GUEST &&
+            !pathname.startsWith('/bookings/') &&
+            !pathname.startsWith(RESERVATION_PATH_PREFIX)
+          ) {
             const bookingResult = await request({ endpoint: '/bookings/active', method: 'GET' });
             if (bookingResult?.data?.id) {
               navigate(`/bookings/${bookingResult.data.id}?tab=concierge`);
@@ -321,6 +338,8 @@ const AppContent = () => {
   const showLandingChrome = isLandingPage && !isAuthenticated;
   const isBookingDetailRoute = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isChatRoute = pathname === '/chat';
+  // Public reservation page: no login, so none of the app chrome applies.
+  const isReservationRoute = pathname.startsWith('/reservation');
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
     pathname.startsWith('/requests/') ||
@@ -332,6 +351,9 @@ const AppContent = () => {
 
   const routes = [
     { path: '/invite', component: InviteHandler, isProtected: false },
+    { path: '/reservation/:hotelId', component: ReservationPage, isProtected: false },
+    { path: '/reservation/:hotelId/voice', component: ReservationPage, isProtected: false },
+    { path: '/ai-bookings', component: AiBookings, isProtected: true, guestRestricted: true },
     { path: '/oauth/callback', component: OAuthCallback, isProtected: false },
     { path: '/dashboard', component: Dashboard, isProtected: true },
     { path: '/notifications', component: Notifications, isProtected: true },
@@ -405,7 +427,7 @@ const AppContent = () => {
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {!showLandingChrome && (
+        {!showLandingChrome && !isReservationRoute && (
           <Sidebar
             {...commonProps}
             onAskAI={openGlobalConcierge}
@@ -417,11 +439,11 @@ const AppContent = () => {
             display: isMobile && sidebarOpen ? 'none' : 'flex',
             flexDirection: 'column',
             minHeight: '100dvh',
-            ml: (isMobile || showLandingChrome) ? 0 : '20vw',
+            ml: (isMobile || showLandingChrome || isReservationRoute) ? 0 : '20vw',
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Grid sx={{ paddingTop: (showLandingChrome || isGuestPortal || isFullScreenMobile || isRequestDetail) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
+            <Grid sx={{ paddingTop: (showLandingChrome || isGuestPortal || isFullScreenMobile || isRequestDetail || isReservationRoute) ? 0 : { xs: 'calc(var(--app-header-height) + 2svh)', md: '3svh' } }}>
               <ScrollToTop />
               <Routes>
                 <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Landing openLoginPopup={openLoginPopup} />} />
@@ -485,7 +507,7 @@ const AppContent = () => {
             </Grid>
           </Box>
           <LoginPopup {...commonProps} />
-          {isAuthenticated && !isBookingDetailRoute && !isChatRoute && (
+          {isAuthenticated && !isBookingDetailRoute && !isChatRoute && !isReservationRoute && (
             <>
               <Fab
                 ref={conciergeFabRef}
@@ -554,7 +576,7 @@ const AppContent = () => {
           )}
           {loading && !showLandingChrome && <Loader isMobile={isMobile} />}
           <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme={mode} />
-          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && !isChatRoute && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
+          {!isLandingPage && !isFullScreenMobile && !isRequestDetail && !isChatRoute && !isReservationRoute && <Footer mode={mode} smoothScrollToTop={smoothScrollToTop} />}
         </Box>
         <Analytics />
       </ThemeProvider>
