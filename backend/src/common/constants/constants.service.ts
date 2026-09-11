@@ -305,6 +305,9 @@ export class ConstantsService {
       CALENDLY_DEMO_URL: 'https://calendly.com/roopesh-flashpact/samantha-demo',
       LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
 
+      // Published so the UI reads one value — frontend src/constants.json is generated from here.
+      LIST_PAGE_SIZE: this.private.LIST_PAGE_SIZE_DEFAULT,
+
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,
       HOTEL_MEMBER_STATUSES,
@@ -550,6 +553,11 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
       AGENT_BOOKINGS_ACTIVE_ONLY_DEFAULT: true,
       AGENT_HOTELS_DEFAULT_LIMIT: 20,
       AGENT_HOTELS_MAX_LIMIT: 50,
+
+      // UI list paging — separate from the AGENT_* limits above, which cap agent prompts.
+      LIST_PAGE_DEFAULT: 1,
+      LIST_PAGE_SIZE_DEFAULT: 20,
+      LIST_PAGE_SIZE_MAX: 100,
 
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
