@@ -692,6 +692,11 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
       ACCOUNTS: {
         ERROR_EMAIL_REQUIRED: 'Email is required',
       },
+      REQUESTS: {
+        MSG_UPDATED: 'Request updated',
+        // Status and urgency both decide queue position, so both stay with staff.
+        ERROR_STAFF_ONLY_FIELDS: 'Only hotel staff or owner can change request status or priority',
+      },
       ORGANISATIONS: {
         MSG_FETCHED: 'Organisations fetched',
         MSG_ONE_FETCHED: 'Organisation fetched',
