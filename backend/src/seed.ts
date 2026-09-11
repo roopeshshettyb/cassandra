@@ -74,6 +74,8 @@ async function seed() {
   // uuid uses the `email:` form so seeded users can sign in via the email OTP flow.
   // Gmail plus-addressing: every OTP mail lands in the real flashpactone@gmail.com
   // inbox while each address stays a distinct account.
+  // phone drives the voice phone bridge: callers are matched to accounts by the
+  // trailing digits of their caller ID (see LLM.PHONE.CALLER_MATCH_DIGITS).
   // organisationId is null for the admin by design, not by omission: admins are
   // platform staff who sit outside every organisation. Guests get theirs from a
   // booking, so they carry none either.
@@ -81,17 +83,17 @@ async function seed() {
   // are the guests that own the seeded bookings, chats and requests), so new
   // rows go on the end rather than in the middle.
   const accountData = [
-    { uuid: 'email:flashpactone+admin@gmail.com',   email: 'flashpactone+admin@gmail.com',   name: 'Seed Admin',        role: AccountRole.ADMIN,       oauthMeta: {}, organisationId: null },
-    { uuid: 'email:flashpactone+owner1@gmail.com',  email: 'flashpactone+owner1@gmail.com',  name: 'Hotel Owner One',   role: AccountRole.HOTEL_OWNER, oauthMeta: {}, organisationId: organisations[0].id },
-    { uuid: 'email:flashpactone+staff1@gmail.com',  email: 'flashpactone+staff1@gmail.com',  name: 'Staff One',         role: AccountRole.HOTEL_STAFF, oauthMeta: {}, organisationId: organisations[0].id },
-    { uuid: 'email:flashpactone+guest1@gmail.com',  email: 'flashpactone+guest1@gmail.com',  name: 'Guest One',         role: AccountRole.GUEST,       oauthMeta: {}, organisationId: null },
-    { uuid: 'email:flashpactone+guest2@gmail.com',  email: 'flashpactone+guest2@gmail.com',  name: 'Guest Two',         role: AccountRole.GUEST,       oauthMeta: {}, organisationId: null },
+    { uuid: 'email:flashpactone+admin@gmail.com',   email: 'flashpactone+admin@gmail.com',   name: 'Seed Admin',        role: AccountRole.ADMIN,       phone: '+919800000001', oauthMeta: {}, organisationId: null },
+    { uuid: 'email:flashpactone+owner1@gmail.com',  email: 'flashpactone+owner1@gmail.com',  name: 'Hotel Owner One',   role: AccountRole.HOTEL_OWNER, phone: '+919800000002', oauthMeta: {}, organisationId: organisations[0].id },
+    { uuid: 'email:flashpactone+staff1@gmail.com',  email: 'flashpactone+staff1@gmail.com',  name: 'Staff One',         role: AccountRole.HOTEL_STAFF, phone: '+919800000003', oauthMeta: {}, organisationId: organisations[0].id },
+    { uuid: 'email:flashpactone+guest1@gmail.com',  email: 'flashpactone+guest1@gmail.com',  name: 'Guest One',         role: AccountRole.GUEST,       phone: '+919800000004', oauthMeta: {}, organisationId: null },
+    { uuid: 'email:flashpactone+guest2@gmail.com',  email: 'flashpactone+guest2@gmail.com',  name: 'Guest Two',         role: AccountRole.GUEST,       phone: '+919800000005', oauthMeta: {}, organisationId: null },
     // Extra staff-side users so the Users screen has something to show, spread
     // across organisations so owner scoping is visible rather than theoretical.
-    { uuid: 'email:flashpactone+staff2@gmail.com',  email: 'flashpactone+staff2@gmail.com',  name: 'Staff Two',         role: AccountRole.HOTEL_STAFF, oauthMeta: {}, organisationId: organisations[0].id },
-    { uuid: 'email:flashpactone+owner2@gmail.com',  email: 'flashpactone+owner2@gmail.com',  name: 'Hotel Owner Two',   role: AccountRole.HOTEL_OWNER, oauthMeta: {}, organisationId: organisations[1].id },
-    { uuid: 'email:flashpactone+staff3@gmail.com',  email: 'flashpactone+staff3@gmail.com',  name: 'Staff Three',       role: AccountRole.HOTEL_STAFF, oauthMeta: {}, organisationId: organisations[1].id },
-    { uuid: 'email:flashpactone+owner3@gmail.com',  email: 'flashpactone+owner3@gmail.com',  name: 'Hotel Owner Three', role: AccountRole.HOTEL_OWNER, oauthMeta: {}, organisationId: organisations[2].id },
+    { uuid: 'email:flashpactone+staff2@gmail.com',  email: 'flashpactone+staff2@gmail.com',  name: 'Staff Two',         role: AccountRole.HOTEL_STAFF, phone: '+919800000006', oauthMeta: {}, organisationId: organisations[0].id },
+    { uuid: 'email:flashpactone+owner2@gmail.com',  email: 'flashpactone+owner2@gmail.com',  name: 'Hotel Owner Two',   role: AccountRole.HOTEL_OWNER, phone: '+919800000007', oauthMeta: {}, organisationId: organisations[1].id },
+    { uuid: 'email:flashpactone+staff3@gmail.com',  email: 'flashpactone+staff3@gmail.com',  name: 'Staff Three',       role: AccountRole.HOTEL_STAFF, phone: '+919800000008', oauthMeta: {}, organisationId: organisations[1].id },
+    { uuid: 'email:flashpactone+owner3@gmail.com',  email: 'flashpactone+owner3@gmail.com',  name: 'Hotel Owner Three', role: AccountRole.HOTEL_OWNER, phone: '+919800000009', oauthMeta: {}, organisationId: organisations[2].id },
   ];
   const accounts: Account[] = [];
   for (const row of accountData) {
@@ -106,6 +108,7 @@ async function seed() {
     acc.name = row.name;
     acc.role = row.role;
     acc.organisationId = row.organisationId;
+    acc.phone = row.phone;
     await acc.save();
     accounts.push(acc);
   }
