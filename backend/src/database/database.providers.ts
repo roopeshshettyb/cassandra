@@ -69,6 +69,11 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
         'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
+        // Reservation chats are anonymous (no account) and hotel-scoped rather
+        // than booking-scoped, so account_id has to give up NOT NULL.
+        'ALTER TABLE chats ALTER COLUMN account_id DROP NOT NULL',
+        'ALTER TABLE chats ADD COLUMN IF NOT EXISTS hotel_id INTEGER REFERENCES hotels(id)',
+        "ALTER TYPE enum_chats_chat_type ADD VALUE IF NOT EXISTS 'reservation'",
         // Skipping this locks everyone out — the model declares the column, so
         // every account query selects it. Check information_schema, not the log
         // above: ownership is tested before IF NOT EXISTS, so it errors regardless.

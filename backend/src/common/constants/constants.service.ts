@@ -310,6 +310,62 @@ export class ConstantsService {
       HOTEL_MEMBER_STATUSES,
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
+      ERROR_NO_ACCESS_TO_HOTEL_MENU: 'No access to this hotel menu',
+      // Reservation agent — public, unauthenticated
+      ERROR_RESERVATION_HOTEL_REQUIRED: 'A hotel is required to start a reservation',
+      ERROR_RESERVATION_HOTEL_NOT_FOUND: 'We could not find that property',
+      ERROR_RESERVATION_MESSAGE_REQUIRED: 'Type a message to continue',
+      ERROR_RESERVATION_RATE_LIMITED: 'You are sending messages too quickly. Please wait a moment and try again.',
+      ERROR_RESERVATION_MESSAGE_TOO_LONG: 'That message is too long. Please shorten it and try again.',
+      ERROR_RESERVATION_SESSION_ENDED: 'This reservation chat has reached its limit. Please refresh to start a new one, or call the property directly.',
+      ERROR_RESERVATION_SETUP_FAILED: 'We could not start the reservation chat. Please try again.',
+      ERROR_RESERVATION_MESSAGE_FAILED: 'We could not send that message. Please try again.',
+      RESERVATION_TITLE: 'Reserve your stay',
+      RESERVATION_SUBTITLE: 'Tell us your dates and we will take it from there',
+      RESERVATION_INPUT_PLACEHOLDER: 'Ask about rooms, rates or availability…',
+      RESERVATION_FATAL_HELP: 'This reservation link may be out of date. Please check the link, or contact the property directly to book.',
+      // Public voice reservation
+      RESERVATION_VOICE_TITLE: 'Book by voice',
+      RESERVATION_VOICE_SUBTITLE: 'Tap the mic and tell us when you would like to stay',
+      RESERVATION_VOICE_TAP_TO_SPEAK: 'Tap to speak',
+      RESERVATION_VOICE_LISTENING: 'Listening…',
+      RESERVATION_VOICE_THINKING: 'Thinking…',
+      RESERVATION_VOICE_SPEAKING: 'Speaking…',
+      RESERVATION_VOICE_CONNECTING: 'Connecting…',
+      RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
+      RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
+      RESERVATION_VOICE_MIC_DENIED: 'We could not access your microphone. Check your browser permissions and try again.',
+      RESERVATION_VOICE_NO_SOUND: 'We are not hearing anything. Check that the right microphone is selected and try again.',
+      ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
+      ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
+      ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
+      ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
+      ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
+      // Per-hotel key the browser keeps its signed reservation session under, so
+      // a refresh resumes the same conversation.
+      RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
+      RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
+      RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
+      // Staff-facing view of what the public reservation agent gathered.
+      AI_BOOKINGS_TITLE: 'AI Bookings',
+      AI_BOOKINGS_PROPERTY_LABEL: 'Property',
+      AI_BOOKINGS_SHARE_TITLE: 'Share this link to take reservations',
+      AI_BOOKINGS_COPY_LINK: 'Copy link',
+      AI_BOOKINGS_LINK_COPIED: 'Reservation link copied',
+      AI_BOOKINGS_FILTER_BOOKED: 'Booking enquiries',
+      AI_BOOKINGS_FILTER_ALL: 'All conversations',
+      AI_BOOKINGS_NO_DETAILS: 'Details not captured yet',
+      AI_BOOKINGS_NO_MESSAGES: 'No messages in this conversation yet.',
+      AI_BOOKINGS_STATUS_CAPTURED: 'ENQUIRY',
+      AI_BOOKINGS_STATUS_BROWSING: 'BROWSING',
+      RESERVATION_SUGGESTIONS: [
+        'I want to book a room',
+        'What are your rates?',
+        'Do you have availability this weekend?',
+        'What time is check-in?',
+        'Is breakfast included?',
+        'Do you have family rooms?',
+      ],
       TTS_PLAYBACK_RATE: 1.0,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
@@ -551,6 +607,77 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
       AGENT_HOTELS_DEFAULT_LIMIT: 20,
       AGENT_HOTELS_MAX_LIMIT: 50,
 
+      /**
+       * Public voice reservation. A voice turn costs STT seconds + LLM tokens +
+       * TTS characters, so every budget here is tighter than the text agent's —
+       * an unauthenticated microphone is the most expensive thing we expose.
+       */
+      RESERVATION_VOICE: {
+        /**
+         * Provider and turn-taking for the public call only. Empty means "use
+         * whatever the rest of the app uses", so the in-stay concierge is never
+         * moved by tuning this page.
+         */
+        STT_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_STT_PROVIDER', ''),
+        TTS_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_TTS_PROVIDER', ''),
+        /** Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken". */
+        UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1200', 10),
+        /**
+         * Thinking noises played the instant a caller stops talking, covering the
+         * second or two the model and voice need. Real desk staff fill that gap;
+         * silence is what makes a line feel dead. Deliberately short and
+         * non-committal so they never contradict the answer that follows.
+         * Empty the list to turn them off.
+         */
+        THINKING_FILLERS: [
+          '[thoughtful] Mmm…',
+          '[thoughtful] Right, let me see…',
+          '[inhales] Okay…',
+          '[thoughtful] Mm-hmm…',
+          '[exhales] Let me check…',
+          '[thoughtful] Sure, one moment…',
+        ],
+        /** Synthesised once per phrase per language, then replayed from memory. */
+        FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
+        FILLER_CACHE_MINUTES: 720,
+        /** Extra wait beyond UTTERANCE_END_MS before we end a turn ourselves. */
+        TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
+        MAX_TURNS_PER_SESSION: 15,
+        MAX_TURNS_PER_IP_PER_WINDOW: 25,
+        IP_WINDOW_MINUTES: 60,
+        IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
+        /**
+         * Stops one visitor holding many microphones open, without punishing
+         * shared addresses: hotel wifi and mobile carriers NAT plenty of real
+         * guests behind a single IP, so this cannot be as tight as it looks.
+         */
+        MAX_CONCURRENT_SESSIONS_PER_IP: 8,
+        IP_SESSION_CACHE_KEY_PREFIX: 'reservation_voice_ip_sessions_',
+        /** Wall-clock cap on a single call, whether or not anyone is speaking. */
+        MAX_SESSION_SECONDS: 600,
+        /** Caps STT spend: audio actually streamed, not time connected. */
+        MAX_AUDIO_SECONDS_PER_SESSION: 180,
+        /** 24kHz mono 16-bit PCM — what the browser sends. */
+        AUDIO_BYTES_PER_SECOND: 48000,
+      },
+
+      // Reservation agent — the one public, unauthenticated LLM surface, so its
+      // limits are the only thing standing between a stranger and our token spend.
+      RESERVATION: {
+        SESSION_TOKEN_TTL_HOURS: 24,
+        // Per-connection message budget, and a per-IP budget across connections
+        // so reconnecting does not reset the allowance.
+        MAX_MESSAGES_PER_SESSION: 40,
+        MAX_MESSAGES_PER_IP_PER_WINDOW: 60,
+        IP_WINDOW_MINUTES: 60,
+        IP_RATE_LIMIT_CACHE_KEY_PREFIX: 'reservation_ip_messages_',
+        MAX_MESSAGE_LENGTH: 1000,
+        HISTORY_MESSAGE_LIMIT: 50,
+        STAFF_CHAT_LIST_LIMIT: 50,
+        SESSION_TOKEN_SEPARATOR: '.',
+        SESSION_TOKEN_HASH_ALGORITHM: 'sha256',
+      },
+
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
       GOOGLE_CALLBACK_URL: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
@@ -668,6 +795,37 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             SPEAKER: this.configService.get<string>('SARVAM_TTS_SPEAKER', 'shruti'),
             PACE: parseFloat(this.configService.get('SARVAM_TTS_PACE') || '1'),
             SPEECH_SAMPLE_RATE: parseInt(this.configService.get('SARVAM_TTS_SPEECH_SAMPLE_RATE') || '24000', 10),
+          },
+          ELEVENLABS: {
+            API_KEY: this.configService.get<string>('ELEVENLABS_API_KEY'),
+            BASE_URL: this.configService.get<string>('ELEVENLABS_BASE_URL', 'https://api.elevenlabs.io'),
+            /** eleven_v3_conversational is the expressive realtime model (~280ms); eleven_flash_v2_5 is faster (~75ms) but flatter. */
+            MODEL: this.configService.get<string>('ELEVENLABS_MODEL', 'eleven_v3_conversational'),
+            /** Rachel, ElevenLabs' stock voice — set ELEVENLABS_VOICE_ID to the property's own. */
+            VOICE_ID: this.configService.get<string>('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM'),
+            /** 24kHz mono 16-bit LE — what the browser player expects (see frontend utils/audio.ts). */
+            OUTPUT_FORMAT: this.configService.get<string>('ELEVENLABS_OUTPUT_FORMAT', 'pcm_24000'),
+            /**
+             * Only Flash/Turbo v2.5 accept `language_code`; eleven_v3 errors when
+             * it is sent, so the parameter is gated on the model in use.
+             */
+            LANGUAGE_ENFORCING_MODELS: ['eleven_flash_v2_5', 'eleven_turbo_v2_5'],
+            /**
+             * v3 audio tag prepended to every utterance to set Samantha's register,
+             * e.g. '[warm]' or '[calm and reassuring]'. Empty leaves delivery to the
+             * model. Ignored by non-v3 models, which read tags aloud — keep it empty
+             * unless MODEL is a v3 one.
+             */
+            AUDIO_TAG: this.configService.get<string>('ELEVENLABS_AUDIO_TAG', ''),
+            VOICE_SETTINGS: {
+              /** Lower is more emotionally variable; higher is steadier and flatter. */
+              STABILITY: parseFloat(this.configService.get('ELEVENLABS_STABILITY') || '0.4'),
+              SIMILARITY_BOOST: parseFloat(this.configService.get('ELEVENLABS_SIMILARITY_BOOST') || '0.75'),
+              /** Style exaggeration. Costs latency above 0, so it stays modest. */
+              STYLE: parseFloat(this.configService.get('ELEVENLABS_STYLE') || '0.35'),
+              USE_SPEAKER_BOOST: this.configService.get<string>('ELEVENLABS_USE_SPEAKER_BOOST', 'true') === 'true',
+              SPEED: parseFloat(this.configService.get('ELEVENLABS_SPEED') || '1'),
+            },
           },
           LIGHTNING: {
             API_KEY: this.configService.get<string>('LIGHTNING_TTS_API_KEY'),

@@ -46,6 +46,35 @@ export class ChatService {
     return this.chatRepository.create({ accountId: account.id, bookingId, chatType: ChatType.BOOKING });
   }
 
+  /** Anonymous, hotel-scoped chat backing the public reservation agent. */
+  async createReservationChat(hotelId: number): Promise<Chat> {
+    return this.chatRepository.create({
+      accountId: null,
+      bookingId: null,
+      hotelId,
+      chatType: ChatType.RESERVATION,
+    });
+  }
+
+  /**
+   * Resume an anonymous reservation chat. Scoped by hotel and type so a guessed
+   * or replayed id can never reach a booking or general chat.
+   */
+  async findReservationChat(chatId: number, hotelId: number): Promise<Chat | null> {
+    return this.chatRepository.findOne({
+      where: { id: chatId, hotelId, chatType: ChatType.RESERVATION },
+    });
+  }
+
+  /** Reservation enquiries for a hotel, newest first — the staff-side view of them. */
+  async listReservationChatsForHotel(hotelId: number, limit: number): Promise<Chat[]> {
+    return this.chatRepository.findAll({
+      where: { hotelId, chatType: ChatType.RESERVATION },
+      order: [['createdAt', 'DESC']],
+      limit,
+    });
+  }
+
   async createForAccount(account: Account): Promise<Chat> {
     return this.chatRepository.create({
       accountId: account.id,

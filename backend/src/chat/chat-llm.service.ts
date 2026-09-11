@@ -7,7 +7,7 @@ import { ConstantsService } from '../common/constants/constants.service';
 import { CostsService } from '../costs/costs.service';
 import { CostType } from '../costs/costs.model';
 import { ChatSession } from './gateway/chat-session.interface';
-import { buildChatPrompt } from './chat-prompt.builder';
+import { buildChatPrompt, buildReservationPrompt } from './chat-prompt.builder';
 import { LlmEvalService } from '../llm-eval/llm-eval.service';
 
 export interface StreamUserMessageOptions {
@@ -28,6 +28,14 @@ export class ChatLlmService {
     private readonly costsService: CostsService,
     private readonly llmEvalService: LlmEvalService,
   ) {}
+
+  /** Booking chats carry the hotel on the booking; reservation chats carry it directly. */
+  private resolveHotelId(session: ChatSession): number | null {
+    if (session.booking && session.booking.hotelId) {
+      return session.booking.hotelId;
+    }
+    return session.hotelId ?? null;
+  }
 
   private syncSessionBookingFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
     for (let i = 0; i < toolCalls.length; i += 1) {
@@ -65,20 +73,26 @@ export class ChatLlmService {
     const hotel: any = session.hotel;
     const llmInstructions = hotel && hotel.llmInstructions ? hotel.llmInstructions : null;
     const isVoice = options.mode === 'voice';
+    // No account means the public reservation agent: a different prompt, a
+    // different tool set, and a hotel it may never step outside of.
+    const isReservation = !session.account;
 
-    const { messages } = await buildChatPrompt(
-      this.chatContextService,
-      chatId,
-      userMessage,
-      appName,
-      session.account?.role,
-      llmInstructions,
-      session.languageCode ?? null,
-      isVoice,
-    );
+    const { messages } = isReservation
+      ? await buildReservationPrompt(this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice)
+      : await buildChatPrompt(
+          this.chatContextService,
+          chatId,
+          userMessage,
+          appName,
+          session.account?.role,
+          llmInstructions,
+          session.languageCode ?? null,
+          isVoice,
+        );
 
     const toolContext = {
       account: session.account,
+      hotelId: session.hotelId ?? null,
       bookingId: session.bookingId,
       chatId: session.chatId,
       hotel: session.hotel,
@@ -127,9 +141,9 @@ export class ChatLlmService {
         totalTokens: usage && usage.totalTokens ? usage.totalTokens : 0,
       },
       bookingId: session.bookingId,
-      hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
-      accountId: session.account.id,
-      role: session.account.role,
+      hotelId: this.resolveHotelId(session),
+      accountId: session.account ? session.account.id : null,
+      role: session.account ? session.account.role : null,
       chatId: session.chatId,
       messageId: assistantMessage.id,
     });
@@ -140,9 +154,9 @@ export class ChatLlmService {
       userMessage,
       assistantMessage: fullContent,
       toolCalls,
-      accountId: session.account.id,
-      role: session.account.role,
-      hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
+      accountId: session.account ? session.account.id : null,
+      role: session.account ? session.account.role : null,
+      hotelId: this.resolveHotelId(session),
       bookingId: session.bookingId,
     });
 

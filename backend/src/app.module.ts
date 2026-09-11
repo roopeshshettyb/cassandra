@@ -22,6 +22,7 @@ import { MessagesModule } from './messages/messages.module';
 import { ChatContextModule } from './chat-context/chat-context.module';
 import { LangGraphModule } from './langgraph/langgraph.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
+import { ReservationModule } from './reservation/reservation.module';
 import { OrganisationsModule } from './organisations/organisations.module';
 import { CostsModule } from './costs/costs.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -59,6 +60,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     ChatContextModule,
     LangGraphModule,
     RestaurantModule,
+    ReservationModule,
     CostsModule,
     OrganisationsModule,
     DashboardModule,

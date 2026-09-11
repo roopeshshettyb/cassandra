@@ -6,6 +6,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { createAgentTools } from './langgraph.tools';
+import { createReservationTools } from './reservation.tools';
 import { AgentToolContext } from './langgraph-tools.context';
 import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
@@ -236,7 +237,11 @@ export class LangGraphService {
     ctx: AgentToolContext,
   ): AsyncGenerator<string | { toolCalls: ToolCallRecord[]; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }, void, unknown> {
     const messages = this.parseMessages(input.messages);
-    const tools = createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService);
+    // No account means the public reservation agent, which gets its own
+    // read-only tool set rather than a role-filtered slice of the staff one.
+    const tools = ctx.account
+      ? createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService)
+      : createReservationTools(ctx, this.restaurantService, this.constantsService);
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 

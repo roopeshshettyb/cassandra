@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
-import type { ISttSession, SttSessionFactory } from './stt-session.interface';
+import type { ISttSession, SttSessionFactory, SttSessionOptions } from './stt-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
 import { LoggerService } from '../common/logger.service';
 
@@ -11,7 +11,7 @@ export class DeepgramSttService implements SttSessionFactory {
     private readonly logger: LoggerService,
   ) {}
 
-  createSession(): ISttSession {
+  createSession(options?: SttSessionOptions): ISttSession {
     const logger = this.logger;
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const commonConfig = sttConfig.COMMON;
@@ -20,7 +20,7 @@ export class DeepgramSttService implements SttSessionFactory {
     if (!apiKey) {
       throw new Error('DEEPGRAM_API_KEY is required for STT provider deepgram');
     }
-    const utteranceEndMs = deepgramConfig.UTTERANCE_END_MS;
+    const utteranceEndMs = options?.utteranceEndMs ?? deepgramConfig.UTTERANCE_END_MS;
     const client = createClient(apiKey);
     const live = client.listen.live({
       model: deepgramConfig.MODEL,

@@ -15,6 +15,7 @@ import { Message, MessageRole } from './messages/message.model';
 import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
 import { HotelIntegration, IntegrationStatus } from './integrations/hotel-integrations.model';
 import { Organisation } from './organisations/organisations.model';
+import { MenuItem, MenuItemCategory } from './restaurant/restaurant.model';
 import { createHash } from 'crypto';
 
 const nodeEnv = process.env.NODE_ENV;
@@ -39,7 +40,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration, Organisation],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, MenuItem, LlmEval, HotelIntegration, Organisation],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -365,6 +366,36 @@ async function seed() {
     await restoreIfSoftDeleted(request);
   }
 
+  // ── Menu Items ───────────────────────────────────────────────────────────────
+  // Serving windows are deliberately spread across the day: the menu search
+  // returns only what is servable at the moment it runs, so an all-day set
+  // would hide that filter entirely.
+  const menuItems: any[] = [
+    { hotelId: hotels[0].id, name: 'Masala Dosa', description: 'Crisp rice crepe with spiced potato and coconut chutney', price: 450, category: MenuItemCategory.BREAKFAST, availableStartTime: '07:00', availableEndTime: '10:30', dietaryTags: ['vegetarian', 'vegan'], sortOrder: 1 },
+    { hotelId: hotels[0].id, name: 'Akuri on Toast', description: 'Parsi spiced scrambled eggs on brioche', price: 520, category: MenuItemCategory.BREAKFAST, availableStartTime: '07:00', availableEndTime: '10:30', dietaryTags: ['egg'], sortOrder: 2 },
+    { hotelId: hotels[0].id, name: 'Dal Bukhara', description: 'Black lentils simmered overnight with tomato and butter', price: 950, category: MenuItemCategory.MAIN_COURSE, availableStartTime: '11:00', availableEndTime: '23:00', dietaryTags: ['vegetarian'], sortOrder: 3 },
+    { hotelId: hotels[0].id, name: 'Tandoori Chicken', description: 'Half chicken marinated in yoghurt and spices, clay oven', price: 1150, category: MenuItemCategory.MAIN_COURSE, availableStartTime: '11:00', availableEndTime: '23:00', dietaryTags: [], sortOrder: 4 },
+    { hotelId: hotels[0].id, name: 'Paneer Tikka', description: 'Char-grilled cottage cheese with peppers', price: 780, category: MenuItemCategory.APPETIZER, availableStartTime: '11:00', availableEndTime: '23:00', dietaryTags: ['vegetarian', 'gluten-free'], sortOrder: 5 },
+    { hotelId: hotels[0].id, name: 'Gulab Jamun', description: 'Warm milk dumplings in cardamom syrup', price: 320, category: MenuItemCategory.DESSERT, availableStartTime: '12:00', availableEndTime: '23:00', dietaryTags: ['vegetarian'], sortOrder: 6 },
+    { hotelId: hotels[0].id, name: 'Masala Chai', description: 'Assam tea with ginger and cardamom', price: 180, category: MenuItemCategory.BEVERAGE, availableStartTime: '06:00', availableEndTime: '23:30', dietaryTags: ['vegetarian'], sortOrder: 7 },
+    { hotelId: hotels[0].id, name: 'Truffle Fries', description: 'Hand-cut fries, truffle oil, parmesan', price: 420, category: MenuItemCategory.SIDE, availableStartTime: '11:00', availableEndTime: '23:00', dietaryTags: ['vegetarian'], sortOrder: 8 },
+    { hotelId: hotels[0].id, name: 'Seasonal Tasting Menu', description: 'Chef selection, currently off the menu', price: null, category: MenuItemCategory.DINNER, availableStartTime: '19:00', availableEndTime: '22:30', dietaryTags: [], sortOrder: 9, isAvailable: false },
+    { hotelId: hotels[1].id, name: 'Bombay Sandwich', description: 'Grilled masala sandwich with mint chutney', price: 550, category: MenuItemCategory.SNACKS, availableStartTime: '11:00', availableEndTime: '19:00', dietaryTags: ['vegetarian'], sortOrder: 1 },
+    { hotelId: hotels[1].id, name: 'Goan Fish Curry', description: 'Kingfish in coconut and kokum gravy with rice', price: 1290, category: MenuItemCategory.MAIN_COURSE, availableStartTime: '12:00', availableEndTime: '23:00', dietaryTags: ['gluten-free'], sortOrder: 2 },
+    { hotelId: hotels[1].id, name: 'Bhelpuri', description: 'Puffed rice, tamarind, onion and coriander', price: 340, category: MenuItemCategory.APPETIZER, availableStartTime: '11:00', availableEndTime: '20:00', dietaryTags: ['vegetarian', 'vegan'], sortOrder: 3 },
+    { hotelId: hotels[1].id, name: 'Filter Coffee', description: 'South Indian coffee, chicory blend', price: 160, category: MenuItemCategory.BEVERAGE, availableStartTime: '06:00', availableEndTime: '22:00', dietaryTags: ['vegetarian'], sortOrder: 4 },
+    { hotelId: hotels[2].id, name: 'Dum Pukht Biryani', description: 'Sealed-pot lamb biryani with saffron', price: 1450, category: MenuItemCategory.MAIN_COURSE, availableStartTime: '12:00', availableEndTime: '23:00', dietaryTags: [], sortOrder: 1 },
+    { hotelId: hotels[2].id, name: 'Kakori Kebab', description: 'Smoked minced lamb skewers', price: 990, category: MenuItemCategory.APPETIZER, availableStartTime: '12:00', availableEndTime: '23:00', dietaryTags: [], sortOrder: 2 },
+    { hotelId: hotels[2].id, name: 'Phirni', description: 'Slow-cooked rice pudding with rose', price: 380, category: MenuItemCategory.DESSERT, availableStartTime: '12:00', availableEndTime: '23:00', dietaryTags: ['vegetarian'], sortOrder: 3 },
+  ];
+
+  for (const row of menuItems) {
+    const menuKey: any = { hotelId: row.hotelId, name: row.name };
+    const menuDefaults: any = { ...row, isAvailable: row.isAvailable ?? true };
+    const [menuItem] = await MenuItem.findOrCreate({ where: menuKey, defaults: menuDefaults, paranoid: false });
+    await restoreIfSoftDeleted(menuItem);
+  }
+
   // ── PMS Integration ──────────────────────────────────────────────────────────
   // Fixed, documented dev/test token (never a real generated secret) so anyone
   // running seed can immediately curl the webhook routes for hotels[0]. Hashed
@@ -432,10 +463,58 @@ async function seed() {
         },
       ],
     },
+    // Public reservation agent: anonymous (no account), scoped to a hotel
+    // rather than a booking. The enquiry it gathered is the
+    // record_reservation_enquiry tool call — there is no reservations table.
+    {
+      accountId: null, bookingId: null, hotelId: hotels[0].id, chatType: ChatType.RESERVATION,
+      languageCode: 'en', chatName: 'Weekend Stay Enquiry',
+      messages: [
+        { role: MessageRole.USER, content: 'Hi, do you have a room for two nights this weekend?' },
+        {
+          role: MessageRole.ASSISTANT,
+          content: "We'd love to host you. Could you confirm the dates you have in mind, and how many guests will be staying?",
+          evals: [{ dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Asked for the dates and party size before recording anything.' }],
+        },
+        { role: MessageRole.USER, content: 'Friday to Sunday, two adults. I am Priya Nair, priya.nair@example.com.' },
+        {
+          role: MessageRole.ASSISTANT,
+          content: "Thank you, Priya — I've passed your enquiry for two adults, checking in Friday and out on Sunday, to our reservations team. They'll confirm availability and rates with you by email shortly.",
+          toolCalls: [{
+            toolName: 'record_reservation_enquiry',
+            toolCallId: 'seed-tc-3',
+            input: { guestName: 'Priya Nair', guestEmail: 'priya.nair@example.com', checkInDate: '2026-09-11', checkOutDate: '2026-09-13', partySize: 2 },
+            output: { success: true, message: 'Reservation enquiry recorded' },
+          }],
+          evals: [
+            { dimension: EvalDimension.TOOL_CALL, passed: true, reasoning: 'Recorded the enquiry only once every required detail had been confirmed.' },
+            { dimension: EvalDimension.RESPONSE_QUALITY, passed: true, reasoning: 'Set the right expectation: the hotel team confirms, not the agent.' },
+          ],
+        },
+      ],
+    },
+    {
+      accountId: null, bookingId: null, hotelId: hotels[1].id, chatType: ChatType.RESERVATION,
+      languageCode: 'en', chatName: 'Family Room Enquiry',
+      messages: [
+        { role: MessageRole.USER, content: 'What time is check-in, and is breakfast included for kids?' },
+        {
+          role: MessageRole.ASSISTANT,
+          content: 'Check-in opens at 2:00 PM and breakfast runs 7:00–10:30 AM. Were you looking at dates for a family stay?',
+          toolCalls: [{ toolName: 'get_hotel_details', toolCallId: 'seed-tc-4', input: {}, output: { success: true } }],
+          evals: [{ dimension: EvalDimension.TOOL_CALL, passed: true, reasoning: 'Read the property details rather than guessing check-in and breakfast hours.' }],
+        },
+      ],
+    },
   ];
 
   for (const row of chatData) {
-    const chatKey: any = { accountId: row.accountId, bookingId: row.bookingId };
+    const chatKey: any = { accountId: row.accountId, bookingId: row.bookingId, hotelId: row.hotelId ?? null };
+    // Reservation chats share a null account and booking, so their seeded name
+    // is what keeps findOrCreate from folding them into one row.
+    if (row.chatName) {
+      chatKey.chatName = row.chatName;
+    }
     const chatDefaults: any = { ...chatKey, chatType: row.chatType, languageCode: row.languageCode };
     const [chat] = await Chat.findOrCreate({ where: chatKey, defaults: chatDefaults, paranoid: false });
     await restoreIfSoftDeleted(chat);
