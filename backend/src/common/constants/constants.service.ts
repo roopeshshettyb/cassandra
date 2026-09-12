@@ -310,6 +310,9 @@ export class ConstantsService {
       /** PWA install icons. Relative names resolve inside frontend/public/, absolute URLs are used as-is. */
       PWA_ICON_192: this.configService.get<string>('PWA_ICON_192', 'logo192.png'),
       PWA_ICON_512: this.configService.get<string>('PWA_ICON_512', 'logo.png'),
+      /** PWA install-prompt screenshots. Same resolution rule as the icons above. */
+      PWA_SCREENSHOT_NARROW: this.configService.get<string>('PWA_SCREENSHOT_NARROW', 'https://placehold.jp/390x844.png'),
+      PWA_SCREENSHOT_WIDE: this.configService.get<string>('PWA_SCREENSHOT_WIDE', 'https://placehold.jp/1920x1080.png'),
       /** Landing page hero video and its poster frame. Bare filenames resolve inside frontend/public/, absolute URLs are used as-is. */
       LANDING_HERO_VIDEO: this.configService.get<string>('LANDING_HERO_VIDEO', 'landingpage-hero.mp4'),
       LANDING_HERO_POSTER: this.configService.get<string>('LANDING_HERO_POSTER', 'landingpage-hero-poster.png'),

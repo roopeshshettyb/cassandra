@@ -47,8 +47,12 @@ export const STATUS_SUCCESS = '#059669';
 export const STATUS_SUCCESS_BG = 'rgba(5,150,105,0.1)';
 export const STATUS_INFO = '#2563EB';
 export const STATUS_INFO_BG = 'rgba(37,99,235,0.1)';
-export const STATUS_WARNING = 'var(--app-secondary)';
-export const STATUS_WARNING_BG = 'color-mix(in srgb, var(--app-primary) 12%, transparent)';
+// Semantic, not brand-derived — success/info/error are fixed too. Tying warning to the
+// palette collides on a tenant whose brand is green or red: a "Pending" badge would render
+// the same colour as "Completed". This amber is the default brand's own secondary, so the
+// unconfigured deployment looks unchanged.
+export const STATUS_WARNING = '#C5A022';
+export const STATUS_WARNING_BG = 'rgba(197,160,34,0.1)';
 export const STATUS_ERROR = '#DC2626';
 export const STATUS_ERROR_BG = 'rgba(220,38,38,0.1)';
 export const BACKDROP_BG = 'rgba(0,0,0,0.5)';

@@ -1,7 +1,7 @@
 {
   "watch": [".env", ".env*", "*.env"],
   "ext": "env,development,local,production,test,staging",
-  "exec": "npm run fetch-constants && react-scripts start",
+  "exec": "npm run fetch-constants && npm run inject-constants && react-scripts start",
   "env": {
     "PORT": "7678"
   },

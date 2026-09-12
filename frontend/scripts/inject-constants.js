@@ -1,12 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-// Injects branding into the BUILD OUTPUT, not into public/. public/index.html and
-// public/manifest.json are committed sources and stay untouched, so `npm start` and
-// `npm run build` never dirty the working tree with local branding.
-// Usage: node scripts/inject-constants.js [targetDir]   (default: build)
+// Injects branding into public/ by default — what the dev server serves, so `npm start`
+// shows the tenant brand. `npm run build` passes `build` explicitly to rewrite the
+// compiled output instead. Running it against public/ rewrites tracked files.
+// Usage: node scripts/inject-constants.js [targetDir]   (default: public)
 // path.resolve so an absolute targetDir works too — path.join would glue it onto the app dir.
-const targetDir = path.resolve(path.join(__dirname, '..'), process.argv[2] || 'build');
+const targetDir = path.resolve(path.join(__dirname, '..'), process.argv[2] || 'public');
 
 const constantsPath = path.join(__dirname, '..', 'src', 'constants.json');
 const indexPath = path.join(targetDir, 'index.html');
@@ -17,7 +17,7 @@ const serviceWorkerPath = path.join(targetDir, 'service-worker.js');
 
 for (const required of [indexPath, manifestPath]) {
   if (!fs.existsSync(required)) {
-    console.error(`✗ ${required} not found. Run this after react-scripts build.`);
+    console.error(`✗ ${required} not found. For the build output, run this after react-scripts build.`);
     process.exit(1);
   }
 }
@@ -75,6 +75,28 @@ if (missingConstants.length) {
   process.exit(1);
 }
 
+// Landing.css derives its body text, secondary text, borders and shadows from NAVY_COLOR,
+// so a light value there silently drops secondary text below WCAG AA rather than failing.
+// 0.15 admits every plausible dark surface colour (#1B2340 is 0.018, #00695C is 0.109) and
+// rejects mid-greys, where the derived text stops being readable.
+const NAVY_MAX_LUMINANCE = 0.15;
+const relativeLuminance = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return null;
+  const channel = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [0, 2, 4].map((i) => channel(parseInt(m[1].slice(i, i + 2), 16) / 255));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const navyColor = constants.THEME_DEFAULTS.NAVY_COLOR;
+const navyLuminance = relativeLuminance(navyColor);
+if (navyLuminance !== null && navyLuminance > NAVY_MAX_LUMINANCE) {
+  console.error(
+    `✗ THEME_NAVY_COLOR (${navyColor}) is too light (luminance ${navyLuminance.toFixed(3)} > ${NAVY_MAX_LUMINANCE}). ` +
+    'It is the landing page\'s dark surface and its text colours derive from it. Use a darker colour.',
+  );
+  process.exit(1);
+}
+
 // The build minifies `" />` down to `"/>`, so tag-closing whitespace has to be optional here.
 const selfClosing = (attrs) => new RegExp(`<${attrs}\\s*/?>`);
 
@@ -82,9 +104,9 @@ let updatedHtml = indexHtml
   .replace(/<title>.*?<\/title>/, `<title>${APP_NAME} - ${TAGLINE}</title>`)
   // Both icons take LOGO, not HERO: they render as small squares, and HERO is a wide social
   // card that would be squashed. HERO stays on og:/twitter: image only.
-  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${LOGO}"/>`)
-  .replace(selfClosing('link rel="apple-touch-icon" href="[^"]*"'), `<link rel="apple-touch-icon" href="${LOGO}"/>`)
-  .replace(selfClosing('meta name="theme-color" content="[^"]*"'), `<meta name="theme-color" content="${THEME_COLOR}"/>`)
+  .replace(selfClosing('link rel="icon" href="[^"]*"'), `<link rel="icon" href="${LOGO}" />`)
+  .replace(selfClosing('link rel="apple-touch-icon" href="[^"]*"'), `<link rel="apple-touch-icon" href="${LOGO}" />`)
+  .replace(selfClosing('meta name="theme-color" content="[^"]*"'), `<meta name="theme-color" content="${THEME_COLOR}" />`)
   .replace(/property="og:title" content="[^"]*"/, `property="og:title" content="${APP_NAME} - ${TAGLINE}"`)
   .replace(/property="og:description" content="[^"]*"/, `property="og:description" content="${DESCRIPTION}"`)
   .replace(/property="og:url" content="[^"]*"/, `property="og:url" content="${PROD_FRONTEND_URL}"`)
@@ -104,9 +126,9 @@ let updatedHtml = indexHtml
 // failed apple-touch-icon even though both now inject the same LOGO value.
 const expected = [
   [`<title>${APP_NAME} - ${TAGLINE}</title>`, 'title'],
-  [`<link rel="icon" href="${LOGO}"/>`, 'favicon'],
-  [`<link rel="apple-touch-icon" href="${LOGO}"/>`, 'apple-touch-icon'],
-  [`<meta name="theme-color" content="${THEME_COLOR}"/>`, 'theme-color'],
+  [`<link rel="icon" href="${LOGO}" />`, 'favicon'],
+  [`<link rel="apple-touch-icon" href="${LOGO}" />`, 'apple-touch-icon'],
+  [`<meta name="theme-color" content="${THEME_COLOR}" />`, 'theme-color'],
   [`property="og:url" content="${PROD_FRONTEND_URL}"`, 'og:url'],
   [`property="og:image" content="${HERO}"`, 'og:image'],
 ];
@@ -125,6 +147,16 @@ manifest.name = `${APP_NAME} - ${TAGLINE}`;
 manifest.description = DESCRIPTION;
 if (constants.PWA_ID) manifest.id = constants.PWA_ID;
 if (THEME_COLOR) manifest.theme_color = THEME_COLOR;
+// Maps a file name or URL to its servable image type. Shared by icons and screenshots.
+const mimeFor = (src) => {
+  const ext = src.split('?')[0].split('.').pop().toLowerCase();
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'svg') return 'image/svg+xml';
+  if (ext === 'webp') return 'image/webp';
+  return null;
+};
+
 // Install icons: sizes/purpose stay as declared, only the source swaps.
 const iconSources = { '192x192': constants.PWA_ICON_192, '512x512': constants.PWA_ICON_512 };
 if (Array.isArray(manifest.icons)) {
@@ -132,17 +164,23 @@ if (Array.isArray(manifest.icons)) {
     const src = iconSources[icon.sizes];
     if (!src) return;
     icon.src = src;
-    const ext = src.split('?')[0].split('.').pop().toLowerCase();
-    if (ext === 'jpg' || ext === 'jpeg') icon.type = 'image/jpeg';
-    else if (ext === 'png') icon.type = 'image/png';
-    else if (ext === 'svg') icon.type = 'image/svg+xml';
-    else if (ext === 'webp') icon.type = 'image/webp';
+    const type = mimeFor(src);
+    if (type) icon.type = type;
   });
 }
+// Install-prompt screenshots: same treatment as the icons, keyed by form factor. Left
+// untouched when the backend serves no source, so an older payload keeps the committed
+// placeholder rather than shipping src="undefined".
+const screenshotSources = { narrow: constants.PWA_SCREENSHOT_NARROW, wide: constants.PWA_SCREENSHOT_WIDE };
 if (Array.isArray(manifest.screenshots)) {
   manifest.screenshots.forEach((s) => {
     if (s.form_factor === 'narrow') s.label = `${APP_NAME} Mobile View`;
     if (s.form_factor === 'wide') s.label = `${APP_NAME} Desktop View`;
+    const src = screenshotSources[s.form_factor];
+    if (!src) return;
+    s.src = src;
+    const type = mimeFor(src);
+    if (type) s.type = type;
   });
 }
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');

@@ -1,20 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 .landing-root {
-  --l-navy:        #0E1325;
+  /* Darkest step of the navy scale — navy-2/-3 are the brand's own two. Mixed from the
+     brand navy rather than fixed, so a white-labeled tenant's landing page follows its
+     palette; 55% reproduces the previous #0E1325 to within 2/255 on the default brand. */
+  --l-navy:        color-mix(in srgb, var(--app-navy) 55%, #000);
   --l-navy-2:      var(--app-navy);
   --l-navy-3:      var(--app-navy-light);
   --l-gold:        var(--app-primary);
   --l-gold-2:      var(--app-secondary);
   --l-gold-deep:   var(--app-primary-hover);
   --l-gold-soft:   color-mix(in srgb, var(--app-primary) 16%, transparent);
-  --l-bg:          #FBFAF7;
+  --l-bg:          var(--app-bg);
   --l-paper:       #FFFFFF;
-  --l-ink:         #0E1325;
-  --l-ink-2:       #4A4F66;
-  --l-muted:       #8E91A0;
-  --l-border:      rgba(14,19,37,0.08);
-  --l-border-2:    rgba(14,19,37,0.14);
+  --l-ink:         var(--l-navy);
+  --l-ink-2:       color-mix(in srgb, var(--l-navy) 74%, #fff);
+  --l-muted:       color-mix(in srgb, var(--l-navy) 46%, #fff);
+  --l-border:      color-mix(in srgb, var(--l-navy) 8%, transparent);
+  --l-border-2:    color-mix(in srgb, var(--l-navy) 14%, transparent);
   --l-serif:       'Cormorant Garamond', 'Times New Roman', serif;
   --l-sans:        'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --l-mono:        'JetBrains Mono', ui-monospace, monospace;
@@ -35,7 +38,7 @@ body.landing-active::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* Calendly popup overrides — ensure dark backdrop + visible scrollbar inside iframe */
 body .calendly-overlay {
-  background: rgba(14, 19, 37, 0.72) !important;
+  background: color-mix(in srgb, var(--l-navy) 72%, transparent) !important;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
@@ -72,7 +75,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 24px;
   padding: 10px 10px 10px 22px;
-  background: rgba(14,19,37,0.72);
+  background: color-mix(in srgb, var(--l-navy) 72%, transparent);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 999px;
   backdrop-filter: blur(18px) saturate(140%);
@@ -81,7 +84,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   transition: all .25s var(--l-ease);
   min-width: min(960px, 100%);
 }
-.landing-root nav.l-top.scrolled .nav-inner { background: rgba(14,19,37,0.92); }
+.landing-root nav.l-top.scrolled .nav-inner { background: color-mix(in srgb, var(--l-navy) 92%, transparent); }
 @media (max-width: 720px) {
   .landing-root nav.l-top { top: 10px; padding: 0 12px; }
   .landing-root nav.l-top .nav-inner { padding: 8px 8px 8px 16px; min-width: auto; }
@@ -135,7 +138,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 99;
-  background: rgba(14,19,37,0.96);
+  background: color-mix(in srgb, var(--l-navy) 96%, transparent);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -188,7 +191,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   position: relative;
 }
 .landing-root .l-btn-primary { background: var(--l-navy); color: #fff; }
-.landing-root .l-btn-primary:hover { background: var(--l-navy-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px rgba(14,19,37,0.35); }
+.landing-root .l-btn-primary:hover { background: var(--l-navy-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--l-navy) 35%, transparent); }
 .landing-root .l-btn-gold { background: var(--l-gold); color: var(--l-navy); }
 .landing-root .l-btn-gold:hover { background: var(--l-gold-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--app-primary) 50%, transparent); }
 .landing-root .l-btn-ghost { color: var(--l-ink-2); }
@@ -423,7 +426,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   border-radius: 20px;
   overflow: hidden;
   background: var(--l-navy);
-  box-shadow: 0 40px 70px -30px rgba(14,19,37,0.35);
+  box-shadow: 0 40px 70px -30px color-mix(in srgb, var(--l-navy) 35%, transparent);
   cursor: pointer;
   transition: transform .35s var(--l-ease);
 }
@@ -520,7 +523,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   color: var(--l-ink);
   margin-bottom: 5svh;
   background: var(--l-paper);
-  box-shadow: 0 4px 14px -6px rgba(14,19,37,0.08);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--l-navy) 8%, transparent);
 }
 .landing-root .statement .why .braces { color: var(--l-gold-deep); font-family: var(--l-mono); font-weight: 500; }
 .landing-root .statement h2 {
@@ -678,7 +681,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .feature:hover {
   transform: translateY(-3px);
   border-color: var(--l-border-2);
-  box-shadow: 0 24px 50px -30px rgba(14,19,37,0.18);
+  box-shadow: 0 24px 50px -30px color-mix(in srgb, var(--l-navy) 18%, transparent);
 }
 .landing-root .feature .ic {
   width: 44px; height: 44px;
