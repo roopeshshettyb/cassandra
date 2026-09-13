@@ -130,7 +130,7 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
     }
 
     const sent = client.messagesSent ?? 0;
-    if (sent >= limits.MAX_MESSAGES_PER_SESSION) {
+    if (limits.MAX_MESSAGES_PER_SESSION > 0 && sent >= limits.MAX_MESSAGES_PER_SESSION) {
       client.emit('error', { message: strings.ERROR_RESERVATION_SESSION_ENDED });
       return;
     }

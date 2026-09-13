@@ -250,10 +250,13 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       }
 
       const cfg = this.constantsService.private.RESERVATION_VOICE;
-      // Hard stop on wall clock: an abandoned tab must not hold STT open forever.
-      client.sessionTimer = setTimeout(() => {
-        this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
-      }, cfg.MAX_SESSION_SECONDS * 1000);
+      // Hard stop on wall clock, when one is configured: an abandoned tab must
+      // not hold STT open forever. Zero means no cap.
+      if (cfg.MAX_SESSION_SECONDS > 0) {
+        client.sessionTimer = setTimeout(() => {
+          this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
+        }, cfg.MAX_SESSION_SECONDS * 1000);
+      }
 
       client.emit('ready', {
         chatId: result.chat ? result.chat.id : null,
@@ -359,7 +362,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       return;
     }
 
-    if ((client.turnsUsed ?? 0) >= cfg.MAX_TURNS_PER_SESSION) {
+    if (cfg.MAX_TURNS_PER_SESSION > 0 && (client.turnsUsed ?? 0) >= cfg.MAX_TURNS_PER_SESSION) {
       this.endCall(client, strings.ERROR_RESERVATION_VOICE_TURN_LIMIT);
       return;
     }
@@ -442,7 +445,8 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     // Metered on audio actually streamed rather than time connected — streamed
     // audio is what STT bills for.
     client.audioBytes = (client.audioBytes ?? 0) + buffer.length;
-    if (client.audioBytes > cfg.MAX_AUDIO_SECONDS_PER_SESSION * cfg.AUDIO_BYTES_PER_SECOND) {
+    if (cfg.MAX_AUDIO_SECONDS_PER_SESSION > 0
+        && client.audioBytes > cfg.MAX_AUDIO_SECONDS_PER_SESSION * cfg.AUDIO_BYTES_PER_SECOND) {
       this.endCall(client, this.constantsService.public.ERROR_RESERVATION_VOICE_TURN_LIMIT);
       return;
     }
