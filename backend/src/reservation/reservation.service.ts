@@ -164,6 +164,9 @@ export class ReservationService {
    */
   isWithinVoiceTurnLimit(ip: string): boolean {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
+    if (cfg.MAX_TURNS_PER_IP_PER_WINDOW <= 0) {
+      return true;
+    }
     const key = cfg.IP_TURN_CACHE_KEY_PREFIX + ip;
     const used = this.cacheService.get<number>(key) ?? 0;
     if (used >= cfg.MAX_TURNS_PER_IP_PER_WINDOW) {
@@ -180,6 +183,9 @@ export class ReservationService {
    */
   claimVoiceSession(ip: string): boolean {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
+    if (cfg.MAX_CONCURRENT_SESSIONS_PER_IP <= 0) {
+      return true;
+    }
     const key = cfg.IP_SESSION_CACHE_KEY_PREFIX + ip;
     const open = this.cacheService.get<number>(key) ?? 0;
     if (open >= cfg.MAX_CONCURRENT_SESSIONS_PER_IP) {
@@ -208,6 +214,9 @@ export class ReservationService {
    */
   isWithinIpRateLimit(ip: string): boolean {
     const cfg = this.constantsService.private.RESERVATION;
+    if (cfg.MAX_MESSAGES_PER_IP_PER_WINDOW <= 0) {
+      return true;
+    }
     const key = cfg.IP_RATE_LIMIT_CACHE_KEY_PREFIX + ip;
     const used = this.cacheService.get<number>(key) ?? 0;
     if (used >= cfg.MAX_MESSAGES_PER_IP_PER_WINDOW) {

@@ -66,6 +66,70 @@ const playPcmChunk = (base64, ctxRef, timeRef) => {
   timeRef.current = startAt + audioBuffer.duration;
 };
 
+/**
+ * Comfort noise — the faint hiss a live phone line always carries.
+ *
+ * Real calls are never silent, and dead silence between sentences is the
+ * clearest tell that a voice is synthetic. This runs continuously for the whole
+ * call, not just under the agent's speech: noise that appeared and vanished with
+ * the voice would be a worse tell than none at all.
+ *
+ * Generated rather than shipped as an asset — it is a second of random samples,
+ * looped, low-passed to sound like a phone line instead of radio static.
+ */
+function startAmbience(ctx, dbfs, lowpassHz) {
+  if (!ctx || !dbfs || dbfs <= -100) return null;
+
+  // Filter and normalise the buffer here rather than routing it through a
+  // BiquadFilter node. A biquad rolls off twice as steeply as the one-pole used
+  // to calibrate the reference samples, so the same setting would come out
+  // quieter in the app than in the sample you picked. Doing it in the buffer
+  // makes the configured dBFS the level you actually hear.
+  const sampleRate = ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, sampleRate * 2, sampleRate);
+  const data = buffer.getChannelData(0);
+
+  const dt = 1 / sampleRate;
+  const rc = 1 / (2 * Math.PI * lowpassHz);
+  const a = dt / (rc + dt);
+  let y = 0;
+  for (let i = 0; i < data.length; i += 1) {
+    y += a * ((Math.random() * 2 - 1) - y);
+    data[i] = y;
+  }
+
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 1) sum += data[i] * data[i];
+  const rms = Math.sqrt(sum / data.length);
+  if (!rms) return null;
+  const scale = Math.pow(10, dbfs / 20) / rms;
+  for (let i = 0; i < data.length; i += 1) data[i] *= scale;
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  const gain = ctx.createGain();
+  // Ramped rather than switched on, so the line "opens" instead of clicking.
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.4);
+  source.connect(gain);
+  gain.connect(ctx.destination);
+  source.start();
+  return { source, gain };
+}
+
+function stopAmbience(ambience, ctx) {
+  if (!ambience) return;
+  try {
+    if (ctx) {
+      ambience.gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+    }
+    ambience.source.stop(ctx ? ctx.currentTime + 0.35 : undefined);
+  } catch {
+    // already stopped
+  }
+}
+
 function Orb({ status }) {
   const listening = status === 'listening';
   const speaking = status === 'speaking';
@@ -119,6 +183,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const playbackContextRef = useRef(null);
   const playbackTimeRef = useRef(0);
   const silenceTimerRef = useRef(null);
+  const ambienceRef = useRef(null);
   const readyRef = useRef(false);
 
   const hotelIdRef = useRef(hotelId);
@@ -200,6 +265,8 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     socket.on('voice_call_ended', () => {
       setEnded(true);
       setStatus('idle');
+      stopAmbience(ambienceRef.current, playbackContextRef.current);
+      ambienceRef.current = null;
     });
     socket.on('error', (p) => {
       // Before the call is live, any error means it never started — show it in
@@ -222,7 +289,11 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     };
   }, []);
 
-  useEffect(() => () => stopMic(), [stopMic]);
+  useEffect(() => () => {
+    stopMic();
+    stopAmbience(ambienceRef.current, playbackContextRef.current);
+    ambienceRef.current = null;
+  }, [stopMic]);
 
   const startListening = async () => {
     if (!socketRef.current?.connected || ended) return;
@@ -239,6 +310,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     }
     if (playbackContextRef.current.state === 'suspended') {
       await playbackContextRef.current.resume();
+    }
+    // Open the line: the hiss runs from here until the call ends.
+    if (!ambienceRef.current) {
+      ambienceRef.current = startAmbience(
+        playbackContextRef.current,
+        constants.RESERVATION_VOICE_AMBIENCE_DBFS,
+        constants.RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ,
+      );
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({

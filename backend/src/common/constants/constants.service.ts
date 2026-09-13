@@ -336,6 +336,20 @@ export class ConstantsService {
       RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
       RESERVATION_VOICE_MIC_DENIED: 'We could not access your microphone. Check your browser permissions and try again.',
       RESERVATION_VOICE_NO_SOUND: 'We are not hearing anything. Check that the right microphone is selected and try again.',
+      /**
+       * Comfort noise: the faint line hiss a real call always carries. Perfect
+       * silence between sentences is the clearest tell that a voice is
+       * synthetic, so a quiet bed runs for the whole call — through the agent's
+       * speech, the caller's, and the gaps.
+       *
+       * Stated in dBFS rather than a raw gain, because a gain means nothing on
+       * its own: the agent's voice sits near -18 dBFS, and real comfort noise
+       * sits 15-25 dB under speech. -35 is a typical phone line; -45 is barely
+       * there; -30 is obvious on a laptop speaker. Use 0 to switch it off.
+       */
+      RESERVATION_VOICE_AMBIENCE_DBFS: -35,
+      /** Low-passed to sound like a phone line rather than radio static. */
+      RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ: 1200,
       ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
@@ -642,8 +656,14 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         FILLER_CACHE_MINUTES: 720,
         /** Extra wait beyond UTTERANCE_END_MS before we end a turn ourselves. */
         TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
-        MAX_TURNS_PER_SESSION: 15,
-        MAX_TURNS_PER_IP_PER_WINDOW: 25,
+        /**
+         * Every budget below is env-driven and 0 means unlimited. They are off
+         * by default: the agent is being demoed and shared, and a limit that
+         * interrupts a real conversation costs more than the spend it saves.
+         * Set them above zero to cap an unauthenticated, per-turn-billed surface.
+         */
+        MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
+        MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
         IP_WINDOW_MINUTES: 60,
         IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
         /**
@@ -651,12 +671,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * shared addresses: hotel wifi and mobile carriers NAT plenty of real
          * guests behind a single IP, so this cannot be as tight as it looks.
          */
-        MAX_CONCURRENT_SESSIONS_PER_IP: 8,
+        MAX_CONCURRENT_SESSIONS_PER_IP: parseInt(this.configService.get('RESERVATION_VOICE_MAX_CONCURRENT_PER_IP') || '0', 10),
         IP_SESSION_CACHE_KEY_PREFIX: 'reservation_voice_ip_sessions_',
         /** Wall-clock cap on a single call, whether or not anyone is speaking. */
-        MAX_SESSION_SECONDS: 600,
+        MAX_SESSION_SECONDS: parseInt(this.configService.get('RESERVATION_VOICE_MAX_SESSION_SECONDS') || '0', 10),
         /** Caps STT spend: audio actually streamed, not time connected. */
-        MAX_AUDIO_SECONDS_PER_SESSION: 180,
+        MAX_AUDIO_SECONDS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_AUDIO_SECONDS') || '0', 10),
         /** 24kHz mono 16-bit PCM — what the browser sends. */
         AUDIO_BYTES_PER_SECOND: 48000,
       },
@@ -667,8 +687,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         SESSION_TOKEN_TTL_HOURS: 24,
         // Per-connection message budget, and a per-IP budget across connections
         // so reconnecting does not reset the allowance.
-        MAX_MESSAGES_PER_SESSION: 40,
-        MAX_MESSAGES_PER_IP_PER_WINDOW: 60,
+        MAX_MESSAGES_PER_SESSION: parseInt(this.configService.get('RESERVATION_MAX_MESSAGES_PER_SESSION') || '0', 10),
+        MAX_MESSAGES_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_MAX_MESSAGES_PER_IP') || '0', 10),
         IP_WINDOW_MINUTES: 60,
         IP_RATE_LIMIT_CACHE_KEY_PREFIX: 'reservation_ip_messages_',
         MAX_MESSAGE_LENGTH: 1000,
