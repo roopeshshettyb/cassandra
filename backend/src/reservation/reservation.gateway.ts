@@ -5,6 +5,7 @@ import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
+import { getClientIp, parseHotelId, buildReservationSession } from './reservation-session.helper';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 
 /**
@@ -26,49 +27,15 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
     private readonly constantsService: ConstantsService,
   ) {}
 
-  private getClientIp(client: any): string {
-    const forwarded = client.handshake?.headers?.['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length > 0) {
-      return forwarded.split(',')[0].trim();
-    }
-    return client.handshake?.address ?? '';
-  }
 
-  /**
-   * Hotel id from the handshake, or null. Deliberately strict: a repeated query
-   * param arrives as an array, and parseInt would read "1 OR 1=1" or "1abc" as
-   * hotel 1. Nothing good comes of guessing which hotel a malformed id meant.
-   */
-  private parseHotelId(raw: unknown): number | null {
-    if (typeof raw !== 'string' && typeof raw !== 'number') {
-      return null;
-    }
-    const value = String(raw).trim();
-    if (!/^[0-9]+$/.test(value)) {
-      return null;
-    }
-    const hotelId = Number(value);
-    return hotelId > 0 ? hotelId : null;
-  }
 
-  private buildSession(context: any, chatId: number, languageCode: string | null): ChatSession {
-    return {
-      account: null,
-      bookingId: null,
-      hotelId: context.hotelId,
-      chatId,
-      hotel: context.publicHotel,
-      booking: null,
-      languageCode,
-    };
-  }
 
   async handleConnection(client: any) {
     const strings = this.constantsService.public;
     const query: any = client.handshake?.query ?? {};
     const auth: any = client.handshake?.auth ?? {};
 
-    const hotelId = this.parseHotelId(query.hotelId ?? auth.hotelId);
+    const hotelId = parseHotelId(query.hotelId ?? auth.hotelId);
     if (hotelId === null) {
       client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
       client.disconnect(true);
@@ -87,7 +54,7 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
       };
       client.messagesSent = 0;
       if (result.chat) {
-        client.session = this.buildSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
+        client.session = buildReservationSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
       }
       client.emit('ready', {
         chatId: result.chat ? result.chat.id : null,
@@ -137,7 +104,7 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
 
     // Checked last, and only for a message we would otherwise answer, so a
     // rejected one does not spend the visitor's hourly budget.
-    if (!this.reservationService.isWithinIpRateLimit(this.getClientIp(client))) {
+    if (!this.reservationService.isWithinIpRateLimit(getClientIp(client))) {
       client.emit('error', { message: strings.ERROR_RESERVATION_RATE_LIMITED });
       return;
     }
@@ -148,7 +115,7 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
       // existing, and the client gets the handle to resume it after a refresh.
       if (!client.session) {
         const created = await this.reservationService.createChat(context.hotelId);
-        client.session = this.buildSession(context, created.chat.id, created.chat.languageCode ?? null);
+        client.session = buildReservationSession(context, created.chat.id, created.chat.languageCode ?? null);
         client.emit('session', { chatId: created.chat.id, sessionToken: created.sessionToken });
       }
       const session: ChatSession = client.session;

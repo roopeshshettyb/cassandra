@@ -5,6 +5,7 @@ import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
+import { getClientIp, parseHotelId, buildReservationSession } from './reservation-session.helper';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -51,26 +52,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     private readonly ttsFactory: TtsFactoryService,
   ) {}
 
-  private getClientIp(client: any): string {
-    const forwarded = client.handshake?.headers?.['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length > 0) {
-      return forwarded.split(',')[0].trim();
-    }
-    return client.handshake?.address ?? '';
-  }
 
-  /** Strict: a malformed id must be refused, never truncated to some hotel. */
-  private parseHotelId(raw: unknown): number | null {
-    if (typeof raw !== 'string' && typeof raw !== 'number') {
-      return null;
-    }
-    const value = String(raw).trim();
-    if (!/^[0-9]+$/.test(value)) {
-      return null;
-    }
-    const hotelId = Number(value);
-    return hotelId > 0 ? hotelId : null;
-  }
 
   /** Speak each finished sentence as it lands so the caller hears a reply sooner. */
   /** Only ElevenLabs v3 understands the cues; everyone else gets them removed. */
@@ -223,14 +205,14 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     const strings = this.constantsService.public;
     const query: any = client.handshake?.query ?? {};
 
-    const hotelId = this.parseHotelId(query.hotelId);
+    const hotelId = parseHotelId(query.hotelId);
     if (hotelId === null) {
       client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
       client.disconnect(true);
       return;
     }
 
-    const ip = this.getClientIp(client);
+    const ip = getClientIp(client);
     if (!this.reservationService.claimVoiceSession(ip)) {
       client.emit('error', { message: strings.ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS });
       client.disconnect(true);
@@ -246,7 +228,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.turnsUsed = 0;
       client.audioBytes = 0;
       if (result.chat) {
-        client.session = this.buildSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
+        client.session = buildReservationSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
       }
 
       const cfg = this.constantsService.private.RESERVATION_VOICE;
@@ -274,17 +256,6 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     }
   }
 
-  private buildSession(context: any, chatId: number, languageCode: string | null): ChatSession {
-    return {
-      account: null,
-      bookingId: null,
-      hotelId: context.hotelId,
-      chatId,
-      hotel: context.publicHotel,
-      booking: null,
-      languageCode,
-    };
-  }
 
   private createSttSession(client: any): ISttSession | null {
     this.destroySttSession(client);
@@ -380,7 +351,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       // who opens the page and stays silent never writes anything.
       if (!client.session) {
         const created = await this.reservationService.createChat(context.hotelId);
-        client.session = this.buildSession(context, created.chat.id, created.chat.languageCode ?? null);
+        client.session = buildReservationSession(context, created.chat.id, created.chat.languageCode ?? null);
         client.emit('session', { chatId: created.chat.id, sessionToken: created.sessionToken });
       }
 
