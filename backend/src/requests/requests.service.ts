@@ -3,6 +3,7 @@ import { REQUESTS_REPOSITORY } from './requests.repository';
 import { Request, RequestStatus } from './requests.model';
 import { CreateRequestDto, UpdateRequestDto, RequestExternalUpsertPayload } from './requests.dto';
 import { RequestQueryOptions } from './requests.query';
+import { resolveListPaging } from '../common/dto/list-query.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
@@ -22,6 +23,10 @@ export class RequestsService {
     private readonly constantsService: ConstantsService,
   ) {}
 
+  private get requestsConfig() {
+    return this.constantsService.private.REQUESTS;
+  }
+
   private async getWhereForAccount(currentAccount: Account): Promise<{ [key: string]: any } | null> {
     if (currentAccount.role === AccountRole.ADMIN) {
       return null;
@@ -38,6 +43,11 @@ export class RequestsService {
       return { hotelId: { [Op.in]: hotelIds } };
     }
     return { id: -1 };
+  }
+
+  /** Narrows the account scope by hotelId. Assigning over `where.hotelId` would drop it and leak other hotels. */
+  private narrowHotelId(where: { [key: string]: any }, hotelId: number): void {
+    where.hotelId = where.hotelId == null ? hotelId : { [Op.and]: [where.hotelId, { [Op.eq]: hotelId }] };
   }
 
   private async ensureCanCreate(dto: CreateRequestDto, currentAccount: Account): Promise<void> {
@@ -195,15 +205,16 @@ export class RequestsService {
       throw new NotFoundException();
     }
 
-    // Only hotel staff/owner (or admin) can change request status.
-    if (dto.status !== undefined) {
+    // Only hotel staff/owner (or admin) can change request status or urgency:
+    // a guest who could raise their own urgency would jump the queue.
+    if (dto.status !== undefined || dto.urgency !== undefined) {
       const isStaffOrOwner =
         currentAccount.role === AccountRole.ADMIN ||
         currentAccount.role === AccountRole.HOTEL_OWNER ||
         currentAccount.role === AccountRole.HOTEL_STAFF;
 
       if (!isStaffOrOwner) {
-        throw new ForbiddenException('Only hotel staff or owner can change request status');
+        throw new ForbiddenException(this.requestsConfig.ERROR_STAFF_ONLY_FIELDS);
       }
     }
 
@@ -220,21 +231,24 @@ export class RequestsService {
 
     return {
       success: true,
-      message: 'Request updated',
+      message: this.requestsConfig.MSG_UPDATED,
       data: request,
     };
   }
 
+  // `id` breaks ties on every sort: urgency has three distinct values and timestamps
+  // collide, and without it LIMIT/OFFSET can repeat a row on one page and skip another.
   private buildRequestOrder(options?: RequestQueryOptions): any[] {
     const sortOrder = options?.sortOrder === 'asc' ? 'ASC' : 'DESC';
     const sortBy = options?.sortBy ?? 'createdAt';
+    const tieBreaker = ['id', sortOrder];
     if (sortBy === 'urgency') {
-      return [[literal("CASE urgency WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 END"), sortOrder]];
+      return [[literal("CASE urgency WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 END"), sortOrder], tieBreaker];
     }
     if (sortBy === 'updatedAt') {
-      return [['updatedAt', sortOrder]];
+      return [['updatedAt', sortOrder], tieBreaker];
     }
-    return [['createdAt', sortOrder]];
+    return [['createdAt', sortOrder], tieBreaker];
   }
 
   private resolveRequestLimit(limit?: number): number | undefined {
@@ -259,7 +273,7 @@ export class RequestsService {
 
     if (options?.hotelId != null) {
       await this.hotelsService.findByIdForAccount(options.hotelId, currentAccount);
-      where.hotelId = options.hotelId;
+      this.narrowHotelId(where, options.hotelId);
     }
 
     if (options?.status != null) {
@@ -284,18 +298,39 @@ export class RequestsService {
       ],
     };
 
-    const resolvedLimit = this.resolveRequestLimit(options?.limit);
-    if (resolvedLimit != null) {
-      findOptions.limit = resolvedLimit;
+    const paging = resolveListPaging(options, this.constantsService.private);
+    if (paging) {
+      findOptions.limit = paging.limit;
+      findOptions.offset = paging.offset;
+    } else {
+      const resolvedLimit = this.resolveRequestLimit(options?.limit);
+      if (resolvedLimit != null) {
+        findOptions.limit = resolvedLimit;
+      }
     }
 
-    const requests = await this.requestsRepository.findAll(findOptions);
+    const { rows, count } = await this.requestsRepository.findAndCountAll({ ...findOptions, distinct: true });
 
     return {
       success: true,
       message: null,
-      data: requests,
+      data: rows,
+      meta: {
+        total: count,
+        page: paging?.page ?? this.constantsService.private.LIST_PAGE_DEFAULT,
+        pageSize: paging?.limit ?? rows.length,
+      },
     };
+  }
+
+  /** UI list endpoint: pages by default, never falls through to the agent's limits. */
+  async findPageForAccount(currentAccount: Account, options?: RequestQueryOptions) {
+    const { LIST_PAGE_DEFAULT, LIST_PAGE_SIZE_DEFAULT } = this.constantsService.private;
+    return this.findForAccountWithOptions(currentAccount, {
+      ...options,
+      page: options?.page ?? LIST_PAGE_DEFAULT,
+      pageSize: options?.pageSize ?? LIST_PAGE_SIZE_DEFAULT,
+    });
   }
 
   async findByBookingId(bookingId: number, currentAccount: Account, options?: RequestQueryOptions) {

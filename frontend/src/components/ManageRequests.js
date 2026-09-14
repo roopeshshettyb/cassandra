@@ -1,37 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box } from '@mui/material';
 import { motion } from 'framer-motion';
-import request from '../helper/api';
+import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
+import ListControls from './ListControls';
 import RequestCard from './cards/RequestCard';
-
-import { NAVY } from '../theme';
+import { REQUEST_STATUS, REQUEST_URGENCY, REQUEST_TYPE_LABEL } from '../constants/requestConfig';
+import constants from '../constants.json';
 import { PageHeader } from './cards/AppCards';
 
+const toOptions = (source) => Object.keys(source).map((value) => ({ value, label: source[value].label ?? source[value] }));
+
+const filterConfigs = [
+  { key: 'status', label: 'Status', options: toOptions(REQUEST_STATUS) },
+  { key: 'urgency', label: 'Urgency', options: toOptions(REQUEST_URGENCY) },
+  { key: 'requestType', label: 'Type', options: toOptions(REQUEST_TYPE_LABEL) },
+];
+
+const sortOptions = [
+  { label: 'Newest first', value: { sortBy: 'createdAt', sortOrder: 'desc' } },
+  { label: 'Oldest first', value: { sortBy: 'createdAt', sortOrder: 'asc' } },
+  { label: 'Recently updated', value: { sortBy: 'updatedAt', sortOrder: 'desc' } },
+  { label: 'Most urgent', value: { sortBy: 'urgency', sortOrder: 'desc' } },
+];
+
 function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, account }) {
-  const [requests, setRequests] = useState([]);
+  const list = useListControls({
+    endpoint: '/requests',
+    setLoading,
+    alertError,
+    pageSize: constants.LIST_PAGE_SIZE,
+    filterKeys: filterConfigs.map((config) => config.key),
+    initialSort: sortOptions[0].value,
+  });
 
-  function fetchRequests(isBackground) {
-    request({
-      endpoint: '/requests',
-      method: 'GET',
-      setLoading: isBackground ? null : setLoading,
-      setData: setRequests,
-      defaultData: [],
-      alertError,
-      delay: false,
-    });
-  }
-
-  // Initial load
-  useEffect(() => {
-    fetchRequests(false);
-  }, []);
-
-  // Auto-refresh when a new notification arrives (e.g. guest creates a request)
+  // Auto-refresh on a new request notification: current page, filters intact, no spinner.
   useEffect(() => {
     function onNewRequest() {
-      fetchRequests(true); // background refresh, no spinner
+      list.refetch(true);
     }
     window.addEventListener('app:new_request', onNewRequest);
     return () => window.removeEventListener('app:new_request', onNewRequest);
@@ -42,7 +48,18 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <PageHeader title="Requests" />
       </motion.div>
-      <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
+      <ListControls
+        filterConfigs={filterConfigs}
+        sortOptions={sortOptions}
+        filters={list.filters}
+        sort={list.sort}
+        meta={list.meta}
+        isLoading={loading}
+        onFilterChange={list.onFilterChange}
+        onSortChange={list.onSortChange}
+        onPageChange={list.onPageChange}
+      />
+      <DataGrid CardComponent={RequestCard} data={list.data} isLoading={loading} navigate={navigate} account={account} />
     </Box>
   );
 }

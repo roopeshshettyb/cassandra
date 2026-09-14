@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsArray, IsString } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsNotEmpty, IsOptional, IsArray, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RequestType, RequestUrgency, RequestStatus } from './requests.model';
+import { ListQueryDto } from '../common/dto/list-query.dto';
 
 /** room_service: data is array of items */
 export interface RoomServiceDataItem {
@@ -100,6 +102,40 @@ export interface RequestExternalUpsertPayload {
   urgency: RequestUrgency;
   status?: RequestStatus;
   userNotes?: any[];
+}
+
+export class ListRequestsQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsEnum(RequestStatus)
+  @ApiPropertyOptional({ enum: RequestStatus })
+  readonly status?: RequestStatus;
+
+  @IsOptional()
+  @IsEnum(RequestType)
+  @ApiPropertyOptional({ enum: RequestType })
+  readonly requestType?: RequestType;
+
+  @IsOptional()
+  @IsEnum(RequestUrgency)
+  @ApiPropertyOptional({ enum: RequestUrgency })
+  readonly urgency?: RequestUrgency;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @ApiPropertyOptional()
+  readonly hotelId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @ApiPropertyOptional()
+  readonly bookingId?: number;
+
+  @IsOptional()
+  @IsIn(['createdAt', 'updatedAt', 'urgency'])
+  @ApiPropertyOptional({ enum: ['createdAt', 'updatedAt', 'urgency'] })
+  readonly sortBy?: 'createdAt' | 'updatedAt' | 'urgency';
 }
 
 export class AppendMessageDto {
