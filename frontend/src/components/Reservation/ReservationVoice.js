@@ -119,6 +119,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const playbackContextRef = useRef(null);
   const playbackTimeRef = useRef(0);
   const silenceTimerRef = useRef(null);
+  const stopMicRef = useRef(null);
   const readyRef = useRef(false);
 
   const hotelIdRef = useRef(hotelId);
@@ -185,6 +186,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       setStatus((prev) => (prev === 'listening' ? prev : 'idle'));
     });
     socket.on('voice_user_chunk', (p) => setTranscript(p?.delta || ''));
+    // End of speech: the server has closed its STT session, so anything more
+    // from the mic is wasted — and an open mic during the reply just feeds the
+    // agent's own voice back in.
+    socket.on('voice_turn_end', () => {
+      stopMicRef.current?.();
+      setStatus('thinking');
+    });
     socket.on('voice_user_message', (p) => {
       setTranscript(p?.text || '');
       setReply('');
@@ -222,10 +230,17 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     };
   }, []);
 
+  stopMicRef.current = stopMic;
+
   useEffect(() => () => stopMic(), [stopMic]);
 
   const startListening = async () => {
     if (!socketRef.current?.connected || ended) return;
+    // Tear down any capture still running before opening another. Without this a
+    // second tap left the first ScriptProcessor attached and streaming, so the
+    // server received two interleaved copies of the caller and STT could make
+    // nothing of either — the mic looked dead from the second turn onwards.
+    stopMic();
     setStatus('listening');
     setTranscript('');
     // Ask the server to open its STT socket first: it connects while the browser
