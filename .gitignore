@@ -12,3 +12,4 @@ mobile-recovered/
 # Local scratch
 demo-pms-webhook.sh
 voice-samples/
+.DS_Store
