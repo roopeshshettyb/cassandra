@@ -10,8 +10,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import request from '../helper/api';
-import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, STATUS_WARNING_BG, HOVER_BG, PRIMARY_CONTRAST, STATUS_ERROR, STATUS_WARNING, STATUS_SUCCESS } from '../theme';
-import { REQUEST_STATUS, REQUEST_TYPE_LABEL } from '../constants/requestConfig';
+import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_BRAND, STATUS_WARNING_BG, HOVER_BG, PRIMARY_CONTRAST } from '../theme';
+import { REQUEST_STATUS, REQUEST_TYPE_LABEL, REQUEST_URGENCY } from '../constants/requestConfig';
 import constants from '../constants.json';
 
 dayjs.extend(relativeTime);
@@ -24,6 +24,8 @@ const STATUS_OPTIONS = [
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+
+const URGENCY_OPTIONS = Object.entries(REQUEST_URGENCY).map(([value, { label }]) => ({ value, label }));
 
 function NoteThread({ userNotes, staffNotes }) {
   const notes = [
@@ -127,9 +129,18 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
     if (result?.data) { setReq(prev => ({ ...prev, ...result.data })); alertSuccess?.('Status updated'); }
   };
 
+  const handleUrgencyChange = async (newUrgency) => {
+    if (!req) return;
+    setUpdatingStatus(true);
+    const result = await request({ endpoint: `/requests/${req.id}`, method: 'PATCH', data: { urgency: newUrgency }, alertError });
+    setUpdatingStatus(false);
+    if (result?.data) { setReq(prev => ({ ...prev, ...result.data })); alertSuccess?.('Priority updated'); }
+  };
+
   if (!req) return null;
 
   const title = REQUEST_TYPE_LABEL[req.requestType] || req.requestType || 'Request';
+  const urgencyColor = (REQUEST_URGENCY[req.urgency] || REQUEST_URGENCY.low).color;
   const initials = req.guest?.name?.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
 
   // ── Mobile layout (unchanged behaviour) ─────────────────────────────────
@@ -151,7 +162,7 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
               {req.hotel?.name && <Typography sx={{ fontSize: 12, color: MUTED }}>{req.hotel.name}</Typography>}
               <Typography sx={{ fontSize: 11, color: MUTED }}>{dayjs(req.createdAt).fromNow()}</Typography>
               {req.urgency && (
-                <Typography sx={{ fontSize: 11, color: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, fontWeight: 600, textTransform: 'capitalize' }}>
+                <Typography sx={{ fontSize: 11, color: urgencyColor, fontWeight: 600, textTransform: 'capitalize' }}>
                   {req.urgency} priority
                 </Typography>
               )}
@@ -162,6 +173,19 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
                   const isActive = req.status === opt.value;
                   return (
                     <motion.button key={opt.value} onClick={() => !isActive && !updatingStatus && handleStatusChange(opt.value)} whileTap={{ scale: 0.96 }}
+                      style={{ padding: '5px 14px', borderRadius: 99, border: isActive ? 'none' : `1.5px solid ${BORDER}`, background: isActive ? BRAND_GRADIENT : 'transparent', cursor: isActive || updatingStatus ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, color: isActive ? PRIMARY_CONTRAST : MUTED, outline: 'none', boxShadow: isActive ? SHADOW_BRAND : 'none', opacity: updatingStatus ? 0.6 : 1 }}>
+                      {opt.label}
+                    </motion.button>
+                  );
+                })}
+              </Box>
+            )}
+            {isStaff && (
+              <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                {URGENCY_OPTIONS.map((opt) => {
+                  const isActive = req.urgency === opt.value;
+                  return (
+                    <motion.button key={opt.value} onClick={() => !isActive && !updatingStatus && handleUrgencyChange(opt.value)} whileTap={{ scale: 0.96 }}
                       style={{ padding: '5px 14px', borderRadius: 99, border: isActive ? 'none' : `1.5px solid ${BORDER}`, background: isActive ? BRAND_GRADIENT : 'transparent', cursor: isActive || updatingStatus ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, color: isActive ? PRIMARY_CONTRAST : MUTED, outline: 'none', boxShadow: isActive ? SHADOW_BRAND : 'none', opacity: updatingStatus ? 0.6 : 1 }}>
                       {opt.label}
                     </motion.button>
@@ -229,8 +253,8 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
             </Box>
             {req.urgency && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, flexShrink: 0 }} />
-                <Typography sx={{ fontSize: 12, color: req.urgency === 'high' ? STATUS_ERROR : req.urgency === 'medium' ? STATUS_WARNING : STATUS_SUCCESS, fontWeight: 600, textTransform: 'capitalize' }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: urgencyColor, flexShrink: 0 }} />
+                <Typography sx={{ fontSize: 12, color: urgencyColor, fontWeight: 600, textTransform: 'capitalize' }}>
                   {req.urgency} priority
                 </Typography>
               </Box>
@@ -275,6 +299,43 @@ export default function RequestDetails({ navigate, account, alertError, alertSuc
             </Box>
           )}
         </Box>
+
+        {/* Priority card */}
+        {isStaff && (
+          <Box sx={{ bgcolor: 'background.paper', borderRadius: 3, p: 2.5, boxShadow: SHADOW, border: `1px solid ${BORDER}` }}>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, mb: 1.5 }}>Priority</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              {URGENCY_OPTIONS.map((opt) => {
+                const isActive = req.urgency === opt.value;
+                return (
+                  <motion.button
+                    key={opt.value}
+                    onClick={() => !isActive && !updatingStatus && handleUrgencyChange(opt.value)}
+                    whileTap={{ scale: 0.97 }}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 8,
+                      border: isActive ? 'none' : `1.5px solid ${BORDER}`,
+                      background: isActive ? BRAND_GRADIENT : 'transparent',
+                      cursor: isActive || updatingStatus ? 'default' : 'pointer',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: isActive ? PRIMARY_CONTRAST : MUTED,
+                      outline: 'none',
+                      boxShadow: isActive ? SHADOW_BRAND : 'none',
+                      opacity: updatingStatus ? 0.6 : 1,
+                      textAlign: 'left',
+                      width: '100%',
+                      transition: 'background 0.15s, color 0.15s',
+                    }}
+                  >
+                    {opt.label}
+                  </motion.button>
+                );
+              })}
+            </Box>
+          </Box>
+        )}
       </motion.div>
 
       {/* ── Right Chat Panel ─────────────────────────────── */}

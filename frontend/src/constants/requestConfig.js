@@ -11,6 +11,12 @@ export const REQUEST_STATUS = {
   cancelled:   { label: 'Cancelled',   icon: CancelIcon,     color: STATUS_ERROR, bg: STATUS_ERROR_BG },
 };
 
+export const REQUEST_URGENCY = {
+  low:    { label: 'Low',    color: STATUS_SUCCESS },
+  medium: { label: 'Medium', color: STATUS_WARNING },
+  high:   { label: 'High',   color: STATUS_ERROR },
+};
+
 export const REQUEST_TYPE_LABEL = {
   room_service:     'Room Service',
   house_keeping:    'Housekeeping',
