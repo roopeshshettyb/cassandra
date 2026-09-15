@@ -443,6 +443,9 @@ export class BookingsService {
     }
 
     const now = new Date();
+    // One mode for both callers: the UI sends `stay`, the agent still sends the older `activeOnly`.
+    const stay = options?.stay ?? (options?.activeOnly ? 'active' : undefined);
+
     if (options?.startAfter || options?.startBefore) {
       const startTimeFilter: any = {};
       if (options.startAfter) {
@@ -451,16 +454,23 @@ export class BookingsService {
       if (options.startBefore) {
         startTimeFilter[Op.lte] = new Date(options.startBefore);
       }
-      if (options.activeOnly) {
+      // The mode narrows an explicit range, it never widens it.
+      if (stay === 'active') {
         if (startTimeFilter[Op.lte] == null || new Date(startTimeFilter[Op.lte]) > now) {
           startTimeFilter[Op.lte] = now;
         }
         where.endTime = { [Op.gte]: now };
+      } else if (stay === 'upcoming') {
+        if (startTimeFilter[Op.gte] == null || new Date(startTimeFilter[Op.gte]) < now) {
+          startTimeFilter[Op.gte] = now;
+        }
       }
       where.startTime = startTimeFilter;
-    } else if (options?.activeOnly) {
+    } else if (stay === 'active') {
       where.startTime = { [Op.lte]: now };
       where.endTime = { [Op.gte]: now };
+    } else if (stay === 'upcoming') {
+      where.startTime = { [Op.gt]: now };
     }
 
     if (options?.guestKeywords) {
@@ -509,16 +519,6 @@ export class BookingsService {
         pageSize: paging?.limit ?? rows.length,
       },
     };
-  }
-
-  /** UI list endpoint: pages by default, never falls through to the agent's limits. */
-  async findPageForAccount(currentAccount: Account, options?: BookingQueryOptions) {
-    const { LIST_PAGE_DEFAULT, LIST_PAGE_SIZE_DEFAULT } = this.constantsService.private;
-    return this.findForAccountWithOptions(currentAccount, {
-      ...options,
-      page: options?.page ?? LIST_PAGE_DEFAULT,
-      pageSize: options?.pageSize ?? LIST_PAGE_SIZE_DEFAULT,
-    });
   }
 
   async findByIdForAccount(id: number, currentAccount: Account) {

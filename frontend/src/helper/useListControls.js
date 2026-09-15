@@ -4,36 +4,57 @@ import request from './api';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
+// Multi-select filters travel as one comma-separated param, matching what the DTOs parse.
 function toParams(values) {
   const params = new URLSearchParams();
   Object.keys(values).forEach((key) => {
-    if (values[key] !== '' && values[key] != null) params.set(key, values[key]);
+    const value = values[key];
+    if (value == null || value === '') return;
+    if (Array.isArray(value)) {
+      if (value.length > 0) params.set(key, value.join(','));
+      return;
+    }
+    params.set(key, value);
   });
   return params;
 }
 
 /**
- * Server-side filtering, sorting and paging for a list endpoint. Every change goes through
- * `load` with the next state, so pages need no effect keyed on filters/sort/page. Changing a
- * filter, search or sort resets to page 1; changing page keeps them. State is mirrored into the
+ * Server-side filtering and sorting for a list endpoint. The endpoint returns every matching
+ * row, so the list narrows by filter rather than by page. Every change goes through `load` with
+ * the next state, so pages need no effect keyed on filters or sort. State is mirrored into the
  * querystring (replaced, not pushed, so the back button still leaves the page) to survive reloads.
  */
-function useListControls({ endpoint, setLoading, alertError, pageSize, searchKey, filterKeys = [], initialSort = {} }) {
+function useListControls({ endpoint, setLoading, alertError, searchKey, filterConfigs = [], sortOptions = [] }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const ownKeys = [...filterKeys, 'sortBy', 'sortOrder', 'page', searchKey].filter(Boolean);
+  // `page` is not a control any more, but it is still listed so a link saved back when the list
+  // paged gets the stale param cleared from the address bar rather than carrying it around.
+  const ownKeys = [...filterConfigs.map((config) => config.key), 'sortBy', 'sortOrder', 'page', searchKey].filter(Boolean);
 
   const initial = useRef({
-    filters: Object.fromEntries(filterKeys.map((key) => [key, searchParams.get(key) ?? ''])),
-    sort: {
-      sortBy: searchParams.get('sortBy') || initialSort.sortBy,
-      sortOrder: searchParams.get('sortOrder') || initialSort.sortOrder,
-    },
+    // A multi-select holds an array; a single select holds '' for "no filter". Values the config
+    // does not offer are dropped: the server rejects them, and on a multi-select an unknown value
+    // would stick in the array and keep every later request failing.
+    filters: Object.fromEntries(filterConfigs.map(({ key, multiple, options = [] }) => {
+      const allowed = new Set(options.map((option) => option.value));
+      const raw = searchParams.get(key);
+      const picked = raw ? raw.split(',').filter((value) => allowed.has(value)) : [];
+      return [key, multiple ? picked : picked[0] ?? ''];
+    })),
+    sort: (() => {
+      // Same rule as the filters: honour the querystring only where it names a sort the page
+      // offers, so a stale link falls back to the first option instead of failing validation.
+      const fromUrl = { sortBy: searchParams.get('sortBy'), sortOrder: searchParams.get('sortOrder') };
+      const offered = sortOptions.some(
+        ({ value }) => value.sortBy === fromUrl.sortBy && value.sortOrder === fromUrl.sortOrder,
+      );
+      return offered ? fromUrl : { ...sortOptions[0]?.value };
+    })(),
     search: (searchKey && searchParams.get(searchKey)) || '',
-    page: Number(searchParams.get('page')) || 1,
   }).current;
 
   const [data, setData] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, page: initial.page, pageSize });
+  const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState(initial.filters);
   const [sort, setSort] = useState(initial.sort);
   const [search, setSearch] = useState(initial.search);
@@ -51,7 +72,7 @@ function useListControls({ endpoint, setLoading, alertError, pageSize, searchKey
       setSort(state.sort);
       setSearch(state.search);
 
-      const values = { ...state.filters, ...state.sort, page: state.page };
+      const values = { ...state.filters, ...state.sort };
       if (searchKey) values[searchKey] = state.search;
       const params = toParams(values);
 
@@ -65,7 +86,7 @@ function useListControls({ endpoint, setLoading, alertError, pageSize, searchKey
 
       const requestId = ++requestRef.current;
       const response = await request({
-        endpoint: `${endpoint}?${toParams({ ...values, pageSize })}`,
+        endpoint: `${endpoint}?${params}`,
         method: 'GET',
         setLoading: isBackground ? null : setLoading,
         alertError,
@@ -74,10 +95,14 @@ function useListControls({ endpoint, setLoading, alertError, pageSize, searchKey
 
       // A slower earlier request must not overwrite the newest one's rows.
       if (requestId !== requestRef.current) return;
-      setData(response?.data ?? []);
-      setMeta(response?.meta ?? { total: 0, page: state.page, pageSize });
+      // `request` returns null when the call failed; it has already alerted. Keep the rows on
+      // screen rather than rendering a failure as "No results" — a background refresh has no
+      // spinner, so an emptied list would look like the data itself had gone.
+      if (response == null) return;
+      setData(response.data ?? []);
+      setTotal(response.meta?.total ?? 0);
     },
-    [endpoint, pageSize, searchKey, setLoading, alertError, setSearchParams],
+    [endpoint, searchKey, setLoading, alertError, setSearchParams],
   );
 
   // The hook's only effect: initial load, and clearing a pending debounce on unmount.
@@ -86,24 +111,21 @@ function useListControls({ endpoint, setLoading, alertError, pageSize, searchKey
     return () => clearTimeout(debounceRef.current);
   }, []);
 
-  const onFilterChange = (key) => (event) => load({ filters: { ...currentRef.current.filters, [key]: event.target.value }, page: 1 });
+  const onFilterChange = (key) => (event) => load({ filters: { ...currentRef.current.filters, [key]: event.target.value } });
 
   const onSearchChange = (event) => {
     const { value } = event.target;
     setSearch(value);
     currentRef.current.search = value;
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => load({ search: value, page: 1 }), SEARCH_DEBOUNCE_MS);
+    debounceRef.current = setTimeout(() => load({ search: value }), SEARCH_DEBOUNCE_MS);
   };
 
-  const onSortChange = (event) => load({ sort: JSON.parse(event.target.value), page: 1 });
-
-  const onPageChange = (nextPage) => load({ page: nextPage });
+  const onSortChange = (event) => load({ sort: JSON.parse(event.target.value) });
 
   const refetch = (isBackground) => load({}, isBackground);
 
-  // `page` is not returned: the rendered page comes from `meta`, which reflects the loaded rows.
-  return { data, meta, filters, sort, search, onFilterChange, onSearchChange, onSortChange, onPageChange, refetch };
+  return { data, total, filters, sort, search, onFilterChange, onSearchChange, onSortChange, refetch };
 }
 
 export default useListControls;

@@ -50,6 +50,14 @@ export class RequestsService {
     where.hotelId = where.hotelId == null ? hotelId : { [Op.and]: [where.hotelId, { [Op.eq]: hotelId }] };
   }
 
+  /** Applies a filter that may be a single value or a multi-select list. An empty list means "no filter". */
+  private applyFilter(where: { [key: string]: any }, key: string, value: unknown): void {
+    if (value == null) return;
+    const values = Array.isArray(value) ? value : [value];
+    if (values.length === 0) return;
+    where[key] = values.length === 1 ? values[0] : { [Op.in]: values };
+  }
+
   private async ensureCanCreate(dto: CreateRequestDto, currentAccount: Account): Promise<void> {
     if (currentAccount.role === AccountRole.ADMIN) {
       return;
@@ -251,13 +259,11 @@ export class RequestsService {
     return [['createdAt', sortOrder], tieBreaker];
   }
 
+  /** Caps a caller-supplied limit. No limit asked for means no limit applied. */
   private resolveRequestLimit(limit?: number): number | undefined {
+    if (limit == null) return undefined;
     const agentLimits = this.constantsService.private;
-    if (limit == null) {
-      return agentLimits.AGENT_REQUESTS_DEFAULT_LIMIT;
-    }
-    const capped = Math.min(Math.max(1, limit), agentLimits.AGENT_REQUESTS_MAX_LIMIT);
-    return capped;
+    return Math.min(Math.max(1, limit), agentLimits.AGENT_REQUESTS_MAX_LIMIT);
   }
 
   async findForAccountWithOptions(currentAccount: Account, options?: RequestQueryOptions) {
@@ -276,17 +282,9 @@ export class RequestsService {
       this.narrowHotelId(where, options.hotelId);
     }
 
-    if (options?.status != null) {
-      where.status = options.status;
-    }
-
-    if (options?.requestType != null) {
-      where.requestType = options.requestType;
-    }
-
-    if (options?.urgency != null) {
-      where.urgency = options.urgency;
-    }
+    this.applyFilter(where, 'status', options?.status);
+    this.applyFilter(where, 'requestType', options?.requestType);
+    this.applyFilter(where, 'urgency', options?.urgency);
 
     const findOptions: any = {
       where,
@@ -321,16 +319,6 @@ export class RequestsService {
         pageSize: paging?.limit ?? rows.length,
       },
     };
-  }
-
-  /** UI list endpoint: pages by default, never falls through to the agent's limits. */
-  async findPageForAccount(currentAccount: Account, options?: RequestQueryOptions) {
-    const { LIST_PAGE_DEFAULT, LIST_PAGE_SIZE_DEFAULT } = this.constantsService.private;
-    return this.findForAccountWithOptions(currentAccount, {
-      ...options,
-      page: options?.page ?? LIST_PAGE_DEFAULT,
-      pageSize: options?.pageSize ?? LIST_PAGE_SIZE_DEFAULT,
-    });
   }
 
   async findByBookingId(bookingId: number, currentAccount: Account, options?: RequestQueryOptions) {

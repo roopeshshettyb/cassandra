@@ -27,7 +27,14 @@ const editBookingFieldConfigs = [
 ];
 
 const bookingFilterConfigs = [
-  { key: 'activeOnly', label: 'Stay', options: [{ value: 'true', label: 'Currently staying' }] },
+  {
+    key: 'stay',
+    label: 'Stay',
+    options: [
+      { value: 'active', label: 'Currently staying' },
+      { value: 'upcoming', label: 'Upcoming stays' },
+    ],
+  },
 ];
 
 const bookingSortOptions = [
@@ -62,10 +69,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     endpoint: '/bookings',
     setLoading,
     alertError,
-    pageSize: constants.LIST_PAGE_SIZE,
     searchKey: 'guestKeywords',
-    filterKeys: bookingFilterConfigs.map((config) => config.key),
-    initialSort: bookingSortOptions[0].value,
+    filterConfigs: bookingFilterConfigs,
+    sortOptions: bookingSortOptions,
   });
   const fetchBookings = () => list.refetch();
 
@@ -326,12 +332,10 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         search={list.search}
         filters={list.filters}
         sort={list.sort}
-        meta={list.meta}
-        isLoading={loading}
+        total={list.total}
         onSearchChange={list.onSearchChange}
         onFilterChange={list.onFilterChange}
         onSortChange={list.onSortChange}
-        onPageChange={list.onPageChange}
       />
 
       <DataGrid CardComponent={BookingCard} data={(() => {

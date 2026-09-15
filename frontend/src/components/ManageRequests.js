@@ -6,15 +6,14 @@ import DataGrid from './DataGrid';
 import ListControls from './ListControls';
 import RequestCard from './cards/RequestCard';
 import { REQUEST_STATUS, REQUEST_URGENCY, REQUEST_TYPE_LABEL } from '../constants/requestConfig';
-import constants from '../constants.json';
 import { PageHeader } from './cards/AppCards';
 
 const toOptions = (source) => Object.keys(source).map((value) => ({ value, label: source[value].label ?? source[value] }));
 
 const filterConfigs = [
-  { key: 'status', label: 'Status', options: toOptions(REQUEST_STATUS) },
-  { key: 'urgency', label: 'Urgency', options: toOptions(REQUEST_URGENCY) },
-  { key: 'requestType', label: 'Type', options: toOptions(REQUEST_TYPE_LABEL) },
+  { key: 'status', label: 'Status', multiple: true, options: toOptions(REQUEST_STATUS) },
+  { key: 'urgency', label: 'Urgency', multiple: true, options: toOptions(REQUEST_URGENCY) },
+  { key: 'requestType', label: 'Type', multiple: true, options: toOptions(REQUEST_TYPE_LABEL) },
 ];
 
 const sortOptions = [
@@ -29,12 +28,11 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
     endpoint: '/requests',
     setLoading,
     alertError,
-    pageSize: constants.LIST_PAGE_SIZE,
-    filterKeys: filterConfigs.map((config) => config.key),
-    initialSort: sortOptions[0].value,
+    filterConfigs,
+    sortOptions,
   });
 
-  // Auto-refresh on a new request notification: current page, filters intact, no spinner.
+  // Auto-refresh on a new request notification: filters and sort intact, no spinner.
   useEffect(() => {
     function onNewRequest() {
       list.refetch(true);
@@ -53,11 +51,9 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
         sortOptions={sortOptions}
         filters={list.filters}
         sort={list.sort}
-        meta={list.meta}
-        isLoading={loading}
+        total={list.total}
         onFilterChange={list.onFilterChange}
         onSortChange={list.onSortChange}
-        onPageChange={list.onPageChange}
       />
       <DataGrid CardComponent={RequestCard} data={list.data} isLoading={loading} navigate={navigate} account={account} />
     </Box>
