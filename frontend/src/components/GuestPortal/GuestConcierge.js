@@ -17,6 +17,10 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, SHADOW_BRAND, SHADOW_HOVER, NAVY_CONTRAST, HOVER_BG } from '../../theme';
 import constants from '../../constants.json';
+// Shared with the public booking line: same assistant to a guest, so the
+// thing you tap to talk to it and the way a message is drawn are the same.
+import { VoiceMicButton } from '../AvatarChatbot/ui/VoiceMic';
+import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
 
 /** Return `count` items picked at random from `arr` (no repeats). */
 const randomPick = (arr, count) => {
@@ -45,32 +49,6 @@ const formatHistoryTimestamp = (value) => {
 };
 
 // ── Waveform bars for listening state ──────────────────────────────────────
-function WaveformBars() {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: 28 }}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <motion.div
-          key={i}
-          style={{
-            width: 4,
-            height: 20,
-            borderRadius: 99,
-            background: NAVY_CONTRAST,
-            originY: 0.5,
-          }}
-          animate={{ scaleY: [0.4, 1.5, 0.4] }}
-          transition={{
-            duration: 0.6,
-            repeat: Infinity,
-            delay: i * 0.1,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-    </Box>
-  );
-}
-
 function SuggestionStrip({ items, onSelect }) {
   const chipsScrollRef = useRef(null);
   return (
@@ -135,49 +113,6 @@ function SuggestionStrip({ items, onSelect }) {
 }
 
 // ── Chat bubble renderer ───────────────────────────────────────────────────
-function ChatBubble({ message }) {
-  const isUser = message.role === 'user';
-  return (
-    <motion.div
-      initial={false}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        maxWidth: '75%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-      }}
-    >
-      <Box
-        sx={{
-          px: 2,
-          py: 1.1,
-          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-          background: isUser ? BRAND_GRADIENT : 'background.paper',
-          bgcolor: isUser ? undefined : 'background.paper',
-          border: isUser ? 'none' : `1px solid ${BORDER}`,
-          boxShadow: SHADOW,
-          color: isUser ? PRIMARY_CONTRAST : 'text.primary',
-          '& p': { m: 0 },
-          '& ul, & ol': { m: 0, pl: 2 },
-          '& li': { mt: 0.4 },
-          '& a': { color: 'inherit' },
-          '& code': { fontFamily: 'monospace', fontSize: 12 },
-        }}
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
-      </Box>
-      {message.createdAt && (
-        <Typography sx={{ fontSize: 10, color: MUTED, alignSelf: isUser ? 'flex-end' : 'flex-start', px: 0.5 }}>
-          {dayjs(message.createdAt).fromNow()}
-        </Typography>
-      )}
-    </motion.div>
-  );
-}
-
 // ── Text Chat panel ────────────────────────────────────────────────────────
 export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToVoice, hotelName, initialPrompt, suggestions, showHeader = true }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -795,35 +730,12 @@ export default function GuestConcierge({
               : 'Tap to speak';
             return (
               <>
-                <motion.button
-                  onClick={handleMicTap}
-                  style={{
-                    width: 140,
-                    height: 140,
-                    borderRadius: '50%',
-                    border: 'none',
-                    cursor: isWithinStay ? 'pointer' : 'not-allowed',
-                    background: isActive ? BRAND_GRADIENT : NAVY,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: isActive ? SHADOW_BRAND : SHADOW,
-                    outline: 'none',
-                  }}
-                  whileTap={{ scale: 0.94 }}
-                >
-                  <AnimatePresence mode="wait">
-                    {isActive ? (
-                      <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                        <WaveformBars />
-                      </motion.div>
-                    ) : (
-                      <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                        <MicIcon sx={{ fontSize: 44, color: NAVY_CONTRAST }} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.button>
+                <VoiceMicButton
+                  active={isActive}
+                  unavailable={!isWithinStay}
+                  onTap={handleMicTap}
+                  label={statusText}
+                />
 
                 <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500 }}>
                   {statusText}
