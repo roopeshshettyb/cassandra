@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
-import MicIcon from '@mui/icons-material/Mic';
-import StopIcon from '@mui/icons-material/Stop';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import { io } from 'socket.io-client';
 // Shared with the concierge's voice hook: PCM encoding and chunk scheduling are
 // the same facts in both places, so they live in one file.
 import { floatTo16BitPCM, arrayBufferToBase64, base64ToUint8Array, playPcmChunk } from '../AvatarChatbot/utils/audio';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW } from '../../theme';
+import { NAVY, MUTED } from '../../theme';
+// The same control the in-stay concierge uses. Different socket, different
+// rules, but to whoever is talking it is the same assistant.
+import { VoiceMicButton } from '../AvatarChatbot/ui/VoiceMic';
+import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
 import constants from '../../constants.json';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -100,37 +102,6 @@ function stopAmbience(ambience, ctx) {
   } catch {
     // already stopped
   }
-}
-
-function Orb({ status }) {
-  const listening = status === 'listening';
-  const speaking = status === 'speaking';
-  return (
-    <Box
-      component={motion.div}
-      animate={{ scale: listening || speaking ? [1, 1.08, 1] : 1 }}
-      transition={{ duration: 1.4, repeat: listening || speaking ? Infinity : 0, ease: 'easeInOut' }}
-      sx={{
-        width: 148,
-        height: 148,
-        borderRadius: '50%',
-        background: BRAND_GRADIENT,
-        color: PRIMARY_CONTRAST,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
-      }}
-    >
-      {status === 'thinking' ? (
-        <CircularProgress size={40} sx={{ color: PRIMARY_CONTRAST }} />
-      ) : listening ? (
-        <StopIcon sx={{ fontSize: 58 }} />
-      ) : (
-        <MicIcon sx={{ fontSize: 58 }} />
-      )}
-    </Box>
-  );
 }
 
 /**
@@ -402,12 +373,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
 
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, px: 3, py: 4 }}>
-      <Typography sx={{ fontWeight: 800, fontSize: { xs: 24, md: 30 }, color: NAVY, textAlign: 'center' }}>
-        {constants.RESERVATION_VOICE_TITLE}
-      </Typography>
-      <Typography sx={{ fontSize: 14, color: MUTED, textAlign: 'center', maxWidth: 420, lineHeight: 1.6 }}>
-        {constants.RESERVATION_VOICE_SUBTITLE}
-      </Typography>
+      <Box sx={{ textAlign: 'center' }}>
+        <Typography sx={{ fontSize: 22, fontWeight: 700, color: NAVY }}>
+          {constants.RESERVATION_VOICE_TITLE}
+        </Typography>
+        <Typography sx={{ fontSize: 14, color: MUTED, mt: 0.5, maxWidth: 420, lineHeight: 1.6 }}>
+          {constants.RESERVATION_VOICE_SUBTITLE}
+        </Typography>
+      </Box>
 
       {blocked ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, maxWidth: 420 }}>
@@ -419,31 +392,22 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
         </Box>
       ) : (
         <>
-          <Box
-            component="button"
-            onClick={status === 'listening' ? stopListening : startListening}
+          <VoiceMicButton
+            active={status === 'listening' || status === 'thinking' || status === 'speaking'}
             disabled={ended || status === 'thinking' || status === 'connecting'}
-            aria-label={label}
-            sx={{ border: 'none', background: 'none', p: 0, cursor: ended ? 'default' : 'pointer', opacity: ended ? 0.4 : 1 }}
-          >
-            <Orb status={status} />
-          </Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: MUTED, minHeight: 20 }}>{label}</Typography>
+            onTap={status === 'listening' ? stopListening : startListening}
+            label={label}
+          />
+          <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500, minHeight: 20 }}>
+            {label}
+          </Typography>
         </>
       )}
 
       {(transcript || reply) && (
         <Box sx={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {transcript && (
-            <Box sx={{ alignSelf: 'flex-end', maxWidth: '85%', px: 2, py: 1.1, borderRadius: '16px 16px 4px 16px', background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: SHADOW }}>
-              <Typography sx={{ fontSize: 14 }}>{transcript}</Typography>
-            </Box>
-          )}
-          {reply && (
-            <Box sx={{ alignSelf: 'flex-start', maxWidth: '85%', px: 2, py: 1.1, borderRadius: '16px 16px 16px 4px', bgcolor: 'background.paper', border: `1px solid ${BORDER}`, boxShadow: SHADOW }}>
-              <Typography sx={{ fontSize: 14, color: NAVY }}>{reply}</Typography>
-            </Box>
-          )}
+          {transcript && <ChatBubble message={{ role: 'user', content: transcript }} />}
+          {reply && <ChatBubble message={{ role: 'assistant', content: reply }} />}
         </Box>
       )}
     </Box>
