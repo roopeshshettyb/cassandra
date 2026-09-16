@@ -239,11 +239,12 @@ export class NotificationFactory {
 
   private async sendNotificationEmail(account: Account, data: NotificationPayload): Promise<void> {
     const frontendUrl = this.constantsService.private.FRONTEND_URL ?? '';
+    const theme = this.constantsService.public.THEME_DEFAULTS;
     const link = data.link ? `${frontendUrl}${data.link}` : '';
     const ctaHtml = link
-      ? `<div style="text-align:center;margin-top:24px"><a href="${link}" style="background:linear-gradient(135deg,#D4AF37,#C5A022);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">View Details</a></div>`
+      ? `<div style="text-align:center;margin-top:24px"><a href="${link}" style="background:linear-gradient(135deg,${theme.PRIMARY_COLOR},${theme.SECONDARY_COLOR});color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">View Details</a></div>`
       : '';
-    const contentHtml = `<h2 style="color:#1B2340;margin:0 0 12px">${data.title}</h2><p style="color:#666;font-size:15px;line-height:1.6;margin:0">${data.message}</p>${ctaHtml}`;
+    const contentHtml = `<h2 style="color:${theme.NAVY_COLOR};margin:0 0 12px">${data.title}</h2><p style="color:#666;font-size:15px;line-height:1.6;margin:0">${data.message}</p>${ctaHtml}`;
     const html = this.mailerService.buildBaseEmailHtml(contentHtml);
     await this.mailerService.sendMail({ to: account.email, subject: data.title, text: data.message, html });
   }

@@ -329,11 +329,44 @@ export class ConstantsService {
       TAGLINE: this.configService.get<string>('TAGLINE', 'With you, always'),
       DESCRIPTION: this.configService.get<string>('DESCRIPTION', 'Samantha is your personal concierge and will make your stay a breeze.'),
       X_API_URL: 'https://api.twitter.com',
-      LOGO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+      LOGO: this.configService.get<string>('LOGO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
       PROD_FRONTEND_URL: this.configService.get<string>('PROD_FRONTEND_URL', 'https://samantha.flashpact.in'),
-      HERO: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
-      CALENDLY_DEMO_URL: 'https://calendly.com/roopesh-flashpact/samantha-demo',
-      LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
+      HERO: this.configService.get<string>('HERO', 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg'),
+      CALENDLY_DEMO_URL: this.configService.get<string>('CALENDLY_DEMO_URL', 'https://calendly.com/roopesh-flashpact/samantha-demo'),
+      LANDING_DEMO_YOUTUBE_ID: this.configService.get<string>('LANDING_DEMO_YOUTUBE_ID', 'I9_GFTV5P2w'),
+      PWA_ID: this.configService.get<string>('PWA_ID', '/samantha-concierge'),
+      /** Browser/PWA theme colour, injected into index.html and manifest.json at build time. */
+      THEME_COLOR: this.configService.get<string>('THEME_COLOR', '#1B2340'),
+      /** PWA install icons. Relative names resolve inside frontend/public/, absolute URLs are used as-is. */
+      PWA_ICON_192: this.configService.get<string>('PWA_ICON_192', 'logo192.png'),
+      PWA_ICON_512: this.configService.get<string>('PWA_ICON_512', 'logo.png'),
+      /** PWA install-prompt screenshots. Same resolution rule as the icons above. */
+      PWA_SCREENSHOT_NARROW: this.configService.get<string>('PWA_SCREENSHOT_NARROW', 'https://placehold.jp/390x844.png'),
+      PWA_SCREENSHOT_WIDE: this.configService.get<string>('PWA_SCREENSHOT_WIDE', 'https://placehold.jp/1920x1080.png'),
+      /** Landing page hero video and its poster frame. Bare filenames resolve inside frontend/public/, absolute URLs are used as-is. */
+      LANDING_HERO_VIDEO: this.configService.get<string>('LANDING_HERO_VIDEO', 'landingpage-hero.mp4'),
+      LANDING_HERO_POSTER: this.configService.get<string>('LANDING_HERO_POSTER', 'landingpage-hero-poster.png'),
+
+      /**
+       * Fallback palette and font for the whole app UI. A hotel's own themeConfig overrides
+       * these per brand; this is what a deployment looks like before anyone configures one,
+       * so a white-labeled tenant is not left in the default gold and navy.
+       */
+      THEME_DEFAULTS: {
+        PRIMARY_COLOR: this.configService.get<string>('THEME_PRIMARY_COLOR', '#D4AF37'),
+        SECONDARY_COLOR: this.configService.get<string>('THEME_SECONDARY_COLOR', '#C5A022'),
+        NAVY_COLOR: this.configService.get<string>('THEME_NAVY_COLOR', '#1B2340'),
+        NAVY_LIGHT_COLOR: this.configService.get<string>('THEME_NAVY_LIGHT_COLOR', '#263462'),
+        PRIMARY_HOVER_COLOR: this.configService.get<string>('THEME_PRIMARY_HOVER_COLOR', '#B8860B'),
+        BACKGROUND_DEFAULT_LIGHT: this.configService.get<string>('THEME_BACKGROUND_DEFAULT_LIGHT', '#F8F7F4'),
+        BACKGROUND_DEFAULT_DARK: this.configService.get<string>('THEME_BACKGROUND_DEFAULT_DARK', '#000000'),
+        BACKGROUND_PAPER_LIGHT: this.configService.get<string>('THEME_BACKGROUND_PAPER_LIGHT', '#FFFFFF'),
+        BACKGROUND_PAPER_DARK: this.configService.get<string>('THEME_BACKGROUND_PAPER_DARK', '#121212'),
+        FONT_FAMILY: this.configService.get<string>(
+          'THEME_FONT_FAMILY',
+          '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
+        ),
+      },
 
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,

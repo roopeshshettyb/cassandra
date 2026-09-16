@@ -29,7 +29,7 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
   const themeConfig = booking.hotel?.themeConfig || booking.hotel?.brand?.themeConfig;
   const primary = themeConfig?.primaryColor;
   const secondary = themeConfig?.secondaryColor;
-  const accent = primary || '#D4AF37';
+  const accent = primary || constants.THEME_DEFAULTS.PRIMARY_COLOR;
   const headerGradient = primary
     ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)`
     : NAVY_GRADIENT;
