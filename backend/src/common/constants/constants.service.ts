@@ -357,10 +357,15 @@ export class ConstantsService {
        * is its own tell — the ear stops hearing a room and starts hearing a
        * hiss. A recording breathes: far-off voices, a door, cutlery.
        *
-       * Trimmed and looped in the browser, so any length works. Blank it to
-       * fall back to the generated hiss below.
+       * Trimmed and looped in the browser, so any length works.
+       *
+       * Empty means the recording bundled with the app, which is the normal
+       * case: served from the same place as the code that plays it, so the two
+       * can never be deployed apart. Set it to an absolute URL for a property
+       * that wants its own room — that host needs CORS, since the audio is
+       * fetched and decoded rather than handed to an <audio> tag.
        */
-      RESERVATION_VOICE_AMBIENCE_URL: '/hotel-ambience.m4a',
+      RESERVATION_VOICE_AMBIENCE_URL: this.configService.get<string>('RESERVATION_VOICE_AMBIENCE_URL', ''),
       /**
        * Only for the fallback: if the recording cannot be fetched, noise is
        * generated instead and low-passed to sound like a phone line rather than

@@ -10,6 +10,11 @@ import { io } from 'socket.io-client';
 import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk } from '../AvatarChatbot/utils/audio';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW } from '../../theme';
 import constants from '../../constants.json';
+// Imported rather than fetched from /public: webpack emits it under
+// static/, alongside the bundle that needs it, so it cannot be deployed
+// without the code that plays it — which is exactly how stage ended up
+// running this page with the asset missing and the fallback hiss on.
+import bundledAmbience from '../../assets/hotel-ambience.m4a';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
@@ -216,8 +221,11 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     // Plain fetch, not api.js: a static file from our own public folder, with
     // nothing to authenticate, no loader to drive and no message to surface.
     // Fetched here so the network round trip is over before the mic is tapped.
-    if (constants.RESERVATION_VOICE_AMBIENCE_URL) {
-      fetch(`${process.env.PUBLIC_URL || ''}${constants.RESERVATION_VOICE_AMBIENCE_URL}`)
+    // The constant is an override for a property that wants its own recording;
+    // empty means the one shipped with the app.
+    const ambienceUrl = constants.RESERVATION_VOICE_AMBIENCE_URL || bundledAmbience;
+    if (ambienceUrl) {
+      fetch(ambienceUrl)
         .then((res) => (res.ok ? res.arrayBuffer() : null))
         .then((data) => {
           ambienceDataRef.current = data;

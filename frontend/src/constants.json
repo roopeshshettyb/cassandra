@@ -121,7 +121,7 @@
   "RESERVATION_VOICE_MIC_DENIED": "We could not access your microphone. Check your browser permissions and try again.",
   "RESERVATION_VOICE_NO_SOUND": "We are not hearing anything. Check that the right microphone is selected and try again.",
   "RESERVATION_VOICE_AMBIENCE_DBFS": -35,
-  "RESERVATION_VOICE_AMBIENCE_URL": "/hotel-ambience.m4a",
+  "RESERVATION_VOICE_AMBIENCE_URL": "",
   "RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ": 1200,
   "ERROR_RESERVATION_VOICE_TURN_LIMIT": "This voice call has reached its limit. Please refresh to start again, or call the property directly.",
   "ERROR_RESERVATION_VOICE_RATE_LIMITED": "Too many voice requests from your connection. Please wait a little and try again.",
