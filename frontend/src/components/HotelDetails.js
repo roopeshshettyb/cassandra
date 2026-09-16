@@ -81,8 +81,8 @@ const StaffRow = ({ data: s, canManage, onToggleStatus }) => {
 };
 
 const MiniPreview = ({ hotel, editValues }) => {
-  const primary = editValues.primaryColor || hotel?.themeConfig?.primaryColor || '#1B2340';
-  const secondary = editValues.secondaryColor || hotel?.themeConfig?.secondaryColor || '#263462';
+  const primary = editValues.primaryColor || hotel?.themeConfig?.primaryColor || constants.THEME_DEFAULTS.NAVY_COLOR;
+  const secondary = editValues.secondaryColor || hotel?.themeConfig?.secondaryColor || constants.THEME_DEFAULTS.NAVY_LIGHT_COLOR;
   return (
     <Box sx={{ ...CARD_SX, overflow: 'hidden', position: 'sticky', top: 88 }}>
       <Box sx={{ px: 2, py: 1.25, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -458,7 +458,7 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
 
   const primary = editValues.primaryColor || hotel.themeConfig?.primaryColor;
   const secondary = editValues.secondaryColor || hotel.themeConfig?.secondaryColor;
-  const headerGradient = primary ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)` : 'linear-gradient(135deg, #1B2340 0%, #263462 100%)';
+  const headerGradient = primary ? `linear-gradient(135deg, ${primary} 0%, ${secondary || primary} 100%)` : `linear-gradient(135deg, ${constants.THEME_DEFAULTS.NAVY_COLOR} 0%, ${constants.THEME_DEFAULTS.NAVY_LIGHT_COLOR} 100%)`;
 
   return (
     <Box sx={{ px: { xs: 2, sm: 3 }, pb: 12, maxWidth: 1200, mx: 'auto' }}>

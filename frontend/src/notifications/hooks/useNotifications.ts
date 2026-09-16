@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import request from '../../helper/api';
 import { NotificationItem, UseNotificationsOptions, RequestOptions, ApiResponse } from '../types';
 import { getNotificationTone, createAudioFromBlob } from '../../utils/notificationToneCache';
+import constants from '../../constants.json';
 
 const typedRequest = request as (options: RequestOptions) => Promise<ApiResponse | null>;
 
@@ -137,7 +138,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     try {
       const notif = new Notification(data.title, {
         body: data.message,
-        icon: 'https://flashpact-public-bucket.s3.ap-south-1.amazonaws.com/samantha_logo.jpg',
+        icon: constants.LOGO,
       });
 
       notif.onclick = () => {

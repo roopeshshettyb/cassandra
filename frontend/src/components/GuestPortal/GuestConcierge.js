@@ -413,7 +413,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
             <SupportAgentIcon sx={{ fontSize: 24 }} />
           </Avatar>
           <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>AI Concierge</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: 16, color: NAVY, lineHeight: 1.2 }}>{constants.APP_NAME}</Typography>
             <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.2 }}>{hotelName}</Typography>
           </Box>
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -524,7 +524,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
                 </Avatar>
               </Box>
               <Typography sx={{ fontWeight: 800, fontSize: { xs: 26, md: 32 }, mb: 1.5, color: NAVY }}>
-                Hi! I'm your AI Concierge.
+                Hi! I'm {constants.APP_NAME}, your concierge.
               </Typography>
               <Typography sx={{ fontSize: { xs: 14, md: 16 }, color: MUTED, maxWidth: 500, mx: 'auto', mb: 2, lineHeight: 1.6 }}>
                 Experience {hotelName} effortlessly. I'm here 24/7 to manage your requests, provide local insights, and elevate your stay.

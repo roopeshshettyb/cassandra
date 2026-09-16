@@ -6,7 +6,7 @@
     "fetch-constants": "node scripts/fetch-constants.js",
     "inject-constants": "node scripts/inject-constants.js",
     "start": "nodemon",
-    "build": "react-scripts build",
+    "build": "npm run fetch-constants && react-scripts build && npm run inject-constants -- build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

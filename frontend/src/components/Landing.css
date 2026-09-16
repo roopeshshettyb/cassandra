@@ -1,20 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 .landing-root {
-  --l-navy:        #0E1325;
-  --l-navy-2:      #1B2340;
-  --l-navy-3:      #263462;
-  --l-gold:        #D4AF37;
-  --l-gold-2:      #C5A022;
-  --l-gold-deep:   #B8860B;
-  --l-gold-soft:   rgba(212,175,55,0.16);
-  --l-bg:          #FBFAF7;
+  /* Darkest step of the navy scale — navy-2/-3 are the brand's own two. Mixed from the
+     brand navy rather than fixed, so a white-labeled tenant's landing page follows its
+     palette; 55% reproduces the previous #0E1325 to within 2/255 on the default brand. */
+  --l-navy:        color-mix(in srgb, var(--app-navy) 55%, #000);
+  --l-navy-2:      var(--app-navy);
+  --l-navy-3:      var(--app-navy-light);
+  --l-gold:        var(--app-primary);
+  --l-gold-2:      var(--app-secondary);
+  --l-gold-deep:   var(--app-primary-hover);
+  --l-gold-soft:   color-mix(in srgb, var(--app-primary) 16%, transparent);
+  --l-bg:          var(--app-bg);
   --l-paper:       #FFFFFF;
-  --l-ink:         #0E1325;
-  --l-ink-2:       #4A4F66;
-  --l-muted:       #8E91A0;
-  --l-border:      rgba(14,19,37,0.08);
-  --l-border-2:    rgba(14,19,37,0.14);
+  --l-ink:         var(--l-navy);
+  --l-ink-2:       color-mix(in srgb, var(--l-navy) 74%, #fff);
+  --l-muted:       color-mix(in srgb, var(--l-navy) 46%, #fff);
+  --l-border:      color-mix(in srgb, var(--l-navy) 8%, transparent);
+  --l-border-2:    color-mix(in srgb, var(--l-navy) 14%, transparent);
   --l-serif:       'Cormorant Garamond', 'Times New Roman', serif;
   --l-sans:        'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --l-mono:        'JetBrains Mono', ui-monospace, monospace;
@@ -35,7 +38,7 @@ body.landing-active::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* Calendly popup overrides — ensure dark backdrop + visible scrollbar inside iframe */
 body .calendly-overlay {
-  background: rgba(14, 19, 37, 0.72) !important;
+  background: color-mix(in srgb, var(--l-navy) 72%, transparent) !important;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
@@ -72,7 +75,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 24px;
   padding: 10px 10px 10px 22px;
-  background: rgba(14,19,37,0.72);
+  background: color-mix(in srgb, var(--l-navy) 72%, transparent);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 999px;
   backdrop-filter: blur(18px) saturate(140%);
@@ -81,7 +84,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   transition: all .25s var(--l-ease);
   min-width: min(960px, 100%);
 }
-.landing-root nav.l-top.scrolled .nav-inner { background: rgba(14,19,37,0.92); }
+.landing-root nav.l-top.scrolled .nav-inner { background: color-mix(in srgb, var(--l-navy) 92%, transparent); }
 @media (max-width: 720px) {
   .landing-root nav.l-top { top: 10px; padding: 0 12px; }
   .landing-root nav.l-top .nav-inner { padding: 8px 8px 8px 16px; min-width: auto; }
@@ -135,7 +138,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 99;
-  background: rgba(14,19,37,0.96);
+  background: color-mix(in srgb, var(--l-navy) 96%, transparent);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -188,9 +191,9 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   position: relative;
 }
 .landing-root .l-btn-primary { background: var(--l-navy); color: #fff; }
-.landing-root .l-btn-primary:hover { background: var(--l-navy-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px rgba(14,19,37,0.35); }
+.landing-root .l-btn-primary:hover { background: var(--l-navy-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--l-navy) 35%, transparent); }
 .landing-root .l-btn-gold { background: var(--l-gold); color: var(--l-navy); }
-.landing-root .l-btn-gold:hover { background: var(--l-gold-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px rgba(212,175,55,0.5); }
+.landing-root .l-btn-gold:hover { background: var(--l-gold-2); transform: translateY(-1px); box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--app-primary) 50%, transparent); }
 .landing-root .l-btn-ghost { color: var(--l-ink-2); }
 .landing-root .l-btn-ghost:hover { color: var(--l-navy); }
 .landing-root .l-btn-outline { border-color: var(--l-border-2); color: var(--l-navy); background: rgba(255,255,255,0.5); }
@@ -199,8 +202,8 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .l-btn:hover .arr { transform: translateX(3px); }
 .landing-root .l-btn-white { background: #fff; color: var(--l-navy); }
 .landing-root .l-btn-white:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 12px 32px -10px rgba(255,255,255,0.3); }
-.landing-root .l-btn-glass { background: rgba(212,175,55,0.95); color: var(--l-navy); }
-.landing-root .l-btn-glass:hover { background: var(--l-gold); transform: translateY(-1px); box-shadow: 0 12px 32px -10px rgba(212,175,55,0.55); }
+.landing-root .l-btn-glass { background: color-mix(in srgb, var(--app-primary) 95%, transparent); color: var(--l-navy); }
+.landing-root .l-btn-glass:hover { background: var(--l-gold); transform: translateY(-1px); box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--app-primary) 55%, transparent); }
 
 /* HERO */
 .landing-root .hero {
@@ -229,7 +232,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   content: ''; position: absolute; inset: 0;
   background:
     linear-gradient(90deg, rgba(6,9,20,0.55) 0%, rgba(6,9,20,0.32) 35%, rgba(6,9,20,0.12) 60%, transparent 100%),
-    radial-gradient(ellipse 800px 600px at 10% 50%, rgba(212,175,55,0.04), transparent 70%);
+    radial-gradient(ellipse 800px 600px at 10% 50%, color-mix(in srgb, var(--app-primary) 4%, transparent), transparent 70%);
   z-index: 1;
   pointer-events: none;
 }
@@ -423,7 +426,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   border-radius: 20px;
   overflow: hidden;
   background: var(--l-navy);
-  box-shadow: 0 40px 70px -30px rgba(14,19,37,0.35);
+  box-shadow: 0 40px 70px -30px color-mix(in srgb, var(--l-navy) 35%, transparent);
   cursor: pointer;
   transition: transform .35s var(--l-ease);
 }
@@ -432,7 +435,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .l-video .poster {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 700px 350px at 30% 30%, rgba(212,175,55,0.22), transparent 60%),
+    radial-gradient(ellipse 700px 350px at 30% 30%, color-mix(in srgb, var(--app-primary) 22%, transparent), transparent 60%),
     linear-gradient(135deg, var(--l-navy) 0%, var(--l-navy-3) 100%);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -461,15 +464,15 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   background: var(--l-gold);
   display: flex; align-items: center; justify-content: center;
   color: var(--l-navy);
-  box-shadow: 0 10px 30px rgba(212,175,55,0.4);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--app-primary) 40%, transparent);
   transition: transform .25s var(--l-ease), box-shadow .25s var(--l-ease);
   position: relative;
   border: none;
 }
-.landing-root .l-video:hover .play-btn { transform: scale(1.08); box-shadow: 0 16px 40px rgba(212,175,55,0.55); }
+.landing-root .l-video:hover .play-btn { transform: scale(1.08); box-shadow: 0 16px 40px color-mix(in srgb, var(--app-primary) 55%, transparent); }
 .landing-root .l-video .play-btn::after {
   content: ''; position: absolute; inset: -8px;
-  border-radius: 50%; border: 1px solid rgba(212,175,55,0.4);
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--app-primary) 40%, transparent);
   animation: l-playRing 2s ease-out infinite;
 }
 @keyframes l-playRing {
@@ -506,8 +509,8 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 600px 400px at 90% 10%, rgba(212,175,55,0.08), transparent 70%),
-    radial-gradient(ellipse 500px 300px at 0% 90%, rgba(27,35,64,0.05), transparent 70%);
+    radial-gradient(ellipse 600px 400px at 90% 10%, color-mix(in srgb, var(--app-primary) 8%, transparent), transparent 70%),
+    radial-gradient(ellipse 500px 300px at 0% 90%, color-mix(in srgb, var(--app-navy) 5%, transparent), transparent 70%);
   pointer-events: none;
 }
 .landing-root .statement .l-container { position: relative; z-index: 2; }
@@ -520,7 +523,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   color: var(--l-ink);
   margin-bottom: 5svh;
   background: var(--l-paper);
-  box-shadow: 0 4px 14px -6px rgba(14,19,37,0.08);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--l-navy) 8%, transparent);
 }
 .landing-root .statement .why .braces { color: var(--l-gold-deep); font-family: var(--l-mono); font-weight: 500; }
 .landing-root .statement h2 {
@@ -552,7 +555,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   opacity: 0;
   transform: rotateX(-90deg) translateY(-20%);
   transform-origin: 50% 100%;
-  background: linear-gradient(180deg, transparent 62%, rgba(212,175,55,0) 62%, rgba(212,175,55,0) 94%, transparent 94%);
+  background: linear-gradient(180deg, transparent 62%, color-mix(in srgb, var(--app-primary) 0%, transparent) 62%, color-mix(in srgb, var(--app-primary) 0%, transparent) 94%, transparent 94%);
   transition:
     opacity 0.8s cubic-bezier(0.22, 0.61, 0.36, 1),
     transform 1s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -560,7 +563,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   transition-delay: var(--ld, 0s);
 }
 .landing-root .statement.in h2 .stm-hl .stm-letter {
-  background: linear-gradient(180deg, transparent 62%, rgba(212,175,55,0.22) 62%, rgba(212,175,55,0.22) 94%, transparent 94%);
+  background: linear-gradient(180deg, transparent 62%, color-mix(in srgb, var(--app-primary) 22%, transparent) 62%, color-mix(in srgb, var(--app-primary) 22%, transparent) 94%, transparent 94%);
 }
 .landing-root .statement.in h2 .stm-hl .stm-letter { opacity: 1; transform: rotateX(0) translateY(0); }
 
@@ -625,7 +628,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
   width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--l-gold);
-  box-shadow: 0 0 0 4px rgba(212,175,55,0.18);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-primary) 18%, transparent);
 }
 
 .landing-root section { padding: 64px 0; position: relative; scroll-margin-top: 11svh; }
@@ -678,7 +681,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .feature:hover {
   transform: translateY(-3px);
   border-color: var(--l-border-2);
-  box-shadow: 0 24px 50px -30px rgba(14,19,37,0.18);
+  box-shadow: 0 24px 50px -30px color-mix(in srgb, var(--l-navy) 18%, transparent);
 }
 .landing-root .feature .ic {
   width: 44px; height: 44px;
@@ -713,8 +716,8 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .stats::before {
   content: ''; position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 600px 300px at 20% 0%, rgba(212,175,55,0.20), transparent 60%),
-    radial-gradient(ellipse 500px 300px at 80% 100%, rgba(38,52,98,0.4), transparent 60%);
+    radial-gradient(ellipse 600px 300px at 20% 0%, color-mix(in srgb, var(--app-primary) 20%, transparent), transparent 60%),
+    radial-gradient(ellipse 500px 300px at 80% 100%, color-mix(in srgb, var(--app-navy-light) 40%, transparent), transparent 60%);
   pointer-events: none;
 }
 @media (max-width: 720px) { .landing-root .stats { grid-template-columns: 1fr 1fr; padding: 36px 24px; gap: 24px; border-radius: 18px; } }
@@ -783,7 +786,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 .landing-root .quote .seal {
   width: 44px; height: 44px;
   border-radius: 50%;
-  background: rgba(212,175,55,0.12);
+  background: color-mix(in srgb, var(--app-primary) 12%, transparent);
   color: var(--l-gold-deep);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--l-serif); font-style: italic;
@@ -802,7 +805,7 @@ body .calendly-overlay .calendly-popup-content ::-webkit-scrollbar {
 }
 .landing-root .final::before {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse 700px 360px at 50% 50%, rgba(212,175,55,0.20), transparent 60%);
+  background: radial-gradient(ellipse 700px 360px at 50% 50%, color-mix(in srgb, var(--app-primary) 20%, transparent), transparent 60%);
   pointer-events: none;
 }
 .landing-root .final .l-container { position: relative; }

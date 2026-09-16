@@ -4,6 +4,9 @@ import { ConstantsService } from '../common/constants/constants.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** The OTP chip's background in otpEmailTemplate.html — keep the two in sync. */
+const OTP_CHIP_BACKGROUND = '#121212';
+
 @Injectable()
 export class MailerService {
   private transporter: nodemailer.Transporter | null = null;
@@ -45,6 +48,9 @@ export class MailerService {
       TAGLINE: pub.TAGLINE || '',
       FRONTEND_URL: frontendUrl,
       LOGO_URL: pub.LOGO,
+      PRIMARY_COLOR: pub.THEME_DEFAULTS.PRIMARY_COLOR,
+      SECONDARY_COLOR: pub.THEME_DEFAULTS.SECONDARY_COLOR,
+      PRIMARY_HOVER_COLOR: pub.THEME_DEFAULTS.PRIMARY_HOVER_COLOR,
       YEAR: `${new Date().getFullYear()}`,
       CONTENT: contentHtml,
       ...extraVars,
@@ -53,11 +59,35 @@ export class MailerService {
     return this.render(base, vars);
   }
 
+  /** WCAG relative luminance of a #rrggbb colour. Returns null if it cannot be parsed. */
+  private luminance(hex: string): number | null {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex?.trim() ?? '');
+    if (!m) return null;
+    const channel = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const [r, g, b] = [0, 2, 4].map((i) => channel(parseInt(m[1].slice(i, i + 2), 16) / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  /**
+   * The OTP sits on a fixed near-black chip, so a tenant whose brand colour is dark would
+   * render an unreadable code — in the one email every user has to read. Fall back to white
+   * below the WCAG AA ratio of 4.5:1 rather than let the brand win over legibility.
+   */
+  private otpColorOn(background: string, brand: string): string {
+    const bg = this.luminance(background);
+    const fg = this.luminance(brand);
+    if (bg === null || fg === null) return '#ffffff';
+    const ratio = (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05);
+    return ratio >= 4.5 ? brand : '#ffffff';
+  }
+
   buildOtpEmailHtml(params: { otp: string; otpExpiryMinutes: number }): string {
     const pub = this.constantsService.public;
     const inner = this.readTemplate('otpEmailTemplate.html');
     const contentHtml = this.render(inner, {
       APP_NAME: pub.APP_NAME,
+      // Keep in sync with the chip background in otpEmailTemplate.html.
+      OTP_COLOR: this.otpColorOn(OTP_CHIP_BACKGROUND, pub.THEME_DEFAULTS.PRIMARY_COLOR),
       OTP: params.otp,
       OTP_EXPIRY_MINUTES: `${params.otpExpiryMinutes}`,
     });
