@@ -58,3 +58,17 @@ export function buildReservationSession(
     languageCode,
   };
 }
+
+/**
+ * Proper nouns worth biasing the caller's transcript towards. The property's
+ * own name is the one word a speech model has certainly never seen, and it
+ * tends to arrive in the first sentence — get it wrong and every answer after
+ * it is answering the wrong question.
+ */
+export function buildSttKeyterms(context: ReservationContext, extra: string[]): string[] {
+  const hotel: any = context.publicHotel ?? {};
+  const terms = [hotel.name, hotel.brandName, ...extra]
+    .map((term) => (typeof term === 'string' ? term.trim() : ''))
+    .filter((term) => term.length > 0);
+  return Array.from(new Set(terms));
+}

@@ -18,6 +18,19 @@ export interface SttSessionOptions {
    * globally.
    */
   utteranceEndMs?: number;
+  /**
+   * BCP-47 code, or 'multi' to let nova-3 follow a caller who switches mid
+   * sentence. Omitted means the provider's own default, which for Deepgram is
+   * English — fine for the in-stay concierge, wrong for a public line anyone
+   * can ring.
+   */
+  language?: string;
+  /**
+   * Proper nouns to bias the transcript towards. A model has never seen this
+   * property's name, so it guesses, and a guessed name in the first sentence
+   * derails everything the agent says after it.
+   */
+  keyterms?: string[];
 }
 
 export interface SttSessionFactory {
