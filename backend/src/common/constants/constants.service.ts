@@ -366,12 +366,6 @@ export class ConstantsService {
        * fetched and decoded rather than handed to an <audio> tag.
        */
       RESERVATION_VOICE_AMBIENCE_URL: this.configService.get<string>('RESERVATION_VOICE_AMBIENCE_URL', ''),
-      /**
-       * Only for the fallback: if the recording cannot be fetched, noise is
-       * generated instead and low-passed to sound like a phone line rather than
-       * radio static.
-       */
-      RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ: 1200,
       ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',

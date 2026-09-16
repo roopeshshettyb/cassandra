@@ -29,9 +29,10 @@ const SAMPLE_RATE = 24000;
  * call, not just under the agent's speech: noise that appeared and vanished with
  * the voice would be a worse tell than none at all.
  *
- * The bed is a recording of a real hotel lobby. Generated noise is steady by
- * definition, and a bed that never changes stops sounding like a room and
- * starts sounding like a hiss — which is the thing it was meant to hide.
+ * The bed is a recording of a real room. Nothing is synthesised as a stand-in:
+ * generated noise is steady by definition, and a bed that never changes stops
+ * sounding like a room and starts sounding like a hiss — which is the thing it
+ * was meant to hide. If the recording cannot be fetched the call runs dry.
  */
 
 /** Scale samples in place so their RMS sits at the configured level. */
@@ -72,27 +73,6 @@ function toLoopBuffer(ctx, decoded) {
   for (let j = 0; j < fade; j += 1) {
     const t = j / fade;
     data[j] = data[j] * t + src[guard + length + j] * (1 - t);
-  }
-  return buffer;
-}
-
-/**
- * Fallback for when the recording cannot be fetched: noise, low-passed to sound
- * like a phone line rather than radio static. Filtered in the buffer rather than
- * through a BiquadFilter node, because a biquad rolls off twice as steeply as
- * the one-pole used to calibrate the reference samples, so the same setting
- * would come out quieter in the app than in the sample it was picked from.
- */
-function makeNoiseBuffer(ctx, lowpassHz) {
-  const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  const dt = 1 / ctx.sampleRate;
-  const rc = 1 / (2 * Math.PI * lowpassHz);
-  const a = dt / (rc + dt);
-  let y = 0;
-  for (let i = 0; i < data.length; i += 1) {
-    y += a * ((Math.random() * 2 - 1) - y);
-    data[i] = y;
   }
   return buffer;
 }
@@ -360,11 +340,10 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
           bed = null;
         }
       }
-      ambienceRef.current = startAmbience(
-        ctx,
-        bed || makeNoiseBuffer(ctx, constants.RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ),
-        constants.RESERVATION_VOICE_AMBIENCE_DBFS,
-      );
+      // No bed rather than a generated stand-in. Noise that is merely noise
+      // does not read as a room, and having it play when the recording is
+      // missing made a broken deploy sound exactly like a working one.
+      ambienceRef.current = startAmbience(ctx, bed, constants.RESERVATION_VOICE_AMBIENCE_DBFS);
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
