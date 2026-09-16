@@ -6,6 +6,7 @@ import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
 import { getClientIp, parseHotelId, buildReservationSession, buildSttKeyterms } from './reservation-session.helper';
+import { splitSentences } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -65,21 +66,16 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
   }
 
   private flushSentences(state: TurnState, client: any, provider: TtsProvider, languageCode: string | null): void {
-    const regex = /([.!?])\s+/g;
-    let match: RegExpExecArray | null;
-    let lastIndex = 0;
-    const parts: string[] = [];
-    while ((match = regex.exec(state.sentenceBuffer)) !== null) {
-      const sentence = state.sentenceBuffer.slice(lastIndex, match.index + 1).trim();
-      if (sentence.length > 0) {
-        parts.push(sentence);
-      }
-      lastIndex = regex.lastIndex;
-    }
+    const llm = this.constantsService.private.LLM;
+    const { parts, rest } = splitSentences(
+      state.sentenceBuffer,
+      llm.SENTENCE_TERMINATORS_LATIN,
+      llm.SENTENCE_TERMINATORS_OTHER,
+    );
     if (parts.length === 0) {
       return;
     }
-    state.sentenceBuffer = state.sentenceBuffer.slice(lastIndex);
+    state.sentenceBuffer = rest;
     const keepTags = this.ttsUnderstandsTags();
     for (const sentence of parts) {
       const spoken = keepTags ? sentence : stripAudioTags(sentence);

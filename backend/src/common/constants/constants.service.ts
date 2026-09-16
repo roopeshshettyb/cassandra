@@ -811,6 +811,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           ERROR_UNKNOWN_CALLER: 'Phone caller did not match any account',
           ERROR_PIPELINE_UNSUPPORTED: 'Phone bridge requires VOICE_PIPELINE gpt or deepgram',
         },
+        /**
+         * What ends a sentence while a reply is streaming, so the agent can
+         * start speaking before it has finished writing.
+         *
+         * The agent answers in the caller's language, and a Hindi or Marathi
+         * clause ends with a danda, Urdu with an arabic full stop, CJK with its
+         * own stop marks. With only .!? a reply in any of those never split, so
+         * nothing reached TTS until the whole answer was written and the line
+         * sat silent the entire time.
+         */
+        SENTENCE_TERMINATORS_LATIN: '.!?',
+        SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
         STT_CONFIG: {
           // Common STT settings across providers
           PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
