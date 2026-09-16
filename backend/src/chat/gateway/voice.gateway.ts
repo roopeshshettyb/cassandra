@@ -20,6 +20,7 @@ import { CostsService } from '../../costs/costs.service';
 import { CostType } from '../../costs/costs.model';
 import { LlmEvalService } from '../../llm-eval/llm-eval.service';
 import { parseConnectionHandshake, authenticateAndInit } from './gateway-auth.helper';
+import { splitSentences } from '../../common/sentence.util';
 
 export interface VoiceTurnStatistics {
   lastAudioAt: number;
@@ -155,19 +156,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client: any,
     provider: { streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null }) => Promise<void> },
   ): void {
-    const regex = /([.!?])\s+/g;
-    let match: RegExpExecArray | null;
-    let lastIndex = 0;
-    const parts: string[] = [];
-    while ((match = regex.exec(state.sentenceBuffer)) !== null) {
-      const endIndex = match.index + 1;
-      const sentence = state.sentenceBuffer.slice(lastIndex, endIndex).trim();
-      if (sentence.length > 0) parts.push(sentence);
-      lastIndex = regex.lastIndex;
-    }
+    const llm = this.constantsService.private.LLM;
+    const { parts, rest } = splitSentences(
+      state.sentenceBuffer,
+      llm.SENTENCE_TERMINATORS_LATIN,
+      llm.SENTENCE_TERMINATORS_OTHER,
+    );
     if (parts.length === 0) return;
 
-    state.sentenceBuffer = state.sentenceBuffer.slice(lastIndex);
+    state.sentenceBuffer = rest;
     for (const sentence of parts) {
       state.fullText += sentence;
       state.ttsQueue = state.ttsQueue.then(async () => {

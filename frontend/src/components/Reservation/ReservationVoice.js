@@ -269,6 +269,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       setStatus('thinking');
     });
     socket.on('voice_text_chunk', (p) => setReply((prev) => prev + (p?.delta || ' ')));
+    // The whole reply, once it is written. Authoritative over the chunks
+    // above: a reply that never hit a sentence boundary — one short line, or
+    // a language whose punctuation the splitter does not know — arrives only
+    // here, and the caller would otherwise watch an empty screen talk.
+    socket.on('voice_text_end', (p) => {
+      if (typeof p?.text === 'string' && p.text.trim()) setReply(p.text.trim());
+    });
     socket.on('voice_audio_chunk', (p) => {
       if (!p?.delta) return;
       setStatus('speaking');
