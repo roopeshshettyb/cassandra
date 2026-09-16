@@ -21,6 +21,8 @@ export class DeepgramSttService implements SttSessionFactory {
       throw new Error('DEEPGRAM_API_KEY is required for STT provider deepgram');
     }
     const utteranceEndMs = options?.utteranceEndMs ?? deepgramConfig.UTTERANCE_END_MS;
+    const language = options?.language || deepgramConfig.LANGUAGE;
+    const keyterms = options?.keyterms ?? [];
     const client = createClient(apiKey);
     const live = client.listen.live({
       model: deepgramConfig.MODEL,
@@ -28,6 +30,10 @@ export class DeepgramSttService implements SttSessionFactory {
       sample_rate: commonConfig.SAMPLE_RATE,
       utterance_end_ms: utteranceEndMs,
       interim_results: true,
+      // Both are left out rather than defaulted when unset, so a caller that
+      // asks for nothing gets exactly the request Deepgram saw before.
+      ...(language ? { language } : {}),
+      ...(keyterms.length > 0 ? { keyterm: keyterms } : {}),
     });
 
     let transcriptCb: ((text: string, isFinal?: boolean) => void) | null = null;

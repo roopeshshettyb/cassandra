@@ -5,7 +5,7 @@ import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
-import { getClientIp, parseHotelId, buildReservationSession } from './reservation-session.helper';
+import { getClientIp, parseHotelId, buildReservationSession, buildSttKeyterms } from './reservation-session.helper';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -265,7 +265,11 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       // move the signed-in concierge.
       const sttSession = this.sttFactory
         .getFactory(cfg.STT_PROVIDER)
-        .createSession({ utteranceEndMs: cfg.UTTERANCE_END_MS });
+        .createSession({
+          utteranceEndMs: cfg.UTTERANCE_END_MS,
+          language: cfg.STT_LANGUAGE,
+          keyterms: buildSttKeyterms(client.reservationContext ?? {}, cfg.STT_KEYTERMS),
+        });
       client.sttSession = sttSession;
       // Deepgram finalises in several pieces within one utterance — "hello" can
       // land as final before the rest of the sentence does. Keeping only the
