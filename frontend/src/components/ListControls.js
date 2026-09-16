@@ -61,7 +61,19 @@ function ListControls({ filterConfigs = [], sortOptions = [], searchLabel, searc
   const sortKey = (value) => JSON.stringify({ sortBy: value?.sortBy, sortOrder: value?.sortOrder });
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box
+      sx={{
+        mb: 3,
+        position: 'sticky',
+        // The mobile header is fixed over the page, so the controls have to stop below it.
+        // On desktop nothing overlays the content column, so they stop at its top.
+        top: { xs: 'var(--app-header-height)', md: 0 },
+        zIndex: 2,
+        // Opaque, or the cards scrolling underneath show through the gaps between controls.
+        bgcolor: 'background.default',
+        pt: 2,
+      }}
+    >
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
         {searchLabel && (
           <TextField
