@@ -351,7 +351,21 @@ export class ConstantsService {
        * there; -30 is obvious on a laptop speaker. Use 0 to switch it off.
        */
       RESERVATION_VOICE_AMBIENCE_DBFS: -35,
-      /** Low-passed to sound like a phone line rather than radio static. */
+      /**
+       * A real hotel-lobby recording, served from the frontend's public folder.
+       * Synthesised noise is steady by definition, and a bed that never varies
+       * is its own tell — the ear stops hearing a room and starts hearing a
+       * hiss. A recording breathes: far-off voices, a door, cutlery.
+       *
+       * Trimmed and looped in the browser, so any length works. Blank it to
+       * fall back to the generated hiss below.
+       */
+      RESERVATION_VOICE_AMBIENCE_URL: '/hotel-ambience.m4a',
+      /**
+       * Only for the fallback: if the recording cannot be fetched, noise is
+       * generated instead and low-passed to sound like a phone line rather than
+       * radio static.
+       */
       RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ: 1200,
       ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',

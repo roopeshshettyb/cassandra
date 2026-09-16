@@ -13,3 +13,7 @@ mobile-recovered/
 demo-pms-webhook.sh
 voice-samples/
 .DS_Store
+
+# Raw source recording the lobby ambience was cut from (~29 MB).
+# Only frontend/public/hotel-ambience.m4a is shipped.
+hotel-whitenoise/

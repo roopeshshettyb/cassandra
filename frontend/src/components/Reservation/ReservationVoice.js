@@ -17,29 +17,71 @@ const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\
 const SAMPLE_RATE = 24000;
 
 /**
- * Comfort noise — the faint hiss a live phone line always carries.
+ * Comfort noise — the faint life a real call always carries.
  *
  * Real calls are never silent, and dead silence between sentences is the
  * clearest tell that a voice is synthetic. This runs continuously for the whole
  * call, not just under the agent's speech: noise that appeared and vanished with
  * the voice would be a worse tell than none at all.
  *
- * Generated rather than shipped as an asset — it is a second of random samples,
- * looped, low-passed to sound like a phone line instead of radio static.
+ * The bed is a recording of a real hotel lobby. Generated noise is steady by
+ * definition, and a bed that never changes stops sounding like a room and
+ * starts sounding like a hiss — which is the thing it was meant to hide.
  */
-function startAmbience(ctx, dbfs, lowpassHz) {
-  if (!ctx || !dbfs || dbfs <= -100) return null;
 
-  // Filter and normalise the buffer here rather than routing it through a
-  // BiquadFilter node. A biquad rolls off twice as steeply as the one-pole used
-  // to calibrate the reference samples, so the same setting would come out
-  // quieter in the app than in the sample you picked. Doing it in the buffer
-  // makes the configured dBFS the level you actually hear.
-  const sampleRate = ctx.sampleRate;
-  const buffer = ctx.createBuffer(1, sampleRate * 2, sampleRate);
+/** Scale samples in place so their RMS sits at the configured level. */
+function normaliseToDbfs(data, dbfs) {
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 1) sum += data[i] * data[i];
+  const rms = Math.sqrt(sum / data.length);
+  if (!rms) return false;
+  const scale = Math.pow(10, dbfs / 20) / rms;
+  for (let i = 0; i < data.length; i += 1) data[i] *= scale;
+  return true;
+}
+
+/** Seconds dropped from each end of the recording, and the length of the join. */
+const AMBIENCE_GUARD_SECONDS = 0.15;
+const AMBIENCE_CROSSFADE_SECONDS = 2;
+
+/**
+ * Turn the decoded recording into something that loops without a seam.
+ *
+ * The guard comes off first: an encoder can leave a few milliseconds of priming
+ * silence at either end, and a gap in continuous room tone is far more audible
+ * than the tone itself. Then the tail is folded back over the head, so the last
+ * two seconds fade into the first two and the join has nothing to hear.
+ */
+function toLoopBuffer(ctx, decoded) {
+  const rate = decoded.sampleRate;
+  const guard = Math.round(AMBIENCE_GUARD_SECONDS * rate);
+  const fade = Math.round(AMBIENCE_CROSSFADE_SECONDS * rate);
+  const usable = decoded.length - guard * 2;
+  if (usable <= fade * 2) return null;
+
+  const src = decoded.getChannelData(0);
+  const length = usable - fade;
+  const buffer = ctx.createBuffer(1, length, rate);
   const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) data[i] = src[guard + i];
+  for (let j = 0; j < fade; j += 1) {
+    const t = j / fade;
+    data[j] = data[j] * t + src[guard + length + j] * (1 - t);
+  }
+  return buffer;
+}
 
-  const dt = 1 / sampleRate;
+/**
+ * Fallback for when the recording cannot be fetched: noise, low-passed to sound
+ * like a phone line rather than radio static. Filtered in the buffer rather than
+ * through a BiquadFilter node, because a biquad rolls off twice as steeply as
+ * the one-pole used to calibrate the reference samples, so the same setting
+ * would come out quieter in the app than in the sample it was picked from.
+ */
+function makeNoiseBuffer(ctx, lowpassHz) {
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  const dt = 1 / ctx.sampleRate;
   const rc = 1 / (2 * Math.PI * lowpassHz);
   const a = dt / (rc + dt);
   let y = 0;
@@ -47,13 +89,13 @@ function startAmbience(ctx, dbfs, lowpassHz) {
     y += a * ((Math.random() * 2 - 1) - y);
     data[i] = y;
   }
+  return buffer;
+}
 
-  let sum = 0;
-  for (let i = 0; i < data.length; i += 1) sum += data[i] * data[i];
-  const rms = Math.sqrt(sum / data.length);
-  if (!rms) return null;
-  const scale = Math.pow(10, dbfs / 20) / rms;
-  for (let i = 0; i < data.length; i += 1) data[i] *= scale;
+/** Open the line with a freshly built buffer, levelled to the configured dBFS. */
+function startAmbience(ctx, buffer, dbfs) {
+  if (!ctx || !buffer || !dbfs || dbfs <= -100) return null;
+  if (!normaliseToDbfs(buffer.getChannelData(0), dbfs)) return null;
 
   const source = ctx.createBufferSource();
   source.buffer = buffer;
@@ -134,6 +176,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const playbackTimeRef = useRef(0);
   const silenceTimerRef = useRef(null);
   const ambienceRef = useRef(null);
+  const ambienceDataRef = useRef(null);
   const stopMicRef = useRef(null);
   const readyRef = useRef(false);
 
@@ -169,6 +212,18 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   useEffect(() => {
     const url = getBackendUrl();
     if (!url) return undefined;
+
+    // Plain fetch, not api.js: a static file from our own public folder, with
+    // nothing to authenticate, no loader to drive and no message to surface.
+    // Fetched here so the network round trip is over before the mic is tapped.
+    if (constants.RESERVATION_VOICE_AMBIENCE_URL) {
+      fetch(`${process.env.PUBLIC_URL || ''}${constants.RESERVATION_VOICE_AMBIENCE_URL}`)
+        .then((res) => (res.ok ? res.arrayBuffer() : null))
+        .then((data) => {
+          ambienceDataRef.current = data;
+        })
+        .catch(() => {});
+    }
 
     const query = { hotelId: String(hotelIdRef.current) };
     const saved = localStorage.getItem(storageKeyRef.current);
@@ -276,12 +331,24 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     if (playbackContextRef.current.state === 'suspended') {
       await playbackContextRef.current.resume();
     }
-    // Open the line: the hiss runs from here until the call ends.
+    // Open the line: the room tone runs from here until the call ends. A fresh
+    // buffer every time, because startAmbience levels it in place.
     if (!ambienceRef.current) {
+      const ctx = playbackContextRef.current;
+      let bed = null;
+      if (ambienceDataRef.current) {
+        try {
+          // slice: decodeAudioData detaches what it is given, and the recording
+          // has to survive for the next call.
+          bed = toLoopBuffer(ctx, await ctx.decodeAudioData(ambienceDataRef.current.slice(0)));
+        } catch {
+          bed = null;
+        }
+      }
       ambienceRef.current = startAmbience(
-        playbackContextRef.current,
+        ctx,
+        bed || makeNoiseBuffer(ctx, constants.RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ),
         constants.RESERVATION_VOICE_AMBIENCE_DBFS,
-        constants.RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ,
       );
     }
     try {
