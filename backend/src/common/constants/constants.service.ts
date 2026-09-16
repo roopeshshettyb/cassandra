@@ -351,7 +351,21 @@ export class ConstantsService {
        * there; -30 is obvious on a laptop speaker. Use 0 to switch it off.
        */
       RESERVATION_VOICE_AMBIENCE_DBFS: -35,
-      /** Low-passed to sound like a phone line rather than radio static. */
+      /**
+       * A real hotel-lobby recording, served from the frontend's public folder.
+       * Synthesised noise is steady by definition, and a bed that never varies
+       * is its own tell — the ear stops hearing a room and starts hearing a
+       * hiss. A recording breathes: far-off voices, a door, cutlery.
+       *
+       * Trimmed and looped in the browser, so any length works. Blank it to
+       * fall back to the generated hiss below.
+       */
+      RESERVATION_VOICE_AMBIENCE_URL: '/hotel-ambience.m4a',
+      /**
+       * Only for the fallback: if the recording cannot be fetched, noise is
+       * generated instead and low-passed to sound like a phone line rather than
+       * radio static.
+       */
       RESERVATION_VOICE_AMBIENCE_LOWPASS_HZ: 1200,
       ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
@@ -640,6 +654,23 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         /** Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken". */
         UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1200', 10),
         /**
+         * No language was ever sent, so nova-3 fell back to English and an
+         * Indian caller's Hindi came back as nonsense English words. 'multi'
+         * lets one model follow a caller who switches mid sentence, which is
+         * how people actually book a room here. Blank it for English only.
+         */
+        STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'multi'),
+        /**
+         * Extra proper nouns to bias the transcript towards, comma separated.
+         * The property's own name and brand are added automatically; this is
+         * for anything else a given deployment keeps hearing wrong — a suburb,
+         * a room type, a festival package.
+         */
+        STT_KEYTERMS: (this.configService.get<string>('RESERVATION_VOICE_STT_KEYTERMS', ''))
+          .split(',')
+          .map((term) => term.trim())
+          .filter((term) => term.length > 0),
+        /**
          * Thinking noises played the instant a caller stops talking, covering the
          * second or two the model and voice need. Real desk staff fill that gap;
          * silence is what makes a line feel dead. Deliberately short and
@@ -791,6 +822,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
             MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-3'),
             UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
+            /**
+             * Empty means "send no language", which is what Deepgram saw before
+             * this existed. Set it per surface instead: the in-stay concierge
+             * already knows its guest, a public line does not.
+             */
+            LANGUAGE: this.configService.get<string>('DEEPGRAM_STT_LANGUAGE', ''),
           },
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
