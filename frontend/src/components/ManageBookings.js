@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControlLabel, MenuItem, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
-import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
-import ListControls from './ListControls';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
 import { FormFieldRow, PageHeader } from './cards/AppCards';
@@ -26,16 +24,6 @@ const editBookingFieldConfigs = [
   { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
 
-const bookingFilterConfigs = [
-  { key: 'activeOnly', label: 'Stay', options: [{ value: 'true', label: 'Currently staying' }] },
-];
-
-const bookingSortOptions = [
-  { label: 'Newest stays', value: { sortBy: 'startTime', sortOrder: 'desc' } },
-  { label: 'Oldest stays', value: { sortBy: 'startTime', sortOrder: 'asc' } },
-  { label: 'Ending soonest', value: { sortBy: 'endTime', sortOrder: 'asc' } },
-];
-
 const initialCreateValues = {
   startDate: '',
   endDate: '',
@@ -48,6 +36,7 @@ const initialCreateValues = {
 };
 
 function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
+  const [bookings, setBookings] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createValues, setCreateValues] = useState(initialCreateValues);
@@ -57,23 +46,16 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [editValues, setEditValues] = useState({ startDate: '', endDate: '', roomNumber: '' });
   const [deleteBooking, setDeleteBooking] = useState(null);
 
-  // The bookings list (filtering, sorting, paging) is served entirely by the backend.
-  const list = useListControls({
-    endpoint: '/bookings',
-    setLoading,
-    alertError,
-    pageSize: constants.LIST_PAGE_SIZE,
-    searchKey: 'guestKeywords',
-    filterKeys: bookingFilterConfigs.map((config) => config.key),
-    initialSort: bookingSortOptions[0].value,
-  });
-  const fetchBookings = () => list.refetch();
+  const fetchBookings = async () => {
+    await request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError, delay: false });
+  };
 
   const fetchHotels = async () => {
     await request({ endpoint: '/hotels', method: 'GET', defaultData: [], alertError, setData: setHotels });
   };
 
   useEffect(() => {
+    fetchBookings();
     fetchHotels();
   }, []);
 
@@ -319,27 +301,12 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </DialogActions>
       </Dialog>
 
-      <ListControls
-        filterConfigs={bookingFilterConfigs}
-        sortOptions={bookingSortOptions}
-        searchLabel="Search guest name or email"
-        search={list.search}
-        filters={list.filters}
-        sort={list.sort}
-        meta={list.meta}
-        isLoading={loading}
-        onSearchChange={list.onSearchChange}
-        onFilterChange={list.onFilterChange}
-        onSortChange={list.onSortChange}
-        onPageChange={list.onPageChange}
-      />
-
       <DataGrid CardComponent={BookingCard} data={(() => {
         const hotelMap = {};
         for (let i = 0; i < hotels.length; i++) hotelMap[hotels[i].id] = hotels[i];
         const enriched = [];
-        for (let i = 0; i < list.data.length; i++) {
-          const b = list.data[i];
+        for (let i = 0; i < bookings.length; i++) {
+          const b = bookings[i];
           const full = b.hotel?.id ? hotelMap[b.hotel.id] : null;
           const themeConfig = b.hotel?.themeConfig || full?.themeConfig || full?.brand?.themeConfig;
           enriched.push(themeConfig ? { ...b, hotel: { ...b.hotel, themeConfig } } : b);
