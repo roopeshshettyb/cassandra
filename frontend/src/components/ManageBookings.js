@@ -5,6 +5,7 @@ import request from '../helper/api';
 import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
 import ListControls from './ListControls';
+import LoadMore from './LoadMore';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
 import { FormFieldRow, PageHeader } from './cards/AppCards';
@@ -27,7 +28,14 @@ const editBookingFieldConfigs = [
 ];
 
 const bookingFilterConfigs = [
-  { key: 'activeOnly', label: 'Stay', options: [{ value: 'true', label: 'Currently staying' }] },
+  {
+    key: 'stay',
+    label: 'Stay',
+    options: [
+      { value: 'active', label: 'Currently staying' },
+      { value: 'upcoming', label: 'Upcoming stays' },
+    ],
+  },
 ];
 
 const bookingSortOptions = [
@@ -62,10 +70,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     endpoint: '/bookings',
     setLoading,
     alertError,
-    pageSize: constants.LIST_PAGE_SIZE,
     searchKey: 'guestKeywords',
-    filterKeys: bookingFilterConfigs.map((config) => config.key),
-    initialSort: bookingSortOptions[0].value,
+    filterConfigs: bookingFilterConfigs,
+    sortOptions: bookingSortOptions,
   });
   const fetchBookings = () => list.refetch();
 
@@ -326,12 +333,10 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         search={list.search}
         filters={list.filters}
         sort={list.sort}
-        meta={list.meta}
-        isLoading={loading}
+        total={list.total}
         onSearchChange={list.onSearchChange}
         onFilterChange={list.onFilterChange}
         onSortChange={list.onSortChange}
-        onPageChange={list.onPageChange}
       />
 
       <DataGrid CardComponent={BookingCard} data={(() => {
@@ -349,6 +354,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         onEdit={CAN_EDIT_BOOKING ? handleOpenEdit : null}
         onDelete={CAN_DELETE_BOOKING ? setDeleteBooking : null}
       />
+      <LoadMore hasMore={list.hasMore} onLoadMore={list.loadMore} loaded={list.data.length} total={list.total} />
     </Box>
   );
 }

@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, TransformFnParams } from 'class-transformer';
 
 /** Paging and ordering fields shared by the list endpoints. */
 export class ListQueryDto {
@@ -23,6 +23,18 @@ export class ListQueryDto {
   @ApiPropertyOptional({ enum: ['asc', 'desc'] })
   readonly sortOrder?: 'asc' | 'desc';
 }
+
+/**
+ * Multi-select filters arrive as `?status=pending,completed` (or as a repeated param, which
+ * Express already hands over as an array). Always produces an array so the services have one
+ * shape to branch on; undefined when nothing was selected, so @IsOptional still short-circuits.
+ */
+export const toFilterList = ({ value }: TransformFnParams): string[] | undefined => {
+  if (value == null || value === '') return undefined;
+  const list = Array.isArray(value) ? value : String(value).split(',');
+  const cleaned = list.map((entry) => String(entry).trim()).filter(Boolean);
+  return cleaned.length > 0 ? cleaned : undefined;
+};
 
 /** Query params arrive as strings, so transform is required for @Type to apply. */
 export const LIST_QUERY_PIPE_OPTIONS = { transform: true, whitelist: true, forbidNonWhitelisted: true };

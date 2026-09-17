@@ -30,7 +30,7 @@ export class BookingsController {
     @CurrentAccount() account: Account,
     @Query(new ValidationPipe(LIST_QUERY_PIPE_OPTIONS)) query: ListBookingsQueryDto,
   ) {
-    return this.bookingsService.findPageForAccount(account, query);
+    return this.bookingsService.findForAccountWithOptions(account, query);
   }
 
   @Get('active')
