@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsArray, IsString } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsNotEmpty, IsOptional, IsArray, IsString } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { RequestType, RequestUrgency, RequestStatus } from './requests.model';
+import { ListQueryDto, toFilterList } from '../common/dto/list-query.dto';
 
 /** room_service: data is array of items */
 export interface RoomServiceDataItem {
@@ -100,6 +102,43 @@ export interface RequestExternalUpsertPayload {
   urgency: RequestUrgency;
   status?: RequestStatus;
   userNotes?: any[];
+}
+
+export class ListRequestsQueryDto extends ListQueryDto {
+  @IsOptional()
+  @Transform(toFilterList)
+  @IsEnum(RequestStatus, { each: true })
+  @ApiPropertyOptional({ enum: RequestStatus, isArray: true, description: 'Repeat or comma-separate to match several' })
+  readonly status?: RequestStatus[];
+
+  @IsOptional()
+  @Transform(toFilterList)
+  @IsEnum(RequestType, { each: true })
+  @ApiPropertyOptional({ enum: RequestType, isArray: true, description: 'Repeat or comma-separate to match several' })
+  readonly requestType?: RequestType[];
+
+  @IsOptional()
+  @Transform(toFilterList)
+  @IsEnum(RequestUrgency, { each: true })
+  @ApiPropertyOptional({ enum: RequestUrgency, isArray: true, description: 'Repeat or comma-separate to match several' })
+  readonly urgency?: RequestUrgency[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @ApiPropertyOptional()
+  readonly hotelId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @ApiPropertyOptional()
+  readonly bookingId?: number;
+
+  @IsOptional()
+  @IsIn(['createdAt', 'updatedAt', 'urgency'])
+  @ApiPropertyOptional({ enum: ['createdAt', 'updatedAt', 'urgency'] })
+  readonly sortBy?: 'createdAt' | 'updatedAt' | 'urgency';
 }
 
 export class AppendMessageDto {
