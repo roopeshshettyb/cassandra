@@ -305,9 +305,6 @@ export class ConstantsService {
       CALENDLY_DEMO_URL: 'https://calendly.com/roopesh-flashpact/samantha-demo',
       LANDING_DEMO_YOUTUBE_ID: 'I9_GFTV5P2w',
 
-      // Published so the UI reads one value — frontend src/constants.json is generated from here.
-      LIST_PAGE_SIZE: this.private.LIST_PAGE_SIZE_DEFAULT,
-
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,
       HOTEL_MEMBER_STATUSES,
