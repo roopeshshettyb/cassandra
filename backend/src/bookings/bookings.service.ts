@@ -3,7 +3,6 @@ import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
 import { CreateBookingDto, UpdateBookingDto, BookingExternalUpsertPayload } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
-import { resolveListPaging } from '../common/dto/list-query.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
@@ -433,9 +432,7 @@ export class BookingsService {
     }
 
     if (options?.hotelId != null) {
-      // Verify access first, then narrow — never replace — the account scope below.
-      await this.hotelsService.findByIdForAccount(options.hotelId, currentAccount);
-      where.hotelId = where.hotelId == null ? options.hotelId : { [Op.and]: [where.hotelId, { [Op.eq]: options.hotelId }] };
+      where.hotelId = options.hotelId;
     }
 
     if (options?.roomNumber) {
@@ -483,42 +480,17 @@ export class BookingsService {
     const queryOptions: any = {
       where,
       include: [includeHotel, includeGuest],
-      // `id` breaks ties so LIMIT/OFFSET cannot repeat one row and skip another between pages.
-      order: orderField === 'id' ? [['id', sortOrder]] : [[orderField, sortOrder], ['id', sortOrder]],
+      order: [[orderField, sortOrder]],
       subQuery: false,
-      // GET /bookings is served from here now, and the guest portal reads isWithinStay off each row.
-      attributes: { include: [this.isWithinStayAttr()] },
     };
 
-    const paging = resolveListPaging(options, this.constantsService.private);
-    if (paging) {
-      queryOptions.limit = paging.limit;
-      queryOptions.offset = paging.offset;
-    } else if (options?.limit != null) {
-      queryOptions.limit = Math.min(Math.max(1, options.limit), this.constantsService.private.AGENT_BOOKINGS_MAX_LIMIT);
+    const agentLimits = this.constantsService.private;
+    if (options?.limit != null) {
+      queryOptions.limit = Math.min(Math.max(1, options.limit), agentLimits.AGENT_BOOKINGS_MAX_LIMIT);
     }
 
-    const { rows, count } = await this.bookingsRepository.findAndCountAll({ ...queryOptions, distinct: true });
-    return {
-      success: true,
-      message: null,
-      data: rows,
-      meta: {
-        total: count,
-        page: paging?.page ?? this.constantsService.private.LIST_PAGE_DEFAULT,
-        pageSize: paging?.limit ?? rows.length,
-      },
-    };
-  }
-
-  /** UI list endpoint: pages by default, never falls through to the agent's limits. */
-  async findPageForAccount(currentAccount: Account, options?: BookingQueryOptions) {
-    const { LIST_PAGE_DEFAULT, LIST_PAGE_SIZE_DEFAULT } = this.constantsService.private;
-    return this.findForAccountWithOptions(currentAccount, {
-      ...options,
-      page: options?.page ?? LIST_PAGE_DEFAULT,
-      pageSize: options?.pageSize ?? LIST_PAGE_SIZE_DEFAULT,
-    });
+    const bookings = await this.bookingsRepository.findAll(queryOptions);
+    return { success: true, message: null, data: bookings };
   }
 
   async findByIdForAccount(id: number, currentAccount: Account) {
