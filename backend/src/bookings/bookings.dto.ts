@@ -110,8 +110,13 @@ export class ListBookingsQueryDto extends ListQueryDto {
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: "Agent-facing; equivalent to stay='active'" })
   readonly activeOnly?: boolean;
+
+  @IsOptional()
+  @IsIn(['active', 'upcoming'])
+  @ApiPropertyOptional({ enum: ['active', 'upcoming'], description: 'active = in-stay now, upcoming = starts later' })
+  readonly stay?: 'active' | 'upcoming';
 
   @IsOptional()
   @Type(() => Number)
