@@ -443,6 +443,9 @@ export class BookingsService {
     }
 
     const now = new Date();
+    // One mode for both callers: the UI sends `stay`, the agent still sends the older `activeOnly`.
+    const stay = options?.stay ?? (options?.activeOnly ? 'active' : undefined);
+
     if (options?.startAfter || options?.startBefore) {
       const startTimeFilter: any = {};
       if (options.startAfter) {
@@ -451,16 +454,28 @@ export class BookingsService {
       if (options.startBefore) {
         startTimeFilter[Op.lte] = new Date(options.startBefore);
       }
-      if (options.activeOnly) {
+      // The mode narrows an explicit range, it never widens it.
+      if (stay === 'active') {
         if (startTimeFilter[Op.lte] == null || new Date(startTimeFilter[Op.lte]) > now) {
           startTimeFilter[Op.lte] = now;
         }
         where.endTime = { [Op.gte]: now };
+      } else if (stay === 'upcoming') {
+        // 'active' takes a stay starting exactly now, so 'upcoming' must leave it out or the same
+        // booking answers to both. Strict `>`, matching the no-range branch below. A caller's own
+        // lower bound is kept when it is already further ahead than now.
+        const lower = startTimeFilter[Op.gte];
+        if (lower == null || new Date(lower) <= now) {
+          delete startTimeFilter[Op.gte];
+          startTimeFilter[Op.gt] = now;
+        }
       }
       where.startTime = startTimeFilter;
-    } else if (options?.activeOnly) {
+    } else if (stay === 'active') {
       where.startTime = { [Op.lte]: now };
       where.endTime = { [Op.gte]: now };
+    } else if (stay === 'upcoming') {
+      where.startTime = { [Op.gt]: now };
     }
 
     if (options?.guestKeywords) {
@@ -496,6 +511,10 @@ export class BookingsService {
       queryOptions.offset = paging.offset;
     } else if (options?.limit != null) {
       queryOptions.limit = Math.min(Math.max(1, options.limit), this.constantsService.private.AGENT_BOOKINGS_MAX_LIMIT);
+    } else {
+      // The list UI asks for no page and no limit. Ceiling it anyway, or an account that can see
+      // every hotel pulls the whole bookings table into one response.
+      queryOptions.limit = this.constantsService.private.LIST_PAGE_SIZE_MAX;
     }
 
     const { rows, count } = await this.bookingsRepository.findAndCountAll({ ...queryOptions, distinct: true });
@@ -509,16 +528,6 @@ export class BookingsService {
         pageSize: paging?.limit ?? rows.length,
       },
     };
-  }
-
-  /** UI list endpoint: pages by default, never falls through to the agent's limits. */
-  async findPageForAccount(currentAccount: Account, options?: BookingQueryOptions) {
-    const { LIST_PAGE_DEFAULT, LIST_PAGE_SIZE_DEFAULT } = this.constantsService.private;
-    return this.findForAccountWithOptions(currentAccount, {
-      ...options,
-      page: options?.page ?? LIST_PAGE_DEFAULT,
-      pageSize: options?.pageSize ?? LIST_PAGE_SIZE_DEFAULT,
-    });
   }
 
   async findByIdForAccount(id: number, currentAccount: Account) {

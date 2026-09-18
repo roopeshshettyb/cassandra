@@ -17,7 +17,7 @@ export class RequestsController {
     @CurrentAccount() account: Account,
     @Query(new ValidationPipe(LIST_QUERY_PIPE_OPTIONS)) query: ListRequestsQueryDto,
   ) {
-    return this.requestsService.findPageForAccount(account, query);
+    return this.requestsService.findForAccountWithOptions(account, query);
   }
 
   @Post()

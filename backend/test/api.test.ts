@@ -534,6 +534,45 @@ describe('Bookings', () => {
     await expectStatus(400, () => http.get('/bookings?sortBy=bogus', state.adminToken));
   });
 
+  // `stay` is the list UI's mode selector; `activeOnly` stays for the agent. Both resolve to the
+  // same branch, so assert the modes against real start/end times rather than the flag.
+  it('GET /bookings?stay=upcoming → only stays that have not started', async () => {
+    const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+    const created = await http.post(
+      '/bookings',
+      { startDate: day(30), endDate: day(32), guestEmail: EMAILS.guest, hotelId: state.testHotelId, roomNumber: '905' },
+      state.adminToken,
+    );
+    const upcomingId = created.data?.id ?? created.data?.data?.id;
+
+    const res = await http.get('/bookings?stay=upcoming', state.adminToken);
+    expect(res.status).toBe(200);
+    const rows: any[] = res.data.data;
+    expect(rows.some((b: any) => b.id === upcomingId)).toBe(true);
+    expect(rows.every((b: any) => new Date(b.startTime).getTime() > Date.now())).toBe(true);
+
+    // The same booking must not also count as an in-progress stay.
+    const active = await http.get('/bookings?stay=active', state.adminToken);
+    expect((active.data.data as any[]).some((b: any) => b.id === upcomingId)).toBe(false);
+
+    await bookingsService.deleteBooking({ id: upcomingId }, undefined, true).catch(() => {});
+  });
+
+  it('GET /bookings?stay=active → only stays in progress', async () => {
+    const res = await http.get('/bookings?stay=active', state.adminToken);
+    expect(res.status).toBe(200);
+    const now = Date.now();
+    expect(
+      (res.data.data as any[]).every(
+        (b: any) => new Date(b.startTime).getTime() <= now && new Date(b.endTime).getTime() >= now,
+      ),
+    ).toBe(true);
+  });
+
+  it('GET /bookings?stay=bogus → 400', async () => {
+    await expectStatus(400, () => http.get('/bookings?stay=bogus', state.adminToken));
+  });
+
   it('DELETE /bookings/:id → deletes a booking (admin)', async () => {
     const res = await http.post(
       '/bookings',
@@ -589,10 +628,24 @@ describe('Requests', () => {
     expect(res.data.meta.total).toBeGreaterThanOrEqual(1);
   });
 
-  it('GET /requests → unpaged call uses the list default page size', async () => {
+  // The list UI asks for no page at all and shows everything, narrowing by filter instead.
+  // The agent's own default limit must not leak into that path and silently truncate the list.
+  it('GET /requests → unpaged call returns every matching row, up to the list ceiling', async () => {
     const res = await http.get('/requests', state.adminToken);
     expect(res.status).toBe(200);
-    expect(res.data.meta.pageSize).toBe(constants.LIST_PAGE_SIZE_DEFAULT);
+    // Past the agent's own default, so the agent limit is demonstrably not in play here.
+    expect(res.data.meta.total).toBeGreaterThan(constants.AGENT_REQUESTS_DEFAULT_LIMIT);
+    // No paging asked for, so the UI gets the lot — but never more than the ceiling, which is
+    // what stops a large property returning its whole table in one response.
+    expect(res.data.data.length).toBe(Math.min(res.data.meta.total, constants.LIST_PAGE_SIZE_MAX));
+    expect(res.data.data.length).toBeLessThanOrEqual(constants.LIST_PAGE_SIZE_MAX);
+  });
+
+  it('GET /bookings → unpaged call never exceeds the list ceiling', async () => {
+    const res = await http.get('/bookings', state.adminToken);
+    expect(res.status).toBe(200);
+    expect(res.data.data.length).toBe(Math.min(res.data.meta.total, constants.LIST_PAGE_SIZE_MAX));
+    expect(res.data.data.length).toBeLessThanOrEqual(constants.LIST_PAGE_SIZE_MAX);
   });
 
   // The agent's limits and the UI's page size are separate concerns. Asserting on the
@@ -617,6 +670,21 @@ describe('Requests', () => {
     const res = await http.get('/requests?status=pending&pageSize=100', state.staffToken);
     expect(res.status).toBe(200);
     expect((res.data.data as any[]).every((r: any) => r.status === 'pending')).toBe(true);
+  });
+
+  // A comma-separated filter must widen the match, not silently fall back to the first value.
+  it('GET /requests?status=a,b → matches either value', async () => {
+    const single = await http.get('/requests?status=pending', state.adminToken);
+    const multi = await http.get('/requests?status=pending,completed', state.adminToken);
+    expect(multi.status).toBe(200);
+    expect(multi.data.meta.total).toBeGreaterThanOrEqual(single.data.meta.total);
+    expect(
+      (multi.data.data as any[]).every((r: any) => r.status === 'pending' || r.status === 'completed'),
+    ).toBe(true);
+  });
+
+  it('GET /requests?status=<unknown value in list> → 400', async () => {
+    await expectStatus(400, () => http.get('/requests?status=pending,not_a_status', state.adminToken));
   });
 
   it('GET /requests?hotelId=<other hotel> (hotel_owner) → 404, no cross-hotel rows', async () => {
