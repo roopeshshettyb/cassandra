@@ -653,12 +653,26 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         /** Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken". */
         UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1200', 10),
         /**
-         * No language was ever sent, so nova-3 fell back to English and an
-         * Indian caller's Hindi came back as nonsense English words. 'multi'
-         * lets one model follow a caller who switches mid sentence, which is
-         * how people actually book a room here. Blank it for English only.
+         * English by default, despite 'multi' being the setting that lets one
+         * nova-3 session follow a caller switching into Hindi mid sentence.
+         *
+         * 'multi' was the default until it was measured against the way people
+         * actually give an email address here. Three runs each, same audio:
+         *
+         *   "shrijit at the rate gmail dot com"
+         *     en     -> "shrijit at the rate gmail dot com"   3/3
+         *     multi  -> ""                                    3/3
+         *
+         * Not a flaky transcript — the whole utterance, gone, every time. A
+         * booking line that silently loses the caller's email is worse than one
+         * that cannot follow them into Hindi, so English wins the default and
+         * 'multi' is there for a property whose callers need it. It is not a
+         * free win either way: 'multi' reads spoken dates more faithfully
+         * ("the twenty sixth to the twenty eighth of September" survives intact,
+         * where English collapses it to "twenty six-twenty eight september"),
+         * and English is the one that keeps a spelled-out name as letters.
          */
-        STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'multi'),
+        STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'en'),
         /**
          * Extra proper nouns to bias the transcript towards, comma separated.
          * The property's own name and brand are added automatically; this is
