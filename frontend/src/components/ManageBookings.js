@@ -5,6 +5,7 @@ import request from '../helper/api';
 import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
 import ListControls from './ListControls';
+import LoadMore from './LoadMore';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
 import { FormFieldRow, PageHeader } from './cards/AppCards';
@@ -353,6 +354,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         onEdit={CAN_EDIT_BOOKING ? handleOpenEdit : null}
         onDelete={CAN_DELETE_BOOKING ? setDeleteBooking : null}
       />
+      <LoadMore hasMore={list.hasMore} onLoadMore={list.loadMore} loaded={list.data.length} total={list.total} />
     </Box>
   );
 }
