@@ -505,16 +505,12 @@ export class BookingsService {
       attributes: { include: [this.isWithinStayAttr()] },
     };
 
-    const paging = resolveListPaging(options, this.constantsService.private);
+    const paging = resolveListPaging(options);
     if (paging) {
       queryOptions.limit = paging.limit;
       queryOptions.offset = paging.offset;
     } else if (options?.limit != null) {
       queryOptions.limit = Math.min(Math.max(1, options.limit), this.constantsService.private.AGENT_BOOKINGS_MAX_LIMIT);
-    } else {
-      // The list UI asks for no page and no limit. Ceiling it anyway, or an account that can see
-      // every hotel pulls the whole bookings table into one response.
-      queryOptions.limit = this.constantsService.private.LIST_PAGE_SIZE_MAX;
     }
 
     const { rows, count } = await this.bookingsRepository.findAndCountAll({ ...queryOptions, distinct: true });
@@ -524,7 +520,7 @@ export class BookingsService {
       data: rows,
       meta: {
         total: count,
-        page: paging?.page ?? this.constantsService.private.LIST_PAGE_DEFAULT,
+        page: paging?.page ?? 1,
         pageSize: paging?.limit ?? rows.length,
       },
     };
