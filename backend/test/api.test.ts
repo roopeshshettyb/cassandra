@@ -630,19 +630,22 @@ describe('Requests', () => {
 
   // The list UI asks for no page at all and shows everything, narrowing by filter instead.
   // The agent's own default limit must not leak into that path and silently truncate the list.
-  it('GET /requests → unpaged call returns every matching row', async () => {
+  it('GET /requests → unpaged call returns every matching row, up to the list ceiling', async () => {
     const res = await http.get('/requests', state.adminToken);
     expect(res.status).toBe(200);
     // Past the agent's own default, so the agent limit is demonstrably not in play here.
     expect(res.data.meta.total).toBeGreaterThan(constants.AGENT_REQUESTS_DEFAULT_LIMIT);
-    // This path has no ceiling: the caller gets the whole matching set in one response.
-    expect(res.data.data.length).toBe(res.data.meta.total);
+    // No paging asked for, so the UI gets the lot — but never more than the ceiling, which is
+    // what stops a large property returning its whole table in one response.
+    expect(res.data.data.length).toBe(Math.min(res.data.meta.total, constants.LIST_PAGE_SIZE_MAX));
+    expect(res.data.data.length).toBeLessThanOrEqual(constants.LIST_PAGE_SIZE_MAX);
   });
 
-  it('GET /bookings → unpaged call returns every matching row', async () => {
+  it('GET /bookings → unpaged call never exceeds the list ceiling', async () => {
     const res = await http.get('/bookings', state.adminToken);
     expect(res.status).toBe(200);
-    expect(res.data.data.length).toBe(res.data.meta.total);
+    expect(res.data.data.length).toBe(Math.min(res.data.meta.total, constants.LIST_PAGE_SIZE_MAX));
+    expect(res.data.data.length).toBeLessThanOrEqual(constants.LIST_PAGE_SIZE_MAX);
   });
 
   // The agent's limits and the UI's page size are separate concerns. Asserting on the
@@ -651,16 +654,16 @@ describe('Requests', () => {
   // limit resolver it would be clamped to that cap instead of honoured.
   it('GET /requests?pageSize=<above agent max> → honoured, not clamped to the agent cap', async () => {
     const pageSize = constants.AGENT_REQUESTS_MAX_LIMIT + 10;
+    expect(pageSize).toBeLessThanOrEqual(constants.LIST_PAGE_SIZE_MAX);
     const res = await http.get(`/requests?pageSize=${pageSize}`, state.adminToken);
     expect(res.status).toBe(200);
     expect(res.data.meta.pageSize).toBe(pageSize);
   });
 
-  it('GET /requests?pageSize=<very large> → honoured verbatim, no list-level clamp', async () => {
-    const pageSize = 500;
-    const res = await http.get(`/requests?pageSize=${pageSize}`, state.adminToken);
+  it('GET /requests?pageSize=<above list max> → clamped to the list max', async () => {
+    const res = await http.get(`/requests?pageSize=${constants.LIST_PAGE_SIZE_MAX + 50}`, state.adminToken);
     expect(res.status).toBe(200);
-    expect(res.data.meta.pageSize).toBe(pageSize);
+    expect(res.data.meta.pageSize).toBe(constants.LIST_PAGE_SIZE_MAX);
   });
 
   it('GET /requests?status=... → filters server-side', async () => {
