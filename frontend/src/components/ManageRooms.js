@@ -35,7 +35,31 @@ const INVENTORY_GRID = '1.6fr 1fr 1fr 1fr 1fr';
 const AVAILABILITY_COLS = ['Room type', 'Max occupancy', 'Available'];
 const AVAILABILITY_GRID = '2fr 1fr 1fr';
 
-const defaultTypeForm = { name: '', maxOccupancy: '', totalRooms: '' };
+// Mirrors ROOM_TYPE_IMAGES_MAX_COUNT in the backend constants service, which is the
+// one that actually enforces this. Kept here only to grey out the button before an
+// upload starts — without it the file would reach S3 and then be rejected, leaving
+// an orphaned object behind. Change both together.
+const ROOM_TYPE_IMAGES_MAX = 8;
+
+const RoomTypeImage = ({ data: url, onRemove }) => (
+  <Box sx={{ position: 'relative', width: 96, height: 72, borderRadius: 1.5, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+    <Box component="img" src={url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    <Box
+      component="button"
+      type="button"
+      onClick={() => onRemove?.(url)}
+      sx={{
+        position: 'absolute', top: 2, right: 2, width: 20, height: 20, lineHeight: 1,
+        border: 'none', borderRadius: '50%', cursor: 'pointer',
+        bgcolor: STATUS_ERROR, color: '#fff', fontSize: 12, fontWeight: 700,
+      }}
+    >
+      ×
+    </Box>
+  </Box>
+);
+
+const defaultTypeForm = { name: '', maxOccupancy: '', totalRooms: '', perks: '' };
 const defaultRoomForm = { roomNumber: '', roomTypeId: '', status: 'active' };
 
 const toDateInput = date => {
@@ -195,6 +219,7 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
   const [editingRoom, setEditingRoom] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [typeForm, setTypeForm] = useState(defaultTypeForm);
+  const [editingTypeImages, setEditingTypeImages] = useState([]);
   const [roomForm, setRoomForm] = useState(defaultRoomForm);
 
   const [inventoryFilter, setInventoryFilter] = useState({ roomTypeId: '', startDate: TODAY, endDate: IN_A_WEEK });
@@ -219,10 +244,11 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
   const handleStockChange = field => e => setStockForm(prev => ({ ...prev, [field]: e.target.value }));
   const handleSearchChange = field => e => setSearchForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setShowTypeForm(true); };
+  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setEditingTypeImages([]); setShowTypeForm(true); };
   const openEditType = roomType => {
     setEditingType(roomType);
-    setTypeForm({ name: roomType.name || '', maxOccupancy: roomType.maxOccupancy ?? '', totalRooms: roomType.totalRooms ?? '' });
+    setTypeForm({ name: roomType.name || '', maxOccupancy: roomType.maxOccupancy ?? '', totalRooms: roomType.totalRooms ?? '', perks: (roomType.perks || []).join(', ') });
+    setEditingTypeImages(roomType.images || []);
     setShowTypeForm(true);
   };
 
@@ -233,13 +259,67 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
     setShowRoomForm(true);
   };
 
+  /**
+   * Presigned URL, then a raw PUT straight to S3, then tell the backend the URL.
+   *
+   * The PUT is the one place raw fetch is correct — it goes to S3, not to us, so
+   * api.js has nothing to add. The loader is held across all three steps since the
+   * middle one carries none of its own.
+   */
+  const uploadTypeImage = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !editingType) return;
+
+    setLoading(true);
+    try {
+      const presigned = await request({
+        endpoint: `/rooms/types/${editingType.id}/images/presigned-url`,
+        method: 'POST',
+        data: { fileName: file.name, fileSize: file.size, contentType: file.type },
+        alertError,
+      });
+      const { presignedUrl, s3Url } = presigned?.data || {};
+      if (!presignedUrl) return;
+
+      const put = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      if (!put.ok) { alertError?.(`Upload failed (${put.status})`); return; }
+
+      const res = await request({
+        endpoint: `/rooms/types/${editingType.id}/images`,
+        method: 'POST',
+        data: { s3Url },
+        alertSuccess, alertError,
+      });
+      if (res?.success) { setEditingTypeImages(res.data?.images || []); fetchRoomTypes(); }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeTypeImage = async url => {
+    const res = await request({
+      endpoint: `/rooms/types/${editingType.id}/images`,
+      method: 'DELETE',
+      data: { s3Url: url },
+      setLoading, alertSuccess, alertError,
+    });
+    if (res?.success) { setEditingTypeImages(res.data?.images || []); fetchRoomTypes(); }
+  };
+
   const submitType = async e => {
     e.preventDefault();
     const maxOccupancy = parseInt(typeForm.maxOccupancy, 10);
     const totalRooms = parseInt(typeForm.totalRooms, 10);
     if (!typeForm.name || isNaN(maxOccupancy) || isNaN(totalRooms)) { alertError?.('Name, max occupancy and total rooms are required'); return; }
 
-    const payload = { name: typeForm.name, maxOccupancy, totalRooms };
+    const payload = {
+      name: typeForm.name,
+      maxOccupancy,
+      totalRooms,
+      // Typed as a comma-separated line, stored as an array.
+      perks: typeForm.perks.split(',').map(p => p.trim()).filter(Boolean),
+    };
     const res = await request({
       endpoint: editingType ? `/rooms/types/${editingType.id}` : '/rooms/types',
       method: editingType ? 'PATCH' : 'POST',
@@ -394,10 +474,36 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
               <TextField fullWidth size="small" label="Name" placeholder="Deluxe King" value={typeForm.name} onChange={handleTypeChange('name')} required sx={inputSx} />
               <TextField fullWidth size="small" type="number" label="Max occupancy" inputProps={{ min: 1 }} value={typeForm.maxOccupancy} onChange={handleTypeChange('maxOccupancy')} required sx={noSpinnerSx} />
               <TextField fullWidth size="small" type="number" label="Total rooms" inputProps={{ min: 0 }} value={typeForm.totalRooms} onChange={handleTypeChange('totalRooms')} required sx={noSpinnerSx} />
+              <TextField
+                fullWidth
+                size="small"
+                label="Perks"
+                placeholder="Breakfast included, Free Wi-Fi, Airport pickup"
+                helperText="Separate each one with a comma"
+                value={typeForm.perks}
+                onChange={handleTypeChange('perks')}
+                sx={inputSx}
+              />
               {editingType && (
                 <Typography sx={{ fontSize: 12, color: MUTED }}>
                   Changing total rooms stocks nights that have not opened yet. Use the inventory calendar to restock nights already in use.
                 </Typography>
+              )}
+              {/* Images need a room type id to attach to, so they are only offered
+                  once it exists — on create, the form is saved first. */}
+              {editingType && (
+                <Box>
+                  <Typography sx={{ fontSize: 12, color: MUTED, mb: 0.75 }}>
+                    Images ({editingTypeImages.length}/{ROOM_TYPE_IMAGES_MAX})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                    <MapComponent Component={RoomTypeImage} data={editingTypeImages} showNoDataAvailable={false} onRemove={removeTypeImage} />
+                  </Box>
+                  <Button variant="outlined" component="label" disabled={loading || editingTypeImages.length >= ROOM_TYPE_IMAGES_MAX} fullWidth sx={{ py: 1 }}>
+                    {loading ? 'Uploading…' : 'Add image'}
+                    <input type="file" hidden accept="image/*" onChange={uploadTypeImage} />
+                  </Button>
+                </Box>
               )}
             </Box>
           </DialogContent>
