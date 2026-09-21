@@ -8,6 +8,10 @@ import { Hotel } from './hotels/hotels.model';
 import { HotelBrand } from './hotels/brands.model';
 import { HotelAccount } from './hotels/hotel-accounts.model';
 import { Booking } from './bookings/bookings.model';
+import { BookingRoom } from './bookings/booking-rooms.model';
+import { RoomType } from './rooms/room-types.model';
+import { Room, RoomStatus } from './rooms/rooms.model';
+import { RoomInventory } from './rooms/room-inventory.model';
 import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/requests.model';
 import { Chat, ChatType } from './chat/chat.model';
 import { ChatSummary } from './chat-summary/chat-summary.model';
@@ -40,7 +44,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, Request, Chat, ChatSummary, Message, MenuItem, LlmEval, HotelIntegration, Organisation],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, BookingRoom, RoomType, Room, RoomInventory, Request, Chat, ChatSummary, Message, MenuItem, LlmEval, HotelIntegration, Organisation],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -297,6 +301,52 @@ async function seed() {
     }
   }
 
+  // ── Room Types & Rooms ───────────────────────────────────────────────────────
+  // Every hotel gets the same three types so any hotel is bookable against
+  // inventory, not just the first one. totalRooms counts only the rooms that are
+  // actually sellable: a room under maintenance is excluded from findAvailableRooms,
+  // so counting it here would let inventory promise a room that cannot be assigned.
+  const roomTypeTemplates = [
+    { name: 'Deluxe King', maxOccupancy: 2, firstRoom: 101, count: 12, unavailable: { 112: RoomStatus.MAINTENANCE } },
+    { name: 'Twin Double', maxOccupancy: 4, firstRoom: 201, count: 8, unavailable: { 208: RoomStatus.OUT_OF_SERVICE } },
+    { name: 'Executive Suite', maxOccupancy: 3, firstRoom: 301, count: 4, unavailable: {} },
+  ];
+
+  for (const hotel of hotels) {
+    for (const template of roomTypeTemplates) {
+      const roomNumbers = Array.from({ length: template.count }, (_, i) => template.firstRoom + i);
+      const sellable = roomNumbers.filter((n) => !template.unavailable[n]).length;
+
+      const roomTypeDefaults: any = {
+        hotelId: hotel.id,
+        name: template.name,
+        maxOccupancy: template.maxOccupancy,
+        totalRooms: sellable,
+      };
+      const [roomType] = await RoomType.findOrCreate({
+        where: { hotelId: hotel.id, name: template.name },
+        defaults: roomTypeDefaults,
+        paranoid: false,
+      });
+      await restoreIfSoftDeleted(roomType);
+
+      for (const roomNumber of roomNumbers) {
+        const roomDefaults: any = {
+          hotelId: hotel.id,
+          roomTypeId: roomType.id,
+          roomNumber: String(roomNumber),
+          status: template.unavailable[roomNumber] || RoomStatus.ACTIVE,
+        };
+        const [room] = await Room.findOrCreate({
+          where: { hotelId: hotel.id, roomNumber: String(roomNumber) },
+          defaults: roomDefaults,
+          paranoid: false,
+        });
+        await restoreIfSoftDeleted(room);
+      }
+    }
+  }
+
   // ── Bookings ─────────────────────────────────────────────────────────────────
   const now = new Date();
   const d = (offsetDays: number, h = 15, m = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, h, m, 0);
@@ -311,11 +361,9 @@ async function seed() {
   ];
   const bookings: Booking[] = [];
   for (const row of bookingData) {
-    const [b] = await Booking.findOrCreate({
-      where: { guestId: row.guestId, hotelId: row.hotelId, startTime: row.startTime } as any,
-      defaults: row as any,
-      paranoid: false,
-    });
+    const bookingWhere: any = { guestId: row.guestId, hotelId: row.hotelId, startTime: row.startTime };
+    const bookingDefaults: any = row;
+    const [b] = await Booking.findOrCreate({ where: bookingWhere, defaults: bookingDefaults, paranoid: false });
     await restoreIfSoftDeleted(b);
     bookings.push(b);
   }
