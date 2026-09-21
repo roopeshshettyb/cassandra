@@ -261,7 +261,7 @@ export class InventoryService {
   }
 
   /** The inventory calendar for a range, with `available` derived rather than stored. */
-  async findRange(roomTypeId: number, nights: string[]): Promise<RoomInventoryRow[]> {
+  async findRange(roomTypeId: number, nights: string[], transaction?: Transaction): Promise<RoomInventoryRow[]> {
     if (nights.length === 0) {
       return [];
     }
@@ -278,7 +278,7 @@ export class InventoryService {
        LEFT JOIN room_inventory ri ON ri.room_type_id = rt.id AND ri.date = night::date AND ri.deleted_at IS NULL
        WHERE rt.id = :roomTypeId AND rt.deleted_at IS NULL
        ORDER BY night`,
-      { replacements: { roomTypeId, nights }, type: QueryTypes.SELECT },
+      { replacements: { roomTypeId, nights }, transaction, type: QueryTypes.SELECT },
     );
   }
 

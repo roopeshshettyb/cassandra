@@ -8,6 +8,9 @@ import {
   UpdateInventoryDto,
   UpdateRoomDto,
   UpdateRoomTypeDto,
+  RoomTypeImageUploadUrlDto,
+  RoomTypeImageDto,
+  NextRoomQueryDto,
 } from './rooms.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
@@ -28,9 +31,13 @@ export class RoomsController {
     return this.roomsService.findAllRoomTypes(hotelId, account);
   }
 
+  // `whitelist` on both: the service hands the DTO straight to Sequelize, so any
+  // property left in it reaches a column. Without it, a body could carry `images`
+  // and skip the cap enforced in addImage, or carry `hotelId` and move the room
+  // type to a hotel the caller does not own.
   @Post('types')
   async createRoomType(
-    @Body(ValidationPipe) dto: CreateRoomTypeDto,
+    @Body(new ValidationPipe({ whitelist: true })) dto: CreateRoomTypeDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.createRoomType(dto, account);
@@ -39,7 +46,7 @@ export class RoomsController {
   @Patch('types/:id')
   async updateRoomType(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ValidationPipe({ skipMissingProperties: true })) dto: UpdateRoomTypeDto,
+    @Body(new ValidationPipe({ skipMissingProperties: true, whitelist: true })) dto: UpdateRoomTypeDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.updateRoomType(id, dto, account);
@@ -51,6 +58,43 @@ export class RoomsController {
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.deleteRoomType(id, account);
+  }
+
+  @Post('types/:id/images/presigned-url')
+  async getImageUploadUrl(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) dto: RoomTypeImageUploadUrlDto,
+    @CurrentAccount() account: Account,
+  ) {
+    return this.roomsService.getImageUploadUrl(id, dto, account);
+  }
+
+  @Post('types/:id/images')
+  async addImage(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) dto: RoomTypeImageDto,
+    @CurrentAccount() account: Account,
+  ) {
+    return this.roomsService.addImage(id, dto, account);
+  }
+
+  @Delete('types/:id/images')
+  async removeImage(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) dto: RoomTypeImageDto,
+    @CurrentAccount() account: Account,
+  ) {
+    return this.roomsService.removeImage(id, dto, account);
+  }
+
+  @Get('next-room')
+  async findNextRoom(
+    // `transform` so the ids arrive as the numbers the DTO declares. Query params are
+    // strings, and this handler compares them against a model's id with `!==`.
+    @Query(new ValidationPipe({ transform: true })) query: NextRoomQueryDto,
+    @CurrentAccount() account: Account,
+  ) {
+    return this.roomsService.findNextRoom(query, account);
   }
 
   @Get('inventory')
@@ -91,9 +135,12 @@ export class RoomsController {
     return this.roomsService.findAllRooms(hotelId, filterRoomTypeId, account);
   }
 
+  // Whitelisted for the same reason as the room type routes above. It matters more
+  // now that rooms back dated inventory: a body carrying `roomTypeId` would move a
+  // room to another type and leave the two types' counts disagreeing with reality.
   @Post()
   async createRoom(
-    @Body(ValidationPipe) dto: CreateRoomDto,
+    @Body(new ValidationPipe({ whitelist: true })) dto: CreateRoomDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.createRoom(dto, account);
@@ -102,7 +149,7 @@ export class RoomsController {
   @Patch(':id')
   async updateRoom(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ValidationPipe({ skipMissingProperties: true })) dto: UpdateRoomDto,
+    @Body(new ValidationPipe({ skipMissingProperties: true, whitelist: true })) dto: UpdateRoomDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.updateRoom(id, dto, account);

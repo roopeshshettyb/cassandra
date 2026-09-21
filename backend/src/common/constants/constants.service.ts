@@ -19,6 +19,8 @@ export const NOTIFICATION_TONE_MAX_FILE_SIZE_MB = 5;
 
 export const HOTEL_IMAGE_MAX_FILE_SIZE_MB = 100;
 export const HOTEL_IMAGES_MAX_COUNT = 12;
+export const ROOM_TYPE_IMAGE_MAX_FILE_SIZE_MB = 100;
+export const ROOM_TYPE_IMAGES_MAX_COUNT = 8;
 
 export enum NotificationEventType {
   NEW_REQUEST = 'new_request',
