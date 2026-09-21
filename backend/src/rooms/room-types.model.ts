@@ -32,6 +32,25 @@ export class RoomType extends Model<RoomType> {
   })
   maxOccupancy: number;
 
+  // Same shape as hotels.images: a JSON array of public S3 URLs, ordered as the
+  // guest should see them.
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    defaultValue: [],
+  })
+  images: string[];
+
+  // Free-text inclusions — "Breakfast included", "Airport pickup". An array rather
+  // than a fixed set, because what a room type throws in differs per hotel and the
+  // list grows without a migration.
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    defaultValue: [],
+  })
+  perks: string[];
+
   // Sellable room count for this type. Inventory rows are created from this
   // value, and changing it only rewrites `total` for today onward.
   @Column({

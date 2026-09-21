@@ -307,9 +307,21 @@ async function seed() {
   // actually sellable: a room under maintenance is excluded from findAvailableRooms,
   // so counting it here would let inventory promise a room that cannot be assigned.
   const roomTypeTemplates = [
-    { name: 'Deluxe King', maxOccupancy: 2, firstRoom: 101, count: 12, unavailable: { 112: RoomStatus.MAINTENANCE } },
-    { name: 'Twin Double', maxOccupancy: 4, firstRoom: 201, count: 8, unavailable: { 208: RoomStatus.OUT_OF_SERVICE } },
-    { name: 'Executive Suite', maxOccupancy: 3, firstRoom: 301, count: 4, unavailable: {} },
+    {
+      name: 'Deluxe King', maxOccupancy: 2, firstRoom: 101, count: 12,
+      unavailable: { 112: RoomStatus.MAINTENANCE },
+      perks: ['Breakfast included', 'Free Wi-Fi', 'City view'],
+    },
+    {
+      name: 'Twin Double', maxOccupancy: 4, firstRoom: 201, count: 8,
+      unavailable: { 208: RoomStatus.OUT_OF_SERVICE },
+      perks: ['Breakfast included', 'Free Wi-Fi'],
+    },
+    {
+      name: 'Executive Suite', maxOccupancy: 3, firstRoom: 301, count: 4,
+      unavailable: {},
+      perks: ['Breakfast included', 'Airport pickup', 'Lounge access', 'Late checkout'],
+    },
   ];
 
   for (const hotel of hotels) {
@@ -320,6 +332,7 @@ async function seed() {
       const roomTypeDefaults: any = {
         hotelId: hotel.id,
         name: template.name,
+        perks: template.perks,
         maxOccupancy: template.maxOccupancy,
         totalRooms: sellable,
       };

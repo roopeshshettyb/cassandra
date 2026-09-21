@@ -13,10 +13,14 @@ import {
   UpdateInventoryDto,
   UpdateRoomDto,
   UpdateRoomTypeDto,
+  RoomTypeImageUploadUrlDto,
+  RoomTypeImageDto,
+  NextRoomQueryDto,
 } from './rooms.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { HotelsService } from '../hotels/hotels.service';
-import { DEFAULT_AVAILABILITY_ROOMS } from '../common/constants/constants.service';
+import { ConstantsService, DEFAULT_AVAILABILITY_ROOMS, ROOM_TYPE_IMAGES_MAX_COUNT, ROOM_TYPE_IMAGE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
+import { AwsService } from '../common/aws/aws.service';
 
 @Injectable()
 export class RoomsService {
@@ -25,6 +29,8 @@ export class RoomsService {
     @Inject(ROOMS_REPOSITORY) private readonly roomsRepository: typeof Room,
     @Inject(forwardRef(() => HotelsService)) private readonly hotelsService: HotelsService,
     private readonly inventoryService: InventoryService,
+    private readonly awsService: AwsService,
+    private readonly constantsService: ConstantsService,
   ) {}
 
   /** Membership of the hotel. Throws NotFound rather than Forbidden so a stranger learns nothing. */
@@ -122,6 +128,97 @@ export class RoomsService {
     });
 
     return { success: true, message: 'Room type deleted', data: null };
+  }
+
+  /**
+   * Presigned URL for a room type image, mirroring how hotel images are uploaded:
+   * the browser PUTs straight to S3 and only the resulting URL comes back here.
+   */
+  async getImageUploadUrl(id: number, dto: RoomTypeImageUploadUrlDto, currentAccount: Account) {
+    const roomType = await this.findRoomTypeForAccount(id, currentAccount);
+    this.ensureCanManage(currentAccount);
+
+    const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
+    const s3Key = `${keyPrefix}room-type-images/${roomType.id}-${Date.now()}-${dto.fileName}`;
+    const data = await this.awsService.createUploadUrl({
+      key: s3Key,
+      contentType: dto.contentType,
+      fileSize: dto.fileSize,
+      maxSizeMb: ROOM_TYPE_IMAGE_MAX_FILE_SIZE_MB,
+      allowedType: 'image',
+      isPublic: true,
+    });
+
+    return { success: true, message: null, data };
+  }
+
+  async addImage(id: number, dto: RoomTypeImageDto, currentAccount: Account) {
+    const roomType = await this.findRoomTypeForAccount(id, currentAccount);
+    this.ensureCanManage(currentAccount);
+
+    const images = roomType.images || [];
+    if (images.length >= ROOM_TYPE_IMAGES_MAX_COUNT) {
+      throw new BadRequestException(`A room type can have at most ${ROOM_TYPE_IMAGES_MAX_COUNT} images`);
+    }
+
+    await roomType.update({ images: [...images, dto.s3Url] });
+
+    return { success: true, message: 'Image added', data: roomType };
+  }
+
+  async removeImage(id: number, dto: RoomTypeImageDto, currentAccount: Account) {
+    const roomType = await this.findRoomTypeForAccount(id, currentAccount);
+    this.ensureCanManage(currentAccount);
+
+    // Only the reference is dropped. The S3 object is left in place, matching how
+    // hotel images behave — deleting it would break any copy of the URL already
+    // handed out.
+    await roomType.update({ images: (roomType.images || []).filter((url) => url !== dto.s3Url) });
+
+    return { success: true, message: 'Image removed', data: roomType };
+  }
+
+  /**
+   * Which room a booking would be given, without taking it.
+   *
+   * A preview for the booking form only. The real assignment still happens inside
+   * the booking transaction, so this can go stale between showing and submitting —
+   * which is fine, and is why nothing is reserved here.
+   */
+  async findNextRoom(query: NextRoomQueryDto, currentAccount: Account) {
+    const roomType = await this.findRoomTypeForAccount(query.roomTypeId, currentAccount);
+    this.ensureCanManage(currentAccount);
+    if (roomType.hotelId !== query.hotelId) {
+      throw new BadRequestException('That room type belongs to a different hotel');
+    }
+
+    const nights = this.nightsOrFail(query.startDate, query.endDate);
+    const wanted = query.rooms ?? DEFAULT_AVAILABILITY_ROOMS;
+    const sequelize = this.roomTypesRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+
+    // Both reads share one transaction so the free rooms and the nightly counts
+    // come from the same snapshot; read separately they could disagree.
+    const { rooms, available } = await sequelize.transaction(async (transaction) => ({
+      rooms: await this.inventoryService.findAvailableRooms(query.hotelId, query.roomTypeId, query.startDate, query.endDate, wanted, transaction),
+      available: await this.inventoryService.findRange(query.roomTypeId, nights, transaction),
+    }));
+
+    // `nights` is never empty — nightsOrFail throws first — and findRange returns a
+    // row per night, so there is always something to take the minimum of.
+    const lowest = Math.min(...available.map((night) => night.available));
+
+    return {
+      success: true,
+      message: null,
+      data: {
+        roomNumbers: rooms.map((room) => room.roomNumber),
+        enough: rooms.length >= wanted && lowest >= wanted,
+        available: lowest,
+      },
+    };
   }
 
   async findAllRooms(hotelId: number, roomTypeId: number | undefined, currentAccount: Account) {
