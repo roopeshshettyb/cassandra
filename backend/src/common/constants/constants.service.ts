@@ -5,7 +5,7 @@ export const OTP_EXPIRY_MINUTES = 10;
 export const OTP_LENGTH = 6;
 export const DEFAULT_CHECK_IN_TIME = '15:00';
 export const DEFAULT_CHECK_OUT_TIME = '11:00';
-
+export const DEFAULT_AVAILABILITY_ROOMS = 1;
 export enum NotificationTone {
   NONE = 'none',
   GENTLE_CHIME = 'gentle_chime',
@@ -45,6 +45,31 @@ export enum HotelMemberStatus {
   ACTIVE = 'active',
   DISABLED = 'disabled',
 }
+
+// Lifecycle of a reservation. Stored as a plain string column (see
+// bookings.model.ts) rather than a Postgres enum, matching hotel_accounts.status:
+// enum types on the managed DB are not owned by the app role, so ALTER TYPE fails.
+export enum BookingStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  CANCELLED = 'cancelled',
+  CHECKED_IN = 'checked_in',
+  CHECKED_OUT = 'checked_out',
+}
+
+// Staff and PMS bookings are real reservations the moment they are created, and
+// nothing in the product confirms a held booking, so PENDING is never the default.
+export const DEFAULT_BOOKING_STATUS = BookingStatus.CONFIRMED;
+
+// Labelled for the booking screens. Cancelled is offered like any other status:
+// picking it is what releases the nights the booking holds.
+export const BOOKING_STATUSES = [
+  { value: BookingStatus.PENDING, label: 'Pending' },
+  { value: BookingStatus.CONFIRMED, label: 'Confirmed' },
+  { value: BookingStatus.CHECKED_IN, label: 'Checked in' },
+  { value: BookingStatus.CHECKED_OUT, label: 'Checked out' },
+  { value: BookingStatus.CANCELLED, label: 'Cancelled' },
+] as const;
 
 export const HOTEL_MEMBER_INVITE_TYPE_STAFF = 'staff';
 
@@ -93,6 +118,7 @@ export const PERMISSIONS: Record<string, Partial<Record<AccountRole, boolean>>> 
   CAN_EDIT_BOOKING:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_DELETE_BOOKING:         { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   CAN_MANAGE_RESTAURANT_MENU: { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
+  CAN_MANAGE_ROOMS:           { [AccountRole.ADMIN]: true, [AccountRole.HOTEL_OWNER]: true, [AccountRole.HOTEL_STAFF]: true },
   // Creating and editing organisations is platform work, so it stays with admins.
   CAN_MANAGE_ORGANISATIONS:   { [AccountRole.ADMIN]: true },
   // Owners get this too, but scoped: the service narrows them to their own
@@ -341,6 +367,9 @@ export class ConstantsService {
       ACCOUNT_ROLES,
       HOTEL_MEMBER_ROLES,
       HOTEL_MEMBER_STATUSES,
+      BOOKING_STATUSES,
+      BOOKING_STATUS_CANCELLED: BookingStatus.CANCELLED,
+      BOOKING_STATUS_DEFAULT: DEFAULT_BOOKING_STATUS,
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       TTS_PLAYBACK_RATE: 1.0,

@@ -43,7 +43,18 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
   const now = new Date();
   const isActive = start && end && now >= start && now <= end;
   const isPast = end && now > end;
-  const status = isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
+  // The reservation's own lifecycle wins over where the dates fall: a cancelled
+  // booking is not "Upcoming" just because its dates have not passed yet. Only the
+  // in-between states fall back to the date-derived label, since a confirmed
+  // booking is more usefully described as Active or Past.
+  const bookingStatus = booking.status;
+  const isCancelled = bookingStatus === constants.BOOKING_STATUS_CANCELLED;
+  const statusLabel = constants.BOOKING_STATUSES?.find((s) => s.value === bookingStatus)?.label;
+  // statusLabel must be present too: against a backend without these constants
+  // every status differs from an undefined default, and the badge would render
+  // blank rather than falling back to the date-derived label.
+  const showBookingStatus = !!bookingStatus && !!statusLabel && bookingStatus !== constants.BOOKING_STATUS_DEFAULT;
+  const status = showBookingStatus ? statusLabel : (isActive ? 'Active' : isPast ? 'Past' : 'Upcoming');
   const guestName = booking.guest?.name || booking.guest?.email || null;
   const hasDoc = !!booking.reservationDocumentS3Key;
 
@@ -94,9 +105,10 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
               {hotelName}
             </Typography>
           </Box>
-          {/* Status badge */}
-          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: 'rgba(0,0,0,0.22)' }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
+          {/* Status badge — solid red when cancelled, so it reads at a glance in a
+              grid of cards rather than only once you open the booking. */}
+          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: isCancelled ? STATUS_ERROR : 'rgba(0,0,0,0.22)' }}>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: isCancelled ? '#fff' : badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
           </Box>
         </Box>
 

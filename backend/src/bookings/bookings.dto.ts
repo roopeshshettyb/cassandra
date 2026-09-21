@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { BookingStatus } from '../common/constants/constants.service';
 
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -49,10 +50,29 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
+  // Optional because a booking made against a room type gets its room number
+  // from the room the inventory reservation assigns.
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  @ApiProperty()
-  readonly roomNumber: string;
+  @ApiProperty({ required: false })
+  readonly roomNumber?: string;
+
+  @IsOptional()
+  @IsInt()
+  @ApiProperty({ required: false, description: 'Reserve against dated inventory for this room type instead of a free-text room number' })
+  readonly roomTypeId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @ApiProperty({ required: false, description: 'Rooms to reserve of roomTypeId' })
+  readonly rooms?: number;
+
+  @IsOptional()
+  @IsEnum(BookingStatus)
+  @ApiProperty({ required: false, enum: BookingStatus, description: 'Defaults to confirmed' })
+  readonly status?: BookingStatus;
 
   @IsOptional()
   @IsBoolean()
@@ -83,6 +103,11 @@ export class UpdateBookingDto {
   @IsNotEmpty()
   @ApiProperty()
   readonly roomNumber: string;
+
+  @IsOptional()
+  @IsEnum(BookingStatus)
+  @ApiProperty({ required: false, enum: BookingStatus })
+  readonly status?: BookingStatus;
 }
 
 export class ReservationDocumentUploadUrlDto {

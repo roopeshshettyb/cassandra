@@ -1,0 +1,311 @@
+import { Inject, Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { QueryTypes, Transaction } from 'sequelize';
+import { ROOM_INVENTORY_REPOSITORY } from './rooms.repository';
+import { RoomInventory } from './room-inventory.model';
+import { RoomStatus } from './rooms.model';
+
+export interface RoomInventoryRow {
+  date: string;
+  total: number;
+  reserved: number;
+  blocked: number;
+  available: number;
+}
+
+export interface RoomTypeAvailability {
+  roomTypeId: number;
+  name: string;
+  maxOccupancy: number;
+  available: number;
+}
+
+@Injectable()
+export class InventoryService {
+  constructor(@Inject(ROOM_INVENTORY_REPOSITORY) private readonly roomInventoryRepository: typeof RoomInventory) {}
+
+  private get sequelize() {
+    const sequelize = this.roomInventoryRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+    return sequelize;
+  }
+
+  /** Local YYYY-MM-DD, matching how booking timestamps are built from hotel check-in times. */
+  toDateString(value: Date): string {
+    const year = value.getFullYear();
+    const month = `${value.getMonth() + 1}`.padStart(2, '0');
+    const day = `${value.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * The nights a stay consumes: check-in date through the night before check-out.
+   * A guest arriving Oct 1 and leaving Oct 4 occupies Oct 1, 2 and 3 — the
+   * checkout date itself is sellable to someone else.
+   */
+  nightsBetween(checkIn: Date, checkOut: Date): string[] {
+    const nights: string[] = [];
+    const cursor = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+    const last = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+    while (cursor < last) {
+      nights.push(this.toDateString(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return nights;
+  }
+
+  /** Room types at this hotel that can seat `guests` and have `rooms` free on every night. */
+  async findAvailability(hotelId: number, nights: string[], guests: number, rooms: number): Promise<RoomTypeAvailability[]> {
+    if (nights.length === 0) {
+      return [];
+    }
+    // A stay is only bookable at the *worst* night's stock, so MIN across the
+    // range is the answer — two good nights and one sold-out night is a no.
+    //
+    // The nights are generated and LEFT JOINed, never joined from the table: a
+    // night with no inventory row has simply never been sold, so it is worth the
+    // room type's full total_rooms. Requiring a row instead would report a hotel
+    // whose inventory has not been opened yet as sold out, which is the same
+    // answer as genuinely full.
+    return this.sequelize.query<RoomTypeAvailability>(
+      `SELECT rt.id AS "roomTypeId",
+              rt.name AS "name",
+              rt.max_occupancy AS "maxOccupancy",
+              MIN(COALESCE(ri.total, rt.total_rooms) - COALESCE(ri.reserved, 0) - COALESCE(ri.blocked, 0))::int AS "available"
+       FROM room_types rt
+       CROSS JOIN UNNEST(ARRAY[:nights]::date[]) AS night
+       LEFT JOIN room_inventory ri ON ri.room_type_id = rt.id AND ri.date = night::date AND ri.deleted_at IS NULL
+       WHERE rt.hotel_id = :hotelId AND rt.max_occupancy >= :guests AND rt.deleted_at IS NULL
+       GROUP BY rt.id, rt.name, rt.max_occupancy
+       HAVING MIN(COALESCE(ri.total, rt.total_rooms) - COALESCE(ri.reserved, 0) - COALESCE(ri.blocked, 0)) >= :rooms
+       ORDER BY rt.name`,
+      { replacements: { hotelId, guests, rooms, nights }, type: QueryTypes.SELECT },
+    );
+  }
+
+  /**
+   * Materialise the inventory rows a stay needs, from the room type's total_rooms.
+   *
+   * Nothing creates room_inventory up front: a hotel would otherwise need a job
+   * extending every room type to some arbitrary horizon, and any stay past that
+   * horizon would read as sold out rather than as unsold. Rows are opened on
+   * demand instead, so a room type is sellable on every future date the moment it
+   * exists, and `total` is captured from the room type as each night opens.
+   *
+   * Only nights with no row yet are written. ON CONFLICT DO NOTHING is what makes
+   * that safe under concurrency — two bookings opening the same night race to
+   * INSERT, the loser blocks until the winner commits and then skips. It also
+   * means an existing row is never touched: reserved, blocked and an adjusted
+   * total all survive, so this can run before every reservation.
+   */
+  async ensureNights(roomTypeId: number, nights: string[], transaction: Transaction): Promise<void> {
+    if (nights.length === 0) {
+      return;
+    }
+    // reserved and blocked are left to their column defaults rather than written
+    // as zeroes here. A soft-deleted row still occupies the primary key, so DO
+    // NOTHING skips it and the reserve() below then fails the booking — which is
+    // right: inventory is only soft-deleted when its hotel is being deleted.
+    await this.sequelize.query(
+      `INSERT INTO room_inventory (room_type_id, date, total, created_at, updated_at)
+       SELECT rt.id, night::date, rt.total_rooms, NOW(), NOW()
+       FROM room_types rt
+       CROSS JOIN UNNEST(ARRAY[:nights]::date[]) AS night
+       WHERE rt.id = :roomTypeId AND rt.deleted_at IS NULL
+       ON CONFLICT (room_type_id, date) DO NOTHING`,
+      { replacements: { roomTypeId, nights }, transaction, type: QueryTypes.INSERT },
+    );
+  }
+
+  /**
+   * Record rooms already sold elsewhere, with no availability check.
+   *
+   * For reservations pushed in from a hotel's PMS. Those rooms are sold whether
+   * our counters agree or not, so there is nothing to approve or reject —
+   * refusing would only leave our inventory claiming a room the front desk has
+   * already given away. Deliberately unguarded, unlike reserve().
+   *
+   * Reserved may end up exceeding total, making `available` negative. That is the
+   * honest reading: it says we are oversold, and every availability query then
+   * refuses the room type, which is what should happen.
+   */
+  async reserveExternal(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
+    if (nights.length === 0) {
+      return;
+    }
+    await this.sequelize.query(
+      `UPDATE room_inventory
+       SET reserved = reserved + :count, updated_at = NOW()
+       WHERE room_type_id = :roomTypeId
+         AND date IN (:nights)
+         AND deleted_at IS NULL`,
+      { replacements: { roomTypeId, nights, count }, transaction, type: QueryTypes.UPDATE },
+    );
+  }
+
+  /**
+   * Hold `count` rooms on every night, or hold none at all.
+   *
+   * The guard lives in the WHERE clause, not in a read-then-write: two requests
+   * racing for the last room both see it free, but only one UPDATE matches the
+   * `>= :count` predicate — the other updates zero rows and is rejected here.
+   * A partial match (some nights had stock, others did not) is also a failure,
+   * so the caller's transaction must roll back what did apply.
+   */
+  async reserve(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
+    const updated = await this.sequelize.query<{ date: string }>(
+      `UPDATE room_inventory
+       SET reserved = reserved + :count
+       WHERE room_type_id = :roomTypeId
+         AND date IN (:nights)
+         AND deleted_at IS NULL
+         AND total - reserved - blocked >= :count
+       RETURNING date`,
+      { replacements: { roomTypeId, nights, count }, transaction, type: QueryTypes.SELECT },
+    );
+    if (updated.length !== nights.length) {
+      throw new ConflictException('Not enough rooms available for the selected dates');
+    }
+  }
+
+  /**
+   * Rooms of this type with nothing booked over the range, so booking_rooms can
+   * record which room each reservation holds.
+   *
+   * Two bookings can only want the same room if they share a room type and an
+   * overlapping night, and reserve() has already updated those room_inventory
+   * rows — so the second transaction is still waiting there and cannot reach this
+   * query until the first has committed its booking_rooms.
+   */
+  async findAvailableRooms(
+    hotelId: number,
+    roomTypeId: number,
+    checkIn: string,
+    checkOut: string,
+    count: number,
+    transaction: Transaction,
+  ): Promise<{ id: number; roomNumber: string }[]> {
+    return this.sequelize.query<{ id: number; roomNumber: string }>(
+      `SELECT r.id, r.room_number AS "roomNumber"
+       FROM rooms r
+       WHERE r.hotel_id = :hotelId
+         AND r.room_type_id = :roomTypeId
+         AND r.status = :activeStatus
+         AND r.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_rooms br
+           WHERE br.room_id = r.id
+             AND br.deleted_at IS NULL
+             AND br.check_in < :checkOut
+             AND br.check_out > :checkIn
+         )
+       ORDER BY r.room_number
+       LIMIT :count`,
+      {
+        replacements: { hotelId, roomTypeId, count, checkIn, checkOut, activeStatus: RoomStatus.ACTIVE },
+        transaction,
+        type: QueryTypes.SELECT,
+      },
+    );
+  }
+
+  /**
+   * Hand back the nights a set of bookings holds.
+   *
+   * Derived from booking_rooms rather than from the caller, so a booking whose
+   * rooms were swapped mid-stay still releases exactly what it holds. The caller
+   * must delete (or soft-delete) the booking_rooms rows in the same transaction:
+   * this query only sees live rows, so that is what makes a second release a
+   * no-op instead of a double refund.
+   *
+   * GREATEST(..., 0) is a backstop only. Reserved going negative would mean a
+   * release without a matching reserve, which should be impossible.
+   */
+  async releaseForBookings(bookingIds: number[], transaction: Transaction): Promise<void> {
+    if (bookingIds.length === 0) {
+      return;
+    }
+    await this.sequelize.query(
+      `UPDATE room_inventory ri
+       SET reserved = GREATEST(ri.reserved - held.rooms, 0)
+       FROM (
+         SELECT r.room_type_id AS room_type_id,
+                night::date AS date,
+                COUNT(*) AS rooms
+         FROM booking_rooms br
+         JOIN rooms r ON r.id = br.room_id
+         -- ::timestamp, not ::date: with two date arguments Postgres resolves
+         -- generate_series to the timestamptz overload, which would drag the
+         -- session time zone into a calculation that is purely calendar dates.
+         CROSS JOIN LATERAL generate_series(br.check_in::timestamp, (br.check_out::date - 1)::timestamp, interval '1 day') AS night
+         WHERE br.booking_id IN (:bookingIds)
+           AND br.deleted_at IS NULL
+         GROUP BY r.room_type_id, night::date
+       ) held
+       WHERE ri.room_type_id = held.room_type_id
+         AND ri.date = held.date
+         AND ri.deleted_at IS NULL`,
+      { replacements: { bookingIds }, transaction, type: QueryTypes.UPDATE },
+    );
+  }
+
+  /** A night list from two YYYY-MM-DD strings, parsed as calendar dates rather than UTC instants. */
+  nightsBetweenDates(startDate: string, endDate: string): string[] {
+    return this.nightsBetween(this.parseDate(startDate), this.parseDate(endDate));
+  }
+
+  private parseDate(value: string): Date {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  /** The inventory calendar for a range, with `available` derived rather than stored. */
+  async findRange(roomTypeId: number, nights: string[]): Promise<RoomInventoryRow[]> {
+    if (nights.length === 0) {
+      return [];
+    }
+    // LEFT JOIN from the requested nights, not from the table: a night with no row
+    // yet is unsold, and reporting it as missing would read as sold out instead.
+    return this.sequelize.query<RoomInventoryRow>(
+      `SELECT night::date::text AS "date",
+              COALESCE(ri.total, rt.total_rooms)::int AS "total",
+              COALESCE(ri.reserved, 0)::int AS "reserved",
+              COALESCE(ri.blocked, 0)::int AS "blocked",
+              (COALESCE(ri.total, rt.total_rooms) - COALESCE(ri.reserved, 0) - COALESCE(ri.blocked, 0))::int AS "available"
+       FROM room_types rt
+       CROSS JOIN UNNEST(ARRAY[:nights]::date[]) AS night
+       LEFT JOIN room_inventory ri ON ri.room_type_id = rt.id AND ri.date = night::date AND ri.deleted_at IS NULL
+       WHERE rt.id = :roomTypeId AND rt.deleted_at IS NULL
+       ORDER BY night`,
+      { replacements: { roomTypeId, nights }, type: QueryTypes.SELECT },
+    );
+  }
+
+  /**
+   * Restock or hold back rooms across a range.
+   *
+   * Nights are opened first so a date nobody has booked can still be blocked.
+   * The `>= 0` guard rejects the whole range if any night is already reserved
+   * beyond what the new numbers would leave — dropping total below what is sold
+   * is an oversell, not a correction.
+   */
+  async setForNights(roomTypeId: number, nights: string[], total: number | undefined, blocked: number | undefined, transaction: Transaction): Promise<void> {
+    await this.ensureNights(roomTypeId, nights, transaction);
+    const updated = await this.sequelize.query<{ date: string }>(
+      `UPDATE room_inventory
+       SET total = COALESCE(:total, total),
+           blocked = COALESCE(:blocked, blocked),
+           updated_at = NOW()
+       WHERE room_type_id = :roomTypeId
+         AND date IN (:nights)
+         AND deleted_at IS NULL
+         AND COALESCE(:total, total) - reserved - COALESCE(:blocked, blocked) >= 0
+       RETURNING date`,
+      { replacements: { roomTypeId, nights, total: total ?? null, blocked: blocked ?? null }, transaction, type: QueryTypes.SELECT },
+    );
+    if (updated.length !== nights.length) {
+      throw new ConflictException('Those numbers would leave nights oversold; release the bookings on them first');
+    }
+  }
+}
