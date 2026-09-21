@@ -340,7 +340,7 @@ const AppContent = () => {
     { path: '/terms-conditions', component: TermsAndConditions, isProtected: false },
     { path: '/shipping-delivery-policy', component: ShippingDeliveryPolicy, isProtected: false },
     { path: '/contact', component: ContactUs, isProtected: false },
-    { path: '/rooms', component: Rooms, isProtected: true },
+    { path: '/rooms', component: Rooms, isProtected: true, guestRestricted: true },
     { path: '/hotels', component: ManageHotels, isProtected: true, guestRestricted: true },
     { path: '/hotels/:id', component: HotelDetails, isProtected: true, guestRestricted: true },
     { path: '/brands', component: ManageBrands, isProtected: true, guestRestricted: true },
