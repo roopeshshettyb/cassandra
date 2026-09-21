@@ -851,6 +851,28 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
              */
             LANGUAGE: this.configService.get<string>('DEEPGRAM_STT_LANGUAGE', ''),
           },
+          SARVAM: {
+            API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
+            WS_URL: this.configService.get<string>('SARVAM_STT_WS_URL', 'wss://api.sarvam.ai/speech-to-text-realtime/ws'),
+            /** Only saaras:v3-realtime and saaras:v4 exist on this endpoint. */
+            MODEL: this.configService.get<string>('SARVAM_STT_MODEL', 'saaras:v3-realtime'),
+            /**
+             * 'auto' is why this provider is here: it reads a caller who answers
+             * in Hindi without anyone having configured Hindi, so the surface no
+             * longer has to choose one language and lose the other.
+             */
+            LANGUAGE: this.configService.get<string>('SARVAM_STT_LANGUAGE', 'auto'),
+            /** Sarvam takes 8000 or 16000 and rejects anything else, so the 24kHz pipeline is converted on the way in. */
+            SAMPLE_RATE: parseInt(this.configService.get('SARVAM_STT_SAMPLE_RATE') || '16000', 10),
+            /** Just under the 8kHz Nyquist of that rate, so nothing folds back into the speech. */
+            RESAMPLE_CUTOFF_HZ: 7000,
+            EVENT_AUDIO_INPUT: 'audio_input',
+            EVENT_AUDIO_END: 'audio_end',
+            EVENT_TRANSCRIPT_PARTIAL: 'transcript.partial',
+            EVENT_TRANSCRIPT_FINAL: 'transcript.final',
+            EVENT_SPEECH_END: 'vad.speech_end',
+            EVENT_ERROR: 'error',
+          },
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
             REALTIME_MODEL: this.configService.get<string>('OPENAI_REALTIME_MODEL', 'gpt-4o-realtime-preview-2024-12-17'),
