@@ -4,11 +4,12 @@ import { Box, Typography, TextField, CircularProgress, Avatar, Dialog, DialogAct
 import { motion } from 'framer-motion';
 import {
   HotelOutlined, AccessTime, PaletteOutlined, AutoAwesome, PeopleOutline,
-  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add, CableOutlined, ContentCopy,
+  DeleteOutline, LocationOn, PlayArrow, DeleteForever, MenuBook, UploadFile, Download, Close, Add, CableOutlined, ContentCopy, BedOutlined,
 } from '@mui/icons-material';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import ManageRestaurant from './ManageRestaurant';
+import ManageRooms from './ManageRooms';
 import { useHotelTheme } from '../context/HotelThemeContext';
 import constants from '../constants.json';
 import { generateAndPlayTone } from '../utils/audioToneGenerator';
@@ -26,6 +27,7 @@ const TABS = [
   { key: 'theme',     label: 'Theme',         Icon: PaletteOutlined },
   { key: 'ai',        label: 'Concierge AI',  Icon: AutoAwesome },
   { key: 'restaurant', label: 'Restaurant',    Icon: MenuBook },
+  { key: 'rooms',     label: 'Rooms & Inventory', Icon: BedOutlined },
   { key: 'staff',     label: 'Members',       Icon: PeopleOutline },
   { key: 'integrations', label: constants.INTEGRATIONS.TAB_LABEL, Icon: CableOutlined },
   { key: 'danger',    label: 'Danger zone',   Icon: DeleteOutline },
@@ -674,6 +676,11 @@ function HotelDetails({ loading, setLoading, account, navigate, alertSuccess, al
           {/* Restaurant */}
           {tab === 'restaurant' && (
             <ManageRestaurant hotelId={hotel.id} account={account} loading={loading} setLoading={setLoading} alertSuccess={alertSuccess} alertError={alertError} />
+          )}
+
+          {/* Rooms & Inventory */}
+          {tab === 'rooms' && (
+            <ManageRooms hotelId={hotel.id} account={account} loading={loading} setLoading={setLoading} alertSuccess={alertSuccess} alertError={alertError} />
           )}
 
           {/* Staff */}
