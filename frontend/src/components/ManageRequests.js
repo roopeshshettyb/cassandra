@@ -1,37 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box } from '@mui/material';
 import { motion } from 'framer-motion';
-import request from '../helper/api';
+import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
+import ListControls from './ListControls';
 import RequestCard from './cards/RequestCard';
 
-import { NAVY } from '../theme';
 import { PageHeader } from './cards/AppCards';
 
+// No filter config lives here: /requests/filters serves it, built from the Request model.
 function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, account }) {
-  const [requests, setRequests] = useState([]);
+  const list = useListControls({ endpoint: '/requests', setLoading, alertError });
 
-  function fetchRequests(isBackground) {
-    request({
-      endpoint: '/requests',
-      method: 'GET',
-      setLoading: isBackground ? null : setLoading,
-      setData: setRequests,
-      defaultData: [],
-      alertError,
-      delay: false,
-    });
-  }
-
-  // Initial load
-  useEffect(() => {
-    fetchRequests(false);
-  }, []);
-
-  // Auto-refresh when a new notification arrives (e.g. guest creates a request)
+  // Auto-refresh when a new notification arrives (e.g. guest creates a request): filters intact,
+  // no spinner.
   useEffect(() => {
     function onNewRequest() {
-      fetchRequests(true); // background refresh, no spinner
+      list.refetch(true);
     }
     window.addEventListener('app:new_request', onNewRequest);
     return () => window.removeEventListener('app:new_request', onNewRequest);
@@ -42,7 +27,8 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <PageHeader title="Requests" />
       </motion.div>
-      <DataGrid CardComponent={RequestCard} data={requests} isLoading={loading} navigate={navigate} account={account} />
+      <ListControls list={list} />
+      <DataGrid CardComponent={RequestCard} data={list.data} isLoading={loading} navigate={navigate} account={account} />
     </Box>
   );
 }
