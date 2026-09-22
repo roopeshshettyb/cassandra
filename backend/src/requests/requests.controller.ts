@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { RequestsService } from './requests.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
+import { ListQuery } from '../common/filters/list-filters';
 import { AppendMessageDto, CreateRequestDto, UpdateRequestDto } from './requests.dto';
 
 @Controller('requests')
@@ -10,9 +11,16 @@ import { AppendMessageDto, CreateRequestDto, UpdateRequestDto } from './requests
 export class RequestsController {
   constructor(private readonly requestsService: RequestsService) {}
 
+  // The query is validated against the model's flagged columns, not a DTO — see list-filters.
   @Get()
-  async findAll(@CurrentAccount() account: Account) {
-    return this.requestsService.findAllForAccount(account);
+  async findAll(@CurrentAccount() account: Account, @Query() query: ListQuery) {
+    return this.requestsService.findAllForAccount(account, query);
+  }
+
+  /** The filters this list offers, so the UI does not hardcode them. Declared before :id to match first. */
+  @Get('filters')
+  getFilters() {
+    return this.requestsService.getListFilterMeta();
   }
 
   @Post()
