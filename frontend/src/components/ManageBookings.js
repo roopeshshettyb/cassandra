@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControlLabel, MenuItem, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
+import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
+import ListControls from './ListControls';
 import BookingCard from './cards/BookingCard';
 import MapComponent from './MapComponent';
 import { FormFieldRow, PageHeader } from './cards/AppCards';
@@ -36,7 +38,6 @@ const initialCreateValues = {
 };
 
 function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, alertError, isMobile }) {
-  const [bookings, setBookings] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createValues, setCreateValues] = useState(initialCreateValues);
@@ -46,16 +47,15 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [editValues, setEditValues] = useState({ startDate: '', endDate: '', roomNumber: '' });
   const [deleteBooking, setDeleteBooking] = useState(null);
 
-  const fetchBookings = async () => {
-    await request({ endpoint: '/bookings', method: 'GET', setLoading, setData: setBookings, defaultData: [], alertError, delay: false });
-  };
+  // Rows and controls both come from the backend — see /bookings/filters.
+  const list = useListControls({ endpoint: '/bookings', setLoading, alertError });
+  const fetchBookings = () => list.refetch();
 
   const fetchHotels = async () => {
     await request({ endpoint: '/hotels', method: 'GET', defaultData: [], alertError, setData: setHotels });
   };
 
   useEffect(() => {
-    fetchBookings();
     fetchHotels();
   }, []);
 
@@ -301,12 +301,14 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </DialogActions>
       </Dialog>
 
+      <ListControls list={list} />
+
       <DataGrid CardComponent={BookingCard} data={(() => {
         const hotelMap = {};
         for (let i = 0; i < hotels.length; i++) hotelMap[hotels[i].id] = hotels[i];
         const enriched = [];
-        for (let i = 0; i < bookings.length; i++) {
-          const b = bookings[i];
+        for (let i = 0; i < list.data.length; i++) {
+          const b = list.data[i];
           const full = b.hotel?.id ? hotelMap[b.hotel.id] : null;
           const themeConfig = b.hotel?.themeConfig || full?.themeConfig || full?.brand?.themeConfig;
           enriched.push(themeConfig ? { ...b, hotel: { ...b.hotel, themeConfig } } : b);

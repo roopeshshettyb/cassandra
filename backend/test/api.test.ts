@@ -494,6 +494,137 @@ describe('Requests', () => {
     expect(state.testRequestId).toBeTruthy();
   });
 
+  // The filters come from the Request model's `filterable` columns, so the endpoint offers exactly
+  // the enums the model declares — no hand-written list on either side.
+  it('GET /requests/filters → describes the filters the model declares', async () => {
+    const res = await http.get('/requests/filters', state.adminToken);
+    expect(res.status).toBe(200);
+    const byKey: Record<string, any> = {};
+    res.data.data.filters.forEach((filter: any) => { byKey[filter.key] = filter; });
+
+    expect(Object.keys(byKey).sort()).toEqual(['requestType', 'status', 'urgency']);
+    expect(byKey.status.type).toBe('enum');
+    expect(byKey.status.multiple).toBe(true);
+    expect(byKey.status.options.map((option: any) => option.value).sort())
+      .toEqual(['cancelled', 'completed', 'in_progress', 'pending']);
+    // Labels are derived from the enum values themselves.
+    expect(byKey.status.options.find((option: any) => option.value === 'in_progress').label).toBe('In Progress');
+  });
+
+  it('GET /requests?status=... → filters server-side', async () => {
+    const res = await http.get('/requests?status=pending', state.adminToken);
+    expect(res.status).toBe(200);
+    expect((res.data.data as any[]).every((row: any) => row.status === 'pending')).toBe(true);
+  });
+
+  // A comma-separated filter must widen the match, not silently fall back to the first value.
+  it('GET /requests?status=a,b → matches either value', async () => {
+    const single = await http.get('/requests?status=pending', state.adminToken);
+    const multi = await http.get('/requests?status=pending,completed', state.adminToken);
+    expect(multi.data.data.length).toBeGreaterThanOrEqual(single.data.data.length);
+    expect((multi.data.data as any[]).every((row: any) => row.status === 'pending' || row.status === 'completed')).toBe(true);
+  });
+
+  it('GET /requests?status=<unknown value> → 400', async () => {
+    await expectStatus(400, () => http.get('/requests?status=pending,not_a_status', state.adminToken));
+  });
+
+  // Anything the model does not declare is a typo or a stale link, and has to fail loudly.
+  it('GET /requests?<unknown param> → 400', async () => {
+    await expectStatus(400, () => http.get('/requests?notAColumn=1', state.adminToken));
+  });
+
+  it('GET /requests?status=... (hotel_staff) → the filter narrows within their own hotel only', async () => {
+    const res = await http.get('/requests?status=pending', state.staffToken);
+    expect(res.status).toBe(200);
+    expect((res.data.data as any[]).every((row: any) => row.hotelId === state.testHotelId)).toBe(true);
+  });
+
+  it('GET /bookings/filters → the search box comes from the model', async () => {
+    const res = await http.get('/bookings/filters', state.adminToken);
+    expect(res.status).toBe(200);
+    expect(res.data.data.searchLabel).toContain('room number');
+  });
+
+  // `stay` is a VIRTUAL column: nothing stores it, the model declares its options and the where
+  // fragment they map to. The endpoint and the UI treat it like any other filter.
+  it('GET /bookings/filters → the stay filter comes from the model like any other', async () => {
+    const res = await http.get('/bookings/filters', state.adminToken);
+    const stay = res.data.data.filters.find((filter: any) => filter.key === 'stay');
+    expect(stay.type).toBe('enum');
+    expect(stay.multiple).toBe(false);
+    expect(stay.options).toEqual([
+      { value: 'active', label: 'Currently staying' },
+      { value: 'upcoming', label: 'Upcoming stays' },
+    ]);
+  });
+
+  it('GET /bookings?stay=active → only stays running right now', async () => {
+    const res = await http.get('/bookings?stay=active', state.adminToken);
+    expect(res.status).toBe(200);
+    const now = Date.now();
+    expect((res.data.data as any[]).every((booking: any) =>
+      new Date(booking.startTime).getTime() <= now && new Date(booking.endTime).getTime() >= now)).toBe(true);
+  });
+
+  it('GET /bookings?stay=upcoming → only stays that start later', async () => {
+    const res = await http.get('/bookings?stay=upcoming', state.adminToken);
+    expect(res.status).toBe(200);
+    expect((res.data.data as any[]).every((booking: any) => new Date(booking.startTime).getTime() > Date.now())).toBe(true);
+  });
+
+  // The two modes must not both claim a booking that starts exactly now.
+  it('GET /bookings?stay=... → active and upcoming never overlap', async () => {
+    const active = await http.get('/bookings?stay=active', state.adminToken);
+    const upcoming = await http.get('/bookings?stay=upcoming', state.adminToken);
+    const upcomingIds = new Set((upcoming.data.data as any[]).map((booking: any) => booking.id));
+    expect((active.data.data as any[]).some((booking: any) => upcomingIds.has(booking.id))).toBe(false);
+  });
+
+  it('GET /bookings?stay=bogus → 400', async () => {
+    await expectStatus(400, () => http.get('/bookings?stay=bogus', state.adminToken));
+  });
+
+  it('GET /hotels/brands?notificationTone=... → the enum filter narrows', async () => {
+    const meta = await http.get('/hotels/brands/filters', state.adminToken);
+    const tone = meta.data.data.filters.find((filter: any) => filter.key === 'notificationTone');
+    expect(tone.type).toBe('enum');
+
+    const value = tone.options[0].value;
+    const res = await http.get(`/hotels/brands?notificationTone=${value}`, state.adminToken);
+    expect(res.status).toBe(200);
+    expect((res.data.data as any[]).every((brand: any) => brand.notificationTone === value)).toBe(true);
+  });
+
+  it('GET /bookings?search=<room number> → filters server-side', async () => {
+    const all = await http.get('/bookings', state.adminToken);
+    const target = (all.data.data as any[]).find((booking: any) => booking.roomNumber);
+    const res = await http.get(`/bookings?search=${encodeURIComponent(target.roomNumber)}`, state.adminToken);
+    expect(res.status).toBe(200);
+    expect((res.data.data as any[]).some((booking: any) => booking.id === target.id)).toBe(true);
+  });
+
+  it('GET /hotels/filters → search spans the searchable columns', async () => {
+    const res = await http.get('/hotels/filters', state.adminToken);
+    expect(res.status).toBe(200);
+    expect(res.data.data.searchLabel).toBe('Search by name or address');
+  });
+
+  it('GET /hotels?search=... → filters server-side', async () => {
+    const all = await http.get('/hotels', state.adminToken);
+    const target = (all.data.data as any[])[0];
+    const res = await http.get(`/hotels?search=${encodeURIComponent(target.name)}`, state.adminToken);
+    expect(res.status).toBe(200);
+    expect((res.data.data as any[]).some((hotel: any) => hotel.id === target.id)).toBe(true);
+    expect(res.data.data.length).toBeLessThanOrEqual(all.data.data.length);
+  });
+
+  it('GET /hotels/brands/filters → brand search comes from the brand model', async () => {
+    const res = await http.get('/hotels/brands/filters', state.adminToken);
+    expect(res.status).toBe(200);
+    expect(res.data.data.searchLabel).toContain('name');
+  });
+
   it('GET /requests (guest) → returns guest requests including created one', async () => {
     const res = await http.get('/requests', state.guestToken);
     expect(res.status).toBe(200);

@@ -7,6 +7,7 @@ import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { Account } from '../accounts/accounts.model';
 import { OnboardingService } from './onboarding.service';
 import { MapsService } from '../common/maps/maps.service';
+import { ListQuery } from '../common/filters/list-filters';
 
 @Controller('hotels')
 @UseGuards(JwtAuthGuard)
@@ -17,16 +18,29 @@ export class HotelsController {
     private readonly mapsService: MapsService,
   ) {}
 
+  // The query is validated against the model's flagged columns, not a DTO — see list-filters.
   @Get()
-  async findAll(@CurrentAccount() account: Account) {
-    return this.hotelsService.findAllForAccount(account);
+  async findAll(@CurrentAccount() account: Account, @Query() query: ListQuery) {
+    return this.hotelsService.findAllForAccount(account, query);
+  }
+
+  /** The filters this list offers, so the UI does not hardcode them. Declared before :id to match first. */
+  @Get('filters')
+  getFilters() {
+    return this.hotelsService.getListFilterMeta();
   }
 
   @Get('brands')
   @AdminOnly()
-  async listBrands() {
-    const brands = await this.onboardingService.listAllBrands();
+  async listBrands(@Query() query: ListQuery) {
+    const brands = await this.onboardingService.listAllBrands(query);
     return { success: true, message: null, data: brands };
+  }
+
+  @Get('brands/filters')
+  @AdminOnly()
+  getBrandFilters() {
+    return this.onboardingService.getBrandListFilterMeta();
   }
 
   @Get('brands/:brandId')
