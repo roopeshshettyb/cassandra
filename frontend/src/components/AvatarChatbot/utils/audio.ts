@@ -64,3 +64,58 @@ export const playPcmChunk = (
   source.start(startAt);
   playbackTimeRef.current = startAt + audioBuffer.duration;
 };
+
+/**
+ * Call `onDone` when the audio scheduled up to `scheduledEndTime` has actually
+ * been heard, and return a function that cancels the wait.
+ *
+ * Chunks are scheduled ahead of the clock, so a socket going quiet says nothing
+ * about whether sound is still coming out of the speaker — only the context's
+ * own clock knows. Both voice surfaces need that answer before reopening a
+ * microphone, or the agent ends up transcribing itself.
+ *
+ * Polled on animation frames, with a timer behind it: a backgrounded tab stops
+ * firing frames and a suspended context stops advancing its clock, and neither
+ * should strand a call mid-turn.
+ */
+export const watchPlaybackEnd = (
+  audioContextRef: { current: AudioContext | null },
+  scheduledEndTime: number,
+  onDone: () => void,
+  graceMs: number,
+): (() => void) => {
+  let raf: number | null = null;
+  let fallback: ReturnType<typeof setTimeout> | null = null;
+
+  const cancel = () => {
+    if (raf !== null) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    }
+    if (fallback !== null) {
+      clearTimeout(fallback);
+      fallback = null;
+    }
+  };
+
+  const finish = () => {
+    cancel();
+    onDone();
+  };
+
+  const poll = () => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext || audioContext.currentTime >= scheduledEndTime) {
+      finish();
+      return;
+    }
+    raf = requestAnimationFrame(poll);
+  };
+  raf = requestAnimationFrame(poll);
+
+  const audioContext = audioContextRef.current;
+  const remainingMs = audioContext ? Math.max(0, (scheduledEndTime - audioContext.currentTime) * 1000) : 0;
+  fallback = setTimeout(finish, remainingMs + graceMs);
+
+  return cancel;
+};

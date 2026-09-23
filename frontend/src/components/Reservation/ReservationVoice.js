@@ -5,7 +5,7 @@ import MicOffIcon from '@mui/icons-material/MicOff';
 import { io } from 'socket.io-client';
 // Shared with the concierge's voice hook: PCM encoding and chunk scheduling are
 // the same facts in both places, so they live in one file.
-import { floatTo16BitPCM, arrayBufferToBase64, base64ToUint8Array, playPcmChunk } from '../AvatarChatbot/utils/audio';
+import { floatTo16BitPCM, arrayBufferToBase64, base64ToUint8Array, playPcmChunk, watchPlaybackEnd } from '../AvatarChatbot/utils/audio';
 import { NAVY, MUTED } from '../../theme';
 // The same control the in-stay concierge uses. Different socket, different
 // rules, but to whoever is talking it is the same assistant.
@@ -136,6 +136,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const userStoppedRef = useRef(false);
   const endedRef = useRef(false);
   const restartTimerRef = useRef(null);
+  const cancelWatchRef = useRef(null);
   const readyRef = useRef(false);
 
   const hotelIdRef = useRef(hotelId);
@@ -146,6 +147,11 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   onHotelResolvedRef.current = onHotelResolved;
   const onFatalErrorRef = useRef(onFatalError);
   onFatalErrorRef.current = onFatalError;
+
+  const cancelPlaybackWatch = useCallback(() => {
+    cancelWatchRef.current?.();
+    cancelWatchRef.current = null;
+  }, []);
 
   const stopMic = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -217,19 +223,15 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       readyRef.current = true;
       setBlocked('');
       setStatus((prev) => (prev === 'listening' ? prev : 'idle'));
-      // The server is ready for the next turn, but the reply may still be
-      // coming out of the speaker: chunks are scheduled ahead, so the clock
-      // knows when it ends even though the socket does not. Reopening before
-      // then feeds the agent its own voice.
+      // The line is ours again: take the next turn without asking the caller to
+      // press anything, unless they stopped it or hung up.
       if (!hasInteractedRef.current || userStoppedRef.current || endedRef.current) {
         return;
       }
-      const ctx = playbackContextRef.current;
-      const remainingMs = ctx ? Math.max(0, (playbackTimeRef.current - ctx.currentTime) * 1000) : 0;
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = setTimeout(() => {
         startListeningRef.current?.(true);
-      }, remainingMs + constants.RESERVATION_VOICE_TURN_RESTART_GRACE_MS);
+      }, constants.RESERVATION_VOICE_TURN_RESTART_GRACE_MS);
     });
     socket.on('voice_user_chunk', (p) => setTranscript(p?.delta || ''));
     // End of speech: the server has closed its STT session, so anything more
@@ -257,7 +259,24 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       setStatus('speaking');
       playPcmChunk(p.delta, playbackContextRef, playbackTimeRef);
     });
-    socket.on('voice_audio_end', () => setStatus('idle'));
+    // Only the browser knows when sound stopped coming out of the speaker:
+    // chunks are scheduled ahead, so the socket going quiet says nothing about
+    // playback. Poll the audio clock and report, the way the concierge does —
+    // the server holds the turn until then, so the mic never opens under the
+    // agent's own voice.
+    // Only the browser knows when sound stopped coming out of the speaker, so
+    // it measures and reports; the server holds the turn until then. Same
+    // watcher the concierge uses.
+    socket.on('voice_audio_end', () => {
+      setStatus('idle');
+      cancelPlaybackWatch();
+      cancelWatchRef.current = watchPlaybackEnd(
+        playbackContextRef,
+        playbackTimeRef.current,
+        () => socket.emit('voice_playback_done'),
+        constants.VOICE_PLAYBACK_WATCH_GRACE_MS,
+      );
+    });
     socket.on('voice_call_ended', () => {
       endedRef.current = true;
       clearTimeout(restartTimerRef.current);
@@ -291,6 +310,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
 
   useEffect(() => () => {
     clearTimeout(restartTimerRef.current);
+    cancelPlaybackWatch();
     stopMic();
     stopAmbience(ambienceRef.current, playbackContextRef.current);
     ambienceRef.current = null;
