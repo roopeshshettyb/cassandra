@@ -347,6 +347,19 @@ export class ConstantsService {
        * sits 15-25 dB under speech. -35 is a typical phone line; -45 is barely
        * there; -30 is obvious on a laptop speaker. Use 0 to switch it off.
        */
+      /**
+       * How long after the reply finishes playing before the mic reopens. A
+       * real call does not ask you to press anything between sentences, so the
+       * page takes its own next turn; the pause is there so the last word is
+       * out of the speaker before the microphone is listening to it.
+       */
+      RESERVATION_VOICE_TURN_RESTART_GRACE_MS: 350,
+      /**
+       * A mic streaming pure silence looks exactly like a broken pipeline, so
+       * the caller is told — but only on a turn they asked for. Once the page
+       * is reopening the mic itself, silence is someone thinking.
+       */
+      RESERVATION_VOICE_NO_SOUND_AFTER_MS: 6000,
       RESERVATION_VOICE_AMBIENCE_DBFS: -35,
       /**
        * A real hotel-lobby recording, served from the frontend's public folder.

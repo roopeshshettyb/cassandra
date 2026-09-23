@@ -129,6 +129,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const ambienceRef = useRef(null);
   const ambienceDataRef = useRef(null);
   const stopMicRef = useRef(null);
+  const startListeningRef = useRef(null);
+  // A real call does not ask you to press anything between sentences. The
+  // mic reopens itself after each reply until the caller stops it or hangs up.
+  const hasInteractedRef = useRef(false);
+  const userStoppedRef = useRef(false);
+  const endedRef = useRef(false);
+  const restartTimerRef = useRef(null);
   const readyRef = useRef(false);
 
   const hotelIdRef = useRef(hotelId);
@@ -210,6 +217,19 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       readyRef.current = true;
       setBlocked('');
       setStatus((prev) => (prev === 'listening' ? prev : 'idle'));
+      // The server is ready for the next turn, but the reply may still be
+      // coming out of the speaker: chunks are scheduled ahead, so the clock
+      // knows when it ends even though the socket does not. Reopening before
+      // then feeds the agent its own voice.
+      if (!hasInteractedRef.current || userStoppedRef.current || endedRef.current) {
+        return;
+      }
+      const ctx = playbackContextRef.current;
+      const remainingMs = ctx ? Math.max(0, (playbackTimeRef.current - ctx.currentTime) * 1000) : 0;
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        startListeningRef.current?.(true);
+      }, remainingMs + constants.RESERVATION_VOICE_TURN_RESTART_GRACE_MS);
     });
     socket.on('voice_user_chunk', (p) => setTranscript(p?.delta || ''));
     // End of speech: the server has closed its STT session, so anything more
@@ -239,6 +259,8 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     });
     socket.on('voice_audio_end', () => setStatus('idle'));
     socket.on('voice_call_ended', () => {
+      endedRef.current = true;
+      clearTimeout(restartTimerRef.current);
       setEnded(true);
       setStatus('idle');
       stopAmbience(ambienceRef.current, playbackContextRef.current);
@@ -268,13 +290,17 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   stopMicRef.current = stopMic;
 
   useEffect(() => () => {
+    clearTimeout(restartTimerRef.current);
     stopMic();
     stopAmbience(ambienceRef.current, playbackContextRef.current);
     ambienceRef.current = null;
   }, [stopMic]);
 
-  const startListening = async () => {
-    if (!socketRef.current?.connected || ended) return;
+  /** `auto` marks a turn the page opened itself rather than one the caller tapped. */
+  const startListening = async (auto = false) => {
+    if (!socketRef.current?.connected || endedRef.current) return;
+    hasInteractedRef.current = true;
+    userStoppedRef.current = false;
     // Tear down any capture still running before opening another. Without this a
     // second tap left the first ScriptProcessor attached and streaming, so the
     // server received two interleaved copies of the caller and STT could make
@@ -337,13 +363,17 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
         }
         socketRef.current.emit('voice_client_chunk', { audio: arrayBufferToBase64(floatTo16BitPCM(input).buffer) });
       };
-      // A mic that streams pure silence looks identical to a broken pipeline;
-      // tell the caller rather than leaving them tapping.
-      silenceTimerRef.current = setTimeout(() => {
-        if (!heardSound) {
-          alertErrorRef.current?.(constants.RESERVATION_VOICE_NO_SOUND);
-        }
-      }, 6000);
+      // A mic that streams pure silence looks identical to a broken pipeline, so
+      // say so — but only on a turn the caller asked for. Once the page is
+      // reopening the mic itself, silence is just someone thinking, and warning
+      // them about their microphone every few seconds is the bug, not the help.
+      if (!auto) {
+        silenceTimerRef.current = setTimeout(() => {
+          if (!heardSound) {
+            alertErrorRef.current?.(constants.RESERVATION_VOICE_NO_SOUND);
+          }
+        }, constants.RESERVATION_VOICE_NO_SOUND_AFTER_MS);
+      }
       source.connect(processor);
       processor.connect(ctx.destination);
       micStreamRef.current = stream;
@@ -351,11 +381,19 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       processorRef.current = processor;
     } catch (err) {
       setStatus('idle');
-      alertErrorRef.current?.(constants.RESERVATION_VOICE_MIC_DENIED);
+      // Stop the loop: reopening a mic the browser just refused would retry
+      // forever and raise the same alert on every pass.
+      userStoppedRef.current = true;
+      if (!auto) {
+        alertErrorRef.current?.(constants.RESERVATION_VOICE_MIC_DENIED);
+      }
     }
   };
+  startListeningRef.current = startListening;
 
   const stopListening = () => {
+    userStoppedRef.current = true;
+    clearTimeout(restartTimerRef.current);
     stopMic();
     if (socketRef.current?.connected) {
       socketRef.current.emit('voice_stop');
