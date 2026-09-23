@@ -1,0 +1,51 @@
+name: Quality
+
+# Runs on the way into both long-lived branches. The LLM regression suite only
+# guards stage, and nothing guarded main at all — a promotion PR could carry a
+# type error or a lint failure straight through with a green tick on it.
+on:
+  pull_request:
+    branches:
+      - main
+      - stage
+  workflow_dispatch: {}
+
+jobs:
+  backend:
+    name: backend types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # install, not ci: this repo deliberately does not commit a lockfile.
+      - name: Install dependencies
+        working-directory: backend
+        run: npm install
+      - name: Type-check
+        working-directory: backend
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Build
+        working-directory: backend
+        run: npm run build:stage
+
+  frontend:
+    name: frontend build and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+      # CI=true turns every lint warning into a failure, so this is the lint
+      # gate as well as the build one. The .env files are not in the repo and
+      # are not needed: nothing is read at module scope without a fallback.
+      - name: Build
+        working-directory: frontend
+        env:
+          CI: true
+        run: npx react-scripts build
