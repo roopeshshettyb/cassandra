@@ -395,8 +395,18 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.emit('error', { message: strings.ERROR_RESERVATION_VOICE_FAILED });
       client.emit('voice_audio_end');
     } finally {
-      client.voiceBusy = false;
-      client.emit('voice_ready');
+      // The turn ends when the caller has heard the reply, not when the last
+      // audio left here — chunks are scheduled ahead, so only the browser
+      // knows. It reports back, exactly as the concierge's client does.
+      //
+      // The timer is the safety net: a tab that is closed, backgrounded or
+      // disconnected never reports, and the line must not stay busy for the
+      // rest of the session because of it.
+      this.clearPlaybackWait(client);
+      client.playbackWait = setTimeout(
+        () => this.releaseTurn(client),
+        this.constantsService.private.RESERVATION_VOICE.PLAYBACK_DONE_TIMEOUT_MS,
+      );
     }
   }
 
@@ -445,6 +455,33 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     this.createSttSession(client);
   }
 
+  /** Cancel the safety net that would otherwise release the turn on its own. */
+  private clearPlaybackWait(client: any): void {
+    if (client.playbackWait) {
+      clearTimeout(client.playbackWait);
+      client.playbackWait = null;
+    }
+  }
+
+  /** Hand the line back to the caller, once. */
+  private releaseTurn(client: any): void {
+    this.clearPlaybackWait(client);
+    if (!client.voiceBusy) {
+      return;
+    }
+    client.voiceBusy = false;
+    client.emit('voice_ready');
+  }
+
+  /**
+   * The browser has finished playing the reply. Same message the concierge
+   * sends, for the same reason: only the client can see when the sound stopped.
+   */
+  @SubscribeMessage('voice_playback_done')
+  onPlaybackDone(client: any) {
+    this.releaseTurn(client);
+  }
+
   @SubscribeMessage('voice_stop')
   onVoiceStop(client: any) {
     this.clearTurnFallback(client);
@@ -453,6 +490,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
   }
 
   handleDisconnect(client: any) {
+    this.clearPlaybackWait(client);
     this.clearTurnFallback(client);
     if (client.sessionTimer) {
       clearTimeout(client.sessionTimer);
