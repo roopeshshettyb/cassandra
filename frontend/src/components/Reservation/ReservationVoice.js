@@ -6,65 +6,15 @@ import StopIcon from '@mui/icons-material/Stop';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import { io } from 'socket.io-client';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW } from '../../theme';
+// The same PCM encoding and chunk scheduling the concierge's voice hook uses.
+// One definition of how audio crosses this socket, not two.
+import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk } from '../AvatarChatbot/utils/audio';
 import constants from '../../constants.json';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
 /** Browser mic and the server both work in 24kHz mono 16-bit PCM. */
 const SAMPLE_RATE = 24000;
-
-const floatTo16BitPcm = (input) => {
-  const buffer = new ArrayBuffer(input.length * 2);
-  const view = new DataView(buffer);
-  for (let i = 0, offset = 0; i < input.length; i += 1, offset += 2) {
-    const s = Math.max(-1, Math.min(1, input[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-  return buffer;
-};
-
-const toBase64 = (buffer) => {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return window.btoa(binary);
-};
-
-/** Schedule a PCM chunk to play directly after whatever is already queued. */
-const playPcmChunk = (base64, ctxRef, timeRef) => {
-  const binary = window.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
-  if (!ctxRef.current) {
-    ctxRef.current = new AudioContextImpl({ sampleRate: SAMPLE_RATE });
-  }
-  const ctx = ctxRef.current;
-  // Chrome's autoplay policy suspends a context not created during a user
-  // gesture — this one is built inside a socket handler, so without resuming it
-  // the reply is scheduled and never heard.
-  if (ctx.state === 'suspended') {
-    ctx.resume().catch(() => {});
-  }
-  const samples = Math.floor(bytes.byteLength / 2);
-  if (samples === 0) return;
-  const audioBuffer = ctx.createBuffer(1, samples, SAMPLE_RATE);
-  const channel = audioBuffer.getChannelData(0);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let i = 0; i < samples; i += 1) {
-    channel[i] = view.getInt16(i * 2, true) / 0x8000;
-  }
-  const source = ctx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(ctx.destination);
-  const startAt = Math.max(timeRef.current || ctx.currentTime, ctx.currentTime);
-  source.start(startAt);
-  timeRef.current = startAt + audioBuffer.duration;
-};
 
 function Orb({ status }) {
   const listening = status === 'listening';
@@ -277,7 +227,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
             if (Math.abs(input[i]) > 0.01) { heardSound = true; break; }
           }
         }
-        socketRef.current.emit('voice_client_chunk', { audio: toBase64(floatTo16BitPcm(input)) });
+        socketRef.current.emit('voice_client_chunk', { audio: arrayBufferToBase64(floatTo16BitPCM(input).buffer) });
       };
       // A mic that streams pure silence looks identical to a broken pipeline;
       // tell the caller rather than leaving them tapping.
