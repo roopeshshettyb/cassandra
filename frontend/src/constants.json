@@ -119,6 +119,8 @@
   "RESERVATION_VOICE_SWITCH_TO_VOICE": "Prefer to talk?",
   "RESERVATION_VOICE_MIC_DENIED": "We could not access your microphone. Check your browser permissions and try again.",
   "RESERVATION_VOICE_NO_SOUND": "We are not hearing anything. Check that the right microphone is selected and try again.",
+  "RESERVATION_VOICE_TURN_RESTART_GRACE_MS": 350,
+  "RESERVATION_VOICE_NO_SOUND_AFTER_MS": 6000,
   "RESERVATION_VOICE_AMBIENCE_DBFS": -35,
   "RESERVATION_VOICE_AMBIENCE_URL": "",
   "ERROR_RESERVATION_VOICE_TURN_LIMIT": "This voice call has reached its limit. Please refresh to start again, or call the property directly.",
