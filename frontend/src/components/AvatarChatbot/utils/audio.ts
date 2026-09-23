@@ -41,12 +41,6 @@ export const playPcmChunk = (
   }
   const audioContext = audioContextRef.current;
   if (!audioContext) return;
-  // Chrome's autoplay policy suspends a context not created during a user
-  // gesture — this one is built inside a socket handler, so without resuming it
-  // the audio is scheduled and never heard.
-  if (audioContext.state === 'suspended') {
-    audioContext.resume().catch(() => {});
-  }
   const bufferLength = Math.floor(bytes.byteLength / 2);
   if (bufferLength === 0) return;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
