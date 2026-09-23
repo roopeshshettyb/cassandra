@@ -355,6 +355,13 @@ export class ConstantsService {
        */
       RESERVATION_VOICE_TURN_RESTART_GRACE_MS: 350,
       /**
+       * Extra time allowed for a reply to finish playing before the browser
+       * reports done anyway. Read by both voice surfaces: a backgrounded tab
+       * stops firing animation frames and a suspended context stops advancing
+       * its clock, and neither should strand a call mid-turn.
+       */
+      VOICE_PLAYBACK_WATCH_GRACE_MS: 2000,
+      /**
        * A mic streaming pure silence looks exactly like a broken pipeline, so
        * the caller is told — but only on a turn they asked for. Once the page
        * is reopening the mic itself, silence is someone thinking.
@@ -711,7 +718,14 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         /** Synthesised once per phrase per language, then replayed from memory. */
         FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
         FILLER_CACHE_MINUTES: 720,
-        /** Extra wait beyond UTTERANCE_END_MS before we end a turn ourselves. */
+        /**
+         * How long to wait for the browser to report that it has finished
+         * playing the reply before releasing the turn anyway. Only the client
+         * knows when sound stopped coming out of the speaker, but a client that
+         * crashes or is backgrounded never says so, and the line must not stay
+         * busy forever because of it.
+         */
+        PLAYBACK_DONE_TIMEOUT_MS: parseInt(this.configService.get('RESERVATION_VOICE_PLAYBACK_DONE_TIMEOUT_MS') || '20000', 10),
         TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
         /**
          * Every budget below is env-driven and 0 means unlimited. They are off
