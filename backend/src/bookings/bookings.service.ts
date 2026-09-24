@@ -209,6 +209,12 @@ export class BookingsService {
     startTime: Date,
     endTime: Date,
   ): Promise<Booking> {
+    // Nights are only handed back when a booking moves *into* cancelled, and a
+    // cancelled booking cannot move anywhere — so one born cancelled would hold
+    // its rooms with no way to release them.
+    if (dto.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('A booking cannot be created as cancelled');
+    }
     const stay = this.stayFor(startTime, endTime);
     if (stay.nights.length === 0) {
       throw new BadRequestException('Check-out must be after check-in to reserve a room');
@@ -756,29 +762,26 @@ export class BookingsService {
    * room twice. Runs unguarded on purpose — see InventoryService.reserveExternal.
    *
    * Anything it cannot map (no room number, or a number matching no room we know)
-   * is left alone rather than rejected: the reservation is still real and belongs
-   * in the system even if we cannot attribute it to a room type.
+   * is not rejected: the reservation is still real and belongs in the system even
+   * if we cannot attribute it to a room type. It holds nothing, though — and nor
+   * does a cancelled booking — so whatever an earlier delivery held is released
+   * before deciding whether to hold again.
    */
   private async syncExternalInventory(booking: Booking): Promise<void> {
-    const roomNumber = booking.roomNumber?.trim();
-    if (!roomNumber) {
-      return;
-    }
     const sequelize = this.bookingsRepository.sequelize;
     if (!sequelize) {
       return;
     }
-    const room = await Room.findOne({ where: { hotelId: booking.hotelId, roomNumber } });
-    if (!room) {
-      return;
-    }
+    const roomNumber = booking.roomNumber?.trim();
+    const room = roomNumber ? await Room.findOne({ where: { hotelId: booking.hotelId, roomNumber } }) : null;
     const stay = this.stayFor(booking.startTime, booking.endTime);
-    if (stay.nights.length === 0) {
-      return;
-    }
+    const holdsRoom = stay.nights.length > 0 && booking.status !== BookingStatus.CANCELLED;
 
     await sequelize.transaction(async (transaction) => {
       await this.releaseHolds(booking.id, transaction);
+      if (!room || !holdsRoom) {
+        return;
+      }
 
       // Not reserveAndPickRooms: the PMS has already chosen the room, and its
       // booking is not a request we can turn down.
