@@ -3,6 +3,8 @@ import { Hotel } from '../hotels/hotels.model';
 import { Account } from '../accounts/accounts.model';
 import { Request } from '../requests/requests.model';
 import { Op } from 'sequelize';
+import { BookingRoom } from './booking-rooms.model';
+import { BookingStatus, DEFAULT_BOOKING_STATUS } from '../common/constants/constants.service';
 
 @Table({ tableName: 'bookings' })
 export class Booking extends Model<Booking> {
@@ -71,6 +73,15 @@ export class Booking extends Model<Booking> {
   })
   roomNumber: string;
 
+  // Reservation lifecycle from the Room & Inventory spec. Cancelling releases the
+  // nights this booking holds in room_inventory (see BookingsService.updateForAccount).
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    defaultValue: DEFAULT_BOOKING_STATUS,
+  })
+  status: BookingStatus;
+
   @Column({
     type: DataType.DATE,
     allowNull: true,
@@ -102,4 +113,7 @@ export class Booking extends Model<Booking> {
 
   @HasMany(() => Request, { foreignKey: 'bookingId', as: 'requests' })
   requests: Request[];
+
+  @HasMany(() => BookingRoom, { foreignKey: 'bookingId', as: 'bookingRooms' })
+  bookingRooms: BookingRoom[];
 }
