@@ -3,6 +3,7 @@ import { REQUESTS_REPOSITORY } from './requests.repository';
 import { Request, RequestStatus } from './requests.model';
 import { CreateRequestDto, UpdateRequestDto, RequestExternalUpsertPayload } from './requests.dto';
 import { RequestQueryOptions } from './requests.query';
+import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
@@ -61,10 +62,21 @@ export class RequestsService {
     throw new ForbiddenException();
   }
 
-  async findAllForAccount(currentAccount: Account, options?: Pick<RequestQueryOptions, 'sortBy' | 'sortOrder'>) {
+  /** The filters this list offers, derived from the Request model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Request) };
+  }
+
+  async findAllForAccount(
+    currentAccount: Account,
+    options?: Pick<RequestQueryOptions, 'sortBy' | 'sortOrder'> & ListQuery,
+  ) {
     const where = await this.getWhereForAccount(currentAccount);
 
+    validateListQuery(Request, options, ['sortBy', 'sortOrder']);
+    // The account scope goes in first, so every filter narrows within what this account may see.
     const findOptions: any = {
+      where: buildListWhere(Request, options, where ? { ...where } : {}),
       order: this.buildRequestOrder(options),
       include: [
         { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
@@ -72,10 +84,6 @@ export class RequestsService {
         { model: Booking, as: 'booking', attributes: ['id'] },
       ],
     };
-
-    if (where) {
-      findOptions.where = where;
-    }
 
     const requests = await this.requestsRepository.findAll(findOptions);
 

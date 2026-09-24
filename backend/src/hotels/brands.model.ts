@@ -15,6 +15,7 @@ export class HotelBrand extends Model<HotelBrand> {
     type: DataType.STRING,
     allowNull: false,
     unique: true,
+    searchable: true,
   })
   name: string;
 
@@ -141,6 +142,7 @@ export class HotelBrand extends Model<HotelBrand> {
     allowNull: false,
     defaultValue: DEFAULT_NOTIFICATION_TONE,
     field: 'notification_tone',
+    filterable: true,
   })
   notificationTone: NotificationTone;
 
