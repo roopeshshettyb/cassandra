@@ -260,12 +260,15 @@ export class RequestsService {
   }
 
   /**
-   * Caps a caller-supplied limit against the agent ceiling. Undefined when nothing was asked for,
-   * which leaves the query unlimited.
+   * Caps a caller-supplied limit. Asking for nothing still gets a ceiling: the list UI sends no
+   * limit and shows every row, which is fine for a hotel's worth of requests but would hand back
+   * the whole table for a large property. LIST_PAGE_SIZE_MAX bounds that without changing the
+   * filter-driven UX, and a caller that wants fewer still gets what it asked for.
    */
-  private resolveRequestLimit(limit?: number): number | undefined {
-    if (limit == null) return undefined;
-    return Math.min(Math.max(1, limit), this.constantsService.private.AGENT_REQUESTS_MAX_LIMIT);
+  private resolveRequestLimit(limit?: number): number {
+    const agentLimits = this.constantsService.private;
+    if (limit == null) return agentLimits.LIST_PAGE_SIZE_MAX;
+    return Math.min(Math.max(1, limit), agentLimits.AGENT_REQUESTS_MAX_LIMIT);
   }
 
   async findForAccountWithOptions(currentAccount: Account, options?: RequestQueryOptions) {
@@ -298,13 +301,12 @@ export class RequestsService {
       ],
     };
 
-    const paging = resolveListPaging(options);
+    const paging = resolveListPaging(options, this.constantsService.private);
     if (paging) {
       findOptions.limit = paging.limit;
       findOptions.offset = paging.offset;
     } else {
-      const limit = this.resolveRequestLimit(options?.limit);
-      if (limit != null) findOptions.limit = limit;
+      findOptions.limit = this.resolveRequestLimit(options?.limit);
     }
 
     const { rows, count } = await this.requestsRepository.findAndCountAll({ ...findOptions, distinct: true });
@@ -315,7 +317,7 @@ export class RequestsService {
       data: rows,
       meta: {
         total: count,
-        page: paging?.page ?? 1,
+        page: paging?.page ?? this.constantsService.private.LIST_PAGE_DEFAULT,
         pageSize: paging?.limit ?? rows.length,
       },
     };
