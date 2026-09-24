@@ -81,7 +81,20 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       const spoken = keepTags ? sentence : stripAudioTags(sentence);
       const shown = stripAudioTags(sentence);
       if (spoken.length > 0) {
-        state.ttsQueue = state.ttsQueue.then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }));
+        // Caught per sentence on purpose. The queue is one promise chain, so a
+        // single rejected request would poison every .then() after it and the
+        // caller would hear the reply stop mid-thought with no error anywhere.
+        // One bad fragment should cost that fragment, not the rest of the answer.
+        state.ttsQueue = state.ttsQueue
+          .then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }))
+          .catch((err: any) => {
+            this.logger.warn({
+              message: err?.message ?? String(err),
+              serviceName: 'ReservationVoiceGateway',
+              actionName: 'flushSentences',
+              traces: [{ stage: 'tts' }],
+            });
+          });
       }
       if (shown.length > 0) {
         client.emit('voice_text_chunk', { delta: shown });
