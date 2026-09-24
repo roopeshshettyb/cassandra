@@ -10,9 +10,15 @@ import { ChevronLeft, ChevronRight, Close } from '@mui/icons-material';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, PRIMARY_CONTRAST, SHADOW, PERK_BG, PHOTO_BACKDROP, PHOTO_CONTROL_BG, PHOTO_CONTROL_BG_HOVER, PHOTO_ON_DARK } from '../theme';
 import constants from '../constants.json';
 
-const createBookingFieldConfigs = [
+// Split by column: the stay's dates sit with the hotel and room on the left, the
+// guest's details on the right. Kept together, every field landed on the right and
+// the left column ran out after the hotel picker.
+const createStayFieldConfigs = [
   { field: 'startDate', label: 'Check-in', type: 'date' },
   { field: 'endDate', label: 'Check-out', type: 'date' },
+];
+
+const createGuestFieldConfigs = [
   { field: 'guestEmail', label: 'Guest Email', type: 'email', required: true },
   { field: 'guestName', label: 'Guest Name', type: 'text' },
   { field: 'guestPhone', label: 'Guest Phone', type: 'tel' },
@@ -401,8 +407,15 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         // Two columns need the room. The form ran past the bottom of the screen at
         // the old width, which is what made people scroll to reach the fields.
         maxWidth="md"
-        PaperProps={{ sx: { borderRadius: 3, maxHeight: 'calc(100svh - var(--app-header-height) - 4svh)' } }}
-        sx={{ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)' } }}
+        // The container is pushed down by the header plus 1svh, and the paper keeps
+        // MUI's 32px margin above and below — all of it has to come off 100svh, or
+        // a full form runs past the bottom of the screen. 2svh is left clear below.
+        PaperProps={{ sx: { borderRadius: 3, maxHeight: 'calc(100svh - var(--app-header-height) - 1svh - 64px - 2svh)' } }}
+        // The desktop sidebar is fixed at 20vw and stacks above dialogs, so a form
+        // this wide, centred on the whole window, slid underneath it on narrower
+        // screens. Centring it in the content area instead, as App.js offsets the
+        // page itself, keeps it clear.
+        sx={{ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)', pl: isMobile ? 0 : '20vw' } }}
       >
         <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>New Booking</DialogTitle>
         <Box component="form" onSubmit={handleCreateBooking} sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -476,6 +489,14 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                     <MapComponent Component={RoomTypePerk} data={selectedRoomTypePerks} showNoDataAvailable={false} />
                   </Box>
                 )}
+                <MapComponent
+                  Component={FormFieldRow}
+                  data={createValues.roomTypeId ? createStayFieldConfigs : [...createStayFieldConfigs, ROOM_NUMBER_FIELD]}
+                  values={createValues}
+                  onChange={handleCreateInput}
+                  showNoDataAvailable={false}
+                  isLoading={false}
+                />
                 {createValues.roomTypeId && (
                   <TextField
                     fullWidth
@@ -517,7 +538,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <MapComponent
                   Component={FormFieldRow}
-                  data={createValues.roomTypeId ? createBookingFieldConfigs : [...createBookingFieldConfigs, ROOM_NUMBER_FIELD]}
+                  data={createGuestFieldConfigs}
                   values={createValues}
                   onChange={handleCreateInput}
                   showNoDataAvailable={false}
