@@ -9,6 +9,7 @@ import { CostType } from '../costs/costs.model';
 import { ChatSession } from './gateway/chat-session.interface';
 import { buildChatPrompt, buildReservationPrompt } from './chat-prompt.builder';
 import { LlmEvalService } from '../llm-eval/llm-eval.service';
+import { stripAudioTags } from '../common/sentence.util';
 
 export interface StreamUserMessageOptions {
   onChunk: (chunk: string) => Promise<void> | void;
@@ -119,11 +120,17 @@ export class ChatLlmService {
       }
     }
 
+    // Delivery cues are instructions to a voice, not words. They are stripped
+    // from what anyone reads — a guest should hear the warmth and never see
+    // "[warm]" in their transcript — and kept verbatim alongside, so a reply
+    // that sounded wrong can still be explained afterwards.
+    const readable = stripAudioTags(fullContent);
     const assistantMessage: Message = await this.messagesService.create(
       chatId,
       MessageRole.ASSISTANT,
-      fullContent,
+      readable,
       toolCalls.length ? toolCalls : undefined,
+      fullContent,
     );
 
     this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);

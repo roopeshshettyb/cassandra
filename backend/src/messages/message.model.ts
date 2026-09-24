@@ -51,6 +51,7 @@ export class Message extends Model<Message> {
   })
   toolCalls: ToolCallRecord[];
 
+
   @BelongsTo(() => Chat, { foreignKey: 'chatId', as: 'chat' })
   chat: Chat;
 }

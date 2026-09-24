@@ -10,7 +10,6 @@ import { NAVY, MUTED } from '../../theme';
 // The same control the in-stay concierge uses. Different socket, different
 // rules, but to whoever is talking it is the same assistant.
 import { VoiceMicButton } from '../AvatarChatbot/ui/VoiceMic';
-import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
 import constants from '../../constants.json';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
@@ -133,8 +132,6 @@ function stopAmbience(ambience, ctx) {
  */
 export default function ReservationVoice({ hotelId, onHotelResolved, onFatalError, alertError }) {
   const [status, setStatus] = useState('connecting'); // connecting | idle | listening | thinking | speaking
-  const [transcript, setTranscript] = useState('');
-  const [reply, setReply] = useState('');
   const [ended, setEnded] = useState(false);
   // Why the call could not start, shown in place of the mic.
   const [blocked, setBlocked] = useState('');
@@ -268,7 +265,9 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       }
       startListeningRef.current?.(true);
     });
-    socket.on('voice_user_chunk', (p) => setTranscript(p?.delta || ''));
+    // Partial transcripts are no longer shown — a half-heard sentence
+    // rewriting itself on screen is unsettling, not reassuring — but the event
+    // still tells us the caller is being heard.
     // End of speech: the server has closed its STT session, so anything more
     // from the mic is wasted, and an open mic during the reply feeds the agent
     // its own voice. Closing the gate stops the sending; the hardware stays
@@ -278,17 +277,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       setStatus('thinking');
     });
     socket.on('voice_user_message', (p) => {
-      setTranscript(p?.text || '');
-      setReply('');
       setStatus('thinking');
-    });
-    socket.on('voice_text_chunk', (p) => setReply((prev) => prev + (p?.delta || ' ')));
-    // The whole reply, once it is written. Authoritative over the chunks
-    // above: a reply that never hit a sentence boundary — one short line, or
-    // a language whose punctuation the splitter does not know — arrives only
-    // here, and the caller would otherwise watch an empty screen talk.
-    socket.on('voice_text_end', (p) => {
-      if (typeof p?.text === 'string' && p.text.trim()) setReply(p.text.trim());
     });
     socket.on('voice_audio_chunk', (p) => {
       if (!p?.delta) return;
@@ -357,7 +346,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     if (!socketRef.current?.connected || endedRef.current) return;
     hasInteractedRef.current = true;
     userStoppedRef.current = false;
-    setTranscript('');
 
     // Already holding the microphone: this turn costs nothing but reopening the
     // gate. No getUserMedia, no new AudioContext, no gap for the caller to talk
@@ -461,19 +449,27 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const stopListening = () => {
     userStoppedRef.current = true;
     stopMic();
+    cancelPlaybackWatch();
+    // The room goes quiet with the call. Leaving the bed running after someone
+    // has hung up is the clearest possible sign nobody is listening to the page.
+    stopAmbience(ambienceRef.current, playbackContextRef.current);
+    ambienceRef.current = null;
     if (socketRef.current?.connected) {
       socketRef.current.emit('voice_stop');
     }
     setStatus('idle');
   };
 
-  const label = {
-    connecting: constants.RESERVATION_VOICE_CONNECTING,
-    idle: constants.RESERVATION_VOICE_TAP_TO_SPEAK,
-    listening: constants.RESERVATION_VOICE_LISTENING,
-    thinking: constants.RESERVATION_VOICE_THINKING,
-    speaking: constants.RESERVATION_VOICE_SPEAKING,
-  }[status];
+  // Two labels for the whole call. Listening, thinking and speaking are our
+  // plumbing, not the caller's business — narrating each one made the page
+  // flicker through states nobody asked to see. The button animates; the words
+  // only need to say whether tapping starts or ends the call.
+  const live = status === 'listening' || status === 'thinking' || status === 'speaking';
+  const label = status === 'connecting'
+    ? constants.RESERVATION_VOICE_CONNECTING
+    : live
+      ? constants.RESERVATION_VOICE_TAP_TO_STOP
+      : constants.RESERVATION_VOICE_TAP_TO_SPEAK;
 
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, px: 3, py: 4 }}>
@@ -508,12 +504,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
         </>
       )}
 
-      {(transcript || reply) && (
-        <Box sx={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {transcript && <ChatBubble message={{ role: 'user', content: transcript }} />}
-          {reply && <ChatBubble message={{ role: 'assistant', content: reply }} />}
-        </Box>
-      )}
     </Box>
   );
 }

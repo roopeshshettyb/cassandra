@@ -45,3 +45,13 @@ export function splitSentences(
   }
   return { parts, rest: buffer.slice(lastIndex) };
 }
+
+/**
+ * Remove delivery cues like [warm] or [thoughtful] from text meant to be read.
+ *
+ * They are instructions to a voice, not words. A guest should hear the warmth
+ * and never see the stage direction in their transcript.
+ */
+export function stripAudioTags(text: string): string {
+  return text.replace(/\[[a-z][a-z ]{0,24}\]\s*/gi, '').trim();
+}

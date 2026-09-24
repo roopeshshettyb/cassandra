@@ -6,7 +6,7 @@ import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
 import { getClientIp, parseHotelId, buildReservationSession, buildSttKeyterms } from './reservation-session.helper';
-import { splitSentences } from '../common/sentence.util';
+import { splitSentences, stripAudioTags } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -27,7 +27,6 @@ interface TurnState {
  * ElevenLabs v3 consumes them as tone direction; every other provider would read
  * them out, and no caller should see them on screen either.
  */
-const stripAudioTags = (text: string): string => text.replace(/\[[a-z][a-z ]{0,24}\]\s*/gi, '').trim();
 
 /**
  * Public, unauthenticated voice reservation: the caller speaks, STT transcribes,
@@ -99,64 +98,6 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       if (shown.length > 0) {
         client.emit('voice_text_chunk', { delta: shown });
       }
-    }
-  }
-
-  /**
-   * PCM for one filler phrase, synthesised on first use and then replayed from
-   * memory. Caching is the point: a filler that had to wait for a TTS round-trip
-   * would add the very delay it exists to hide.
-   *
-   * The provider writes to a collector rather than the socket, which is how the
-   * audio gets captured without changing the TTS interface.
-   */
-  private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
-    const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
-    const cached = this.cacheService.get<string[]>(key);
-    if (cached) {
-      return cached;
-    }
-
-    const chunks: string[] = [];
-    const collector = {
-      emit: (event: string, payload?: any) => {
-        if (event === 'voice_audio_chunk' && payload?.delta) {
-          chunks.push(payload.delta);
-        }
-      },
-    };
-    await provider.streamToClient(collector, phrase, { emitEnd: false, languageCode });
-    if (chunks.length > 0) {
-      this.cacheService.set(key, chunks, cfg.FILLER_CACHE_MINUTES);
-    }
-    return chunks;
-  }
-
-  /** Fill the gap between the caller finishing and the answer beginning. */
-  private async playThinkingFiller(client: any, provider: TtsProvider, languageCode: string | null): Promise<void> {
-    const phrases = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
-    if (!phrases || phrases.length === 0) {
-      return;
-    }
-    // Vary it, or the same noise every turn becomes its own tell.
-    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-    const spoken = this.ttsUnderstandsTags() ? phrase : stripAudioTags(phrase);
-    if (!spoken) {
-      return;
-    }
-    try {
-      const chunks = await this.getFillerChunks(spoken, languageCode, provider);
-      for (const delta of chunks) {
-        client.emit('voice_audio_chunk', { delta });
-      }
-    } catch (err: any) {
-      // A filler is a nicety; never let it stop the real answer.
-      this.logger.warn({
-        message: err?.message ?? String(err),
-        serviceName: 'ReservationVoiceGateway',
-        actionName: 'playThinkingFiller',
-      });
     }
   }
 
@@ -384,10 +325,6 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       ) as TtsProvider;
       const languageCode = session.languageCode ?? null;
       const state: TurnState = { sentenceBuffer: '', ttsQueue: Promise.resolve() };
-
-      // Speak a thinking noise now, while the model is still working. The client
-      // queues audio in order, so this plays first and the answer follows on.
-      state.ttsQueue = this.playThinkingFiller(client, provider, languageCode);
 
       await this.chatLlmService.streamUserMessage(session, text, {
         mode: 'voice',
