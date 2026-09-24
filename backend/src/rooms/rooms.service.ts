@@ -202,21 +202,27 @@ export class RoomsService {
 
     // Both reads share one transaction so the free rooms and the nightly counts
     // come from the same snapshot; read separately they could disagree.
-    const { rooms, available } = await sequelize.transaction(async (transaction) => ({
+    const { rooms, free, available } = await sequelize.transaction(async (transaction) => ({
       rooms: await this.inventoryService.findAvailableRooms(query.hotelId, query.roomTypeId, query.startDate, query.endDate, wanted, transaction),
+      free: await this.inventoryService.countFreeRooms(query.roomTypeId, query.startDate, query.endDate, transaction),
       available: await this.inventoryService.findRange(query.roomTypeId, nights, transaction),
     }));
 
     // `nights` is never empty — nightsOrFail throws first — and findRange returns a
-    // row per night, so there is always something to take the minimum of.
-    const lowest = Math.min(...available.map((night) => night.available));
+    // row per night, so there is always something to take the minimum of. Capped
+    // at the free rooms for the same reason as the availability search: a room
+    // out of service is in the counts but can never be handed out.
+    const lowest = Math.max(0, Math.min(free, ...available.map((night) => night.available)));
 
     return {
       success: true,
       message: null,
       data: {
-        roomNumbers: rooms.map((room) => room.roomNumber),
-        enough: rooms.length >= wanted && lowest >= wanted,
+        // Only as many as can actually be sold. A physically free room on a night
+        // whose sellable stock is gone is not one this booking would get, and
+        // showing it beside "0 available" reads as a contradiction.
+        roomNumbers: rooms.slice(0, lowest).map((room) => room.roomNumber),
+        enough: lowest >= wanted,
         available: lowest,
       },
     };
@@ -322,6 +328,8 @@ export class RoomsService {
     const data = await this.inventoryService.findAvailability(
       query.hotelId,
       nights,
+      query.startDate,
+      query.endDate,
       query.guests,
       query.rooms ?? DEFAULT_AVAILABILITY_ROOMS,
     );
