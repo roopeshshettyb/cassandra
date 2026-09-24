@@ -1,9 +1,13 @@
-import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
+import { BookingRoom } from './booking-rooms.model';
+import { InventoryService } from '../rooms/inventory.service';
+import { RoomType } from '../rooms/room-types.model';
+import { Room } from '../rooms/rooms.model';
 import { CreateBookingDto, UpdateBookingDto, BookingExternalUpsertPayload } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
-import { resolveListPaging } from '../common/dto/list-query.dto';
+import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
@@ -11,11 +15,11 @@ import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { HotelBrand } from '../hotels/brands.model';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from '../common/constants/constants.service';
+import { BookingStatus, ConstantsService, DEFAULT_AVAILABILITY_ROOMS, DEFAULT_BOOKING_STATUS, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Op, literal, Transaction, UniqueConstraintError } from 'sequelize';
+import { Op, literal, Sequelize, Transaction, UniqueConstraintError } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
@@ -24,6 +28,19 @@ import { forwardRef } from '@nestjs/common';
 import { CostsService } from '../costs/costs.service';
 import { randomUUID } from 'crypto';
 
+
+/** A room this booking holds, as findAvailableRooms returns it. */
+interface HeldRoom {
+  id: number;
+  roomNumber: string;
+}
+
+/** The nights a stay consumes, plus the dates its holds are stored with. */
+interface Stay {
+  nights: string[];
+  checkIn: string;
+  checkOut: string;
+}
 @Injectable()
 export class BookingsService {
   constructor(
@@ -37,6 +54,7 @@ export class BookingsService {
     private readonly documentExtractionService: DocumentExtractionService,
     @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
     private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => InventoryService)) private readonly inventoryService: InventoryService,
   ) {}
 
   private isWithinStayAttr(): [any, string] {
@@ -83,13 +101,16 @@ export class BookingsService {
     const startTime = this.parseDateTime(startDate, checkInTime);
     const endTime = this.parseDateTime(endDate, checkOutTime);
 
-    const booking = await this.bookingsRepository.create({
-      guestId: guest.id,
-      hotelId: hotel.id,
-      startTime,
-      endTime,
-      roomNumber: dto.roomNumber?.trim() || undefined,
-    });
+    const booking = dto.roomTypeId
+      ? await this.createWithInventory(dto, hotel, guest.id, startTime, endTime)
+      : await this.bookingsRepository.create({
+          guestId: guest.id,
+          hotelId: hotel.id,
+          startTime,
+          endTime,
+          roomNumber: dto.roomNumber?.trim() || undefined,
+          status: dto.status ?? DEFAULT_BOOKING_STATUS,
+        });
 
     if (dto.sendInviteImmediately === true) {
       await this.sendInviteEmailForBooking(booking, guest, hotel, endTime);
@@ -120,6 +141,120 @@ export class BookingsService {
       data: booking,
     };
   }
+
+  /** The nights a stay consumes, alongside the date strings the holds are stored with. */
+  private stayFor(startTime: Date, endTime: Date): Stay {
+    return {
+      nights: this.inventoryService.nightsBetween(startTime, endTime),
+      checkIn: this.inventoryService.toDateString(startTime),
+      checkOut: this.inventoryService.toDateString(endTime),
+    };
+  }
+
+  /**
+   * Hand a booking's nights back and drop the holds that named them.
+   *
+   * Order matters: releaseForBookings works out what to return by reading the live
+   * booking_rooms rows, so they have to still be there when it runs. Removing them
+   * in the same transaction is also what stops a repeat from refunding twice.
+   */
+  private async releaseHolds(bookingId: number, transaction: Transaction): Promise<void> {
+    await this.inventoryService.releaseForBookings([bookingId], transaction);
+    await BookingRoom.destroy({ where: { bookingId }, transaction, force: true });
+  }
+
+  /**
+   * Take `count` rooms of a type off the market for a stay, or throw.
+   *
+   * Opening the nights first means a date nobody has booked before reads as unsold
+   * rather than as sold out. The room lookup is the second gate: inventory can say
+   * yes while no physical room is actually free, which means the counts have
+   * drifted from the rooms table — failing here rolls the reservation back.
+   */
+  private async reserveAndPickRooms(
+    hotelId: number,
+    roomTypeId: number,
+    count: number,
+    stay: Stay,
+    transaction: Transaction,
+  ): Promise<HeldRoom[]> {
+    await this.inventoryService.ensureNights(roomTypeId, stay.nights, transaction);
+    await this.inventoryService.reserve(roomTypeId, stay.nights, count, transaction);
+
+    const rooms = await this.inventoryService.findAvailableRooms(hotelId, roomTypeId, stay.checkIn, stay.checkOut, count, transaction);
+    if (rooms.length < count) {
+      throw new ConflictException('Not enough rooms available for the selected dates');
+    }
+    return rooms;
+  }
+
+  /** Record which rooms a booking holds, and return the room number it should display. */
+  private async writeHolds(bookingId: number, rooms: HeldRoom[], stay: Stay, transaction: Transaction): Promise<string> {
+    const rows: any = rooms.map((room) => ({ bookingId, roomId: room.id, checkIn: stay.checkIn, checkOut: stay.checkOut }));
+    await BookingRoom.bulkCreate(rows, { transaction });
+    return rooms.map((room) => room.roomNumber).join(', ');
+  }
+
+  /**
+   * Book against dated inventory instead of a free-text room number.
+   *
+   * Everything below happens in one transaction: if the rooms cannot be held,
+   * or two guests race for the last one, nothing is written — no orphaned
+   * booking, no inventory held by a booking that was never created.
+   */
+  private async createWithInventory(
+    dto: CreateBookingDto,
+    hotel: Hotel,
+    guestId: number,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<Booking> {
+    // Nights are only handed back when a booking moves *into* cancelled, and a
+    // cancelled booking cannot move anywhere — so one born cancelled would hold
+    // its rooms with no way to release them.
+    if (dto.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('A booking cannot be created as cancelled');
+    }
+    const stay = this.stayFor(startTime, endTime);
+    if (stay.nights.length === 0) {
+      throw new BadRequestException('Check-out must be after check-in to reserve a room');
+    }
+    const roomsWanted = dto.rooms ?? DEFAULT_AVAILABILITY_ROOMS;
+    const sequelize = this.bookingsRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+
+    // roomTypeId arrives from the request body independently of the hotel, and
+    // room_inventory carries no hotel_id of its own — so without this check a
+    // member of one hotel could consume another hotel's inventory. Not found
+    // rather than forbidden, so an outsider learns nothing about what exists.
+    const roomType = await RoomType.findByPk(dto.roomTypeId!);
+    if (!roomType || roomType.hotelId !== hotel.id) {
+      throw new NotFoundException();
+    }
+
+    return sequelize.transaction(async (transaction) => {
+      const rooms = await this.reserveAndPickRooms(hotel.id, dto.roomTypeId!, roomsWanted, stay, transaction);
+
+      const booking = await this.bookingsRepository.create(
+        {
+          guestId,
+          hotelId: hotel.id,
+          startTime,
+          endTime,
+          roomNumber: rooms.map((room) => room.roomNumber).join(', '),
+          status: dto.status ?? DEFAULT_BOOKING_STATUS,
+        },
+        { transaction },
+      );
+
+      await this.writeHolds(booking.id, rooms, stay, transaction);
+
+      return booking;
+    });
+  }
+
 
   async findByExternalId(hotelId: number, externalId: string): Promise<Booking | null> {
     return this.bookingsRepository.findOne({ where: { hotelId, externalId } });
@@ -171,6 +306,7 @@ export class BookingsService {
         existing.guestId = guest.id;
         if (roomNumber) existing.roomNumber = roomNumber;
         await existing.save();
+        await this.syncExternalInventory(existing);
         return { record: existing, created: false };
       }
 
@@ -182,6 +318,7 @@ export class BookingsService {
         roomNumber: roomNumber || undefined,
         externalId: payload.externalId,
       });
+      await this.syncExternalInventory(record);
       return { record, created: true };
     } catch (err) {
       if (!isRetry && err instanceof UniqueConstraintError) {
@@ -407,18 +544,24 @@ export class BookingsService {
     return { success: true, message: null, data: booking };
   }
 
-  async findAllForAccount(currentAccount: Account) {
+  /** The filters this list offers, derived from the Booking model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Booking) };
+  }
+
+  async findAllForAccount(currentAccount: Account, query?: ListQuery) {
     const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl', 'themeConfig'], include: [{ model: HotelBrand, as: 'brand' }] };
     const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
     const where = await this.getWhereForAccount(currentAccount);
+
+    validateListQuery(Booking, query);
     const options: any = {
+      // The account scope goes in first, so every filter narrows within what this account may see.
+      where: buildListWhere(Booking, query, where ? { ...where } : {}),
       include: [includeHotel, includeGuest],
       order: [['startTime', 'DESC']],
       attributes: { include: [this.isWithinStayAttr()] },
     };
-    if (where) {
-      options.where = where;
-    }
     const bookings = await this.bookingsRepository.findAll(options);
     return { success: true, message: null, data: bookings };
   }
@@ -433,9 +576,7 @@ export class BookingsService {
     }
 
     if (options?.hotelId != null) {
-      // Verify access first, then narrow — never replace — the account scope below.
-      await this.hotelsService.findByIdForAccount(options.hotelId, currentAccount);
-      where.hotelId = where.hotelId == null ? options.hotelId : { [Op.and]: [where.hotelId, { [Op.eq]: options.hotelId }] };
+      where.hotelId = options.hotelId;
     }
 
     if (options?.roomNumber) {
@@ -443,9 +584,6 @@ export class BookingsService {
     }
 
     const now = new Date();
-    // One mode for both callers: the UI sends `stay`, the agent still sends the older `activeOnly`.
-    const stay = options?.stay ?? (options?.activeOnly ? 'active' : undefined);
-
     if (options?.startAfter || options?.startBefore) {
       const startTimeFilter: any = {};
       if (options.startAfter) {
@@ -454,28 +592,16 @@ export class BookingsService {
       if (options.startBefore) {
         startTimeFilter[Op.lte] = new Date(options.startBefore);
       }
-      // The mode narrows an explicit range, it never widens it.
-      if (stay === 'active') {
+      if (options.activeOnly) {
         if (startTimeFilter[Op.lte] == null || new Date(startTimeFilter[Op.lte]) > now) {
           startTimeFilter[Op.lte] = now;
         }
         where.endTime = { [Op.gte]: now };
-      } else if (stay === 'upcoming') {
-        // 'active' takes a stay starting exactly now, so 'upcoming' must leave it out or the same
-        // booking answers to both. Strict `>`, matching the no-range branch below. A caller's own
-        // lower bound is kept when it is already further ahead than now.
-        const lower = startTimeFilter[Op.gte];
-        if (lower == null || new Date(lower) <= now) {
-          delete startTimeFilter[Op.gte];
-          startTimeFilter[Op.gt] = now;
-        }
       }
       where.startTime = startTimeFilter;
-    } else if (stay === 'active') {
+    } else if (options?.activeOnly) {
       where.startTime = { [Op.lte]: now };
       where.endTime = { [Op.gte]: now };
-    } else if (stay === 'upcoming') {
-      where.startTime = { [Op.gt]: now };
     }
 
     if (options?.guestKeywords) {
@@ -498,32 +624,17 @@ export class BookingsService {
     const queryOptions: any = {
       where,
       include: [includeHotel, includeGuest],
-      // `id` breaks ties so LIMIT/OFFSET cannot repeat one row and skip another between pages.
-      order: orderField === 'id' ? [['id', sortOrder]] : [[orderField, sortOrder], ['id', sortOrder]],
+      order: [[orderField, sortOrder]],
       subQuery: false,
-      // GET /bookings is served from here now, and the guest portal reads isWithinStay off each row.
-      attributes: { include: [this.isWithinStayAttr()] },
     };
 
-    const paging = resolveListPaging(options);
-    if (paging) {
-      queryOptions.limit = paging.limit;
-      queryOptions.offset = paging.offset;
-    } else if (options?.limit != null) {
-      queryOptions.limit = Math.min(Math.max(1, options.limit), this.constantsService.private.AGENT_BOOKINGS_MAX_LIMIT);
+    const agentLimits = this.constantsService.private;
+    if (options?.limit != null) {
+      queryOptions.limit = Math.min(Math.max(1, options.limit), agentLimits.AGENT_BOOKINGS_MAX_LIMIT);
     }
 
-    const { rows, count } = await this.bookingsRepository.findAndCountAll({ ...queryOptions, distinct: true });
-    return {
-      success: true,
-      message: null,
-      data: rows,
-      meta: {
-        total: count,
-        page: paging?.page ?? 1,
-        pageSize: paging?.limit ?? rows.length,
-      },
-    };
+    const bookings = await this.bookingsRepository.findAll(queryOptions);
+    return { success: true, message: null, data: bookings };
   }
 
   async findByIdForAccount(id: number, currentAccount: Account) {
@@ -587,16 +698,138 @@ export class BookingsService {
     if (dto.endDate !== undefined) {
       booking.endTime = this.parseDateTime(dto.endDate.trim(), checkOutTime);
     }
-    if (dto.roomNumber !== undefined) {
+    // A booking that holds inventory takes its room number from the rooms it
+    // actually holds, so a hand-typed one is ignored rather than written. Applying
+    // it would leave booking.room_number naming one room while booking_rooms holds
+    // another — the displayed room would be a room nobody has reserved.
+    const holdsInventory = (await BookingRoom.count({ where: { bookingId: booking.id } })) > 0;
+    if (dto.roomNumber !== undefined && !holdsInventory) {
       booking.roomNumber = dto.roomNumber.trim();
     }
 
-    if (booking.startTime >= booking.endTime) {
-      throw new BadRequestException('endDate must be after startDate');
+    const wasCancelled = booking.status === BookingStatus.CANCELLED;
+    if (dto.status !== undefined && dto.status !== booking.status) {
+      // Reinstating would have to re-reserve the nights, and by now they may be
+      // sold to someone else. Book again rather than silently overselling.
+      if (wasCancelled) {
+        throw new BadRequestException('A cancelled booking cannot be reinstated; create a new booking instead');
+      }
+      booking.status = dto.status;
     }
 
-    await booking.save();
+    if (booking.startTime >= booking.endTime) {
+      throw new BadRequestException('Check-out must be after check-in');
+    }
+
+    const sequelize = this.bookingsRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+
+    const isCancelling = booking.status === BookingStatus.CANCELLED && !wasCancelled;
+    const datesMoved = booking.changed('startTime') || booking.changed('endTime');
+
+    // A booking that holds inventory has to carry that hold with it when its dates
+    // move. Saving the new dates alone would leave the old nights reserved for
+    // nobody and the new ones free to be sold again underneath the guest.
+    if (datesMoved && !isCancelling) {
+      await this.moveInventoryHold(booking, sequelize);
+    }
+
+    if (!isCancelling) {
+      await booking.save();
+      return { success: true, message: 'Booking updated', data: booking };
+    }
+
+    await sequelize.transaction(async (transaction) => {
+      await this.releaseHolds(booking.id, transaction);
+      await booking.save({ transaction });
+    });
+
     return { success: true, message: 'Booking updated', data: booking };
+  }
+
+  /**
+   * Make a PMS-pushed booking consume the inventory it actually occupies.
+   *
+   * The PMS sends a room number rather than a room type, so the room is looked up
+   * to find which type it belongs to. Without this the room is occupied in the
+   * real world while `reserved` stays untouched, and we happily sell it again —
+   * findAvailableRooms only avoids rooms that have a booking_rooms row.
+   *
+   * Written as release-then-re-hold so it is safe to run repeatedly: PMS webhooks
+   * retry and redeliver, and an upsert that ran twice must not count the same
+   * room twice. Runs unguarded on purpose — see InventoryService.reserveExternal.
+   *
+   * Anything it cannot map (no room number, or a number matching no room we know)
+   * is not rejected: the reservation is still real and belongs in the system even
+   * if we cannot attribute it to a room type. It holds nothing, though — and nor
+   * does a cancelled booking — so whatever an earlier delivery held is released
+   * before deciding whether to hold again.
+   */
+  private async syncExternalInventory(booking: Booking): Promise<void> {
+    const sequelize = this.bookingsRepository.sequelize;
+    if (!sequelize) {
+      return;
+    }
+    const roomNumber = booking.roomNumber?.trim();
+    const room = roomNumber ? await Room.findOne({ where: { hotelId: booking.hotelId, roomNumber } }) : null;
+    const stay = this.stayFor(booking.startTime, booking.endTime);
+    const holdsRoom = stay.nights.length > 0 && booking.status !== BookingStatus.CANCELLED;
+
+    await sequelize.transaction(async (transaction) => {
+      await this.releaseHolds(booking.id, transaction);
+      if (!room || !holdsRoom) {
+        return;
+      }
+
+      // Not reserveAndPickRooms: the PMS has already chosen the room, and its
+      // booking is not a request we can turn down.
+      await this.inventoryService.ensureNights(room.roomTypeId, stay.nights, transaction);
+      await this.inventoryService.reserveExternal(room.roomTypeId, stay.nights, 1, transaction);
+
+      await this.writeHolds(booking.id, [{ id: room.id, roomNumber: room.roomNumber }], stay, transaction);
+    });
+  }
+
+  /**
+   * Re-hold a booking's rooms over its new dates.
+   *
+   * The old nights are released first so a stay that merely shifts by a day is not
+   * competing with itself for the nights it already owns. Deleting the holds in the
+   * same transaction also frees its own physical rooms, so an unchanged room number
+   * stays available to it. If the new dates cannot be covered, the ConflictException
+   * rolls the whole thing back and the booking keeps the dates it had.
+   */
+  private async moveInventoryHold(booking: Booking, sequelize: Sequelize): Promise<void> {
+    const held = await BookingRoom.findAll({
+      where: { bookingId: booking.id },
+      include: [{ model: Room, as: 'room' }],
+    });
+    // Nothing held means this booking was made against a free-text room number and
+    // never touched inventory, so there is nothing to move.
+    if (held.length === 0) {
+      return;
+    }
+
+    const firstHeld: any = held[0];
+    const roomTypeId = firstHeld.room?.roomTypeId;
+    if (!roomTypeId) {
+      return;
+    }
+    const roomsWanted = held.length;
+    const stay = this.stayFor(booking.startTime, booking.endTime);
+    if (stay.nights.length === 0) {
+      throw new BadRequestException('Check-out must be after check-in');
+    }
+
+    await sequelize.transaction(async (transaction) => {
+      await this.releaseHolds(booking.id, transaction);
+
+      const rooms = await this.reserveAndPickRooms(booking.hotelId, roomTypeId, roomsWanted, stay, transaction);
+      booking.roomNumber = await this.writeHolds(booking.id, rooms, stay, transaction);
+      await booking.save({ transaction });
+    });
   }
 
   async deleteBooking(where: any, transaction?: Transaction, force = false): Promise<void> {
@@ -626,6 +859,16 @@ export class BookingsService {
       }
 
       if (bookingIds.length > 0) {
+        // Hand the nights back before the holds go: releaseForBookings reads
+        // booking_rooms to work out what this booking is holding.
+        await this.inventoryService.releaseForBookings(bookingIds, effectiveTransaction as Transaction);
+
+        await BookingRoom.destroy({
+          where: { bookingId: { [Op.in]: bookingIds } },
+          force,
+          transaction: effectiveTransaction,
+        });
+
         await Request.destroy({
           where: { bookingId: { [Op.in]: bookingIds } },
           force,

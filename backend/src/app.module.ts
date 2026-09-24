@@ -16,6 +16,7 @@ import { MailerModule } from './mailer/mailer.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HotelsModule } from './hotels/hotels.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { RoomsModule } from './rooms/rooms.module';
 import { RequestsModule } from './requests/requests.module';
 import { ChatModule } from './chat/chat.module';
 import { MessagesModule } from './messages/messages.module';
@@ -54,6 +55,7 @@ import { JwtMiddleware } from './auth/jwt.middleware';
     NotificationsModule,
     HotelsModule,
     BookingsModule,
+    RoomsModule,
     RequestsModule,
     ChatModule,
     MessagesModule,
