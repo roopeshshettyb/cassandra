@@ -56,7 +56,11 @@ function Rooms({ loading, setLoading, account, alertSuccess, alertError }) {
         />
 
         {hotelId ? (
+          // Keyed by hotel so switching hotels remounts it: ManageRooms loads its
+          // room types and rooms once on mount, and every form and filter inside it
+          // belongs to the hotel it was opened for.
           <ManageRooms
+            key={hotelId}
             hotelId={Number(hotelId)}
             account={account}
             loading={loading}
