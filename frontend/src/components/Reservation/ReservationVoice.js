@@ -45,6 +45,8 @@ function normaliseToDbfs(data, dbfs) {
 
 /** Seconds dropped from each end of the recording, and the length of the join. */
 const AMBIENCE_GUARD_SECONDS = 0.15;
+/** Long enough not to be heard as a switch, short enough to follow the turn. */
+const AMBIENCE_FADE_SECONDS = 0.35;
 const AMBIENCE_CROSSFADE_SECONDS = 2;
 
 /**
@@ -92,6 +94,24 @@ function startAmbience(ctx, buffer, dbfs) {
   return { source, gain };
 }
 
+/**
+ * The bed is there to stop the line sounding dead while someone is on it — so
+ * it rides under the agent's voice and under the caller's, and steps back when
+ * neither is happening. Ramped, never switched: a bed that snaps on and off is
+ * more noticeable than one that is simply always there.
+ */
+function setAmbienceLevel(ambience, ctx, audible) {
+  if (!ambience || !ctx) return;
+  try {
+    const target = audible ? 1 : 0;
+    ambience.gain.gain.cancelScheduledValues(ctx.currentTime);
+    ambience.gain.gain.setValueAtTime(ambience.gain.gain.value, ctx.currentTime);
+    ambience.gain.gain.linearRampToValueAtTime(target, ctx.currentTime + AMBIENCE_FADE_SECONDS);
+  } catch {
+    // context already closed
+  }
+}
+
 function stopAmbience(ambience, ctx) {
   if (!ambience) return;
   try {
@@ -129,6 +149,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const ambienceRef = useRef(null);
   const ambienceDataRef = useRef(null);
   const stopMicRef = useRef(null);
+  // The bed follows the call rather than running flat through it.
+  useEffect(() => {
+    setAmbienceLevel(
+      ambienceRef.current,
+      playbackContextRef.current,
+      status === 'listening' || status === 'speaking',
+    );
+  }, [status]);
   // The microphone stays acquired for the whole call and is opened and closed in
   // software. Tearing the hardware down between turns left a deaf window exactly
   // where a person starts their next sentence, and getUserMedia is slow enough
@@ -143,7 +171,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const hasInteractedRef = useRef(false);
   const userStoppedRef = useRef(false);
   const endedRef = useRef(false);
-  const restartTimerRef = useRef(null);
   const cancelWatchRef = useRef(null);
   const readyRef = useRef(false);
 
@@ -233,15 +260,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       readyRef.current = true;
       setBlocked('');
       setStatus((prev) => (prev === 'listening' ? prev : 'idle'));
-      // The line is ours again: take the next turn without asking the caller to
-      // press anything, unless they stopped it or hung up.
+      // The line is ours again — and it only says so once the browser has
+      // reported that the reply finished playing, so there is nothing left to
+      // wait out. Take the next turn immediately.
       if (!hasInteractedRef.current || userStoppedRef.current || endedRef.current) {
         return;
       }
-      clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = setTimeout(() => {
-        startListeningRef.current?.(true);
-      }, constants.RESERVATION_VOICE_TURN_RESTART_GRACE_MS);
+      startListeningRef.current?.(true);
     });
     socket.on('voice_user_chunk', (p) => setTranscript(p?.delta || ''));
     // End of speech: the server has closed its STT session, so anything more
@@ -292,7 +317,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     });
     socket.on('voice_call_ended', () => {
       endedRef.current = true;
-      clearTimeout(restartTimerRef.current);
       setEnded(true);
       setStatus('idle');
       stopAmbience(ambienceRef.current, playbackContextRef.current);
@@ -322,7 +346,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   stopMicRef.current = stopMic;
 
   useEffect(() => () => {
-    clearTimeout(restartTimerRef.current);
     cancelPlaybackWatch();
     stopMic();
     stopAmbience(ambienceRef.current, playbackContextRef.current);
@@ -404,17 +427,12 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
         }
         socketRef.current.emit('voice_client_chunk', { audio: arrayBufferToBase64(floatTo16BitPCM(input).buffer) });
       };
-      // A mic that streams pure silence looks identical to a broken pipeline, so
-      // say so — but only on a turn the caller asked for. Once the page is
-      // reopening the mic itself, silence is just someone thinking, and warning
-      // them about their microphone every few seconds is the bug, not the help.
-      if (!auto) {
-        silenceTimerRef.current = setTimeout(() => {
-          if (!heardSound) {
-            alertErrorRef.current?.(constants.RESERVATION_VOICE_NO_SOUND);
-          }
-        }, constants.RESERVATION_VOICE_NO_SOUND_AFTER_MS);
-      }
+      // Deliberately no silence stopwatch. The microphone is held open for the
+      // whole call now, so quiet is the normal state of it — someone reading
+      // their diary, or thinking. A timer cannot tell that from a dead mic, and
+      // guessing wrong interrupts the call to complain about equipment that is
+      // working. A refused microphone still reports itself, below.
+      void heardSound;
       // A newer start (or a stop) happened while the browser was prompting —
       // drop this one rather than attaching a second capture chain.
       if (generation !== startGenRef.current) {
@@ -442,7 +460,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
 
   const stopListening = () => {
     userStoppedRef.current = true;
-    clearTimeout(restartTimerRef.current);
     stopMic();
     if (socketRef.current?.connected) {
       socketRef.current.emit('voice_stop');
