@@ -55,8 +55,30 @@ export class InventoryService {
     return nights;
   }
 
+  /**
+   * A room `r` that can be handed to a guest for the whole of :checkIn to
+   * :checkOut: in service, and not held by any booking over those dates. Shared by
+   * every query that picks or counts rooms, so they cannot disagree on "free".
+   */
+  private readonly freeRoomCondition = `r.status = :activeStatus
+         AND r.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_rooms br
+           WHERE br.room_id = r.id
+             AND br.deleted_at IS NULL
+             AND br.check_in < :checkOut
+             AND br.check_out > :checkIn
+         )`;
+
   /** Room types at this hotel that can seat `guests` and have `rooms` free on every night. */
-  async findAvailability(hotelId: number, nights: string[], guests: number, rooms: number): Promise<RoomTypeAvailability[]> {
+  async findAvailability(
+    hotelId: number,
+    nights: string[],
+    checkIn: string,
+    checkOut: string,
+    guests: number,
+    rooms: number,
+  ): Promise<RoomTypeAvailability[]> {
     if (nights.length === 0) {
       return [];
     }
@@ -68,19 +90,32 @@ export class InventoryService {
     // room type's full total_rooms. Requiring a row instead would report a hotel
     // whose inventory has not been opened yet as sold out, which is the same
     // answer as genuinely full.
+    //
+    // The counts alone overstate it when a room is out of service: total still
+    // includes it, but no booking can be given it. So the answer is capped at the
+    // rooms of the type that are actually free for the stay — the same test the
+    // booking itself applies when it assigns rooms.
     return this.sequelize.query<RoomTypeAvailability>(
-      `SELECT rt.id AS "roomTypeId",
-              rt.name AS "name",
-              rt.max_occupancy AS "maxOccupancy",
-              MIN(COALESCE(ri.total, rt.total_rooms) - COALESCE(ri.reserved, 0) - COALESCE(ri.blocked, 0))::int AS "available"
-       FROM room_types rt
-       CROSS JOIN UNNEST(ARRAY[:nights]::date[]) AS night
-       LEFT JOIN room_inventory ri ON ri.room_type_id = rt.id AND ri.date = night::date AND ri.deleted_at IS NULL
-       WHERE rt.hotel_id = :hotelId AND rt.max_occupancy >= :guests AND rt.deleted_at IS NULL
-       GROUP BY rt.id, rt.name, rt.max_occupancy
-       HAVING MIN(COALESCE(ri.total, rt.total_rooms) - COALESCE(ri.reserved, 0) - COALESCE(ri.blocked, 0)) >= :rooms
-       ORDER BY rt.name`,
-      { replacements: { hotelId, guests, rooms, nights }, type: QueryTypes.SELECT },
+      `SELECT * FROM (
+         SELECT rt.id AS "roomTypeId",
+                rt.name AS "name",
+                rt.max_occupancy AS "maxOccupancy",
+                LEAST(
+                  MIN(COALESCE(ri.total, rt.total_rooms) - COALESCE(ri.reserved, 0) - COALESCE(ri.blocked, 0)),
+                  (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND ${this.freeRoomCondition})
+                )::int AS "available"
+         FROM room_types rt
+         CROSS JOIN UNNEST(ARRAY[:nights]::date[]) AS night
+         LEFT JOIN room_inventory ri ON ri.room_type_id = rt.id AND ri.date = night::date AND ri.deleted_at IS NULL
+         WHERE rt.hotel_id = :hotelId AND rt.max_occupancy >= :guests AND rt.deleted_at IS NULL
+         GROUP BY rt.id, rt.name, rt.max_occupancy
+       ) availability
+       WHERE availability."available" >= :rooms
+       ORDER BY availability."name"`,
+      {
+        replacements: { hotelId, guests, rooms, nights, checkIn, checkOut, activeStatus: RoomStatus.ACTIVE },
+        type: QueryTypes.SELECT,
+      },
     );
   }
 
@@ -191,15 +226,7 @@ export class InventoryService {
        FROM rooms r
        WHERE r.hotel_id = :hotelId
          AND r.room_type_id = :roomTypeId
-         AND r.status = :activeStatus
-         AND r.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM booking_rooms br
-           WHERE br.room_id = r.id
-             AND br.deleted_at IS NULL
-             AND br.check_in < :checkOut
-             AND br.check_out > :checkIn
-         )
+         AND ${this.freeRoomCondition}
        ORDER BY r.room_number
        LIMIT :count`,
       {
@@ -208,6 +235,18 @@ export class InventoryService {
         type: QueryTypes.SELECT,
       },
     );
+  }
+
+  /** How many rooms of this type could be handed out for the whole stay, however many are wanted. */
+  async countFreeRooms(roomTypeId: number, checkIn: string, checkOut: string, transaction?: Transaction): Promise<number> {
+    const [row] = await this.sequelize.query<{ free: number }>(
+      `SELECT COUNT(*)::int AS "free"
+       FROM rooms r
+       WHERE r.room_type_id = :roomTypeId
+         AND ${this.freeRoomCondition}`,
+      { replacements: { roomTypeId, checkIn, checkOut, activeStatus: RoomStatus.ACTIVE }, transaction, type: QueryTypes.SELECT },
+    );
+    return row?.free ?? 0;
   }
 
   /**
