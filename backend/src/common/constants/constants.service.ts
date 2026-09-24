@@ -328,9 +328,8 @@ export class ConstantsService {
       RESERVATION_VOICE_TITLE: 'Book by voice',
       RESERVATION_VOICE_SUBTITLE: 'Tap the mic and tell us when you would like to stay',
       RESERVATION_VOICE_TAP_TO_SPEAK: 'Tap to speak',
-      RESERVATION_VOICE_LISTENING: 'Listening… tap to stop',
-      RESERVATION_VOICE_THINKING: 'Thinking…',
-      RESERVATION_VOICE_SPEAKING: 'Responding…',
+      /** The only other thing a caller needs to know mid-call: tapping ends it. */
+      RESERVATION_VOICE_TAP_TO_STOP: 'Tap to stop',
       RESERVATION_VOICE_CONNECTING: 'Connecting…',
       RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
       RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
@@ -342,7 +341,7 @@ export class ConstantsService {
        * its clock, and neither should strand a call mid-turn.
        */
       VOICE_PLAYBACK_WATCH_GRACE_MS: 2000,
-      RESERVATION_VOICE_AMBIENCE_DBFS: -35,
+      RESERVATION_VOICE_AMBIENCE_DBFS: -45,
       /**
        * A real hotel-lobby recording, served from the frontend's public folder.
        * Synthesised noise is steady by definition, and a bed that never varies
@@ -675,24 +674,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           .split(',')
           .map((term) => term.trim())
           .filter((term) => term.length > 0),
-        /**
-         * Thinking noises played the instant a caller stops talking, covering the
-         * second or two the model and voice need. Real desk staff fill that gap;
-         * silence is what makes a line feel dead. Deliberately short and
-         * non-committal so they never contradict the answer that follows.
-         * Empty the list to turn them off.
-         */
-        THINKING_FILLERS: [
-          '[thoughtful] Mmm…',
-          '[thoughtful] Right, let me see…',
-          '[inhales] Okay…',
-          '[thoughtful] Mm-hmm…',
-          '[exhales] Let me check…',
-          '[thoughtful] Sure, one moment…',
-        ],
-        /** Synthesised once per phrase per language, then replayed from memory. */
-        FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
-        FILLER_CACHE_MINUTES: 720,
         /**
          * How long to wait for the browser to report that it has finished
          * playing the reply before releasing the turn anyway. Only the client

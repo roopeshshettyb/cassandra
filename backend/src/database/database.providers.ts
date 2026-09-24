@@ -73,6 +73,7 @@ export const DATABASE_PROVIDERS = [
         // than booking-scoped, so account_id has to give up NOT NULL.
         'ALTER TABLE chats ALTER COLUMN account_id DROP NOT NULL',
         'ALTER TABLE chats ADD COLUMN IF NOT EXISTS hotel_id INTEGER REFERENCES hotels(id)',
+        'ALTER TABLE messages ADD COLUMN IF NOT EXISTS raw_content TEXT',
         "ALTER TYPE enum_chats_chat_type ADD VALUE IF NOT EXISTS 'reservation'",
         // Skipping this locks everyone out — the model declares the column, so
         // every account query selects it. Check information_schema, not the log
