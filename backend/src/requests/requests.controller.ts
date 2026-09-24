@@ -3,21 +3,24 @@ import { RequestsService } from './requests.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { Account } from '../accounts/accounts.model';
-import { AppendMessageDto, CreateRequestDto, ListRequestsQueryDto, UpdateRequestDto } from './requests.dto';
-import { LIST_QUERY_PIPE_OPTIONS } from '../common/dto/list-query.dto';
+import { ListQuery } from '../common/filters/list-filters';
+import { AppendMessageDto, CreateRequestDto, UpdateRequestDto } from './requests.dto';
 
 @Controller('requests')
 @UseGuards(JwtAuthGuard)
 export class RequestsController {
   constructor(private readonly requestsService: RequestsService) {}
 
-  // No global validation pipe in this app, so the query DTO is validated per handler.
+  // The query is validated against the model's flagged columns, not a DTO — see list-filters.
   @Get()
-  async findAll(
-    @CurrentAccount() account: Account,
-    @Query(new ValidationPipe(LIST_QUERY_PIPE_OPTIONS)) query: ListRequestsQueryDto,
-  ) {
-    return this.requestsService.findForAccountWithOptions(account, query);
+  async findAll(@CurrentAccount() account: Account, @Query() query: ListQuery) {
+    return this.requestsService.findAllForAccount(account, query);
+  }
+
+  /** The filters this list offers, so the UI does not hardcode them. Declared before :id to match first. */
+  @Get('filters')
+  getFilters() {
+    return this.requestsService.getListFilterMeta();
   }
 
   @Post()

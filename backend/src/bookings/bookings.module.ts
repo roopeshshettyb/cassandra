@@ -13,9 +13,10 @@ import { CostsModule } from '../costs/costs.module';
 import { LangGraphModule } from '../langgraph/langgraph.module';
 import { LlmEvalModule } from '../llm-eval/llm-eval.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { RoomsModule } from '../rooms/rooms.module';
 
 @Module({
-  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule), forwardRef(() => CostsModule), forwardRef(() => LangGraphModule), forwardRef(() => NotificationsModule), forwardRef(() => LlmEvalModule)],
+  imports: [DatabaseModule, CommonModule, AccountsModule, AuthModule, MailerModule, forwardRef(() => HotelsModule), forwardRef(() => CostsModule), forwardRef(() => LangGraphModule), forwardRef(() => NotificationsModule), forwardRef(() => LlmEvalModule), forwardRef(() => RoomsModule)],
   controllers: [BookingsController],
   providers: [BookingsRepository, BookingsService, DocumentExtractionService],
   exports: [BookingsRepository, BookingsService],

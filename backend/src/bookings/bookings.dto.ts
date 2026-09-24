@@ -1,7 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { ListQueryDto } from '../common/dto/list-query.dto';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { BookingStatus } from '../common/constants/constants.service';
 
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -51,10 +50,29 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
+  // Optional because a booking made against a room type gets its room number
+  // from the room the inventory reservation assigns.
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  @ApiProperty()
-  readonly roomNumber: string;
+  @ApiProperty({ required: false })
+  readonly roomNumber?: string;
+
+  @IsOptional()
+  @IsInt()
+  @ApiProperty({ required: false, description: 'Reserve against dated inventory for this room type instead of a free-text room number' })
+  readonly roomTypeId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @ApiProperty({ required: false, description: 'Rooms to reserve of roomTypeId' })
+  readonly rooms?: number;
+
+  @IsOptional()
+  @IsEnum(BookingStatus)
+  @ApiProperty({ required: false, enum: BookingStatus, description: 'Defaults to confirmed' })
+  readonly status?: BookingStatus;
 
   @IsOptional()
   @IsBoolean()
@@ -85,6 +103,11 @@ export class UpdateBookingDto {
   @IsNotEmpty()
   @ApiProperty()
   readonly roomNumber: string;
+
+  @IsOptional()
+  @IsEnum(BookingStatus)
+  @ApiProperty({ required: false, enum: BookingStatus })
+  readonly status?: BookingStatus;
 }
 
 export class ReservationDocumentUploadUrlDto {
@@ -104,48 +127,4 @@ export class ReservationDocumentKeyDto {
   @IsNotEmpty()
   @ApiProperty()
   readonly key: string;
-}
-
-export class ListBookingsQueryDto extends ListQueryDto {
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  @ApiPropertyOptional({ description: "Agent-facing; equivalent to stay='active'" })
-  readonly activeOnly?: boolean;
-
-  @IsOptional()
-  @IsIn(['active', 'upcoming'])
-  @ApiPropertyOptional({ enum: ['active', 'upcoming'], description: 'active = in-stay now, upcoming = starts later' })
-  readonly stay?: 'active' | 'upcoming';
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @ApiPropertyOptional()
-  readonly hotelId?: number;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional()
-  readonly roomNumber?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: 'Matches guest name or email' })
-  readonly guestKeywords?: string;
-
-  @IsOptional()
-  @Matches(DATE_REGEX)
-  @ApiPropertyOptional({ description: 'YYYY-MM-DD' })
-  readonly startAfter?: string;
-
-  @IsOptional()
-  @Matches(DATE_REGEX)
-  @ApiPropertyOptional({ description: 'YYYY-MM-DD' })
-  readonly startBefore?: string;
-
-  @IsOptional()
-  @IsIn(['startTime', 'endTime', 'id'])
-  @ApiPropertyOptional({ enum: ['startTime', 'endTime', 'id'] })
-  readonly sortBy?: 'startTime' | 'endTime' | 'id';
 }
