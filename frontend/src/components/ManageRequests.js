@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
 import ListControls from './ListControls';
+import LoadMore from './LoadMore';
 import RequestCard from './cards/RequestCard';
 import { REQUEST_STATUS, REQUEST_URGENCY, REQUEST_TYPE_LABEL } from '../constants/requestConfig';
 import { PageHeader } from './cards/AppCards';
@@ -56,6 +57,7 @@ function ManageRequests({ loading, setLoading, navigate, alertError, isMobile, a
         onSortChange={list.onSortChange}
       />
       <DataGrid CardComponent={RequestCard} data={list.data} isLoading={loading} navigate={navigate} account={account} />
+      <LoadMore hasMore={list.hasMore} onLoadMore={list.loadMore} loaded={list.data.length} total={list.total} />
     </Box>
   );
 }

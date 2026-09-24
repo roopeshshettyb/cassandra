@@ -39,13 +39,12 @@ export const toFilterList = ({ value }: TransformFnParams): string[] | undefined
 /** Query params arrive as strings, so transform is required for @Type to apply. */
 export const LIST_QUERY_PIPE_OPTIONS = { transform: true, whitelist: true, forbidNonWhitelisted: true };
 
-const FIRST_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 20;
+type ListPagingLimits = { LIST_PAGE_DEFAULT: number; LIST_PAGE_SIZE_DEFAULT: number; LIST_PAGE_SIZE_MAX: number };
 
-/** Null when neither page nor pageSize was asked for — the unpaged path, which returns every matching row. */
-export function resolveListPaging(options: { page?: number; pageSize?: number } | undefined) {
+/** Null when neither page nor pageSize was asked for — the agent path, capped by its own AGENT_* limits. */
+export function resolveListPaging(options: { page?: number; pageSize?: number } | undefined, limits: ListPagingLimits) {
   if (options?.page == null && options?.pageSize == null) return null;
-  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
-  const page = options.page ?? FIRST_PAGE;
+  const pageSize = Math.min(options.pageSize ?? limits.LIST_PAGE_SIZE_DEFAULT, limits.LIST_PAGE_SIZE_MAX);
+  const page = options.page ?? limits.LIST_PAGE_DEFAULT;
   return { limit: pageSize, offset: (page - 1) * pageSize, page };
 }
