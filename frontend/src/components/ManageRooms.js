@@ -375,9 +375,11 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
         endDate: inventoryFilter.endDate,
         total, blocked,
       },
-      setLoading, setData: setInventory, alertSuccess, alertError,
+      // No setData: api.js empties the list on a failed request, and a refused
+      // update leaves the nights exactly as they were, so they should stay shown.
+      setLoading, alertSuccess, alertError,
     });
-    if (res?.success) { setStockForm({ total: '', blocked: '' }); }
+    if (res?.success) { setInventory(res.data || []); setStockForm({ total: '', blocked: '' }); }
   };
 
   const search = async () => {
