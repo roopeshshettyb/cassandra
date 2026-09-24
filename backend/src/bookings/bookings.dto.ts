@@ -1,7 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { ListQueryDto } from '../common/dto/list-query.dto';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -104,48 +102,4 @@ export class ReservationDocumentKeyDto {
   @IsNotEmpty()
   @ApiProperty()
   readonly key: string;
-}
-
-export class ListBookingsQueryDto extends ListQueryDto {
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  @ApiPropertyOptional({ description: "Agent-facing; equivalent to stay='active'" })
-  readonly activeOnly?: boolean;
-
-  @IsOptional()
-  @IsIn(['active', 'upcoming'])
-  @ApiPropertyOptional({ enum: ['active', 'upcoming'], description: 'active = in-stay now, upcoming = starts later' })
-  readonly stay?: 'active' | 'upcoming';
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @ApiPropertyOptional()
-  readonly hotelId?: number;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional()
-  readonly roomNumber?: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({ description: 'Matches guest name or email' })
-  readonly guestKeywords?: string;
-
-  @IsOptional()
-  @Matches(DATE_REGEX)
-  @ApiPropertyOptional({ description: 'YYYY-MM-DD' })
-  readonly startAfter?: string;
-
-  @IsOptional()
-  @Matches(DATE_REGEX)
-  @ApiPropertyOptional({ description: 'YYYY-MM-DD' })
-  readonly startBefore?: string;
-
-  @IsOptional()
-  @IsIn(['startTime', 'endTime', 'id'])
-  @ApiPropertyOptional({ enum: ['startTime', 'endTime', 'id'] })
-  readonly sortBy?: 'startTime' | 'endTime' | 'id';
 }

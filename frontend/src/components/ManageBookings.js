@@ -26,23 +26,6 @@ const editBookingFieldConfigs = [
   { field: 'roomNumber', label: 'Room Number', type: 'text', required: true },
 ];
 
-const bookingFilterConfigs = [
-  {
-    key: 'stay',
-    label: 'Stay',
-    options: [
-      { value: 'active', label: 'Currently staying' },
-      { value: 'upcoming', label: 'Upcoming stays' },
-    ],
-  },
-];
-
-const bookingSortOptions = [
-  { label: 'Newest stays', value: { sortBy: 'startTime', sortOrder: 'desc' } },
-  { label: 'Oldest stays', value: { sortBy: 'startTime', sortOrder: 'asc' } },
-  { label: 'Ending soonest', value: { sortBy: 'endTime', sortOrder: 'asc' } },
-];
-
 const initialCreateValues = {
   startDate: '',
   endDate: '',
@@ -64,15 +47,8 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
   const [editValues, setEditValues] = useState({ startDate: '', endDate: '', roomNumber: '' });
   const [deleteBooking, setDeleteBooking] = useState(null);
 
-  // The bookings list (filtering, sorting, paging) is served entirely by the backend.
-  const list = useListControls({
-    endpoint: '/bookings',
-    setLoading,
-    alertError,
-    searchKey: 'guestKeywords',
-    filterConfigs: bookingFilterConfigs,
-    sortOptions: bookingSortOptions,
-  });
+  // Rows and controls both come from the backend — see /bookings/filters.
+  const list = useListControls({ endpoint: '/bookings', setLoading, alertError });
   const fetchBookings = () => list.refetch();
 
   const fetchHotels = async () => {
@@ -325,18 +301,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         </DialogActions>
       </Dialog>
 
-      <ListControls
-        filterConfigs={bookingFilterConfigs}
-        sortOptions={bookingSortOptions}
-        searchLabel="Search guest name or email"
-        search={list.search}
-        filters={list.filters}
-        sort={list.sort}
-        total={list.total}
-        onSearchChange={list.onSearchChange}
-        onFilterChange={list.onFilterChange}
-        onSortChange={list.onSortChange}
-      />
+      <ListControls list={list} />
 
       <DataGrid CardComponent={BookingCard} data={(() => {
         const hotelMap = {};
