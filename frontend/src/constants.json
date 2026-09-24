@@ -39,6 +39,30 @@
       "label": "Disabled"
     }
   },
+  "BOOKING_STATUSES": [
+    {
+      "value": "pending",
+      "label": "Pending"
+    },
+    {
+      "value": "confirmed",
+      "label": "Confirmed"
+    },
+    {
+      "value": "checked_in",
+      "label": "Checked in"
+    },
+    {
+      "value": "checked_out",
+      "label": "Checked out"
+    },
+    {
+      "value": "cancelled",
+      "label": "Cancelled"
+    }
+  ],
+  "BOOKING_STATUS_CANCELLED": "cancelled",
+  "BOOKING_STATUS_DEFAULT": "confirmed",
   "PERMISSIONS": {
     "CAN_CREATE_BOOKING": {
       "admin": true,
@@ -82,6 +106,11 @@
       "hotel_staff": true
     },
     "CAN_MANAGE_RESTAURANT_MENU": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_MANAGE_ROOMS": {
       "admin": true,
       "hotel_owner": true,
       "hotel_staff": true
