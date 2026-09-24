@@ -3,7 +3,7 @@ import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
 import { CreateBookingDto, UpdateBookingDto, BookingExternalUpsertPayload } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
-import { resolveListPaging } from '../common/dto/list-query.dto';
+import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
@@ -407,18 +407,24 @@ export class BookingsService {
     return { success: true, message: null, data: booking };
   }
 
-  async findAllForAccount(currentAccount: Account) {
+  /** The filters this list offers, derived from the Booking model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Booking) };
+  }
+
+  async findAllForAccount(currentAccount: Account, query?: ListQuery) {
     const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl', 'themeConfig'], include: [{ model: HotelBrand, as: 'brand' }] };
     const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
     const where = await this.getWhereForAccount(currentAccount);
+
+    validateListQuery(Booking, query);
     const options: any = {
+      // The account scope goes in first, so every filter narrows within what this account may see.
+      where: buildListWhere(Booking, query, where ? { ...where } : {}),
       include: [includeHotel, includeGuest],
       order: [['startTime', 'DESC']],
       attributes: { include: [this.isWithinStayAttr()] },
     };
-    if (where) {
-      options.where = where;
-    }
     const bookings = await this.bookingsRepository.findAll(options);
     return { success: true, message: null, data: bookings };
   }
@@ -433,9 +439,7 @@ export class BookingsService {
     }
 
     if (options?.hotelId != null) {
-      // Verify access first, then narrow — never replace — the account scope below.
-      await this.hotelsService.findByIdForAccount(options.hotelId, currentAccount);
-      where.hotelId = where.hotelId == null ? options.hotelId : { [Op.and]: [where.hotelId, { [Op.eq]: options.hotelId }] };
+      where.hotelId = options.hotelId;
     }
 
     if (options?.roomNumber) {
@@ -443,9 +447,6 @@ export class BookingsService {
     }
 
     const now = new Date();
-    // One mode for both callers: the UI sends `stay`, the agent still sends the older `activeOnly`.
-    const stay = options?.stay ?? (options?.activeOnly ? 'active' : undefined);
-
     if (options?.startAfter || options?.startBefore) {
       const startTimeFilter: any = {};
       if (options.startAfter) {
@@ -454,28 +455,16 @@ export class BookingsService {
       if (options.startBefore) {
         startTimeFilter[Op.lte] = new Date(options.startBefore);
       }
-      // The mode narrows an explicit range, it never widens it.
-      if (stay === 'active') {
+      if (options.activeOnly) {
         if (startTimeFilter[Op.lte] == null || new Date(startTimeFilter[Op.lte]) > now) {
           startTimeFilter[Op.lte] = now;
         }
         where.endTime = { [Op.gte]: now };
-      } else if (stay === 'upcoming') {
-        // 'active' takes a stay starting exactly now, so 'upcoming' must leave it out or the same
-        // booking answers to both. Strict `>`, matching the no-range branch below. A caller's own
-        // lower bound is kept when it is already further ahead than now.
-        const lower = startTimeFilter[Op.gte];
-        if (lower == null || new Date(lower) <= now) {
-          delete startTimeFilter[Op.gte];
-          startTimeFilter[Op.gt] = now;
-        }
       }
       where.startTime = startTimeFilter;
-    } else if (stay === 'active') {
+    } else if (options?.activeOnly) {
       where.startTime = { [Op.lte]: now };
       where.endTime = { [Op.gte]: now };
-    } else if (stay === 'upcoming') {
-      where.startTime = { [Op.gt]: now };
     }
 
     if (options?.guestKeywords) {
@@ -498,32 +487,17 @@ export class BookingsService {
     const queryOptions: any = {
       where,
       include: [includeHotel, includeGuest],
-      // `id` breaks ties so LIMIT/OFFSET cannot repeat one row and skip another between pages.
-      order: orderField === 'id' ? [['id', sortOrder]] : [[orderField, sortOrder], ['id', sortOrder]],
+      order: [[orderField, sortOrder]],
       subQuery: false,
-      // GET /bookings is served from here now, and the guest portal reads isWithinStay off each row.
-      attributes: { include: [this.isWithinStayAttr()] },
     };
 
-    const paging = resolveListPaging(options);
-    if (paging) {
-      queryOptions.limit = paging.limit;
-      queryOptions.offset = paging.offset;
-    } else if (options?.limit != null) {
-      queryOptions.limit = Math.min(Math.max(1, options.limit), this.constantsService.private.AGENT_BOOKINGS_MAX_LIMIT);
+    const agentLimits = this.constantsService.private;
+    if (options?.limit != null) {
+      queryOptions.limit = Math.min(Math.max(1, options.limit), agentLimits.AGENT_BOOKINGS_MAX_LIMIT);
     }
 
-    const { rows, count } = await this.bookingsRepository.findAndCountAll({ ...queryOptions, distinct: true });
-    return {
-      success: true,
-      message: null,
-      data: rows,
-      meta: {
-        total: count,
-        page: paging?.page ?? 1,
-        pageSize: paging?.limit ?? rows.length,
-      },
-    };
+    const bookings = await this.bookingsRepository.findAll(queryOptions);
+    return { success: true, message: null, data: bookings };
   }
 
   async findByIdForAccount(id: number, currentAccount: Account) {

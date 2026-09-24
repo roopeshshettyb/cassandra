@@ -768,7 +768,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         SESSION_TOKEN_SEPARATOR: '.',
         SESSION_TOKEN_HASH_ALGORITHM: 'sha256',
       },
-
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
       GOOGLE_CALLBACK_URL: this.configService.get<string>('GOOGLE_CALLBACK_URL'),

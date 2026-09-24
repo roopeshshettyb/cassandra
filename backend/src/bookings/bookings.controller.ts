@@ -12,25 +12,28 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto, UpdateBookingDto, ReservationDocumentUploadUrlDto, ReservationDocumentKeyDto, ListBookingsQueryDto } from './bookings.dto';
-import { LIST_QUERY_PIPE_OPTIONS } from '../common/dto/list-query.dto';
+import { CreateBookingDto, UpdateBookingDto, ReservationDocumentUploadUrlDto, ReservationDocumentKeyDto } from './bookings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { Account } from '../accounts/accounts.model';
+import { ListQuery } from '../common/filters/list-filters';
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
-  // No global validation pipe in this app, so the query DTO is validated per handler.
+  // The query is validated against the model's flagged columns, not a DTO — see list-filters.
   @Get()
-  async findAll(
-    @CurrentAccount() account: Account,
-    @Query(new ValidationPipe(LIST_QUERY_PIPE_OPTIONS)) query: ListBookingsQueryDto,
-  ) {
-    return this.bookingsService.findForAccountWithOptions(account, query);
+  async findAll(@CurrentAccount() account: Account, @Query() query: ListQuery) {
+    return this.bookingsService.findAllForAccount(account, query);
+  }
+
+  /** The filters this list offers, so the UI does not hardcode them. Declared before :id to match first. */
+  @Get('filters')
+  getFilters() {
+    return this.bookingsService.getListFilterMeta();
   }
 
   @Get('active')

@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import request from './api';
 
 const SEARCH_DEBOUNCE_MS = 350;
+// Every list endpoint takes the same search param, so no page has to name its own.
+const SEARCH_KEY = 'search';
+const EMPTY_CONFIG = { filters: [], searchLabel: null };
 
-// Multi-select filters travel as one comma-separated param, matching what the DTOs parse.
+/**
+ * The query keys behind each filter — one each, except a date, which the endpoint takes as a range:
+ * `<key>From` and `<key>To`. The UI draws those as two inputs from the one config.
+ */
+export function filterKeysOf(filterConfigs) {
+  return filterConfigs.flatMap((filter) => (filter.type === 'date'
+    ? [{ ...filter, key: `${filter.key}From`, bound: 'from' }, { ...filter, key: `${filter.key}To`, bound: 'to' }]
+    : [filter]));
+}
+
+// Multi-select filters travel as one comma-separated param, matching what the backend parses.
 function toParams(values) {
   const params = new URLSearchParams();
   Object.keys(values).forEach((key) => {
@@ -20,48 +32,21 @@ function toParams(values) {
 }
 
 /**
- * Server-side filtering and sorting for a list endpoint. The list is unpaged: one request brings
- * back every matching row and the page scrolls normally, which is how these lists behaved before
- * the filters were added. Every change goes through `load` with the next state, so pages need no
- * effect keyed on filters or sort. Filter state is mirrored into the querystring (replaced, not
- * pushed, so the back button still leaves the page) to survive reloads.
+ * Server-side filtering and searching for a list endpoint — and the controls are server-side too:
+ * `GET <endpoint>/filters` returns what this list offers, built from the `filterable` and
+ * `searchable` columns on the Sequelize model. Showing a filter for a new column needs no change
+ * here and none on the page.
+ *
+ * Every change goes through `load` with the next state, so pages need no effect keyed on filters.
  */
-function useListControls({ endpoint, setLoading, alertError, searchKey, filterConfigs = [], sortOptions = [] }) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  // `page` is not a control any more, but it is still listed so a link saved back when the list
-  // paged gets the stale param cleared from the address bar rather than carrying it around.
-  const ownKeys = [...filterConfigs.map((config) => config.key), 'sortBy', 'sortOrder', 'page', searchKey].filter(Boolean);
-
-  const initial = useRef({
-    // A multi-select holds an array; a single select holds '' for "no filter". Values the config
-    // does not offer are dropped: the server rejects them, and on a multi-select an unknown value
-    // would stick in the array and keep every later request failing.
-    filters: Object.fromEntries(filterConfigs.map(({ key, multiple, options = [] }) => {
-      const allowed = new Set(options.map((option) => option.value));
-      const raw = searchParams.get(key);
-      const picked = raw ? raw.split(',').filter((value) => allowed.has(value)) : [];
-      return [key, multiple ? picked : picked[0] ?? ''];
-    })),
-    sort: (() => {
-      // Same rule as the filters: honour the querystring only where it names a sort the page
-      // offers, so a stale link falls back to the first option instead of failing validation.
-      const fromUrl = { sortBy: searchParams.get('sortBy'), sortOrder: searchParams.get('sortOrder') };
-      const offered = sortOptions.some(
-        ({ value }) => value.sortBy === fromUrl.sortBy && value.sortOrder === fromUrl.sortOrder,
-      );
-      return offered ? fromUrl : { ...sortOptions[0]?.value };
-    })(),
-    search: (searchKey && searchParams.get(searchKey)) || '',
-  }).current;
-
+function useListControls({ endpoint, setLoading, alertError }) {
+  const [config, setConfig] = useState(EMPTY_CONFIG);
   const [data, setData] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState(initial.filters);
-  const [sort, setSort] = useState(initial.sort);
-  const [search, setSearch] = useState(initial.search);
+  const [filters, setFilters] = useState({});
+  const [search, setSearch] = useState('');
 
   // Latest state for `load`, so it is not rebuilt per keystroke and restart the debounce.
-  const currentRef = useRef(initial);
+  const currentRef = useRef({ filters: {}, search: '' });
   const debounceRef = useRef(null);
   const requestRef = useRef(0);
 
@@ -70,20 +55,9 @@ function useListControls({ endpoint, setLoading, alertError, searchKey, filterCo
       const state = { ...currentRef.current, ...next };
       currentRef.current = state;
       setFilters(state.filters);
-      setSort(state.sort);
       setSearch(state.search);
 
-      const values = { ...state.filters, ...state.sort };
-      if (searchKey) values[searchKey] = state.search;
-      const params = toParams(values);
-
-      // Keep unrelated params already on the route; drop ours once they go empty.
-      setSearchParams((previous) => {
-        const merged = new URLSearchParams(previous);
-        ownKeys.forEach((key) => merged.delete(key));
-        params.forEach((value, key) => merged.set(key, value));
-        return merged;
-      }, { replace: true });
+      const params = toParams({ ...state.filters, [SEARCH_KEY]: state.search });
 
       const requestId = ++requestRef.current;
       const response = await request({
@@ -97,19 +71,31 @@ function useListControls({ endpoint, setLoading, alertError, searchKey, filterCo
       // A slower earlier request must not overwrite the newest one's rows.
       if (requestId !== requestRef.current) return;
       // `request` returns null when the call failed; it has already alerted. Keep the rows on
-      // screen rather than rendering a failure as "No results" — a background refresh has no
-      // spinner, so an emptied list would look like the data itself had gone.
+      // screen rather than rendering a failure as an empty list.
       if (response == null) return;
-      const rows = response.data ?? [];
-      setData(rows);
-      setTotal(response.meta?.total ?? rows.length);
+      setData(response.data ?? []);
     },
-    [endpoint, searchKey, setLoading, alertError, setSearchParams],
+    [endpoint, setLoading, alertError],
   );
 
-  // The hook's only effect: initial load, and clearing a pending debounce on unmount.
+  // The hook's only effect: read the controls this list offers, then load the rows.
   useEffect(() => {
-    load();
+    (async () => {
+      const response = await request({
+        endpoint: `${endpoint}/filters`,
+        method: 'GET',
+        setLoading,
+        alertError,
+        delay: false,
+      });
+      // A failed config call has already alerted; the list still loads, just without controls.
+      const nextConfig = response?.data ?? EMPTY_CONFIG;
+      setConfig(nextConfig);
+      // A multi-select holds an array, everything else '' for "no filter".
+      const initialFilters = {};
+      filterKeysOf(nextConfig.filters).forEach(({ key, multiple }) => { initialFilters[key] = multiple ? [] : ''; });
+      await load({ filters: initialFilters, search: '' });
+    })();
     return () => clearTimeout(debounceRef.current);
   }, []);
 
@@ -123,11 +109,18 @@ function useListControls({ endpoint, setLoading, alertError, searchKey, filterCo
     debounceRef.current = setTimeout(() => load({ search: value }), SEARCH_DEBOUNCE_MS);
   };
 
-  const onSortChange = (event) => load({ sort: JSON.parse(event.target.value) });
-
   const refetch = (isBackground) => load({}, isBackground);
 
-  return { data, total, filters, sort, search, onFilterChange, onSearchChange, onSortChange, refetch };
+  return {
+    data,
+    filterConfigs: config.filters,
+    searchLabel: config.searchLabel,
+    filters,
+    search,
+    onFilterChange,
+    onSearchChange,
+    refetch,
+  };
 }
 
 export default useListControls;

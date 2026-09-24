@@ -1,8 +1,8 @@
 import React from 'react';
-import { Box, Checkbox, ListItemText, MenuItem, TextField, Typography } from '@mui/material';
+import { Box, Checkbox, ListItemText, MenuItem, TextField } from '@mui/material';
 import MapComponent from './MapComponent';
+import { filterKeysOf } from '../helper/useListControls';
 import { inputSx } from './cards/AppCards';
-import { BORDER, MUTED } from '../theme';
 
 // inputSx sizes the input at 13px but leaves the label at the theme default (17.6px). MUI cuts the
 // outline notch from the input's font, so the gap comes out too small and the border draws straight
@@ -10,11 +10,36 @@ import { BORDER, MUTED } from '../theme';
 const controlSx = { ...inputSx, '& .MuiInputLabel-root': { fontSize: 13 } };
 
 /**
- * One filter dropdown. `data` is a { key, label, multiple, options: [{ value, label }] } config.
- * A multi-select has no "All" item — an empty selection already means every value.
+ * One filter control, built from the config the backend derived from its model: a dropdown when the
+ * filter has options, a typed box otherwise. A multi-select has no "All" item — an empty selection
+ * already means every value.
  */
-function FilterSelect({ data: config, values, onFilterChange }) {
+function FilterControl({ data: config, values, onFilterChange }) {
+  const sx = {
+    ...controlSx,
+    minWidth: 150,
+    flex: { xs: '1 1 100%', sm: '0 1 auto' },
+    maxWidth: { xs: '100%', sm: 220 },
+    '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  };
   const selected = values[config.key] ?? (config.multiple ? [] : '');
+
+  if (!config.options) {
+    const isDate = config.type === 'date';
+    return (
+      <TextField
+        size="small"
+        type={isDate ? 'date' : 'text'}
+        // A range's two inputs share one config, so the bound says which end this one is.
+        label={isDate ? `${config.label} ${config.bound}` : config.label}
+        value={selected}
+        onChange={onFilterChange(config.key)}
+        InputLabelProps={{ shrink: true }}
+        sx={sx}
+      />
+    );
+  }
+
   const labelFor = (value) => config.options.find((option) => option.value === value)?.label ?? value;
 
   return (
@@ -24,13 +49,21 @@ function FilterSelect({ data: config, values, onFilterChange }) {
       label={config.label}
       value={selected}
       onChange={onFilterChange(config.key)}
-      sx={{ ...controlSx, minWidth: 150, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}
+      sx={sx}
       InputLabelProps={{ shrink: true }}
       SelectProps={{
         multiple: !!config.multiple,
         // Without displayEmpty MUI renders an empty single select as blank, so an unset filter
         // would read differently here than on a multi-select. Both say "All".
         displayEmpty: true,
+        // MUI's select menu centres itself over the field and grows to its widest option, which
+        // pushes a long list left off the content column. Pin it under the field and cap it.
+        MenuProps: {
+          variant: 'menu',
+          anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+          transformOrigin: { vertical: 'top', horizontal: 'left' },
+          PaperProps: { sx: { maxHeight: 320, maxWidth: 320 } },
+        },
         renderValue: (chosen) => {
           if (config.multiple) return chosen.length === 0 ? 'All' : chosen.map(labelFor).join(', ');
           return chosen === '' ? 'All' : labelFor(chosen);
@@ -39,13 +72,9 @@ function FilterSelect({ data: config, values, onFilterChange }) {
     >
       {!config.multiple && <MenuItem value="">All</MenuItem>}
       {config.options.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          {config.multiple ? (
-            <>
-              <Checkbox size="small" sx={{ p: 0, mr: 1 }} checked={selected.includes(option.value)} />
-              <ListItemText primaryTypographyProps={{ fontSize: 14 }} primary={option.label} />
-            </>
-          ) : option.label}
+        <MenuItem key={option.value} value={option.value} title={option.label}>
+          {config.multiple && <Checkbox size="small" sx={{ p: 0, mr: 1 }} checked={selected.includes(option.value)} />}
+          <ListItemText primaryTypographyProps={{ fontSize: 14, noWrap: true }} primary={option.label} />
         </MenuItem>
       ))}
     </TextField>
@@ -53,65 +82,33 @@ function FilterSelect({ data: config, values, onFilterChange }) {
 }
 
 /**
- * Search, filter and sort chrome for a server-driven list. Purely presentational —
- * every control is wired to the handlers from useListControls.
+ * Search and filter chrome for a server-driven list. It knows nothing about any particular list:
+ * pass the whole `useListControls` result and it renders the controls the backend described.
  */
-function ListControls({ filterConfigs = [], sortOptions = [], searchLabel, search, filters, sort, total = 0, onSearchChange, onFilterChange, onSortChange }) {
-  // Key order matters to JSON.stringify, so normalise both sides before comparing.
-  const sortKey = (value) => JSON.stringify({ sortBy: value?.sortBy, sortOrder: value?.sortOrder });
+function ListControls({ list, right }) {
+  const { filterConfigs = [], searchLabel, search, filters } = list;
 
   return (
-    <Box
-      sx={{
-        mb: 3,
-        position: 'sticky',
-        // The mobile header is fixed over the page, so the controls have to stop below it.
-        // On desktop nothing overlays the content column, so they stop at its top.
-        top: { xs: 'var(--app-header-height)', md: 0 },
-        zIndex: 2,
-        // Opaque, or the cards scrolling underneath show through the gaps between controls.
-        bgcolor: 'background.default',
-        pt: 2,
-      }}
-    >
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-        {searchLabel && (
-          <TextField
-            size="small"
-            label={searchLabel}
-            value={search}
-            onChange={onSearchChange}
-            InputLabelProps={{ shrink: true }}
-            sx={{ ...controlSx, minWidth: 220, flex: { xs: '1 1 100%', sm: '1 1 220px' } }}
-          />
-        )}
-        <MapComponent
-          Component={FilterSelect}
-          data={filterConfigs}
-          values={filters ?? {}}
-          onFilterChange={onFilterChange}
-          showNoDataAvailable={false}
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 3, alignItems: 'center' }}>
+      {searchLabel && (
+        <TextField
+          size="small"
+          label={searchLabel}
+          value={search}
+          onChange={list.onSearchChange}
+          InputLabelProps={{ shrink: true }}
+          sx={{ ...controlSx, minWidth: 220, flex: { xs: '1 1 100%', sm: '1 1 220px' } }}
         />
-        {sortOptions.length > 0 && (
-          <TextField
-            select
-            size="small"
-            label="Sort by"
-            value={sortKey(sort)}
-            onChange={onSortChange}
-            InputLabelProps={{ shrink: true }}
-            sx={{ ...controlSx, minWidth: 170, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}
-          >
-            {sortOptions.map((option) => (
-              <MenuItem key={option.label} value={sortKey(option.value)}>{option.label}</MenuItem>
-            ))}
-          </TextField>
-        )}
-      </Box>
-
-      <Typography sx={{ mt: 2, pt: 2, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: MUTED }}>
-        {total === 0 ? 'No results' : `${total} result${total === 1 ? '' : 's'}`}
-      </Typography>
+      )}
+      <MapComponent
+        Component={FilterControl}
+        data={filterKeysOf(filterConfigs)}
+        values={filters ?? {}}
+        onFilterChange={list.onFilterChange}
+        showNoDataAvailable={false}
+      />
+      {/* A page's own control that belongs on this row, e.g. the hotels gallery/table toggle. */}
+      {right}
     </Box>
   );
 }

@@ -3,7 +3,7 @@ import { REQUESTS_REPOSITORY } from './requests.repository';
 import { Request, RequestStatus } from './requests.model';
 import { CreateRequestDto, UpdateRequestDto, RequestExternalUpsertPayload } from './requests.dto';
 import { RequestQueryOptions } from './requests.query';
-import { resolveListPaging } from '../common/dto/list-query.dto';
+import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { BookingsService } from '../bookings/bookings.service';
 import { HotelsService } from '../hotels/hotels.service';
@@ -45,19 +45,6 @@ export class RequestsService {
     return { id: -1 };
   }
 
-  /** Narrows the account scope by hotelId. Assigning over `where.hotelId` would drop it and leak other hotels. */
-  private narrowHotelId(where: { [key: string]: any }, hotelId: number): void {
-    where.hotelId = where.hotelId == null ? hotelId : { [Op.and]: [where.hotelId, { [Op.eq]: hotelId }] };
-  }
-
-  /** Applies a filter that may be a single value or a multi-select list. An empty list means "no filter". */
-  private applyFilter(where: { [key: string]: any }, key: string, value: unknown): void {
-    if (value == null) return;
-    const values = Array.isArray(value) ? value : [value];
-    if (values.length === 0) return;
-    where[key] = values.length === 1 ? values[0] : { [Op.in]: values };
-  }
-
   private async ensureCanCreate(dto: CreateRequestDto, currentAccount: Account): Promise<void> {
     if (currentAccount.role === AccountRole.ADMIN) {
       return;
@@ -75,10 +62,21 @@ export class RequestsService {
     throw new ForbiddenException();
   }
 
-  async findAllForAccount(currentAccount: Account, options?: Pick<RequestQueryOptions, 'sortBy' | 'sortOrder'>) {
+  /** The filters this list offers, derived from the Request model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Request) };
+  }
+
+  async findAllForAccount(
+    currentAccount: Account,
+    options?: Pick<RequestQueryOptions, 'sortBy' | 'sortOrder'> & ListQuery,
+  ) {
     const where = await this.getWhereForAccount(currentAccount);
 
+    validateListQuery(Request, options, ['sortBy', 'sortOrder']);
+    // The account scope goes in first, so every filter narrows within what this account may see.
     const findOptions: any = {
+      where: buildListWhere(Request, options, where ? { ...where } : {}),
       order: this.buildRequestOrder(options),
       include: [
         { model: Hotel, as: 'hotel', attributes: ['id', 'name'] },
@@ -86,10 +84,6 @@ export class RequestsService {
         { model: Booking, as: 'booking', attributes: ['id'] },
       ],
     };
-
-    if (where) {
-      findOptions.where = where;
-    }
 
     const requests = await this.requestsRepository.findAll(findOptions);
 
@@ -244,28 +238,25 @@ export class RequestsService {
     };
   }
 
-  // `id` breaks ties on every sort: urgency has three distinct values and timestamps
-  // collide, and without it LIMIT/OFFSET can repeat a row on one page and skip another.
   private buildRequestOrder(options?: RequestQueryOptions): any[] {
     const sortOrder = options?.sortOrder === 'asc' ? 'ASC' : 'DESC';
     const sortBy = options?.sortBy ?? 'createdAt';
-    const tieBreaker = ['id', sortOrder];
     if (sortBy === 'urgency') {
-      return [[literal("CASE urgency WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 END"), sortOrder], tieBreaker];
+      return [[literal("CASE urgency WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 END"), sortOrder]];
     }
     if (sortBy === 'updatedAt') {
-      return [['updatedAt', sortOrder], tieBreaker];
+      return [['updatedAt', sortOrder]];
     }
-    return [['createdAt', sortOrder], tieBreaker];
+    return [['createdAt', sortOrder]];
   }
 
-  /**
-   * Caps a caller-supplied limit against the agent ceiling. Undefined when nothing was asked for,
-   * which leaves the query unlimited.
-   */
   private resolveRequestLimit(limit?: number): number | undefined {
-    if (limit == null) return undefined;
-    return Math.min(Math.max(1, limit), this.constantsService.private.AGENT_REQUESTS_MAX_LIMIT);
+    const agentLimits = this.constantsService.private;
+    if (limit == null) {
+      return agentLimits.AGENT_REQUESTS_DEFAULT_LIMIT;
+    }
+    const capped = Math.min(Math.max(1, limit), agentLimits.AGENT_REQUESTS_MAX_LIMIT);
+    return capped;
   }
 
   async findForAccountWithOptions(currentAccount: Account, options?: RequestQueryOptions) {
@@ -281,12 +272,20 @@ export class RequestsService {
 
     if (options?.hotelId != null) {
       await this.hotelsService.findByIdForAccount(options.hotelId, currentAccount);
-      this.narrowHotelId(where, options.hotelId);
+      where.hotelId = options.hotelId;
     }
 
-    this.applyFilter(where, 'status', options?.status);
-    this.applyFilter(where, 'requestType', options?.requestType);
-    this.applyFilter(where, 'urgency', options?.urgency);
+    if (options?.status != null) {
+      where.status = options.status;
+    }
+
+    if (options?.requestType != null) {
+      where.requestType = options.requestType;
+    }
+
+    if (options?.urgency != null) {
+      where.urgency = options.urgency;
+    }
 
     const findOptions: any = {
       where,
@@ -298,26 +297,17 @@ export class RequestsService {
       ],
     };
 
-    const paging = resolveListPaging(options);
-    if (paging) {
-      findOptions.limit = paging.limit;
-      findOptions.offset = paging.offset;
-    } else {
-      const limit = this.resolveRequestLimit(options?.limit);
-      if (limit != null) findOptions.limit = limit;
+    const resolvedLimit = this.resolveRequestLimit(options?.limit);
+    if (resolvedLimit != null) {
+      findOptions.limit = resolvedLimit;
     }
 
-    const { rows, count } = await this.requestsRepository.findAndCountAll({ ...findOptions, distinct: true });
+    const requests = await this.requestsRepository.findAll(findOptions);
 
     return {
       success: true,
       message: null,
-      data: rows,
-      meta: {
-        total: count,
-        page: paging?.page ?? 1,
-        pageSize: paging?.limit ?? rows.length,
-      },
+      data: requests,
     };
   }
 

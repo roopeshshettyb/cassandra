@@ -67,6 +67,7 @@ export class Request extends Model<Request> {
     type: DataType.ENUM(...Object.values(RequestType)),
     allowNull: false,
     field: 'request_type',
+    filterable: true,
   })
   requestType: RequestType;
 
@@ -95,6 +96,7 @@ export class Request extends Model<Request> {
   @Column({
     type: DataType.ENUM(...Object.values(RequestUrgency)),
     allowNull: false,
+    filterable: true,
   })
   urgency: RequestUrgency;
 
@@ -102,6 +104,7 @@ export class Request extends Model<Request> {
     type: DataType.ENUM(...Object.values(RequestStatus)),
     allowNull: false,
     defaultValue: RequestStatus.PENDING,
+    filterable: true,
   })
   status: RequestStatus;
 
