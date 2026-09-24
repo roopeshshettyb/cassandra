@@ -6,14 +6,12 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   UseGuards,
   ValidationPipe,
   ParseIntPipe,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto, UpdateBookingDto, ReservationDocumentUploadUrlDto, ReservationDocumentKeyDto, ListBookingsQueryDto } from './bookings.dto';
-import { LIST_QUERY_PIPE_OPTIONS } from '../common/dto/list-query.dto';
+import { CreateBookingDto, UpdateBookingDto, ReservationDocumentUploadUrlDto, ReservationDocumentKeyDto } from './bookings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
@@ -24,13 +22,9 @@ import { Account } from '../accounts/accounts.model';
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
-  // No global validation pipe in this app, so the query DTO is validated per handler.
   @Get()
-  async findAll(
-    @CurrentAccount() account: Account,
-    @Query(new ValidationPipe(LIST_QUERY_PIPE_OPTIONS)) query: ListBookingsQueryDto,
-  ) {
-    return this.bookingsService.findForAccountWithOptions(account, query);
+  async findAll(@CurrentAccount() account: Account) {
+    return this.bookingsService.findAllForAccount(account);
   }
 
   @Get('active')
