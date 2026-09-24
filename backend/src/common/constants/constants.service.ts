@@ -335,25 +335,6 @@ export class ConstantsService {
       RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
       RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
       RESERVATION_VOICE_MIC_DENIED: 'We could not access your microphone. Check your browser permissions and try again.',
-      RESERVATION_VOICE_NO_SOUND: 'We are not hearing anything. Check that the right microphone is selected and try again.',
-      /**
-       * Comfort noise: the faint line hiss a real call always carries. Perfect
-       * silence between sentences is the clearest tell that a voice is
-       * synthetic, so a quiet bed runs for the whole call — through the agent's
-       * speech, the caller's, and the gaps.
-       *
-       * Stated in dBFS rather than a raw gain, because a gain means nothing on
-       * its own: the agent's voice sits near -18 dBFS, and real comfort noise
-       * sits 15-25 dB under speech. -35 is a typical phone line; -45 is barely
-       * there; -30 is obvious on a laptop speaker. Use 0 to switch it off.
-       */
-      /**
-       * How long after the reply finishes playing before the mic reopens. A
-       * real call does not ask you to press anything between sentences, so the
-       * page takes its own next turn; the pause is there so the last word is
-       * out of the speaker before the microphone is listening to it.
-       */
-      RESERVATION_VOICE_TURN_RESTART_GRACE_MS: 350,
       /**
        * Extra time allowed for a reply to finish playing before the browser
        * reports done anyway. Read by both voice surfaces: a backgrounded tab
@@ -361,12 +342,6 @@ export class ConstantsService {
        * its clock, and neither should strand a call mid-turn.
        */
       VOICE_PLAYBACK_WATCH_GRACE_MS: 2000,
-      /**
-       * A mic streaming pure silence looks exactly like a broken pipeline, so
-       * the caller is told — but only on a turn they asked for. Once the page
-       * is reopening the mic itself, silence is someone thinking.
-       */
-      RESERVATION_VOICE_NO_SOUND_AFTER_MS: 6000,
       RESERVATION_VOICE_AMBIENCE_DBFS: -35,
       /**
        * A real hotel-lobby recording, served from the frontend's public folder.

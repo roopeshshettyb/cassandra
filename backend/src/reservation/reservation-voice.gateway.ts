@@ -258,6 +258,16 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.emit('voice_ready');
     } catch (err: any) {
       const notFound = err?.status === 404 || err?.statusCode === 404;
+      // Logged, because the caller only ever sees "we could not start the chat";
+      // without this the reason for a dead line is recorded nowhere at all.
+      if (!notFound) {
+        this.logger.error({
+          error: err,
+          serviceName: 'ReservationVoiceGateway',
+          actionName: 'handleConnection',
+          traces: [{ stage: 'startSession' }],
+        });
+      }
       client.emit('error', {
         message: notFound ? strings.ERROR_RESERVATION_HOTEL_NOT_FOUND : strings.ERROR_RESERVATION_SETUP_FAILED,
       });
