@@ -1,4 +1,4 @@
-import { Inject, Injectable, BadRequestException, ForbiddenException, NotFoundException, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException, forwardRef } from '@nestjs/common';
 import { Op } from 'sequelize';
 import { ROOMS_REPOSITORY, ROOM_TYPES_REPOSITORY } from './rooms.repository';
 import { RoomType } from './room-types.model';
@@ -253,15 +253,37 @@ export class RoomsService {
       throw new BadRequestException('That room type belongs to a different hotel');
     }
 
+    await this.ensureRoomNumberFree(dto.hotelId, dto.roomNumber);
+
     const roomValues: any = dto;
     const room = await this.roomsRepository.create(roomValues);
 
     return { success: true, message: 'Room created', data: room };
   }
 
+  /**
+   * One room per number at a hotel. The number is what a guest is told and what a
+   * PMS sends back, so two rooms sharing one would put two guests behind the same
+   * door and leave PMS bookings matched to whichever row the lookup finds first.
+   */
+  private async ensureRoomNumberFree(hotelId: number, roomNumber: string, exceptRoomId?: number): Promise<void> {
+    const where: any = { hotelId, roomNumber };
+    if (exceptRoomId !== undefined) {
+      where.id = { [Op.ne]: exceptRoomId };
+    }
+    const existing = await this.roomsRepository.count({ where });
+    if (existing > 0) {
+      throw new ConflictException(`Room ${roomNumber} already exists at this hotel`);
+    }
+  }
+
   async updateRoom(id: number, dto: UpdateRoomDto, currentAccount: Account) {
     const room = await this.findRoomForAccount(id, currentAccount);
     this.ensureCanManage(currentAccount);
+
+    if (dto.roomNumber !== undefined) {
+      await this.ensureRoomNumberFree(room.hotelId, dto.roomNumber, room.id);
+    }
 
     await room.update(dto);
 
