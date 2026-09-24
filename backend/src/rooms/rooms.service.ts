@@ -1,4 +1,5 @@
 import { Inject, Injectable, BadRequestException, ForbiddenException, NotFoundException, forwardRef } from '@nestjs/common';
+import { Op } from 'sequelize';
 import { ROOMS_REPOSITORY, ROOM_TYPES_REPOSITORY } from './rooms.repository';
 import { RoomType } from './room-types.model';
 import { Room } from './rooms.model';
@@ -267,8 +268,11 @@ export class RoomsService {
 
     // Mirrors the guard on deleting a room type. A room that is still held has a
     // guest arriving for it; removing it would leave the booking naming a room
-    // that no longer exists while its nights stay reserved.
-    const holds = await BookingRoom.count({ where: { roomId: id } });
+    // that no longer exists while its nights stay reserved. Only stays that have
+    // not checked out count — holds are never cleared once a stay ends, so
+    // counting those would make every room that was ever booked undeletable.
+    const today = this.inventoryService.toDateString(new Date());
+    const holds = await BookingRoom.count({ where: { roomId: id, checkOut: { [Op.gt]: today } } });
     if (holds > 0) {
       throw new BadRequestException('This room is held by a booking; cancel or move that booking first');
     }

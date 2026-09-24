@@ -105,9 +105,12 @@ export class RoomsController {
     return this.roomsService.findInventory(query, account);
   }
 
+  // Not skipMissingProperties: roomTypeId and both dates are required here, and
+  // skipping them let a body without dates through to crash the service. total
+  // and blocked are @IsOptional in the DTO, which is all a partial update needs.
   @Patch('inventory')
   async updateInventory(
-    @Body(new ValidationPipe({ skipMissingProperties: true })) dto: UpdateInventoryDto,
+    @Body(ValidationPipe) dto: UpdateInventoryDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.updateInventory(dto, account);
