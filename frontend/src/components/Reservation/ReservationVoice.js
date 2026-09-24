@@ -129,6 +129,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const ambienceRef = useRef(null);
   const ambienceDataRef = useRef(null);
   const stopMicRef = useRef(null);
+  // The microphone stays acquired for the whole call and is opened and closed in
+  // software. Tearing the hardware down between turns left a deaf window exactly
+  // where a person starts their next sentence, and getUserMedia is slow enough
+  // that several attempts in a row could be swallowed.
+  const micGateRef = useRef(false);
+  // Invalidates a start that is still awaiting getUserMedia, so a second tap
+  // cannot leave two capture chains attached to one session.
+  const startGenRef = useRef(0);
   const startListeningRef = useRef(null);
   // A real call does not ask you to press anything between sentences. The
   // mic reopens itself after each reply until the caller stops it or hangs up.
@@ -154,6 +162,8 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   }, []);
 
   const stopMic = useCallback(() => {
+    startGenRef.current += 1;
+    micGateRef.current = false;
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -235,10 +245,11 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     });
     socket.on('voice_user_chunk', (p) => setTranscript(p?.delta || ''));
     // End of speech: the server has closed its STT session, so anything more
-    // from the mic is wasted — and an open mic during the reply just feeds the
-    // agent's own voice back in.
+    // from the mic is wasted, and an open mic during the reply feeds the agent
+    // its own voice. Closing the gate stops the sending; the hardware stays
+    // ours, so the next turn starts instantly instead of re-prompting.
     socket.on('voice_turn_end', () => {
-      stopMicRef.current?.();
+      micGateRef.current = false;
       setStatus('thinking');
     });
     socket.on('voice_user_message', (p) => {
@@ -268,7 +279,9 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     // it measures and reports; the server holds the turn until then. Same
     // watcher the concierge uses.
     socket.on('voice_audio_end', () => {
-      setStatus('idle');
+      // Deliberately not 'idle': the server has sent the last chunk but seconds
+      // of it may still be scheduled. voice_ready is the one thing that clears
+      // this, which is how the concierge does it too.
       cancelPlaybackWatch();
       cancelWatchRef.current = watchPlaybackEnd(
         playbackContextRef,
@@ -321,13 +334,20 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     if (!socketRef.current?.connected || endedRef.current) return;
     hasInteractedRef.current = true;
     userStoppedRef.current = false;
-    // Tear down any capture still running before opening another. Without this a
-    // second tap left the first ScriptProcessor attached and streaming, so the
-    // server received two interleaved copies of the caller and STT could make
-    // nothing of either — the mic looked dead from the second turn onwards.
+    setTranscript('');
+
+    // Already holding the microphone: this turn costs nothing but reopening the
+    // gate. No getUserMedia, no new AudioContext, no gap for the caller to talk
+    // into and be missed.
+    if (processorRef.current && micStreamRef.current) {
+      socketRef.current.emit('voice_start');
+      micGateRef.current = true;
+      setStatus('listening');
+      return;
+    }
+
     stopMic();
     setStatus('listening');
-    setTranscript('');
     // Ask the server to open its STT socket first: it connects while the browser
     // is still prompting for the mic, so the first word is not clipped.
     socketRef.current.emit('voice_start');
@@ -359,6 +379,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       // missing made a broken deploy sound exactly like a working one.
       ambienceRef.current = startAmbience(ctx, bed, constants.RESERVATION_VOICE_AMBIENCE_DBFS);
     }
+    const generation = startGenRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -374,7 +395,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       const processor = ctx.createScriptProcessor(2048, 1, 1);
       let heardSound = false;
       processor.onaudioprocess = (e) => {
-        if (!socketRef.current?.connected) return;
+        if (!micGateRef.current || !socketRef.current?.connected) return;
         const input = e.inputBuffer.getChannelData(0);
         if (!heardSound) {
           for (let i = 0; i < input.length; i += 1) {
@@ -394,11 +415,19 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
           }
         }, constants.RESERVATION_VOICE_NO_SOUND_AFTER_MS);
       }
+      // A newer start (or a stop) happened while the browser was prompting —
+      // drop this one rather than attaching a second capture chain.
+      if (generation !== startGenRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        ctx.close().catch(() => {});
+        return;
+      }
       source.connect(processor);
       processor.connect(ctx.destination);
       micStreamRef.current = stream;
       micContextRef.current = ctx;
       processorRef.current = processor;
+      micGateRef.current = true;
     } catch (err) {
       setStatus('idle');
       // Stop the loop: reopening a mic the browser just refused would retry
@@ -453,7 +482,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
           <VoiceMicButton
             active={status === 'listening' || status === 'thinking' || status === 'speaking'}
             disabled={ended || status === 'thinking' || status === 'connecting'}
-            onTap={status === 'listening' ? stopListening : startListening}
+            onTap={status === 'listening' ? stopListening : () => startListening(false)}
             label={label}
           />
           <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500, minHeight: 20 }}>

@@ -815,7 +815,13 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         CONTEXT_SUMMARY: {
           ENABLED: this.configService.get<string>('ENABLE_CONTEXT_SUMMARY', 'false') === 'true',
           TRIGGER_TOKENS: parseInt(this.configService.get('CONTEXT_SUMMARY_TRIGGER_TOKENS') || '4000', 10),
-          RAW_TAIL_COUNT: parseInt(this.configService.get('CONTEXT_RAW_TAIL_COUNT') || '5', 10),
+          /**
+           * Five turns is less than one booking call. A caller gives dates,
+           * then guests, then a name, then a number — by the time the agent
+           * reads it all back the dates have fallen out of the window, so it
+           * either invents them or asks again. Forty covers a whole call.
+           */
+          RAW_TAIL_COUNT: parseInt(this.configService.get('CONTEXT_RAW_TAIL_COUNT') || '40', 10),
           TARGET_WORDS: 300,
           TEMPERATURE: 0.2,
           CACHE_TTL_MINUTES: 3,
@@ -877,8 +883,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           SARVAM: {
             API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
             WS_URL: this.configService.get<string>('SARVAM_STT_WS_URL', 'wss://api.sarvam.ai/speech-to-text-realtime/ws'),
-            /** Only saaras:v3-realtime and saaras:v4 exist on this endpoint. */
-            MODEL: this.configService.get<string>('SARVAM_STT_MODEL', 'saaras:v3-realtime'),
+            /**
+             * v4 rather than v3-realtime, because only v4 accepts keyterms, and
+             * keyterms are what make a property's own name transcribe correctly.
+             */
+            MODEL: this.configService.get<string>('SARVAM_STT_MODEL', 'saaras:v4'),
+            /**
+             * Silence that ends a caller's turn. Sarvam defaults to 1000ms,
+             * which is shorter than a person pausing to think: measured, a
+             * sentence with an 800ms pause in it arrived as two turns and the
+             * agent replied to the first half. At 2000ms it arrives whole.
+             */
+            SILENCE_DURATION_MS: parseInt(this.configService.get('SARVAM_STT_SILENCE_DURATION_MS') || '2000', 10),
             /**
              * 'auto' is why this provider is here: it reads a caller who answers
              * in Hindi without anyone having configured Hindi, so the surface no
@@ -970,10 +986,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             AUDIO_TAG: this.configService.get<string>('ELEVENLABS_AUDIO_TAG', ''),
             VOICE_SETTINGS: {
               /** Lower is more emotionally variable; higher is steadier and flatter. */
-              STABILITY: parseFloat(this.configService.get('ELEVENLABS_STABILITY') || '0.4'),
+              /**
+               * v3's "Natural" setting. Lower is more expressive and also less
+               * stable — the same sentence can come back mispronounced or with
+               * an odd cadence, and a reply is synthesised a sentence at a time,
+               * so every fragment rolls that dice again. Expressiveness is not
+               * worth a name read out wrong.
+               */
+              STABILITY: parseFloat(this.configService.get('ELEVENLABS_STABILITY') || '0.5'),
               SIMILARITY_BOOST: parseFloat(this.configService.get('ELEVENLABS_SIMILARITY_BOOST') || '0.75'),
               /** Style exaggeration. Costs latency above 0, so it stays modest. */
-              STYLE: parseFloat(this.configService.get('ELEVENLABS_STYLE') || '0.35'),
+              /** Style exaggeration costs stability and latency both; the delivery cues in the prompt do this job better. */
+              STYLE: parseFloat(this.configService.get('ELEVENLABS_STYLE') || '0'),
               USE_SPEAKER_BOOST: this.configService.get<string>('ELEVENLABS_USE_SPEAKER_BOOST', 'true') === 'true',
               SPEED: parseFloat(this.configService.get('ELEVENLABS_SPEED') || '1'),
             },

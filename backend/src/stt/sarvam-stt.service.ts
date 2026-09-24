@@ -38,6 +38,13 @@ export class SarvamSttService implements SttSessionFactory {
       throw new Error('SARVAM_API_KEY is required for STT provider sarvam');
     }
 
+    // Keyterms are why the model is v4: proper nouns the model has never seen —
+    // this property's name, the caller's own — come back right only when they
+    // are listed. Measured on "My name is Shrijit ... Taj Cidade De Goa
+    // Horizon": without them v4 hears "Rajit ... Taj Siddade", with them it
+    // hears both exactly. The endpoint rejects them on any other model.
+    const keyterms = (options?.keyterms ?? []).filter((term) => term.length > 0);
+
     const query = new URLSearchParams({
       model: cfg.MODEL,
       // 'auto' is the point of choosing this provider: a caller who answers in
@@ -50,7 +57,18 @@ export class SarvamSttService implements SttSessionFactory {
       language_code: isSarvamLanguage(options?.language) ? String(options?.language) : cfg.LANGUAGE,
       encoding: common.ENCODING,
       sample_rate: String(cfg.SAMPLE_RATE),
+      /**
+       * How long a caller may pause before the turn is treated as finished.
+       * Sarvam's own default is 1000ms, which is shorter than an ordinary
+       * thinking pause: "I'd like a room for… the twenty sixth" came back as
+       * two separate turns, and the agent answered the first half.
+       */
+      silence_duration_ms: String(cfg.SILENCE_DURATION_MS),
     });
+    if (keyterms.length > 0) {
+      // A JSON array, not a comma-joined string — the endpoint is strict.
+      query.set('keyterms', JSON.stringify(keyterms));
+    }
     const socket = new WebSocket(`${cfg.WS_URL}?${query.toString()}`, {
       headers: { 'API-SUBSCRIPTION-KEY': cfg.API_KEY },
     });
