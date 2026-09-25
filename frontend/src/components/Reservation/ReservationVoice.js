@@ -494,8 +494,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
         <>
           <VoiceMicButton
             active={status === 'listening' || status === 'thinking' || status === 'speaking'}
-            disabled={ended || status === 'thinking' || status === 'connecting'}
-            onTap={status === 'listening' ? stopListening : () => startListening(false)}
+            // The button must do what its label says. It reads "tap to stop"
+            // for the whole live call, so tapping ends the call whether we are
+            // listening, thinking or speaking — and it stays enabled while
+            // thinking, because someone who wants to hang up mid-answer should
+            // not have to wait for the answer.
+            disabled={ended || status === 'connecting'}
+            onTap={live ? stopListening : () => startListening(false)}
             label={label}
           />
           <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500, minHeight: 20 }}>
