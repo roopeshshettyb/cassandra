@@ -146,8 +146,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const ambienceRef = useRef(null);
   const ambienceDataRef = useRef(null);
   const stopMicRef = useRef(null);
+  const openAmbienceRef = useRef(null);
+  const ambienceOpeningRef = useRef(false);
+  /** Read inside callbacks that must not be rebuilt every time the status moves. */
+  const statusRef = useRef('connecting');
   // The bed follows the call rather than running flat through it.
   useEffect(() => {
+    statusRef.current = status;
     setAmbienceLevel(
       ambienceRef.current,
       playbackContextRef.current,
@@ -184,6 +189,42 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     cancelWatchRef.current?.();
     cancelWatchRef.current = null;
   }, []);
+
+  /**
+   * Start the room tone, once, as soon as both the recording and a live audio
+   * context exist.
+   *
+   * Callable from either side of a race it used to lose. The recording is
+   * fetched when the page loads, but a caller can tap the microphone before it
+   * lands — and that handed startAmbience nothing. Because the microphone now
+   * stays open for the whole call, the code never ran again, so being quick
+   * cost you the room tone for the entire call. On a deployed site, where the
+   * recording arrives over the network rather than from memory, being quick is
+   * the normal case.
+   */
+  const openAmbience = useCallback(async () => {
+    if (ambienceRef.current || ambienceOpeningRef.current) return;
+    const ctx = playbackContextRef.current;
+    const data = ambienceDataRef.current;
+    if (!ctx || !data) return;
+    ambienceOpeningRef.current = true;
+    try {
+      // slice: decodeAudioData detaches what it is given, and the recording has
+      // to survive the next call.
+      const bed = toLoopBuffer(ctx, await ctx.decodeAudioData(data.slice(0)));
+      // No generated stand-in when the recording is missing. Noise that is
+      // merely noise does not read as a room, and playing it when the real
+      // thing failed to load made a broken deploy sound like a working one.
+      ambienceRef.current = startAmbience(ctx, bed, constants.RESERVATION_VOICE_AMBIENCE_DBFS);
+      const live = statusRef.current === 'listening' || statusRef.current === 'speaking';
+      setAmbienceLevel(ambienceRef.current, ctx, live);
+    } catch {
+      ambienceRef.current = null;
+    } finally {
+      ambienceOpeningRef.current = false;
+    }
+  }, []);
+  openAmbienceRef.current = openAmbience;
 
   const stopMic = useCallback(() => {
     startGenRef.current += 1;
@@ -225,6 +266,9 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     loadAmbience
       .then((data) => {
         ambienceDataRef.current = data;
+        // If the caller tapped while this was still in flight, their tap found
+        // nothing to play. Open it now rather than never.
+        void openAmbienceRef.current?.();
       })
       .catch(() => {});
 
@@ -371,25 +415,9 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     if (playbackContextRef.current.state === 'suspended') {
       await playbackContextRef.current.resume();
     }
-    // Open the line: the room tone runs from here until the call ends. A fresh
-    // buffer every time, because startAmbience levels it in place.
-    if (!ambienceRef.current) {
-      const ctx = playbackContextRef.current;
-      let bed = null;
-      if (ambienceDataRef.current) {
-        try {
-          // slice: decodeAudioData detaches what it is given, and the recording
-          // has to survive for the next call.
-          bed = toLoopBuffer(ctx, await ctx.decodeAudioData(ambienceDataRef.current.slice(0)));
-        } catch {
-          bed = null;
-        }
-      }
-      // No bed rather than a generated stand-in. Noise that is merely noise
-      // does not read as a room, and having it play when the recording is
-      // missing made a broken deploy sound exactly like a working one.
-      ambienceRef.current = startAmbience(ctx, bed, constants.RESERVATION_VOICE_AMBIENCE_DBFS);
-    }
+    // Open the line. Idempotent, and callable from the other side of the race
+    // too — see openAmbience.
+    await openAmbienceRef.current?.();
     const generation = startGenRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
