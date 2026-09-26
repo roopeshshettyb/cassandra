@@ -84,9 +84,11 @@ function startAmbience(ctx, buffer, dbfs) {
   source.buffer = buffer;
   source.loop = true;
   const gain = ctx.createGain();
-  // Ramped rather than switched on, so the line "opens" instead of clicking.
-  gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.4);
+  // Silent until something decides otherwise, and set rather than scheduled: a
+  // gain node is born at 1, and the first setAmbienceLevel cancels everything
+  // scheduled from now on — so a scheduled zero got thrown away before it ever
+  // applied and every call opened with a third of a second of room tone.
+  gain.gain.value = 0;
   source.connect(gain);
   gain.connect(ctx.destination);
   source.start();
@@ -94,10 +96,15 @@ function startAmbience(ctx, buffer, dbfs) {
 }
 
 /**
- * The bed is there to stop the line sounding dead while someone is on it — so
- * it rides under the agent's voice and under the caller's, and steps back when
- * neither is happening. Ramped, never switched: a bed that snaps on and off is
- * more noticeable than one that is simply always there.
+ * The bed rides under the agent's voice and only there.
+ *
+ * Its job is to make a synthesised voice sound like it is coming from a room
+ * rather than from nowhere, so it belongs where that voice is. While the caller
+ * is talking it adds nothing — their own line already has a room behind it —
+ * and anything we play then is just noise over the top of them.
+ *
+ * Ramped, never switched: a bed that snaps on and off draws more attention than
+ * one that is simply there.
  */
 function setAmbienceLevel(ambience, ctx, audible) {
   if (!ambience || !ctx) return;
@@ -156,7 +163,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     setAmbienceLevel(
       ambienceRef.current,
       playbackContextRef.current,
-      status === 'listening' || status === 'speaking',
+      status === 'speaking',
     );
   }, [status]);
   // The microphone stays acquired for the whole call and is opened and closed in
@@ -216,8 +223,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       // merely noise does not read as a room, and playing it when the real
       // thing failed to load made a broken deploy sound like a working one.
       ambienceRef.current = startAmbience(ctx, bed, constants.RESERVATION_VOICE_AMBIENCE_DBFS);
-      const live = statusRef.current === 'listening' || statusRef.current === 'speaking';
-      setAmbienceLevel(ambienceRef.current, ctx, live);
+      setAmbienceLevel(ambienceRef.current, ctx, statusRef.current === 'speaking');
     } catch {
       ambienceRef.current = null;
     } finally {
