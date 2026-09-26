@@ -235,7 +235,13 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       // land as final before the rest of the sentence does. Keeping only the
       // most recent final would throw away everything the caller said before
       // the last pause, so the pieces are collected and joined.
-      const state = { finalParts: [] as string[], interim: '', done: false };
+      const state = {
+        finalParts: [] as string[],
+        interim: '',
+        done: false,
+        /** Set once speech has ended and the corrected transcript is still owed. */
+        awaitingFinal: null as ReturnType<typeof setTimeout> | null,
+      };
       client.sttState = state;
 
       const runTurn = () => {
@@ -243,6 +249,10 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
           return;
         }
         state.done = true;
+        if (state.awaitingFinal) {
+          clearTimeout(state.awaitingFinal);
+          state.awaitingFinal = null;
+        }
         this.clearTurnFallback(client);
         try {
           sttSession.endInput();
@@ -269,9 +279,31 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
           state.interim = trimmed;
         }
         client.emit('voice_user_chunk', { delta: text, isFinal: !!isFinal });
+        // The corrected transcript we were waiting for. Answer it, not the
+        // half-sentence that preceded it.
+        if (isFinal && state.awaitingFinal) {
+          runTurn();
+        }
       });
 
-      sttSession.onEndOfSpeech(runTurn);
+      /**
+       * End of speech is not end of transcript.
+       *
+       * Sarvam signals the silence first and sends the corrected text after it,
+       * so running the turn on the signal destroyed the session before the real
+       * transcript arrived and the agent answered the last partial instead. A
+       * caller reading out a phone number was heard as "my number is".
+       *
+       * So the turn waits for the final, and the timer is only there for a
+       * provider that never sends one — a caller must not be left talking to
+       * silence because a transcript went missing.
+       */
+      sttSession.onEndOfSpeech(() => {
+        if (state.done || state.awaitingFinal) {
+          return;
+        }
+        state.awaitingFinal = setTimeout(runTurn, cfg.FINAL_TRANSCRIPT_GRACE_MS);
+      });
 
       return sttSession;
     } catch (err: any) {
