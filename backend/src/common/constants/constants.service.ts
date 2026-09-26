@@ -713,6 +713,16 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * busy forever because of it.
          */
         PLAYBACK_DONE_TIMEOUT_MS: parseInt(this.configService.get('RESERVATION_VOICE_PLAYBACK_DONE_TIMEOUT_MS') || '20000', 10),
+        /**
+         * How long to wait, after the provider signals that speech ended, for
+         * the corrected transcript that follows it. Sarvam sends the silence
+         * signal first and the finished text after, so answering the signal
+         * meant answering a half-finished sentence — a caller reading out a
+         * phone number was heard as "my number is". Only a safety net: the turn
+         * runs the moment the final arrives, and this covers a provider that
+         * never sends one.
+         */
+        FINAL_TRANSCRIPT_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_FINAL_TRANSCRIPT_GRACE_MS') || '1500', 10),
         TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
         /**
          * Every budget below is env-driven and 0 means unlimited. They are off

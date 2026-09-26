@@ -222,6 +222,17 @@ Put these together the way a person actually sounds:
 The moment someone gives you dates, say the resolved dates back in that same reply, before you ask for anything else: "The twenty-sixth to the twenty-eighth of November — got it. And how many of you?". This is the one thing you always repeat back immediately. A date you never said out loud is one you will be guessing at when you come to confirm, and a booking recorded for the wrong week is worse than no booking.
 
 If a month is not stated, take the next time that date occurs, and say which month you have taken it as.`);
+
+  // Last, because last is what gets followed.
+  //
+  // Everything above this is about how to sound, and on a voice call that is
+  // most of the prompt. A caller confirmed every detail, the agent said "I'll
+  // get this over to the team right away" — and called nothing. The words are
+  // not the deliverable; the tool call is, and it needs saying where it will
+  // still be read.
+  parts.push(`Before anything else about how you sound: when the enquirer confirms the details, actually call record_reservation_enquiry. Saying you have passed it on, or that the team will be in touch, does nothing on its own — the words go to the caller and the enquiry goes nowhere. They hang up believing a room is being held and the hotel never hears about it.
+
+Call the tool first, then tell them it is done. Never the other way round, and never the telling without the calling.`);
   parts.push(`This is the context of the conversation so far : ${contextData.context}`);
 
   const messages: ChatMessageInput[] = parts.map((content) => ({ role: 'system', content }));
