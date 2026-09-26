@@ -153,6 +153,8 @@
   "ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS": "You already have a voice call open. Please close it before starting another.",
   "ERROR_RESERVATION_VOICE_SESSION_EXPIRED": "This voice call timed out. Please refresh to start a new one.",
   "ERROR_RESERVATION_VOICE_FAILED": "We could not process that. Please try speaking again.",
+  "RESERVATION_VOICE_RECONNECTING": "Reconnecting…",
+  "ERROR_RESERVATION_VOICE_DISCONNECTED": "The call was disconnected. Please refresh to start a new one.",
   "RESERVATION_SESSION_STORAGE_KEY_PREFIX": "reservation_session_",
   "RESERVATION_ENQUIRY_RECORDED": "Reservation enquiry recorded",
   "RESERVATION_ENQUIRIES_FETCHED": "Reservation enquiries fetched",

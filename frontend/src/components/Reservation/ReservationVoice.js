@@ -288,7 +288,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       query,
-      reconnection: false,
+      // The same retry the text chat and the concierge already use. This page
+      // was the only socket in the app that gave up permanently on one drop,
+      // and a deploy reloads the API and drops every open socket — so any call
+      // in progress died for good and the page went on looking ready.
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
     socketRef.current = socket;
 
@@ -369,14 +376,28 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       alertErrorRef.current?.(p?.message);
       setStatus('idle');
     });
+    // A dropped line is not an idle one. Saying "tap to speak" over a dead
+    // socket is the worst state the page can be in: the tap is refused in
+    // silence because there is nothing to send it to, so the call looks ready
+    // and answers nothing. Retrying happens underneath us, and the server
+    // rebuilds the session from the token in storage, so a live call comes back
+    // and voice_ready picks the turn up where it left off.
     socket.on('disconnect', () => {
+      micGateRef.current = false;
       setStatus('idle');
-      if (!readyRef.current) {
-        setBlocked((prev) => prev || constants.ERROR_RESERVATION_VOICE_FAILED);
-      }
+      setBlocked((prev) => prev || (readyRef.current
+        ? constants.RESERVATION_VOICE_RECONNECTING
+        : constants.ERROR_RESERVATION_VOICE_FAILED));
     });
+    // Out of retries. Stop implying one is coming. This one lives on the manager
+    // rather than the socket, so it has to come off by hand below —
+    // removeAllListeners() on the socket would not touch it, and the manager
+    // outlives this component.
+    const onReconnectFailed = () => setBlocked(constants.ERROR_RESERVATION_VOICE_DISCONNECTED);
+    socket.io.on('reconnect_failed', onReconnectFailed);
 
     return () => {
+      socket.io.off('reconnect_failed', onReconnectFailed);
       socket.removeAllListeners();
       socket.disconnect();
     };

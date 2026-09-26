@@ -393,6 +393,12 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
+      // A deploy reloads the API and drops every open socket, so a live call can
+      // lose its line through no fault of the caller's. Said out loud, because a
+      // page that looks ready and answers nothing is worse than a page that
+      // admits it is busy.
+      RESERVATION_VOICE_RECONNECTING: 'Reconnecting…',
+      ERROR_RESERVATION_VOICE_DISCONNECTED: 'The call was disconnected. Please refresh to start a new one.',
       // Per-hotel key the browser keeps its signed reservation session under, so
       // a refresh resumes the same conversation.
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
