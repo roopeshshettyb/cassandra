@@ -75,7 +75,19 @@ function toLoopBuffer(ctx, decoded) {
   return buffer;
 }
 
-/** Open the line with a freshly built buffer, levelled to the configured dBFS. */
+/**
+ * Open the line with a freshly built buffer, levelled to the configured dBFS.
+ *
+ * The bed runs for the whole call, under the caller as much as under the agent.
+ * It was briefly gated to the agent's voice only, on the reasoning that the
+ * caller's own line already has a room behind it — but that put real silence in
+ * every gap, and silence is exactly what the bed is for. A line with nothing on
+ * it sounds hung up, and the wait for an answer sounds longer than it is.
+ *
+ * Faded in rather than switched on, so the line "opens" instead of clicking.
+ * The gain has to be set before it is ramped: a gain node is born at 1, so
+ * scheduling alone would leak a moment of full-level room tone at the top.
+ */
 function startAmbience(ctx, buffer, dbfs) {
   if (!ctx || !buffer || !dbfs || dbfs <= -100) return null;
   if (!normaliseToDbfs(buffer.getChannelData(0), dbfs)) return null;
@@ -84,38 +96,12 @@ function startAmbience(ctx, buffer, dbfs) {
   source.buffer = buffer;
   source.loop = true;
   const gain = ctx.createGain();
-  // Silent until something decides otherwise, and set rather than scheduled: a
-  // gain node is born at 1, and the first setAmbienceLevel cancels everything
-  // scheduled from now on — so a scheduled zero got thrown away before it ever
-  // applied and every call opened with a third of a second of room tone.
   gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(1, ctx.currentTime + AMBIENCE_FADE_SECONDS);
   source.connect(gain);
   gain.connect(ctx.destination);
   source.start();
   return { source, gain };
-}
-
-/**
- * The bed rides under the agent's voice and only there.
- *
- * Its job is to make a synthesised voice sound like it is coming from a room
- * rather than from nowhere, so it belongs where that voice is. While the caller
- * is talking it adds nothing — their own line already has a room behind it —
- * and anything we play then is just noise over the top of them.
- *
- * Ramped, never switched: a bed that snaps on and off draws more attention than
- * one that is simply there.
- */
-function setAmbienceLevel(ambience, ctx, audible) {
-  if (!ambience || !ctx) return;
-  try {
-    const target = audible ? 1 : 0;
-    ambience.gain.gain.cancelScheduledValues(ctx.currentTime);
-    ambience.gain.gain.setValueAtTime(ambience.gain.gain.value, ctx.currentTime);
-    ambience.gain.gain.linearRampToValueAtTime(target, ctx.currentTime + AMBIENCE_FADE_SECONDS);
-  } catch {
-    // context already closed
-  }
 }
 
 function stopAmbience(ambience, ctx) {
@@ -155,17 +141,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const stopMicRef = useRef(null);
   const openAmbienceRef = useRef(null);
   const ambienceOpeningRef = useRef(false);
-  /** Read inside callbacks that must not be rebuilt every time the status moves. */
-  const statusRef = useRef('connecting');
-  // The bed follows the call rather than running flat through it.
-  useEffect(() => {
-    statusRef.current = status;
-    setAmbienceLevel(
-      ambienceRef.current,
-      playbackContextRef.current,
-      status === 'speaking',
-    );
-  }, [status]);
   // The microphone stays acquired for the whole call and is opened and closed in
   // software. Tearing the hardware down between turns left a deaf window exactly
   // where a person starts their next sentence, and getUserMedia is slow enough
@@ -223,7 +198,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       // merely noise does not read as a room, and playing it when the real
       // thing failed to load made a broken deploy sound like a working one.
       ambienceRef.current = startAmbience(ctx, bed, constants.RESERVATION_VOICE_AMBIENCE_DBFS);
-      setAmbienceLevel(ambienceRef.current, ctx, statusRef.current === 'speaking');
     } catch {
       ambienceRef.current = null;
     } finally {
