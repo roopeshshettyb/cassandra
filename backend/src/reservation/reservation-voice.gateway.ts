@@ -154,8 +154,14 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
   async handleConnection(client: any) {
     const strings = this.constantsService.public;
     const query: any = client.handshake?.query ?? {};
+    // auth as well as query, the way the text gateway already reads it. The query
+    // string is fixed when the socket is constructed, so a reconnect can only
+    // carry the token it had at mount — which is none, because the chat does not
+    // exist until the first turn. auth is re-read on every attempt, so this is
+    // what lets a recovered call resume its conversation instead of starting over.
+    const auth: any = client.handshake?.auth ?? {};
 
-    const hotelId = parseHotelId(query.hotelId);
+    const hotelId = parseHotelId(query.hotelId ?? auth.hotelId);
     if (hotelId === null) {
       client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
       client.disconnect(true);
@@ -171,7 +177,8 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     client.voiceIp = ip;
 
     try {
-      const sessionToken = query.sessionToken ? String(query.sessionToken) : null;
+      const handed = query.sessionToken ?? auth.sessionToken ?? null;
+      const sessionToken = handed ? String(handed) : null;
       const result = await this.reservationService.startSession(hotelId, sessionToken);
 
       client.reservationContext = { hotelId, publicHotel: result.publicHotel };

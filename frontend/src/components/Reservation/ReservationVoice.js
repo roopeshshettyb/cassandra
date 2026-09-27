@@ -157,6 +157,8 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const endedRef = useRef(false);
   const cancelWatchRef = useRef(null);
   const readyRef = useRef(false);
+  /** The last thing the server said went wrong, so a hangup can explain itself. */
+  const lastErrorRef = useRef('');
 
   const hotelIdRef = useRef(hotelId);
   const storageKeyRef = useRef(`${constants.RESERVATION_SESSION_STORAGE_KEY_PREFIX}${hotelId}`);
@@ -252,16 +254,17 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       })
       .catch(() => {});
 
-    const query = { hotelId: String(hotelIdRef.current) };
-    const saved = localStorage.getItem(storageKeyRef.current);
-    if (saved) {
-      query.sessionToken = saved;
-    }
-
     const socket = io(`${url}/reservation-voice`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
-      query,
+      query: { hotelId: String(hotelIdRef.current) },
+      // Read fresh for every connection attempt, which is the whole point of
+      // putting it here rather than in the query string. The query is frozen when
+      // the socket is built, and at that moment there is no token to send: the
+      // chat is not created until the caller's first turn. A reconnect carrying
+      // the query's empty token got a brand new chat, so the line came back and
+      // the agent had forgotten the dates it had just been given.
+      auth: (cb) => cb({ sessionToken: localStorage.getItem(storageKeyRef.current) || undefined }),
       // The same retry the text chat and the concierge already use. This page
       // was the only socket in the app that gave up permanently on one drop,
       // and a deploy reloads the API and drops every open socket — so any call
@@ -343,6 +346,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       ambienceRef.current = null;
     });
     socket.on('error', (p) => {
+      lastErrorRef.current = p?.message || '';
       // Before the call is live, any error means it never started — show it in
       // place instead of leaving a dead mic under a fading toast.
       setBlocked((prev) => (readyRef.current ? prev : p?.message || ''));
@@ -356,9 +360,18 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     // and answers nothing. Retrying happens underneath us, and the server
     // rebuilds the session from the token in storage, so a live call comes back
     // and voice_ready picks the turn up where it left off.
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       micGateRef.current = false;
       setStatus('idle');
+      // The server hanging up on purpose — a turn limit, an expired session, a
+      // rate limit — is not a dropped line. socket.io does not retry that one, so
+      // promising a reconnect leaves the caller watching "Reconnecting…" forever
+      // for something that is never coming. It sent a reason just before it hung
+      // up; that is what belongs on screen.
+      if (endedRef.current || reason === 'io server disconnect') {
+        setBlocked((prev) => prev || lastErrorRef.current);
+        return;
+      }
       setBlocked((prev) => prev || (readyRef.current
         ? constants.RESERVATION_VOICE_RECONNECTING
         : constants.ERROR_RESERVATION_VOICE_FAILED));
