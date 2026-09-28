@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
 import { BookingStatus } from '../common/constants/constants.service';
 
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,12 +50,13 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
-  // Optional because a booking made against a room type gets its room number
-  // from the room the inventory reservation assigns.
-  @IsOptional()
+  // Required unless a room type is given: a booking made against a room type gets
+  // its room number from the room the inventory reservation assigns, but without
+  // one the typed number is the only room the booking has.
+  @ValidateIf((dto) => !dto.roomTypeId)
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty({ required: false })
+  @IsNotEmpty({ message: 'roomNumber is required when no roomTypeId is given' })
+  @ApiProperty({ required: false, description: 'Required when roomTypeId is not given' })
   readonly roomNumber?: string;
 
   @IsOptional()

@@ -57,11 +57,17 @@ const COMMON_NAV_ITEMS = [
   },
 ];
 
+// The desktop sidebar is 20vw wide, so below about 1280px its padding leaves too
+// little room for labels like "Manage Organisations", which then wrap. Narrow desktop
+// screens get tighter padding and slightly smaller text; phones use a full-width
+// sidebar (768px and below) and keep the roomy spacing.
+const NARROW_DESKTOP = '@media (min-width: 769px) and (max-width: 1279.95px)';
+
 const ROLE_SPECIFIC_ITEMS = {
   admin: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
-    { key: 'Manage Rooms & Inventory', icon: KingBed, text: 'Manage Rooms & Inventory', link: '/rooms', protectedNavItem: true },
+    { key: 'Manage Rooms', icon: KingBed, text: 'Manage Rooms', link: '/rooms', protectedNavItem: true },
     { key: 'Manage Brands', icon: Layers, text: 'Manage Brands', link: '/brands', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
@@ -72,7 +78,7 @@ const ROLE_SPECIFIC_ITEMS = {
   hotel_owner: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
-    { key: 'Manage Rooms & Inventory', icon: KingBed, text: 'Manage Rooms & Inventory', link: '/rooms', protectedNavItem: true },
+    { key: 'Manage Rooms', icon: KingBed, text: 'Manage Rooms', link: '/rooms', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
     { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
@@ -82,7 +88,7 @@ const ROLE_SPECIFIC_ITEMS = {
   hotel_staff: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
-    { key: 'Manage Rooms & Inventory', icon: KingBed, text: 'Manage Rooms & Inventory', link: '/rooms', protectedNavItem: true },
+    { key: 'Manage Rooms', icon: KingBed, text: 'Manage Rooms', link: '/rooms', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
     { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
@@ -158,17 +164,23 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
             )
           }
           onClick={handleClick}
+          title={data.text}
           sx={{
             color: isActive ? 'primary.main' : 'text.primary',
             textTransform: 'none',
             justifyContent: 'flex-start',
-            minWidth: 'auto',
+            minWidth: 0,
             px: 2,
             flex: 1,
+            [NARROW_DESKTOP]: { px: 1, fontSize: 13 },
             ...(data.variant && { variant: data.variant }),
           }}
         >
-          {data.text}
+          {/* One line always: a label that still cannot fit ends in an ellipsis, with
+              the full name in the tooltip, rather than wrapping onto a second line. */}
+          <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {data.text}
+          </Box>
         </Button>
       </Box>
     );
@@ -324,7 +336,7 @@ const Sidebar = ({ toggleColorMode, mode, sidebarOpen, setSidebarOpen, isMobile,
                 </IconButton>
               )}
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto', px: 2, pb: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto', px: 2, pb: 2, [NARROW_DESKTOP]: { px: 1 } }}>
                 <MapComponent
                   Component={NavButton}
                   data={navItems}
