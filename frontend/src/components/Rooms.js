@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Box, MenuItem, TextField, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { BedOutlined, MeetingRoomOutlined, CalendarMonthOutlined, EventAvailableOutlined } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import ManageRooms from './ManageRooms';
+import HotelPicker from './HotelPicker';
+import { DetailTabBar } from './DetailShell';
 import { PageHeader, CARD_SX, inputSx } from './cards/AppCards';
 import { MUTED, NAVY, BORDER } from '../theme';
+
+const TABS = [
+  { key: 'types', label: 'Room types', Icon: BedOutlined },
+  { key: 'rooms', label: 'Rooms', Icon: MeetingRoomOutlined },
+  { key: 'inventory', label: 'Inventory', Icon: CalendarMonthOutlined },
+  { key: 'availability', label: 'Availability', Icon: EventAvailableOutlined },
+];
 
 /**
  * Rooms & Inventory as its own top-level page, alongside Manage Hotels.
@@ -13,9 +23,11 @@ import { MUTED, NAVY, BORDER } from '../theme';
  * to it — rather than reaching this screen through a particular hotel, which is how
  * it worked when it lived as a tab on the hotel page.
  */
-function Rooms({ loading, setLoading, account, alertSuccess, alertError }) {
+function Rooms({ loading, setLoading, account, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
   const [hotelId, setHotelId] = useState('');
+  // Held here rather than in ManageRooms, which remounts on a hotel switch, so the open tab survives it.
+  const [tab, setTab] = useState('types');
 
   useEffect(() => {
     (async () => {
@@ -35,39 +47,28 @@ function Rooms({ loading, setLoading, account, alertSuccess, alertError }) {
         <PageHeader
           title="Rooms & Inventory"
           right={(
-            <TextField
-              select
-              size="small"
-              label="Hotel"
-              value={hotelId}
-              onChange={(e) => setHotelId(e.target.value)}
-              sx={{ ...inputSx, minWidth: 260 }}
-              InputLabelProps={{ shrink: true }}
-              SelectProps={{
-                displayEmpty: true,
-                renderValue: (v) => (v === '' ? 'Select a hotel' : hotels.find((h) => String(h.id) === String(v))?.name || 'Select a hotel'),
-              }}
-            >
-              {hotels.map((h) => (
-                <MenuItem key={h.id} value={String(h.id)}>{h.name}</MenuItem>
-              ))}
-            </TextField>
+            <HotelPicker hotels={hotels} value={hotelId} onChange={setHotelId} size="small" sx={{ ...inputSx, width: { xs: '100%', sm: 300 } }} />
           )}
         />
 
         {hotelId ? (
-          // Keyed by hotel so switching hotels remounts it: ManageRooms loads its
-          // room types and rooms once on mount, and every form and filter inside it
-          // belongs to the hotel it was opened for.
-          <ManageRooms
-            key={hotelId}
-            hotelId={Number(hotelId)}
-            account={account}
-            loading={loading}
-            setLoading={setLoading}
-            alertSuccess={alertSuccess}
-            alertError={alertError}
-          />
+          <>
+            <DetailTabBar tabs={TABS} active={tab} onChange={setTab} />
+            {/* Keyed by hotel so switching hotels remounts it: ManageRooms loads its
+                room types and rooms once on mount, and every form and filter inside it
+                belongs to the hotel it was opened for. */}
+            <ManageRooms
+              key={hotelId}
+              hotelId={Number(hotelId)}
+              tab={tab}
+              isMobile={isMobile}
+              account={account}
+              loading={loading}
+              setLoading={setLoading}
+              alertSuccess={alertSuccess}
+              alertError={alertError}
+            />
+          </>
         ) : (
           <Box sx={{ ...CARD_SX, px: 3, py: 6, textAlign: 'center', border: `1px dashed ${BORDER}` }}>
             <Typography sx={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Pick a hotel to begin</Typography>
