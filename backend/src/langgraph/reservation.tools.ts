@@ -90,7 +90,7 @@ export function createReservationTools(
         'Record the reservation enquiry once you have the dates, the number of guests and a name with either an email or a phone number. Call this exactly once, after confirming the details back to the enquirer. Recording it hands the enquiry to the hotel team, who will confirm the booking; you cannot confirm a booking yourself.',
       schema: z.object({
         guestName: z.string().describe('Full name of the person making the reservation'),
-        guestEmail: z.string().optional().describe('Email address, if given'),
+        guestEmail: z.string().describe('Email address — required, always ask for it and spell it back'),
         guestPhone: z.string().optional().describe('Phone number, if given'),
         checkInDate: z.string().describe('Requested check-in date as YYYY-MM-DD'),
         checkOutDate: z.string().describe('Requested check-out date as YYYY-MM-DD'),
