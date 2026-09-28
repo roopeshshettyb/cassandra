@@ -1,8 +1,8 @@
 import { Inject, Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException, forwardRef } from '@nestjs/common';
-import { Op } from 'sequelize';
+import { Op, UniqueConstraintError } from 'sequelize';
 import { ROOMS_REPOSITORY, ROOM_TYPES_REPOSITORY } from './rooms.repository';
 import { RoomType } from './room-types.model';
-import { Room } from './rooms.model';
+import { Room, RoomStatus } from './rooms.model';
 import { RoomInventory } from './room-inventory.model';
 import { BookingRoom } from '../bookings/booking-rooms.model';
 import { InventoryService } from './inventory.service';
@@ -20,7 +20,7 @@ import {
 } from './rooms.dto';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { HotelsService } from '../hotels/hotels.service';
-import { ConstantsService, DEFAULT_AVAILABILITY_ROOMS, ROOM_TYPE_IMAGES_MAX_COUNT, ROOM_TYPE_IMAGE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
+import { ConstantsService, DEFAULT_AVAILABILITY_ROOMS, MAX_INVENTORY_NIGHTS, ROOM_TYPE_IMAGES_MAX_COUNT, ROOM_TYPE_IMAGE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 
 @Injectable()
@@ -33,6 +33,14 @@ export class RoomsService {
     private readonly awsService: AwsService,
     private readonly constantsService: ConstantsService,
   ) {}
+
+  private get sequelize() {
+    const sequelize = this.roomTypesRepository.sequelize;
+    if (!sequelize) {
+      throw new BadRequestException('Database connection is unavailable');
+    }
+    return sequelize;
+  }
 
   /** Membership of the hotel. Throws NotFound rather than Forbidden so a stranger learns nothing. */
   private async ensureCanAccessHotel(hotelId: number, currentAccount: Account): Promise<void> {
@@ -71,11 +79,22 @@ export class RoomsService {
   }
 
   private nightsOrFail(startDate: string, endDate: string): string[] {
-    const nights = this.inventoryService.nightsBetweenDates(startDate, endDate);
-    if (nights.length === 0) {
+    // DATE_REGEX only checks the shape. A date like 2026-02-30 would roll over to
+    // March in JS while the raw string still reaches Postgres, which rejects it.
+    if (!this.inventoryService.isCalendarDate(startDate) || !this.inventoryService.isCalendarDate(endDate)) {
+      throw new BadRequestException('Dates must be real calendar dates');
+    }
+    const count = this.inventoryService.nightCountBetweenDates(startDate, endDate);
+    if (count === 0) {
       throw new BadRequestException('Check-out must be after check-in');
     }
-    return nights;
+    // Every night becomes an array entry, a query parameter and, on an update, a
+    // room_inventory row, so an unbounded range would tie up the API and the DB.
+    // Counted first so an oversized range is refused before any list is built.
+    if (count > MAX_INVENTORY_NIGHTS) {
+      throw new BadRequestException(`A range can cover at most ${MAX_INVENTORY_NIGHTS} nights`);
+    }
+    return this.inventoryService.nightsBetweenDates(startDate, endDate);
   }
 
   async findAllRoomTypes(hotelId: number, currentAccount: Account) {
@@ -114,16 +133,10 @@ export class RoomsService {
     if (rooms > 0) {
       throw new BadRequestException('Remove the rooms of this type before deleting it');
     }
-
-    const sequelize = this.roomTypesRepository.sequelize;
-    if (!sequelize) {
-      throw new BadRequestException('Database connection is unavailable');
-    }
-
     // room_inventory hangs off the room type, so it has to go with it. Leaving the
     // rows behind would strand them against a type nothing can reach, and they
     // would silently come back into play if the primary key were ever reused.
-    await sequelize.transaction(async (transaction) => {
+    await this.sequelize.transaction(async (transaction) => {
       await RoomInventory.destroy({ where: { roomTypeId: id }, transaction });
       await roomType.destroy({ transaction });
     });
@@ -195,14 +208,10 @@ export class RoomsService {
 
     const nights = this.nightsOrFail(query.startDate, query.endDate);
     const wanted = query.rooms ?? DEFAULT_AVAILABILITY_ROOMS;
-    const sequelize = this.roomTypesRepository.sequelize;
-    if (!sequelize) {
-      throw new BadRequestException('Database connection is unavailable');
-    }
 
     // Both reads share one transaction so the free rooms and the nightly counts
     // come from the same snapshot; read separately they could disagree.
-    const { rooms, free, available } = await sequelize.transaction(async (transaction) => ({
+    const { rooms, free, available } = await this.sequelize.transaction(async (transaction) => ({
       rooms: await this.inventoryService.findAvailableRooms(query.hotelId, query.roomTypeId, query.startDate, query.endDate, wanted, transaction),
       free: await this.inventoryService.countFreeRooms(query.roomTypeId, query.startDate, query.endDate, transaction),
       available: await this.inventoryService.findRange(query.roomTypeId, nights, transaction),
@@ -253,12 +262,47 @@ export class RoomsService {
       throw new BadRequestException('That room type belongs to a different hotel');
     }
 
-    await this.ensureRoomNumberFree(dto.hotelId, dto.roomNumber);
+    const roomNumber = this.cleanRoomNumber(dto.roomNumber);
+    await this.ensureRoomNumberFree(dto.hotelId, roomNumber);
 
-    const roomValues: any = dto;
-    const room = await this.roomsRepository.create(roomValues);
+    const roomValues: any = { ...dto, roomNumber };
+    const room = await this.withRoomNumberGuard(roomNumber, () => this.roomsRepository.create(roomValues));
 
     return { success: true, message: 'Room created', data: room };
+  }
+
+  /**
+   * ensureRoomNumberFree is a read before the write, so two requests adding the same
+   * number at once can both pass it. The unique index on (hotel_id, room_number)
+   * stops the second; this turns its error into the same 409 the check gives.
+   */
+  private async withRoomNumberGuard<T>(roomNumber: string, write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        throw new ConflictException(`Room ${roomNumber} already exists at this hotel`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Stored trimmed: a PMS sends '201' and its lookup trims, so '201 ' would never match
+   * it, and would sit beside '201' as a second room the uniqueness check cannot see.
+   */
+  private cleanRoomNumber(value: string): string {
+    const roomNumber = value.trim();
+    if (!roomNumber) {
+      throw new BadRequestException('Room number is required');
+    }
+    return roomNumber;
+  }
+
+  /** Held by a stay that has not checked out yet. Past holds are never cleared, so they do not count. */
+  private async hasUpcomingHolds(roomId: number): Promise<boolean> {
+    const today = this.inventoryService.toDateString(new Date());
+    return (await BookingRoom.count({ where: { roomId, checkOut: { [Op.gt]: today } } })) > 0;
   }
 
   /**
@@ -281,11 +325,22 @@ export class RoomsService {
     const room = await this.findRoomForAccount(id, currentAccount);
     this.ensureCanManage(currentAccount);
 
-    if (dto.roomNumber !== undefined) {
-      await this.ensureRoomNumberFree(room.hotelId, dto.roomNumber, room.id);
+    // A booking holding this room names it by number and counts on it being in
+    // service. Renumbering it would leave the booking pointing at a number that no
+    // longer exists; taking it out of service would leave a guest assigned to it.
+    const roomNumber = dto.roomNumber === undefined ? undefined : this.cleanRoomNumber(dto.roomNumber);
+    const renumbering = roomNumber !== undefined && roomNumber !== room.roomNumber;
+    const leavingService = dto.status !== undefined && dto.status !== RoomStatus.ACTIVE && room.status === RoomStatus.ACTIVE;
+    if ((renumbering || leavingService) && (await this.hasUpcomingHolds(room.id))) {
+      throw new BadRequestException('This room is held by a booking; cancel or move that booking first');
     }
 
-    await room.update(dto);
+    if (roomNumber !== undefined) {
+      await this.ensureRoomNumberFree(room.hotelId, roomNumber, room.id);
+    }
+
+    const values: any = roomNumber === undefined ? dto : { ...dto, roomNumber };
+    await this.withRoomNumberGuard(roomNumber ?? room.roomNumber, () => room.update(values));
 
     return { success: true, message: 'Room updated', data: room };
   }
@@ -299,9 +354,7 @@ export class RoomsService {
     // that no longer exists while its nights stay reserved. Only stays that have
     // not checked out count — holds are never cleared once a stay ends, so
     // counting those would make every room that was ever booked undeletable.
-    const today = this.inventoryService.toDateString(new Date());
-    const holds = await BookingRoom.count({ where: { roomId: id, checkOut: { [Op.gt]: today } } });
-    if (holds > 0) {
+    if (await this.hasUpcomingHolds(id)) {
       throw new BadRequestException('This room is held by a booking; cancel or move that booking first');
     }
 
@@ -329,12 +382,8 @@ export class RoomsService {
     }
 
     const nights = this.nightsOrFail(dto.startDate, dto.endDate);
-    const sequelize = this.roomTypesRepository.sequelize;
-    if (!sequelize) {
-      throw new BadRequestException('Database connection is unavailable');
-    }
 
-    await sequelize.transaction(async (transaction) => {
+    await this.sequelize.transaction(async (transaction) => {
       await this.inventoryService.setForNights(dto.roomTypeId, nights, dto.total, dto.blocked, transaction);
     });
 
