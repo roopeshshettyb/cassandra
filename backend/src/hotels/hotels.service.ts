@@ -22,6 +22,7 @@ import { RoomType } from '../rooms/room-types.model';
 import { Room } from '../rooms/rooms.model';
 import { RoomInventory } from '../rooms/room-inventory.model';
 import { Op, literal } from 'sequelize';
+import { buildListWhere, getListFilters, validateListQuery } from '../common/filters/list-filters';
 
 export interface HotelMemberRow {
   id: number;
@@ -76,6 +77,11 @@ export class HotelsService {
     return hotel;
   }
 
+  /** The filters this list offers, derived from the Hotel model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Hotel) };
+  }
+
   async findAllForAccount(currentAccount: Account, options?: HotelQueryOptions): Promise<any> {
     const hotelsWhere: any = {};
 
@@ -106,13 +112,10 @@ export class HotelsService {
       hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
     }
 
-    if (options?.keywords) {
-      const pattern = `%${options.keywords}%`;
-      hotelsWhere[Op.or] = [
-        { name: { [Op.iLike]: pattern } },
-        { address: { [Op.iLike]: pattern } },
-      ];
-    }
+    // `keywords` is what the agent tools have always called it; the UI sends the generic `search`.
+    const query = options?.keywords ? { ...options, search: options.keywords } : options;
+    validateListQuery(Hotel, query, ['keywords', 'sortBy', 'sortOrder', 'limit']);
+    buildListWhere(Hotel, query, hotelsWhere);
 
     const sortBy = options?.sortBy ?? 'name';
     const sortOrder = options?.sortOrder === 'desc' ? 'DESC' : 'ASC';

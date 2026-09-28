@@ -14,12 +14,14 @@ export class Hotel extends Model<Hotel> {
   @Column({
     type: DataType.STRING,
     allowNull: false,
+    searchable: true,
   })
   name: string;
 
   @Column({
     type: DataType.STRING,
     allowNull: false,
+    searchable: true,
   })
   address: string;
 

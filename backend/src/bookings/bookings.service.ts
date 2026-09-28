@@ -7,6 +7,7 @@ import { RoomType } from '../rooms/room-types.model';
 import { Room } from '../rooms/rooms.model';
 import { CreateBookingDto, UpdateBookingDto, BookingExternalUpsertPayload } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
+import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
 import { Account, AccountRole } from '../accounts/accounts.model';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuthService } from '../auth/auth.service';
@@ -543,18 +544,24 @@ export class BookingsService {
     return { success: true, message: null, data: booking };
   }
 
-  async findAllForAccount(currentAccount: Account) {
+  /** The filters this list offers, derived from the Booking model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Booking) };
+  }
+
+  async findAllForAccount(currentAccount: Account, query?: ListQuery) {
     const includeHotel = { model: Hotel, as: 'hotel', attributes: ['id', 'name', 'address', 'logoUrl', 'themeConfig'], include: [{ model: HotelBrand, as: 'brand' }] };
     const includeGuest = { model: Account, as: 'guest', attributes: ['id', 'name', 'email'] };
     const where = await this.getWhereForAccount(currentAccount);
+
+    validateListQuery(Booking, query);
     const options: any = {
+      // The account scope goes in first, so every filter narrows within what this account may see.
+      where: buildListWhere(Booking, query, where ? { ...where } : {}),
       include: [includeHotel, includeGuest],
       order: [['startTime', 'DESC']],
       attributes: { include: [this.isWithinStayAttr()] },
     };
-    if (where) {
-      options.where = where;
-    }
     const bookings = await this.bookingsRepository.findAll(options);
     return { success: true, message: null, data: bookings };
   }
