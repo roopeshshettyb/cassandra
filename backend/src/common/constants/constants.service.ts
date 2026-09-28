@@ -416,6 +416,15 @@ export class ConstantsService {
       AI_BOOKINGS_NO_MESSAGES: 'No messages in this conversation yet.',
       AI_BOOKINGS_STATUS_CAPTURED: 'ENQUIRY',
       AI_BOOKINGS_STATUS_BROWSING: 'BROWSING',
+      AI_BOOKINGS_SHOW_CONVERSATION: 'Read the conversation',
+      AI_BOOKINGS_HIDE_CONVERSATION: 'Hide the conversation',
+      // An enquiry recorded twice in one conversation is two enquiries, not a
+      // correction: the caller changed their mind, or booked for someone else.
+      // The staff need to see both, newest first, so the card labels them.
+      AI_BOOKINGS_ENQUIRY_NTH: 'Enquiry',
+      AI_BOOKINGS_ENQUIRY_LATEST: 'Latest enquiry',
+      RESERVATION_CONVERSATION_FETCHED: 'Conversation loaded',
+      ERROR_RESERVATION_CONVERSATION_NOT_FOUND: 'That conversation does not belong to this property.',
       RESERVATION_SUGGESTIONS: [
         'I want to book a room',
         'What are your rates?',
@@ -768,6 +777,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         MAX_MESSAGE_LENGTH: 1000,
         HISTORY_MESSAGE_LIMIT: 50,
         STAFF_CHAT_LIST_LIMIT: 50,
+        /** Messages returned when a staff member opens one conversation to read it. */
+        STAFF_CONVERSATION_MESSAGE_LIMIT: 200,
         SESSION_TOKEN_SEPARATOR: '.',
         SESSION_TOKEN_HASH_ALGORITHM: 'sha256',
       },
