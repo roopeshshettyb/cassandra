@@ -111,14 +111,10 @@
   "RESERVATION_VOICE_TITLE": "Book by voice",
   "RESERVATION_VOICE_SUBTITLE": "Tap the mic and tell us when you would like to stay",
   "RESERVATION_VOICE_TAP_TO_SPEAK": "Tap to speak",
-  "RESERVATION_VOICE_LISTENING": "Listening…",
-  "RESERVATION_VOICE_THINKING": "Thinking…",
-  "RESERVATION_VOICE_SPEAKING": "Speaking…",
   "RESERVATION_VOICE_CONNECTING": "Connecting…",
   "RESERVATION_VOICE_SWITCH_TO_TEXT": "Prefer to type?",
   "RESERVATION_VOICE_SWITCH_TO_VOICE": "Prefer to talk?",
   "RESERVATION_VOICE_MIC_DENIED": "We could not access your microphone. Check your browser permissions and try again.",
-  "RESERVATION_VOICE_NO_SOUND": "We are not hearing anything. Check that the right microphone is selected and try again.",
   "ERROR_RESERVATION_VOICE_TURN_LIMIT": "This voice call has reached its limit. Please refresh to start again, or call the property directly.",
   "ERROR_RESERVATION_VOICE_RATE_LIMITED": "Too many voice requests from your connection. Please wait a little and try again.",
   "ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS": "You already have a voice call open. Please close it before starting another.",
@@ -334,5 +330,11 @@
       ],
       "ORGANISATION_FIXED_HELP": "Users you create join your organisation."
     }
-  }
+  },
+  "RESERVATION_VOICE_TAP_TO_STOP": "Tap to stop",
+  "VOICE_PLAYBACK_WATCH_GRACE_MS": 2000,
+  "RESERVATION_VOICE_AMBIENCE_DBFS": -35,
+  "RESERVATION_VOICE_AMBIENCE_URL": "",
+  "RESERVATION_VOICE_RECONNECTING": "Reconnecting…",
+  "ERROR_RESERVATION_VOICE_DISCONNECTED": "The call was disconnected. Please refresh to start a new one."
 }

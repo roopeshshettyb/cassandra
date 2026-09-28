@@ -11,45 +11,11 @@ import remarkGfm from 'remark-gfm';
 import dayjs from 'dayjs';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, HOVER_BG } from '../../theme';
 import constants from '../../constants.json';
+// The bubble the concierge draws, so a message looks the same wherever it is read.
+import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
-function ChatBubble({ message }) {
-  const isUser = message.role === 'user';
-  return (
-    <motion.div
-      initial={false}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '75%', display: 'flex', flexDirection: 'column', gap: 4 }}
-    >
-      <Box
-        sx={{
-          px: 2,
-          py: 1.1,
-          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-          background: isUser ? BRAND_GRADIENT : 'background.paper',
-          bgcolor: isUser ? undefined : 'background.paper',
-          border: isUser ? 'none' : `1px solid ${BORDER}`,
-          boxShadow: SHADOW,
-          color: isUser ? PRIMARY_CONTRAST : 'text.primary',
-          '& p': { m: 0 },
-          '& ul, & ol': { m: 0, pl: 2 },
-          '& li': { mt: 0.4 },
-          '& a': { color: 'inherit' },
-          '& code': { fontFamily: 'monospace', fontSize: 12 },
-        }}
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
-      </Box>
-      {message.createdAt && (
-        <Typography sx={{ fontSize: 10, color: MUTED, alignSelf: isUser ? 'flex-end' : 'flex-start', px: 0.5 }}>
-          {dayjs(message.createdAt).fromNow()}
-        </Typography>
-      )}
-    </motion.div>
-  );
-}
 
 function SuggestionStrip({ items, onSelect, disabled }) {
   const scrollRef = useRef(null);

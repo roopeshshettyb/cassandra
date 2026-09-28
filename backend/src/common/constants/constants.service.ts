@@ -361,19 +361,46 @@ export class ConstantsService {
       RESERVATION_VOICE_TITLE: 'Book by voice',
       RESERVATION_VOICE_SUBTITLE: 'Tap the mic and tell us when you would like to stay',
       RESERVATION_VOICE_TAP_TO_SPEAK: 'Tap to speak',
-      RESERVATION_VOICE_LISTENING: 'Listening…',
-      RESERVATION_VOICE_THINKING: 'Thinking…',
-      RESERVATION_VOICE_SPEAKING: 'Speaking…',
+      /** The only other thing a caller needs to know mid-call: tapping ends it. */
+      RESERVATION_VOICE_TAP_TO_STOP: 'Tap to stop',
       RESERVATION_VOICE_CONNECTING: 'Connecting…',
       RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
       RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
       RESERVATION_VOICE_MIC_DENIED: 'We could not access your microphone. Check your browser permissions and try again.',
-      RESERVATION_VOICE_NO_SOUND: 'We are not hearing anything. Check that the right microphone is selected and try again.',
+      /**
+       * Extra time allowed for a reply to finish playing before the browser
+       * reports done anyway. Read by both voice surfaces: a backgrounded tab
+       * stops firing animation frames and a suspended context stops advancing
+       * its clock, and neither should strand a call mid-turn.
+       */
+      VOICE_PLAYBACK_WATCH_GRACE_MS: 2000,
+      RESERVATION_VOICE_AMBIENCE_DBFS: -45,
+      /**
+       * A real hotel-lobby recording, served from the frontend's public folder.
+       * Synthesised noise is steady by definition, and a bed that never varies
+       * is its own tell — the ear stops hearing a room and starts hearing a
+       * hiss. A recording breathes: far-off voices, a door, cutlery.
+       *
+       * Trimmed and looped in the browser, so any length works.
+       *
+       * Empty means the recording bundled with the app, which is the normal
+       * case: served from the same place as the code that plays it, so the two
+       * can never be deployed apart. Set it to an absolute URL for a property
+       * that wants its own room — that host needs CORS, since the audio is
+       * fetched and decoded rather than handed to an <audio> tag.
+       */
+      RESERVATION_VOICE_AMBIENCE_URL: this.configService.get<string>('RESERVATION_VOICE_AMBIENCE_URL', ''),
       ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
+      // A deploy reloads the API and drops every open socket, so a live call can
+      // lose its line through no fault of the caller's. Said out loud, because a
+      // page that looks ready and answers nothing is worse than a page that
+      // admits it is busy.
+      RESERVATION_VOICE_RECONNECTING: 'Reconnecting…',
+      ERROR_RESERVATION_VOICE_DISCONNECTED: 'The call was disconnected. Please refresh to start a new one.',
       // Per-hotel key the browser keeps its signed reservation session under, so
       // a refresh resumes the same conversation.
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
@@ -656,27 +683,63 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         /** Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken". */
         UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1200', 10),
         /**
-         * Thinking noises played the instant a caller stops talking, covering the
-         * second or two the model and voice need. Real desk staff fill that gap;
-         * silence is what makes a line feel dead. Deliberately short and
-         * non-committal so they never contradict the answer that follows.
-         * Empty the list to turn them off.
+         * English by default, despite 'multi' being the setting that lets one
+         * nova-3 session follow a caller switching into Hindi mid sentence.
+         *
+         * 'multi' was the default until it was measured against the way people
+         * actually give an email address here. Three runs each, same audio:
+         *
+         *   "shrijit at the rate gmail dot com"
+         *     en     -> "shrijit at the rate gmail dot com"   3/3
+         *     multi  -> ""                                    3/3
+         *
+         * Not a flaky transcript — the whole utterance, gone, every time. A
+         * booking line that silently loses the caller's email is worse than one
+         * that cannot follow them into Hindi, so English wins the default and
+         * 'multi' is there for a property whose callers need it. It is not a
+         * free win either way: 'multi' reads spoken dates more faithfully
+         * ("the twenty sixth to the twenty eighth of September" survives intact,
+         * where English collapses it to "twenty six-twenty eight september"),
+         * and English is the one that keeps a spelled-out name as letters.
          */
-        THINKING_FILLERS: [
-          '[thoughtful] Mmm…',
-          '[thoughtful] Right, let me see…',
-          '[inhales] Okay…',
-          '[thoughtful] Mm-hmm…',
-          '[exhales] Let me check…',
-          '[thoughtful] Sure, one moment…',
-        ],
-        /** Synthesised once per phrase per language, then replayed from memory. */
-        FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
-        FILLER_CACHE_MINUTES: 720,
-        /** Extra wait beyond UTTERANCE_END_MS before we end a turn ourselves. */
+        STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'en'),
+        /**
+         * Extra proper nouns to bias the transcript towards, comma separated.
+         * The property's own name and brand are added automatically; this is
+         * for anything else a given deployment keeps hearing wrong — a suburb,
+         * a room type, a festival package.
+         */
+        STT_KEYTERMS: (this.configService.get<string>('RESERVATION_VOICE_STT_KEYTERMS', ''))
+          .split(',')
+          .map((term) => term.trim())
+          .filter((term) => term.length > 0),
+        /**
+         * How long to wait for the browser to report that it has finished
+         * playing the reply before releasing the turn anyway. Only the client
+         * knows when sound stopped coming out of the speaker, but a client that
+         * crashes or is backgrounded never says so, and the line must not stay
+         * busy forever because of it.
+         */
+        PLAYBACK_DONE_TIMEOUT_MS: parseInt(this.configService.get('RESERVATION_VOICE_PLAYBACK_DONE_TIMEOUT_MS') || '20000', 10),
+        /**
+         * How long to wait, after the provider signals that speech ended, for
+         * the corrected transcript that follows it. Sarvam sends the silence
+         * signal first and the finished text after, so answering the signal
+         * meant answering a half-finished sentence — a caller reading out a
+         * phone number was heard as "my number is". Only a safety net: the turn
+         * runs the moment the final arrives, and this covers a provider that
+         * never sends one.
+         */
+        FINAL_TRANSCRIPT_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_FINAL_TRANSCRIPT_GRACE_MS') || '1500', 10),
         TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
-        MAX_TURNS_PER_SESSION: 15,
-        MAX_TURNS_PER_IP_PER_WINDOW: 25,
+        /**
+         * Every budget below is env-driven and 0 means unlimited. They are off
+         * by default: the agent is being demoed and shared, and a limit that
+         * interrupts a real conversation costs more than the spend it saves.
+         * Set them above zero to cap an unauthenticated, per-turn-billed surface.
+         */
+        MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
+        MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
         IP_WINDOW_MINUTES: 60,
         IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
         /**
@@ -684,12 +747,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * shared addresses: hotel wifi and mobile carriers NAT plenty of real
          * guests behind a single IP, so this cannot be as tight as it looks.
          */
-        MAX_CONCURRENT_SESSIONS_PER_IP: 8,
+        MAX_CONCURRENT_SESSIONS_PER_IP: parseInt(this.configService.get('RESERVATION_VOICE_MAX_CONCURRENT_PER_IP') || '0', 10),
         IP_SESSION_CACHE_KEY_PREFIX: 'reservation_voice_ip_sessions_',
         /** Wall-clock cap on a single call, whether or not anyone is speaking. */
-        MAX_SESSION_SECONDS: 600,
+        MAX_SESSION_SECONDS: parseInt(this.configService.get('RESERVATION_VOICE_MAX_SESSION_SECONDS') || '0', 10),
         /** Caps STT spend: audio actually streamed, not time connected. */
-        MAX_AUDIO_SECONDS_PER_SESSION: 180,
+        MAX_AUDIO_SECONDS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_AUDIO_SECONDS') || '0', 10),
         /** 24kHz mono 16-bit PCM — what the browser sends. */
         AUDIO_BYTES_PER_SECOND: 48000,
       },
@@ -766,6 +829,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           INSTRUCTIONS: `You are maintaining the long-term memory of a hotel concierge AI chat. Produce one consolidated summary in approximately {TARGET_WORDS} words that captures every important fact the assistant should remember going forward.\n\nIf an existing summary is provided, merge it with the new messages — keep all standing information from the existing summary, then layer the new messages on top. Resolve contradictions in favour of the more recent information.\n\nPreserve:\n- Guest preferences (room, food, language, accessibility)\n- Outstanding and completed requests with their status\n- Confirmed bookings, reservations, special arrangements\n- Key facts (names, dates, room numbers, hotel info, costs)\n- Tool calls that produced lasting outcomes\n\nSkip pleasantries and small talk. Output plain prose only — no markdown, no headers, no bullet points. Refer to the guest as "the guest" and the AI as "the assistant".`,
         },
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
+        /**
+         * What ends a sentence while a reply is streaming, so the agent can
+         * start speaking before it has finished writing.
+         *
+         * The agent answers in the caller's language, and a Hindi or Marathi
+         * clause ends with a danda, Urdu with an arabic full stop, CJK with its
+         * own stop marks. With only .!? a reply in any of those never split, so
+         * nothing reached TTS until the whole answer was written and the line
+         * sat silent the entire time.
+         */
+        SENTENCE_TERMINATORS_LATIN: '.!?',
+        SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
         STT_CONFIG: {
           // Common STT settings across providers
           PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
@@ -777,6 +852,44 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
             MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-3'),
             UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
+            /**
+             * Empty means "send no language", which is what Deepgram saw before
+             * this existed. Set it per surface instead: the in-stay concierge
+             * already knows its guest, a public line does not.
+             */
+            LANGUAGE: this.configService.get<string>('DEEPGRAM_STT_LANGUAGE', ''),
+          },
+          SARVAM: {
+            API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
+            WS_URL: this.configService.get<string>('SARVAM_STT_WS_URL', 'wss://api.sarvam.ai/speech-to-text-realtime/ws'),
+            /**
+             * v4 rather than v3-realtime, because only v4 accepts keyterms, and
+             * keyterms are what make a property's own name transcribe correctly.
+             */
+            MODEL: this.configService.get<string>('SARVAM_STT_MODEL', 'saaras:v4'),
+            /**
+             * Silence that ends a caller's turn. Sarvam defaults to 1000ms,
+             * which is shorter than a person pausing to think: measured, a
+             * sentence with an 800ms pause in it arrived as two turns and the
+             * agent replied to the first half. At 2000ms it arrives whole.
+             */
+            SILENCE_DURATION_MS: parseInt(this.configService.get('SARVAM_STT_SILENCE_DURATION_MS') || '2000', 10),
+            /**
+             * 'auto' is why this provider is here: it reads a caller who answers
+             * in Hindi without anyone having configured Hindi, so the surface no
+             * longer has to choose one language and lose the other.
+             */
+            LANGUAGE: this.configService.get<string>('SARVAM_STT_LANGUAGE', 'auto'),
+            /** Sarvam takes 8000 or 16000 and rejects anything else, so the 24kHz pipeline is converted on the way in. */
+            SAMPLE_RATE: parseInt(this.configService.get('SARVAM_STT_SAMPLE_RATE') || '16000', 10),
+            /** Just under the 8kHz Nyquist of that rate, so nothing folds back into the speech. */
+            RESAMPLE_CUTOFF_HZ: 7000,
+            EVENT_AUDIO_INPUT: 'audio_input',
+            EVENT_AUDIO_END: 'audio_end',
+            EVENT_TRANSCRIPT_PARTIAL: 'transcript.partial',
+            EVENT_TRANSCRIPT_FINAL: 'transcript.final',
+            EVENT_SPEECH_END: 'vad.speech_end',
+            EVENT_ERROR: 'error',
           },
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
@@ -852,10 +965,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             AUDIO_TAG: this.configService.get<string>('ELEVENLABS_AUDIO_TAG', ''),
             VOICE_SETTINGS: {
               /** Lower is more emotionally variable; higher is steadier and flatter. */
-              STABILITY: parseFloat(this.configService.get('ELEVENLABS_STABILITY') || '0.4'),
+              /**
+               * v3's "Natural" setting. Lower is more expressive and also less
+               * stable — the same sentence can come back mispronounced or with
+               * an odd cadence, and a reply is synthesised a sentence at a time,
+               * so every fragment rolls that dice again. Expressiveness is not
+               * worth a name read out wrong.
+               */
+              STABILITY: parseFloat(this.configService.get('ELEVENLABS_STABILITY') || '0.5'),
               SIMILARITY_BOOST: parseFloat(this.configService.get('ELEVENLABS_SIMILARITY_BOOST') || '0.75'),
               /** Style exaggeration. Costs latency above 0, so it stays modest. */
-              STYLE: parseFloat(this.configService.get('ELEVENLABS_STYLE') || '0.35'),
+              /** Style exaggeration costs stability and latency both; the delivery cues in the prompt do this job better. */
+              STYLE: parseFloat(this.configService.get('ELEVENLABS_STYLE') || '0'),
               USE_SPEAKER_BOOST: this.configService.get<string>('ELEVENLABS_USE_SPEAKER_BOOST', 'true') === 'true',
               SPEED: parseFloat(this.configService.get('ELEVENLABS_SPEED') || '1'),
             },

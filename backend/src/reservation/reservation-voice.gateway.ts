@@ -5,7 +5,8 @@ import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
-import { getClientIp, parseHotelId, buildReservationSession } from './reservation-session.helper';
+import { getClientIp, parseHotelId, buildReservationSession, buildSttKeyterms } from './reservation-session.helper';
+import { splitSentences, stripAudioTags } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -26,7 +27,6 @@ interface TurnState {
  * ElevenLabs v3 consumes them as tone direction; every other provider would read
  * them out, and no caller should see them on screen either.
  */
-const stripAudioTags = (text: string): string => text.replace(/\[[a-z][a-z ]{0,24}\]\s*/gi, '').trim();
 
 /**
  * Public, unauthenticated voice reservation: the caller speaks, STT transcribes,
@@ -65,89 +65,39 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
   }
 
   private flushSentences(state: TurnState, client: any, provider: TtsProvider, languageCode: string | null): void {
-    const regex = /([.!?])\s+/g;
-    let match: RegExpExecArray | null;
-    let lastIndex = 0;
-    const parts: string[] = [];
-    while ((match = regex.exec(state.sentenceBuffer)) !== null) {
-      const sentence = state.sentenceBuffer.slice(lastIndex, match.index + 1).trim();
-      if (sentence.length > 0) {
-        parts.push(sentence);
-      }
-      lastIndex = regex.lastIndex;
-    }
+    const llm = this.constantsService.private.LLM;
+    const { parts, rest } = splitSentences(
+      state.sentenceBuffer,
+      llm.SENTENCE_TERMINATORS_LATIN,
+      llm.SENTENCE_TERMINATORS_OTHER,
+    );
     if (parts.length === 0) {
       return;
     }
-    state.sentenceBuffer = state.sentenceBuffer.slice(lastIndex);
+    state.sentenceBuffer = rest;
     const keepTags = this.ttsUnderstandsTags();
     for (const sentence of parts) {
       const spoken = keepTags ? sentence : stripAudioTags(sentence);
       const shown = stripAudioTags(sentence);
       if (spoken.length > 0) {
-        state.ttsQueue = state.ttsQueue.then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }));
+        // Caught per sentence on purpose. The queue is one promise chain, so a
+        // single rejected request would poison every .then() after it and the
+        // caller would hear the reply stop mid-thought with no error anywhere.
+        // One bad fragment should cost that fragment, not the rest of the answer.
+        state.ttsQueue = state.ttsQueue
+          .then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }))
+          .catch((err: any) => {
+            this.logger.warn({
+              message: err?.message ?? String(err),
+              serviceName: 'ReservationVoiceGateway',
+              actionName: 'flushSentences',
+              traces: [{ stage: 'tts' }],
+            });
+          });
       }
       if (shown.length > 0) {
         client.emit('voice_text_chunk', { delta: shown });
       }
-    }
-  }
-
-  /**
-   * PCM for one filler phrase, synthesised on first use and then replayed from
-   * memory. Caching is the point: a filler that had to wait for a TTS round-trip
-   * would add the very delay it exists to hide.
-   *
-   * The provider writes to a collector rather than the socket, which is how the
-   * audio gets captured without changing the TTS interface.
-   */
-  private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
-    const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
-    const cached = this.cacheService.get<string[]>(key);
-    if (cached) {
-      return cached;
-    }
-
-    const chunks: string[] = [];
-    const collector = {
-      emit: (event: string, payload?: any) => {
-        if (event === 'voice_audio_chunk' && payload?.delta) {
-          chunks.push(payload.delta);
-        }
-      },
-    };
-    await provider.streamToClient(collector, phrase, { emitEnd: false, languageCode });
-    if (chunks.length > 0) {
-      this.cacheService.set(key, chunks, cfg.FILLER_CACHE_MINUTES);
-    }
-    return chunks;
-  }
-
-  /** Fill the gap between the caller finishing and the answer beginning. */
-  private async playThinkingFiller(client: any, provider: TtsProvider, languageCode: string | null): Promise<void> {
-    const phrases = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
-    if (!phrases || phrases.length === 0) {
-      return;
-    }
-    // Vary it, or the same noise every turn becomes its own tell.
-    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-    const spoken = this.ttsUnderstandsTags() ? phrase : stripAudioTags(phrase);
-    if (!spoken) {
-      return;
-    }
-    try {
-      const chunks = await this.getFillerChunks(spoken, languageCode, provider);
-      for (const delta of chunks) {
-        client.emit('voice_audio_chunk', { delta });
-      }
-    } catch (err: any) {
-      // A filler is a nicety; never let it stop the real answer.
-      this.logger.warn({
-        message: err?.message ?? String(err),
-        serviceName: 'ReservationVoiceGateway',
-        actionName: 'playThinkingFiller',
-      });
     }
   }
 
@@ -204,8 +154,14 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
   async handleConnection(client: any) {
     const strings = this.constantsService.public;
     const query: any = client.handshake?.query ?? {};
+    // auth as well as query, the way the text gateway already reads it. The query
+    // string is fixed when the socket is constructed, so a reconnect can only
+    // carry the token it had at mount — which is none, because the chat does not
+    // exist until the first turn. auth is re-read on every attempt, so this is
+    // what lets a recovered call resume its conversation instead of starting over.
+    const auth: any = client.handshake?.auth ?? {};
 
-    const hotelId = parseHotelId(query.hotelId);
+    const hotelId = parseHotelId(query.hotelId ?? auth.hotelId);
     if (hotelId === null) {
       client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
       client.disconnect(true);
@@ -221,7 +177,8 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     client.voiceIp = ip;
 
     try {
-      const sessionToken = query.sessionToken ? String(query.sessionToken) : null;
+      const handed = query.sessionToken ?? auth.sessionToken ?? null;
+      const sessionToken = handed ? String(handed) : null;
       const result = await this.reservationService.startSession(hotelId, sessionToken);
 
       client.reservationContext = { hotelId, publicHotel: result.publicHotel };
@@ -232,10 +189,13 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       }
 
       const cfg = this.constantsService.private.RESERVATION_VOICE;
-      // Hard stop on wall clock: an abandoned tab must not hold STT open forever.
-      client.sessionTimer = setTimeout(() => {
-        this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
-      }, cfg.MAX_SESSION_SECONDS * 1000);
+      // Hard stop on wall clock, when one is configured: an abandoned tab must
+      // not hold STT open forever. Zero means no cap.
+      if (cfg.MAX_SESSION_SECONDS > 0) {
+        client.sessionTimer = setTimeout(() => {
+          this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
+        }, cfg.MAX_SESSION_SECONDS * 1000);
+      }
 
       client.emit('ready', {
         chatId: result.chat ? result.chat.id : null,
@@ -246,6 +206,16 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.emit('voice_ready');
     } catch (err: any) {
       const notFound = err?.status === 404 || err?.statusCode === 404;
+      // Logged, because the caller only ever sees "we could not start the chat";
+      // without this the reason for a dead line is recorded nowhere at all.
+      if (!notFound) {
+        this.logger.error({
+          error: err,
+          serviceName: 'ReservationVoiceGateway',
+          actionName: 'handleConnection',
+          traces: [{ stage: 'startSession' }],
+        });
+      }
       client.emit('error', {
         message: notFound ? strings.ERROR_RESERVATION_HOTEL_NOT_FOUND : strings.ERROR_RESERVATION_SETUP_FAILED,
       });
@@ -262,13 +232,23 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       // move the signed-in concierge.
       const sttSession = this.sttFactory
         .getFactory(cfg.STT_PROVIDER)
-        .createSession({ utteranceEndMs: cfg.UTTERANCE_END_MS });
+        .createSession({
+          utteranceEndMs: cfg.UTTERANCE_END_MS,
+          language: cfg.STT_LANGUAGE,
+          keyterms: buildSttKeyterms(client.reservationContext ?? {}, cfg.STT_KEYTERMS),
+        });
       client.sttSession = sttSession;
       // Deepgram finalises in several pieces within one utterance — "hello" can
       // land as final before the rest of the sentence does. Keeping only the
       // most recent final would throw away everything the caller said before
       // the last pause, so the pieces are collected and joined.
-      const state = { finalParts: [] as string[], interim: '', done: false };
+      const state = {
+        finalParts: [] as string[],
+        interim: '',
+        done: false,
+        /** Set once speech has ended and the corrected transcript is still owed. */
+        awaitingFinal: null as ReturnType<typeof setTimeout> | null,
+      };
       client.sttState = state;
 
       const runTurn = () => {
@@ -276,6 +256,10 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
           return;
         }
         state.done = true;
+        if (state.awaitingFinal) {
+          clearTimeout(state.awaitingFinal);
+          state.awaitingFinal = null;
+        }
         this.clearTurnFallback(client);
         try {
           sttSession.endInput();
@@ -302,9 +286,31 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
           state.interim = trimmed;
         }
         client.emit('voice_user_chunk', { delta: text, isFinal: !!isFinal });
+        // The corrected transcript we were waiting for. Answer it, not the
+        // half-sentence that preceded it.
+        if (isFinal && state.awaitingFinal) {
+          runTurn();
+        }
       });
 
-      sttSession.onEndOfSpeech(runTurn);
+      /**
+       * End of speech is not end of transcript.
+       *
+       * Sarvam signals the silence first and sends the corrected text after it,
+       * so running the turn on the signal destroyed the session before the real
+       * transcript arrived and the agent answered the last partial instead. A
+       * caller reading out a phone number was heard as "my number is".
+       *
+       * So the turn waits for the final, and the timer is only there for a
+       * provider that never sends one — a caller must not be left talking to
+       * silence because a transcript went missing.
+       */
+      sttSession.onEndOfSpeech(() => {
+        if (state.done || state.awaitingFinal) {
+          return;
+        }
+        state.awaitingFinal = setTimeout(runTurn, cfg.FINAL_TRANSCRIPT_GRACE_MS);
+      });
 
       return sttSession;
     } catch (err: any) {
@@ -330,7 +336,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       return;
     }
 
-    if ((client.turnsUsed ?? 0) >= cfg.MAX_TURNS_PER_SESSION) {
+    if (cfg.MAX_TURNS_PER_SESSION > 0 && (client.turnsUsed ?? 0) >= cfg.MAX_TURNS_PER_SESSION) {
       this.endCall(client, strings.ERROR_RESERVATION_VOICE_TURN_LIMIT);
       return;
     }
@@ -358,10 +364,6 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       ) as TtsProvider;
       const languageCode = session.languageCode ?? null;
       const state: TurnState = { sentenceBuffer: '', ttsQueue: Promise.resolve() };
-
-      // Speak a thinking noise now, while the model is still working. The client
-      // queues audio in order, so this plays first and the answer follows on.
-      state.ttsQueue = this.playThinkingFiller(client, provider, languageCode);
 
       await this.chatLlmService.streamUserMessage(session, text, {
         mode: 'voice',
@@ -392,8 +394,18 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.emit('error', { message: strings.ERROR_RESERVATION_VOICE_FAILED });
       client.emit('voice_audio_end');
     } finally {
-      client.voiceBusy = false;
-      client.emit('voice_ready');
+      // The turn ends when the caller has heard the reply, not when the last
+      // audio left here — chunks are scheduled ahead, so only the browser
+      // knows. It reports back, exactly as the concierge's client does.
+      //
+      // The timer is the safety net: a tab that is closed, backgrounded or
+      // disconnected never reports, and the line must not stay busy for the
+      // rest of the session because of it.
+      this.clearPlaybackWait(client);
+      client.playbackWait = setTimeout(
+        () => this.releaseTurn(client),
+        this.constantsService.private.RESERVATION_VOICE.PLAYBACK_DONE_TIMEOUT_MS,
+      );
     }
   }
 
@@ -413,7 +425,8 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     // Metered on audio actually streamed rather than time connected — streamed
     // audio is what STT bills for.
     client.audioBytes = (client.audioBytes ?? 0) + buffer.length;
-    if (client.audioBytes > cfg.MAX_AUDIO_SECONDS_PER_SESSION * cfg.AUDIO_BYTES_PER_SECOND) {
+    if (cfg.MAX_AUDIO_SECONDS_PER_SESSION > 0
+        && client.audioBytes > cfg.MAX_AUDIO_SECONDS_PER_SESSION * cfg.AUDIO_BYTES_PER_SECOND) {
       this.endCall(client, this.constantsService.public.ERROR_RESERVATION_VOICE_TURN_LIMIT);
       return;
     }
@@ -441,6 +454,33 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     this.createSttSession(client);
   }
 
+  /** Cancel the safety net that would otherwise release the turn on its own. */
+  private clearPlaybackWait(client: any): void {
+    if (client.playbackWait) {
+      clearTimeout(client.playbackWait);
+      client.playbackWait = null;
+    }
+  }
+
+  /** Hand the line back to the caller, once. */
+  private releaseTurn(client: any): void {
+    this.clearPlaybackWait(client);
+    if (!client.voiceBusy) {
+      return;
+    }
+    client.voiceBusy = false;
+    client.emit('voice_ready');
+  }
+
+  /**
+   * The browser has finished playing the reply. Same message the concierge
+   * sends, for the same reason: only the client can see when the sound stopped.
+   */
+  @SubscribeMessage('voice_playback_done')
+  onPlaybackDone(client: any) {
+    this.releaseTurn(client);
+  }
+
   @SubscribeMessage('voice_stop')
   onVoiceStop(client: any) {
     this.clearTurnFallback(client);
@@ -449,6 +489,7 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
   }
 
   handleDisconnect(client: any) {
+    this.clearPlaybackWait(client);
     this.clearTurnFallback(client);
     if (client.sessionTimer) {
       clearTimeout(client.sessionTimer);
