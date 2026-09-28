@@ -140,7 +140,8 @@ function AiBookings({ loading, setLoading, alertError, alertSuccess }) {
         </ToggleButtonGroup>
       )}
 
-      <DataGrid CardComponent={AiBookingCard} data={visible} isLoading={loading} />
+      {/* hotelId rides on the row: the card fetches its own thread and DataGrid passes only `data`. */}
+      <DataGrid CardComponent={AiBookingCard} data={visible.map((row) => ({ ...row, hotelId }))} isLoading={loading} />
     </Box>
   );
 }

@@ -169,6 +169,10 @@
   "AI_BOOKINGS_NO_MESSAGES": "No messages in this conversation yet.",
   "AI_BOOKINGS_STATUS_CAPTURED": "ENQUIRY",
   "AI_BOOKINGS_STATUS_BROWSING": "BROWSING",
+  "AI_BOOKINGS_SHOW_CONVERSATION": "Read the conversation",
+  "AI_BOOKINGS_HIDE_CONVERSATION": "Hide the conversation",
+  "AI_BOOKINGS_ENQUIRY_NTH": "Enquiry",
+  "AI_BOOKINGS_ENQUIRY_LATEST": "Latest enquiry",
   "RESERVATION_SUGGESTIONS": [
     "I want to book a room",
     "What are your rates?",
