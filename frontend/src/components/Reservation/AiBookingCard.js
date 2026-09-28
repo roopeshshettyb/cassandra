@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Button, Collapse, Divider } from '@mui/material';
+import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, IconButton } from '@mui/material';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -8,7 +8,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PhoneIcon from '@mui/icons-material/Phone';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CloseIcon from '@mui/icons-material/Close';
 import request from '../../helper/api';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, PRIMARY_CONTRAST, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../../theme';
 import constants from '../../constants.json';
@@ -186,29 +186,10 @@ const AiBookingCard = ({ data }) => {
         <Button
           size="small"
           onClick={toggle}
-          endIcon={<ExpandMoreIcon sx={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />}
           sx={{ alignSelf: 'flex-start', textTransform: 'none', fontSize: 12, color: NAVY, px: 0.5 }}
         >
-          {open ? constants.AI_BOOKINGS_HIDE_CONVERSATION : constants.AI_BOOKINGS_SHOW_CONVERSATION}
+          {constants.AI_BOOKINGS_SHOW_CONVERSATION}
         </Button>
-        <Collapse in={open} unmountOnExit>
-          <Divider sx={{ mb: 1 }} />
-          <Box sx={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {(messages ?? []).map((message) => (
-              <Box key={message.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: MUTED }}>
-                  {message.role}
-                </Typography>
-                <Typography sx={{ fontSize: 13, color: NAVY, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                  {message.content}
-                </Typography>
-              </Box>
-            ))}
-            {!loading && messages !== null && messages.length === 0 && (
-              <Typography sx={{ fontSize: 13, color: MUTED }}>{constants.AI_BOOKINGS_NO_MESSAGES}</Typography>
-            )}
-          </Box>
-        </Collapse>
 
         <Box sx={{ mt: 'auto', pt: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
@@ -220,6 +201,37 @@ const AiBookingCard = ({ data }) => {
           </Typography>
         </Box>
       </Box>
+
+      <Dialog open={open} onClose={toggle} fullWidth maxWidth="sm" scroll="paper">
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, fontSize: 16, fontWeight: 700, color: NAVY }}>
+          {enquiry?.guestName || constants.AI_BOOKINGS_CONVERSATION_TITLE}
+          <IconButton size="small" onClick={toggle} aria-label={constants.AI_BOOKINGS_CONVERSATION_CLOSE}>
+            <CloseIcon sx={{ fontSize: 18, color: MUTED }} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {(messages ?? []).map((message) => (
+              <Box key={message.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+                <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: MUTED }}>
+                  {message.role === 'user' ? constants.AI_BOOKINGS_ROLE_GUEST : constants.AI_BOOKINGS_ROLE_AGENT}
+                </Typography>
+                <Typography sx={{ fontSize: 13, color: NAVY, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {message.content}
+                </Typography>
+              </Box>
+            ))}
+            {!loading && messages !== null && messages.length === 0 && (
+              <Typography sx={{ fontSize: 13, color: MUTED }}>{constants.AI_BOOKINGS_NO_MESSAGES}</Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={toggle} sx={{ textTransform: 'none', color: NAVY }}>
+            {constants.AI_BOOKINGS_CONVERSATION_CLOSE}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </motion.div>
   );
 };
