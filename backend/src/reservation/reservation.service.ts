@@ -135,12 +135,22 @@ export class ReservationService {
     const data = chats.map((chat) => {
       const chatMessages = byChat.get(chat.id) ?? [];
       const enquiries: Record<string, unknown>[] = [];
+      // The dates the agent wrote down when it first heard them, which beat the
+      // ones it works out again at the end. Measured on stage, it resolves a
+      // date correctly, says it back, and then records a different one several
+      // turns later — with the whole conversation still in its prompt. So the
+      // note is treated as the record and the recomputed value is only used for
+      // an enquiry that never had one.
+      let noted: Record<string, unknown> | null = null;
       for (const message of chatMessages) {
         // createdAt comes from Sequelize timestamps, which the model does not declare.
         const messageRow: any = message;
         for (const call of message.toolCalls ?? []) {
+          if (call.toolName === 'note_reservation_dates' && call.input) {
+            noted = call.input;
+          }
           if (call.toolName === 'record_reservation_enquiry' && call.input) {
-            enquiries.push({ ...call.input, recordedAt: messageRow.createdAt });
+            enquiries.push({ ...call.input, ...(noted ?? {}), recordedAt: messageRow.createdAt });
           }
         }
       }
