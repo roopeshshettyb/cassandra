@@ -159,11 +159,13 @@ export class InventoryService {
    * For reservations pushed in from a hotel's PMS. Those rooms are sold whether
    * our counters agree or not, so there is nothing to approve or reject —
    * refusing would only leave our inventory claiming a room the front desk has
-   * already given away. Deliberately unguarded, unlike reserve().
+   * already given away. Never refused, unlike reserve().
    *
-   * Reserved may end up exceeding total, making `available` negative. That is the
-   * honest reading: it says we are oversold, and every availability query then
-   * refuses the room type, which is what should happen.
+   * Capped at what the night can hold, so an oversold night reads as full rather
+   * than going negative: reserved + blocked never exceeds total, so the write also
+   * passes a CHECK (reserved + blocked <= total) where a database has one — the dev
+   * database does, though no migration here creates it. The booking still records
+   * its room in booking_rooms, and that room is what stops it being sold again.
    */
   async reserveExternal(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
     if (nights.length === 0) {
@@ -171,7 +173,7 @@ export class InventoryService {
     }
     await this.sequelize.query(
       `UPDATE room_inventory
-       SET reserved = reserved + :count, updated_at = NOW()
+       SET reserved = GREATEST(reserved, LEAST(reserved + :count, total - blocked)), updated_at = NOW()
        WHERE room_type_id = :roomTypeId
          AND date IN (:nights)
          AND deleted_at IS NULL`,
@@ -289,6 +291,58 @@ export class InventoryService {
     );
   }
 
+  /**
+   * Hand back the nights from `fromDate` on, and end the holds there.
+   *
+   * For a guest who leaves early: the nights already stayed stay counted, the rest
+   * go back on sale, and each hold's check_out moves to `fromDate` so the room reads
+   * as free from then. Same order rule as releaseForBookings: the counts are worked
+   * out from the holds before the holds are shortened.
+   */
+  async releaseFrom(bookingIds: number[], fromDate: string, transaction: Transaction): Promise<void> {
+    if (bookingIds.length === 0) {
+      return;
+    }
+    await this.sequelize.query(
+      `UPDATE room_inventory ri
+       SET reserved = GREATEST(ri.reserved - held.rooms, 0)
+       FROM (
+         SELECT r.room_type_id AS room_type_id,
+                night::date AS date,
+                COUNT(*) AS rooms
+         FROM booking_rooms br
+         JOIN rooms r ON r.id = br.room_id
+         CROSS JOIN LATERAL generate_series(GREATEST(br.check_in, :fromDate::date)::timestamp, (br.check_out::date - 1)::timestamp, interval '1 day') AS night
+         WHERE br.booking_id IN (:bookingIds)
+           AND br.deleted_at IS NULL
+         GROUP BY r.room_type_id, night::date
+       ) held
+       WHERE ri.room_type_id = held.room_type_id
+         AND ri.date = held.date
+         AND ri.deleted_at IS NULL`,
+      { replacements: { bookingIds, fromDate }, transaction, type: QueryTypes.UPDATE },
+    );
+    await this.sequelize.query(
+      `UPDATE booking_rooms
+       SET check_out = GREATEST(check_in, :fromDate::date), updated_at = NOW()
+       WHERE booking_id IN (:bookingIds)
+         AND deleted_at IS NULL
+         AND check_out > :fromDate::date`,
+      { replacements: { bookingIds, fromDate }, transaction, type: QueryTypes.UPDATE },
+    );
+  }
+
+  /** How many nights nightsBetween would return, worked out without building the list. */
+  nightCount(checkIn: Date, checkOut: Date): number {
+    const first = Date.UTC(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+    const last = Date.UTC(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+    return Math.max(0, Math.round((last - first) / 86400000));
+  }
+
+  nightCountBetweenDates(startDate: string, endDate: string): number {
+    return this.nightCount(this.parseDate(startDate), this.parseDate(endDate));
+  }
+
   /** A night list from two YYYY-MM-DD strings, parsed as calendar dates rather than UTC instants. */
   nightsBetweenDates(startDate: string, endDate: string): string[] {
     return this.nightsBetween(this.parseDate(startDate), this.parseDate(endDate));
@@ -297,6 +351,11 @@ export class InventoryService {
   private parseDate(value: string): Date {
     const [year, month, day] = value.split('-').map(Number);
     return new Date(year, month - 1, day);
+  }
+
+  /** True for a YYYY-MM-DD that exists on the calendar; JS would roll 2026-02-30 over to March 2. */
+  isCalendarDate(value: string): boolean {
+    return this.toDateString(this.parseDate(value)) === value;
   }
 
   /** The inventory calendar for a range, with `available` derived rather than stored. */

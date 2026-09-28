@@ -15,7 +15,7 @@ import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { HotelBrand } from '../hotels/brands.model';
 import { MailerService } from '../mailer/mailer.service';
-import { BookingStatus, ConstantsService, DEFAULT_AVAILABILITY_ROOMS, DEFAULT_BOOKING_STATUS, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from '../common/constants/constants.service';
+import { BookingStatus, ConstantsService, DEFAULT_AVAILABILITY_ROOMS, DEFAULT_BOOKING_STATUS, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME, MAX_INVENTORY_NIGHTS } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -37,6 +37,7 @@ interface HeldRoom {
 
 /** The nights a stay consumes, plus the dates its holds are stored with. */
 interface Stay {
+  nightCount: number;
   nights: string[];
   checkIn: string;
   checkOut: string;
@@ -143,12 +144,23 @@ export class BookingsService {
   }
 
   /** The nights a stay consumes, alongside the date strings the holds are stored with. */
+  // Over the limit, the night list is left empty rather than built: a stay running
+  // to year 9999 would otherwise be millions of dates before anything checks it.
   private stayFor(startTime: Date, endTime: Date): Stay {
+    const nightCount = this.inventoryService.nightCount(startTime, endTime);
     return {
-      nights: this.inventoryService.nightsBetween(startTime, endTime),
+      nightCount,
+      nights: nightCount > MAX_INVENTORY_NIGHTS ? [] : this.inventoryService.nightsBetween(startTime, endTime),
       checkIn: this.inventoryService.toDateString(startTime),
       checkOut: this.inventoryService.toDateString(endTime),
     };
+  }
+
+  /** Each night is an inventory row to open and reserve, so a stay is held to the same range the inventory endpoints accept. */
+  private ensureStayWithinLimit(stay: Stay): void {
+    if (stay.nightCount > MAX_INVENTORY_NIGHTS) {
+      throw new BadRequestException(`A stay can cover at most ${MAX_INVENTORY_NIGHTS} nights`);
+    }
   }
 
   /**
@@ -216,6 +228,7 @@ export class BookingsService {
       throw new BadRequestException('A booking cannot be created as cancelled');
     }
     const stay = this.stayFor(startTime, endTime);
+    this.ensureStayWithinLimit(stay);
     if (stay.nights.length === 0) {
       throw new BadRequestException('Check-out must be after check-in to reserve a room');
     }
@@ -699,20 +712,32 @@ export class BookingsService {
       booking.endTime = this.parseDateTime(dto.endDate.trim(), checkOutTime);
     }
     // A booking that holds inventory takes its room number from the rooms it
-    // actually holds, so a hand-typed one is ignored rather than written. Applying
-    // it would leave booking.room_number naming one room while booking_rooms holds
-    // another — the displayed room would be a room nobody has reserved.
+    // actually holds. Writing a typed one would leave booking.room_number naming one
+    // room while booking_rooms holds another, and dropping it quietly would tell
+    // staff the guest was moved when they were not — so a different number is refused.
     const holdsInventory = (await BookingRoom.count({ where: { bookingId: booking.id } })) > 0;
-    if (dto.roomNumber !== undefined && !holdsInventory) {
-      booking.roomNumber = dto.roomNumber.trim();
+    if (dto.roomNumber !== undefined) {
+      const typed = dto.roomNumber.trim();
+      if (!holdsInventory) {
+        booking.roomNumber = typed;
+      } else if (typed !== (booking.roomNumber || '').trim()) {
+        throw new BadRequestException("This booking's rooms come from inventory, so its room number cannot be typed in; change its dates or cancel it instead");
+      }
     }
 
     const wasCancelled = booking.status === BookingStatus.CANCELLED;
+    const wasCheckedOut = booking.status === BookingStatus.CHECKED_OUT;
     if (dto.status !== undefined && dto.status !== booking.status) {
       // Reinstating would have to re-reserve the nights, and by now they may be
       // sold to someone else. Book again rather than silently overselling.
       if (wasCancelled) {
         throw new BadRequestException('A cancelled booking cannot be reinstated; create a new booking instead');
+      }
+      // Same for checking out: it handed the nights still ahead back to inventory.
+      // Applied to every checked-out booking, as it is to every cancelled one, so
+      // the booking form can say so up front instead of failing on save.
+      if (wasCheckedOut) {
+        throw new BadRequestException('A checked-out booking cannot be reopened; create a new booking instead');
       }
       booking.status = dto.status;
     }
@@ -727,13 +752,31 @@ export class BookingsService {
     }
 
     const isCancelling = booking.status === BookingStatus.CANCELLED && !wasCancelled;
+    const isCheckingOut = booking.status === BookingStatus.CHECKED_OUT && !wasCheckedOut;
     const datesMoved = booking.changed('startTime') || booking.changed('endTime');
 
     // A booking that holds inventory has to carry that hold with it when its dates
     // move. Saving the new dates alone would leave the old nights reserved for
-    // nobody and the new ones free to be sold again underneath the guest.
-    if (datesMoved && !isCancelling) {
-      await this.moveInventoryHold(booking, sequelize);
+    // nobody and the new ones free to be sold again underneath the guest. A PMS
+    // booking keeps the room its PMS chose, as it does when the PMS itself moves it.
+    // A checked-out booking has already given its nights back, so correcting its
+    // dates is a change to the record only and must not reserve anything again.
+    if (datesMoved && !isCancelling && !wasCheckedOut) {
+      if (booking.externalId) {
+        await this.syncExternalInventory(booking);
+      } else {
+        await this.moveInventoryHold(booking, sequelize);
+      }
+    }
+
+    // A guest who leaves early frees the room from today, not from the date they
+    // were booked to leave; otherwise it stays unsellable while it stands empty.
+    if (isCheckingOut && holdsInventory) {
+      await sequelize.transaction(async (transaction) => {
+        await this.inventoryService.releaseFrom([booking.id], this.inventoryService.toDateString(new Date()), transaction);
+        await booking.save({ transaction });
+      });
+      return { success: true, message: 'Booking updated', data: booking };
     }
 
     if (!isCancelling) {
@@ -772,9 +815,18 @@ export class BookingsService {
     if (!sequelize) {
       return;
     }
+    // Checked out in Samantha: the nights still ahead were handed back and the
+    // nights stayed stay counted. A redelivery must neither re-hold the rest nor
+    // release what was stayed, so its holds are left exactly as check-out left them.
+    if (booking.status === BookingStatus.CHECKED_OUT) {
+      return;
+    }
     const roomNumber = booking.roomNumber?.trim();
     const room = roomNumber ? await Room.findOne({ where: { hotelId: booking.hotelId, roomNumber } }) : null;
     const stay = this.stayFor(booking.startTime, booking.endTime);
+    // Over the night limit stayFor leaves nights empty, so such a booking is kept but
+    // holds nothing, like one for a room we do not know: it cannot be refused, and
+    // opening that many inventory rows would tie up the database.
     const holdsRoom = stay.nights.length > 0 && booking.status !== BookingStatus.CANCELLED;
 
     await sequelize.transaction(async (transaction) => {
@@ -804,7 +856,10 @@ export class BookingsService {
   private async moveInventoryHold(booking: Booking, sequelize: Sequelize): Promise<void> {
     const held = await BookingRoom.findAll({
       where: { bookingId: booking.id },
-      include: [{ model: Room, as: 'room' }],
+      // paranoid: false, since a room can be deleted once its stay has ended. Its
+      // type is still what the hold has to move to; excluding it would skip the
+      // move and leave the old nights reserved.
+      include: [{ model: Room, as: 'room', paranoid: false }],
     });
     // Nothing held means this booking was made against a free-text room number and
     // never touched inventory, so there is nothing to move.
@@ -819,6 +874,7 @@ export class BookingsService {
     }
     const roomsWanted = held.length;
     const stay = this.stayFor(booking.startTime, booking.endTime);
+    this.ensureStayWithinLimit(stay);
     if (stay.nights.length === 0) {
       throw new BadRequestException('Check-out must be after check-in');
     }
