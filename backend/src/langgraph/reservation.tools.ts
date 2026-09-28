@@ -85,6 +85,28 @@ export function createReservationTools(
       },
     }),
     new DynamicStructuredTool({
+      name: 'note_reservation_dates',
+      description:
+        'Call this the moment the enquirer gives their dates, before you ask them anything else. It writes the resolved dates down so they cannot drift later in the call. Call it again only if they change their dates.',
+      schema: z.object({
+        checkInDate: z.string().describe('Resolved check-in date as YYYY-MM-DD'),
+        checkOutDate: z.string().describe('Resolved check-out date as YYYY-MM-DD'),
+      }),
+      func: async (args) => {
+        // Nothing is stored server-side: the value is that the call itself is
+        // persisted on the assistant message, and the conversation context is
+        // built with tool calls and their inputs inline. So the resolved dates
+        // come back into every later prompt as machine-readable ISO rather than
+        // as words the model has to resolve a second time — which is exactly
+        // what it was getting wrong, turning a November booking into October.
+        return JSON.stringify({
+          success: true,
+          message: constantsService.public.RESERVATION_DATES_NOTED,
+          data: { ...args },
+        });
+      },
+    }),
+    new DynamicStructuredTool({
       name: 'record_reservation_enquiry',
       description:
         'Record the reservation enquiry once you have the dates, the number of guests and a name with either an email or a phone number. Call this exactly once, after confirming the details back to the enquirer. Recording it hands the enquiry to the hotel team, who will confirm the booking; you cannot confirm a booking yourself.',
