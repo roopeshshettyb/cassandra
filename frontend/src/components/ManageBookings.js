@@ -6,6 +6,7 @@ import useListControls from '../helper/useListControls';
 import DataGrid from './DataGrid';
 import ListControls from './ListControls';
 import BookingCard from './cards/BookingCard';
+import HotelPicker from './HotelPicker';
 import MapComponent from './MapComponent';
 import { FormFieldRow, PageHeader, inputSx } from './cards/AppCards';
 import { ChevronLeft, ChevronRight, Close } from '@mui/icons-material';
@@ -31,6 +32,9 @@ const createGuestFieldConfigs = [
 const ROOM_NUMBER_FIELD = { field: 'roomNumber', label: 'Room Number', type: 'text', required: true };
 
 const CANCELLED_STATUS = constants.BOOKING_STATUS_CANCELLED;
+// BookingStatus.CHECKED_OUT in the backend. Like cancelled, a checked-out booking
+// has given its nights back, so the backend will not move it to another status.
+const CHECKED_OUT_STATUS = 'checked_out';
 
 // `failed` keeps a request that never answered distinct from a genuine sold-out:
 // reading one as the other would have staff turning away a booking that is fine.
@@ -40,7 +44,7 @@ const emptyRoomPreview = { loading: false, failed: false, roomNumbers: [], enoug
 const PREVIEW_FIELDS = ['roomTypeId', 'startDate', 'endDate', 'rooms'];
 
 // Read-only here. Removing an image belongs on the room type itself, under
-// Manage Rooms & Inventory, not in the middle of taking a booking.
+// Manage Rooms, not in the middle of taking a booking.
 const RoomTypePhoto = ({ data: url, index, onOpen }) => (
   <Box
     component="img"
@@ -173,9 +177,13 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
 
   // Fetched when the hotel is picked rather than from an effect on hotelId, so the
   // page keeps its single mount-time useEffect.
-  const handleHotelChange = async (e) => {
-    const hotelId = e.target.value;
+  const handleHotelChange = async (hotelId) => {
     setCreateValues((prev) => ({ ...prev, hotelId, roomTypeId: '' }));
+    await loadRoomTypes(hotelId);
+  };
+
+  // Room types belong to one hotel, so whatever changes the hotel has to reload them.
+  const loadRoomTypes = async (hotelId) => {
     setRoomTypes([]);
     // Discards any preview still in flight for the hotel being left behind.
     previewRequestId.current += 1;
@@ -310,6 +318,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
           }
         }
       }
+      const nextHotelId = data.hotelId ?? matchedHotelId ?? createValues.hotelId;
+      // A document for another hotel must not keep the room type picked for this one.
+      const hotelChanged = String(nextHotelId ?? '') !== String(createValues.hotelId ?? '');
       setCreateValues((prev) => ({
         ...prev,
         startDate: data.startDate ?? prev.startDate,
@@ -318,8 +329,15 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
         guestName: data.guestName ?? prev.guestName,
         guestPhone: data.guestPhone ?? prev.guestPhone,
         roomNumber: data.roomNumber ?? prev.roomNumber,
-        hotelId: data.hotelId ?? matchedHotelId ?? prev.hotelId,
+        hotelId: nextHotelId,
+        roomTypeId: hotelChanged ? '' : prev.roomTypeId,
       }));
+      if (hotelChanged) {
+        await loadRoomTypes(nextHotelId);
+      } else {
+        // Same hotel and room type, but the document may have moved the dates.
+        previewRoom({ ...createValues, startDate: data.startDate ?? createValues.startDate, endDate: data.endDate ?? createValues.endDate });
+      }
       setUploadedFileName(file.name);
       setUploadedReservationDocumentKey(key);
       if (result?.message) alertSuccess?.(result.message);
@@ -342,7 +360,9 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
       alertError?.('Pick a room type, or enter a room number');
       return;
     }
-    if (new Date(endDate) < new Date(startDate)) {
+    // A room type reserves nights, and a same-day stay has none, so the backend
+    // refuses it; a typed room number may still be a same-day booking.
+    if (new Date(endDate) < new Date(startDate) || (roomTypeId && endDate === startDate)) {
       alertError?.('Check-out must be after check-in');
       return;
     }
@@ -428,26 +448,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                 {/* Hotel and room type lead, because they decide what the rest of the
                     form even means — and previously they sat below the fold, so you
                     had to scroll before you could pick one. */}
-                <TextField
-                  fullWidth
-                  select
-                  label="Hotel"
-                  value={createValues.hotelId ?? ''}
-                  onChange={handleHotelChange}
-                  required
-                  SelectProps={{
-                    displayEmpty: true,
-                    renderValue: (v) => (v === '' ? 'Select hotel' : hotels.find((x) => String(x.id) === String(v))?.name || 'Select hotel'),
-                    MenuProps: { sx: { zIndex: 1400 } },
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                >
-                  {hotels.map((h) => (
-                    <MenuItem key={h.id} value={String(h.id)}>
-                      {h.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <HotelPicker hotels={hotels} value={createValues.hotelId} onChange={handleHotelChange} required />
                 {createValues.hotelId && (
                   <TextField
                     fullWidth
@@ -460,7 +461,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                     // "nobody has set its room types up yet".
                     disabled={roomTypes.length === 0}
                     helperText={roomTypes.length === 0
-                      ? 'This hotel has no room types yet — add them under Manage Rooms & Inventory. Enter a room number below instead.'
+                      ? 'This hotel has no room types yet — add them under Manage Rooms. Enter a room number below instead.'
                       : 'Reserves from dated inventory and assigns a room automatically. Leave blank to type a room number instead.'}
                     SelectProps={{
                       displayEmpty: true,
@@ -489,50 +490,57 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                     <MapComponent Component={RoomTypePerk} data={selectedRoomTypePerks} showNoDataAvailable={false} />
                   </Box>
                 )}
-                <MapComponent
-                  Component={FormFieldRow}
-                  data={createValues.roomTypeId ? createStayFieldConfigs : [...createStayFieldConfigs, ROOM_NUMBER_FIELD]}
-                  values={createValues}
-                  onChange={handleCreateInput}
-                  showNoDataAvailable={false}
-                  isLoading={false}
-                />
-                {createValues.roomTypeId && (
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Rooms"
-                    value={createValues.rooms}
-                    onChange={handleCreateInput('rooms')}
-                    inputProps={{ min: 1 }}
-                    InputLabelProps={{ shrink: true }}
-                    sx={inputSx}
+                {/* Paired fields share a row, so this column ends level with the guest
+                    column instead of running twice as long; they stack on a phone. */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <MapComponent
+                    Component={FormFieldRow}
+                    data={createStayFieldConfigs}
+                    values={createValues}
+                    onChange={handleCreateInput}
+                    showNoDataAvailable={false}
+                    isLoading={false}
                   />
+                </Box>
+                {!createValues.roomTypeId && (
+                  <FormFieldRow data={ROOM_NUMBER_FIELD} values={createValues} onChange={handleCreateInput} />
                 )}
-                {/* Which room this booking would get. Read-only: the real assignment
-                    happens inside the booking transaction, so showing it as editable
-                    would promise a room we cannot guarantee is still free at submit. */}
                 {createValues.roomTypeId && (
-                  <TextField
-                    fullWidth
-                    label="Room number"
-                    value={roomPreview.loading
-                      ? 'Checking…'
-                      : roomPreview.failed
-                        ? 'Could not check'
-                        : (roomPreview.roomNumbers.join(', ') || 'None free for these dates')}
-                    InputProps={{ readOnly: true }}
-                    InputLabelProps={{ shrink: true }}
-                    error={!roomPreview.loading && !roomPreview.failed && !roomPreview.enough}
-                    helperText={roomPreview.loading
-                      ? ''
-                      : roomPreview.failed
-                        ? 'Availability could not be checked — a room is still assigned when you create the booking'
-                        : roomPreview.enough
-                          ? 'Assigned automatically when you create the booking'
-                          : `Only ${roomPreview.available} available for these dates`}
-                    sx={inputSx}
-                  />
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Rooms"
+                      value={createValues.rooms}
+                      onChange={handleCreateInput('rooms')}
+                      inputProps={{ min: 1 }}
+                      InputLabelProps={{ shrink: true }}
+                      sx={inputSx}
+                    />
+                    {/* Which room this booking would get. Read-only: the real assignment
+                        happens inside the booking transaction, so showing it as editable
+                        would promise a room we cannot guarantee is still free at submit. */}
+                    <TextField
+                      fullWidth
+                      label="Room number"
+                      value={roomPreview.loading
+                        ? 'Checking…'
+                        : roomPreview.failed
+                          ? 'Could not check'
+                          : (roomPreview.roomNumbers.join(', ') || 'None free for these dates')}
+                      InputProps={{ readOnly: true }}
+                      InputLabelProps={{ shrink: true }}
+                      error={!roomPreview.loading && !roomPreview.failed && !roomPreview.enough}
+                      helperText={roomPreview.loading
+                        ? ''
+                        : roomPreview.failed
+                          ? 'Availability could not be checked — a room is still assigned when you create the booking'
+                          : roomPreview.enough
+                            ? 'Assigned automatically when you create the booking'
+                            : `Only ${roomPreview.available} available for these dates`}
+                      sx={inputSx}
+                    />
+                  </Box>
                 )}
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -639,10 +647,12 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
                 label="Status"
                 value={editValues.status ?? ''}
                 onChange={handleEditInput('status')}
-                disabled={editBooking?.status === CANCELLED_STATUS}
+                disabled={editBooking?.status === CANCELLED_STATUS || editBooking?.status === CHECKED_OUT_STATUS}
                 helperText={editBooking?.status === CANCELLED_STATUS
                   ? 'This booking is cancelled. Its nights have been released, so it cannot be reinstated — create a new booking instead.'
-                  : 'Cancelling releases the nights this booking holds back into inventory.'}
+                  : editBooking?.status === CHECKED_OUT_STATUS
+                    ? 'This guest has checked out. The nights they did not stay have been released, so it cannot be reopened — create a new booking instead.'
+                    : 'Cancelling releases the nights this booking holds back into inventory. Checking out early releases the nights still ahead.'}
                 SelectProps={{ MenuProps: { sx: { zIndex: 1400 } } }}
                 InputLabelProps={{ shrink: true }}
               >

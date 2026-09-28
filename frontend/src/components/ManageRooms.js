@@ -75,6 +75,11 @@ const addDays = (date, days) => {
   return next;
 };
 
+// The desktop sidebar is fixed at 20vw and stacks above dialogs, so a form centred on
+// the whole window slides underneath it on narrower screens. Centring it in the content
+// area instead, as ManageBookings does for its New Booking form, keeps it clear.
+const dialogSx = isMobile => ({ '& .MuiDialog-container': { pl: isMobile ? 0 : '20vw' } });
+
 const TODAY = toDateInput(new Date());
 const IN_A_WEEK = toDateInput(addDays(new Date(), 7));
 
@@ -204,7 +209,7 @@ const PrimaryButton = ({ children, onClick, type }) => (
   </Box>
 );
 
-function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, alertError }) {
+function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, alertSuccess, alertError }) {
   const canManage = !!constants.PERMISSIONS.CAN_MANAGE_ROOMS[account?.role];
 
   const [roomTypes, setRoomTypes] = useState([]);
@@ -350,7 +355,18 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
       endpoint: isType ? `/rooms/types/${deleteTarget.item.id}` : `/rooms/${deleteTarget.item.id}`,
       method: 'DELETE', setLoading, alertSuccess, alertError,
     });
-    if (res?.success) { setShowDelete(false); if (isType) { fetchRoomTypes(); } fetchRooms(); }
+    if (res?.success) {
+      setShowDelete(false);
+      if (isType) {
+        fetchRoomTypes();
+        // The Inventory tab would otherwise keep asking for the type just deleted.
+        if (String(inventoryFilter.roomTypeId) === String(deleteTarget.item.id)) {
+          setInventoryFilter(prev => ({ ...prev, roomTypeId: '' }));
+          setInventory([]);
+        }
+      }
+      fetchRooms();
+    }
   };
 
   const loadInventory = async () => {
@@ -392,83 +408,91 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
       {/* Room types */}
-      <Box sx={{ ...CARD_SX, mb: 2 }}>
-        <SectionHeader
-          title="Room types"
-          subtitle="Deluxe King, Twin, and so on. Total rooms is what each night is stocked with."
-          action={canManage && <PrimaryButton onClick={openAddType}>+ Add room type</PrimaryButton>}
-        />
-        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: TYPE_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
-          <MapComponent Component={ColumnLabel} data={TYPE_COLS} showNoDataAvailable={false} />
+      {tab === 'types' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Room types"
+            subtitle="Deluxe King, Twin, and so on. Total rooms is what each night is stocked with."
+            action={canManage && <PrimaryButton onClick={openAddType}>+ Add room type</PrimaryButton>}
+          />
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: TYPE_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={TYPE_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={RoomTypeRow} data={roomTypes} isLoading={loading} canManage={canManage}
+            onEdit={openEditType} onDelete={item => { setDeleteTarget({ kind: 'type', item }); setShowDelete(true); }} />
         </Box>
-        <MapComponent Component={RoomTypeRow} data={roomTypes} isLoading={loading} canManage={canManage}
-          onEdit={openEditType} onDelete={item => { setDeleteTarget({ kind: 'type', item }); setShowDelete(true); }} />
-      </Box>
+      )}
 
       {/* Physical rooms */}
-      <Box sx={{ ...CARD_SX, mb: 2 }}>
-        <SectionHeader
-          title="Rooms"
-          subtitle="The physical rooms guests are assigned to when a booking is made."
-          action={canManage && <PrimaryButton onClick={openAddRoom}>+ Add room</PrimaryButton>}
-        />
-        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: ROOM_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
-          <MapComponent Component={ColumnLabel} data={ROOM_COLS} showNoDataAvailable={false} />
+      {tab === 'rooms' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Rooms"
+            subtitle="The physical rooms guests are assigned to when a booking is made."
+            action={canManage && <PrimaryButton onClick={openAddRoom}>+ Add room</PrimaryButton>}
+          />
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: ROOM_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={ROOM_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={RoomRow} data={rooms} isLoading={loading} canManage={canManage}
+            onEdit={openEditRoom} onDelete={item => { setDeleteTarget({ kind: 'room', item }); setShowDelete(true); }} />
         </Box>
-        <MapComponent Component={RoomRow} data={rooms} isLoading={loading} canManage={canManage}
-          onEdit={openEditRoom} onDelete={item => { setDeleteTarget({ kind: 'room', item }); setShowDelete(true); }} />
-      </Box>
+      )}
 
       {/* Dated inventory */}
-      <Box sx={{ ...CARD_SX, mb: 2 }}>
-        <SectionHeader
-          title="Inventory calendar"
-          subtitle="Rooms sellable per night. Available is total minus reserved minus blocked."
-        />
-        <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
-          <TextField size="small" select label="Room type" value={inventoryFilter.roomTypeId} onChange={handleFilterChange('roomTypeId')} sx={inputSx}>
-            {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
-          </TextField>
-          <TextField size="small" type="date" label="From" value={inventoryFilter.startDate} onChange={handleFilterChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-          <TextField size="small" type="date" label="To" value={inventoryFilter.endDate} onChange={handleFilterChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-          <PrimaryButton onClick={loadInventory}>Show nights</PrimaryButton>
-        </Box>
-
-        {canManage && (
-          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
-            <TextField size="small" type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.total} onChange={handleStockChange('total')} InputLabelProps={{ shrink: true }} sx={noSpinnerSx} />
-            <TextField size="small" type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.blocked} onChange={handleStockChange('blocked')} InputLabelProps={{ shrink: true }} sx={noSpinnerSx} />
-            <PrimaryButton onClick={saveStock}>Apply to range</PrimaryButton>
+      {tab === 'inventory' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Inventory calendar"
+            subtitle="Rooms sellable per night. Available is total minus reserved minus blocked."
+          />
+          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
+            <TextField size="small" select label="Room type" value={inventoryFilter.roomTypeId} onChange={handleFilterChange('roomTypeId')} sx={inputSx}>
+              {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
+            </TextField>
+            <TextField size="small" type="date" label="From" value={inventoryFilter.startDate} onChange={handleFilterChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField size="small" type="date" label="To" value={inventoryFilter.endDate} onChange={handleFilterChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <PrimaryButton onClick={loadInventory}>Show nights</PrimaryButton>
           </Box>
-        )}
 
-        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: INVENTORY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
-          <MapComponent Component={ColumnLabel} data={INVENTORY_COLS} showNoDataAvailable={false} />
+          {canManage && (
+            <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
+              <TextField size="small" type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.total} onChange={handleStockChange('total')} InputLabelProps={{ shrink: true }} sx={noSpinnerSx} />
+              <TextField size="small" type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.blocked} onChange={handleStockChange('blocked')} InputLabelProps={{ shrink: true }} sx={noSpinnerSx} />
+              <PrimaryButton onClick={saveStock}>Apply to range</PrimaryButton>
+            </Box>
+          )}
+
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: INVENTORY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={INVENTORY_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={InventoryRow} data={inventory} isLoading={loading} />
         </Box>
-        <MapComponent Component={InventoryRow} data={inventory} isLoading={loading} />
-      </Box>
+      )}
 
       {/* Availability search */}
-      <Box sx={{ ...CARD_SX, mb: 2 }}>
-        <SectionHeader
-          title="Check availability"
-          subtitle="A room type only shows here if every night of the stay has enough rooms free."
-        />
-        <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
-          <TextField size="small" type="date" label="Check-in" value={searchForm.startDate} onChange={handleSearchChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-          <TextField size="small" type="date" label="Check-out" value={searchForm.endDate} onChange={handleSearchChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-          <TextField size="small" type="number" label="Guests" inputProps={{ min: 1 }} value={searchForm.guests} onChange={handleSearchChange('guests')} sx={noSpinnerSx} />
-          <TextField size="small" type="number" label="Rooms" inputProps={{ min: 1 }} value={searchForm.rooms} onChange={handleSearchChange('rooms')} sx={noSpinnerSx} />
-          <PrimaryButton onClick={search}>Search</PrimaryButton>
+      {tab === 'availability' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Check availability"
+            subtitle="A room type only shows here if every night of the stay has enough rooms free."
+          />
+          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
+            <TextField size="small" type="date" label="Check-in" value={searchForm.startDate} onChange={handleSearchChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField size="small" type="date" label="Check-out" value={searchForm.endDate} onChange={handleSearchChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField size="small" type="number" label="Guests" inputProps={{ min: 1 }} value={searchForm.guests} onChange={handleSearchChange('guests')} sx={noSpinnerSx} />
+            <TextField size="small" type="number" label="Rooms" inputProps={{ min: 1 }} value={searchForm.rooms} onChange={handleSearchChange('rooms')} sx={noSpinnerSx} />
+            <PrimaryButton onClick={search}>Search</PrimaryButton>
+          </Box>
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: AVAILABILITY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={AVAILABILITY_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={AvailabilityRow} data={availability} isLoading={loading} />
         </Box>
-        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: AVAILABILITY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
-          <MapComponent Component={ColumnLabel} data={AVAILABILITY_COLS} showNoDataAvailable={false} />
-        </Box>
-        <MapComponent Component={AvailabilityRow} data={availability} isLoading={loading} />
-      </Box>
+      )}
 
       {/* Room type add / edit */}
-      <Dialog open={showTypeForm} onClose={() => setShowTypeForm(false)} fullWidth maxWidth="sm">
+      <Dialog open={showTypeForm} onClose={() => setShowTypeForm(false)} fullWidth maxWidth="sm" sx={dialogSx(isMobile)}>
         <DialogTitle sx={{ fontWeight: 800 }}>{editingType ? 'Edit room type' : 'Add room type'}</DialogTitle>
         <Box component="form" onSubmit={submitType}>
           <DialogContent>
@@ -517,7 +541,7 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
       </Dialog>
 
       {/* Room add / edit */}
-      <Dialog open={showRoomForm} onClose={() => setShowRoomForm(false)} fullWidth maxWidth="sm">
+      <Dialog open={showRoomForm} onClose={() => setShowRoomForm(false)} fullWidth maxWidth="sm" sx={dialogSx(isMobile)}>
         <DialogTitle sx={{ fontWeight: 800 }}>{editingRoom ? 'Edit room' : 'Add room'}</DialogTitle>
         <Box component="form" onSubmit={submitRoom}>
           <DialogContent>
@@ -539,7 +563,7 @@ function ManageRooms({ hotelId, account, loading, setLoading, alertSuccess, aler
       </Dialog>
 
       {/* Delete confirm */}
-      <Dialog open={showDelete} onClose={() => setShowDelete(false)}>
+      <Dialog open={showDelete} onClose={() => setShowDelete(false)} sx={dialogSx(isMobile)}>
         <DialogTitle>{deleteTarget?.kind === 'type' ? 'Delete room type' : 'Delete room'}</DialogTitle>
         <DialogContent>
           <DialogContentText>
