@@ -392,6 +392,7 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
+      RESERVATION_DATES_NOTED: 'Dates noted',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
       // A deploy reloads the API and drops every open socket, so a live call can
       // lose its line through no fault of the caller's. Said out loud, because a
