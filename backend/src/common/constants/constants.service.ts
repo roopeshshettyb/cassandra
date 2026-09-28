@@ -417,6 +417,12 @@ export class ConstantsService {
       AI_BOOKINGS_STATUS_CAPTURED: 'ENQUIRY',
       AI_BOOKINGS_STATUS_BROWSING: 'BROWSING',
       AI_BOOKINGS_SHOW_CONVERSATION: 'Read the conversation',
+      // Shown in a dialog rather than in the card: a thread of fifty messages
+      // expanded in place stretches one card and breaks the row it sits in.
+      AI_BOOKINGS_CONVERSATION_TITLE: 'Conversation',
+      AI_BOOKINGS_CONVERSATION_CLOSE: 'Close',
+      AI_BOOKINGS_ROLE_GUEST: 'Guest',
+      AI_BOOKINGS_ROLE_AGENT: 'Samantha',
       AI_BOOKINGS_HIDE_CONVERSATION: 'Hide the conversation',
       // An enquiry recorded twice in one conversation is two enquiries, not a
       // correction: the caller changed their mind, or booked for someone else.
