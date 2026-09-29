@@ -50,9 +50,6 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
-  // Required unless a room type is given: a booking made against a room type gets
-  // its room number from the room the inventory reservation assigns, but without
-  // one the typed number is the only room the booking has.
   @ValidateIf((dto) => !dto.roomTypeId)
   @IsString()
   @IsNotEmpty({ message: 'roomNumber is required when no roomTypeId is given' })
@@ -69,11 +66,6 @@ export class CreateBookingDto {
   @Min(1)
   @ApiProperty({ required: false, description: 'Rooms to reserve of roomTypeId' })
   readonly rooms?: number;
-
-  @IsOptional()
-  @IsEnum(BookingStatus)
-  @ApiProperty({ required: false, enum: BookingStatus, description: 'Defaults to confirmed' })
-  readonly status?: BookingStatus;
 
   @IsOptional()
   @IsBoolean()

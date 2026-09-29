@@ -9,9 +9,6 @@ import { RoomsService } from './rooms.service';
 import { InventoryService } from './inventory.service';
 import { RoomInventoryRepository, RoomTypesRepository, RoomsRepository } from './rooms.repository';
 
-// HotelsModule is the hotel-membership check every endpoint here runs, and it
-// reaches BookingsModule, which reaches back here for InventoryService — hence
-// the forwardRef on both sides of that loop.
 @Module({
   imports: [DatabaseModule, CommonModule, AuthModule, AccountsModule, forwardRef(() => HotelsModule)],
   controllers: [RoomsController],

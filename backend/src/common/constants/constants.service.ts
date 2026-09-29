@@ -6,8 +6,6 @@ export const OTP_LENGTH = 6;
 export const DEFAULT_CHECK_IN_TIME = '15:00';
 export const DEFAULT_CHECK_OUT_TIME = '11:00';
 export const DEFAULT_AVAILABILITY_ROOMS = 1;
-// Widest date range the inventory, availability and next-room endpoints accept.
-export const MAX_INVENTORY_NIGHTS = 366;
 
 export enum NotificationTone {
   NONE = 'none',
@@ -51,9 +49,7 @@ export enum HotelMemberStatus {
   DISABLED = 'disabled',
 }
 
-// Lifecycle of a reservation. Stored as a plain string column (see
-// bookings.model.ts) rather than a Postgres enum, matching hotel_accounts.status:
-// enum types on the managed DB are not owned by the app role, so ALTER TYPE fails.
+// Stored as a string column, not a Postgres enum: the app role cannot ALTER TYPE on the managed DB.
 export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -62,12 +58,8 @@ export enum BookingStatus {
   CHECKED_OUT = 'checked_out',
 }
 
-// Staff and PMS bookings are real reservations the moment they are created, and
-// nothing in the product confirms a held booking, so PENDING is never the default.
 export const DEFAULT_BOOKING_STATUS = BookingStatus.CONFIRMED;
 
-// Labelled for the booking screens. Cancelled is offered like any other status:
-// picking it is what releases the nights the booking holds.
 export const BOOKING_STATUSES = [
   { value: BookingStatus.PENDING, label: 'Pending' },
   { value: BookingStatus.CONFIRMED, label: 'Confirmed' },

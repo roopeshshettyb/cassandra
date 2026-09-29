@@ -80,15 +80,7 @@ export class RoomTypeImageDto {
   readonly s3Url: string;
 }
 
-// Powers the "which room will I get?" preview in the booking form. Deliberately a
-// preview only: the room is still chosen inside the booking transaction, so two
-// staff previewing the same room cannot both be given it.
 export class NextRoomQueryDto {
-  @Type(() => Number)
-  @IsInt()
-  @ApiProperty()
-  readonly hotelId: number;
-
   @Type(() => Number)
   @IsInt()
   @ApiProperty()
@@ -111,10 +103,6 @@ export class NextRoomQueryDto {
 }
 
 export class CreateRoomDto {
-  @IsInt()
-  @ApiProperty()
-  readonly hotelId: number;
-
   @IsInt()
   @ApiProperty()
   readonly roomTypeId: number;
@@ -143,8 +131,6 @@ export class UpdateRoomDto {
   readonly status?: RoomStatus;
 }
 
-// Query strings arrive as text, so every numeric field here needs @Type to be a
-// number by the time class-validator sees it.
 export class InventoryQueryDto {
   @Type(() => Number)
   @IsInt()
