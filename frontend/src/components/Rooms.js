@@ -47,7 +47,7 @@ function Rooms({ loading, setLoading, account, alertSuccess, alertError, isMobil
         <PageHeader
           title="Rooms & Inventory"
           right={(
-            <HotelPicker hotels={hotels} value={hotelId} onChange={setHotelId} size="small" sx={{ ...inputSx, width: { xs: '100%', sm: 300 } }} />
+            <HotelPicker hotels={hotels} value={hotelId} onChange={setHotelId} sx={{ ...inputSx, width: { xs: '100%', sm: 300 } }} />
           )}
         />
 
