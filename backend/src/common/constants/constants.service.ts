@@ -8,6 +8,7 @@ export const DEFAULT_CHECK_OUT_TIME = '11:00';
 export const DEFAULT_AVAILABILITY_ROOMS = 1;
 // Widest date range the inventory, availability and next-room endpoints accept.
 export const MAX_INVENTORY_NIGHTS = 366;
+
 export enum NotificationTone {
   NONE = 'none',
   GENTLE_CHIME = 'gentle_chime',
