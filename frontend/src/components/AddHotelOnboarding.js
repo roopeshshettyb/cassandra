@@ -15,6 +15,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, NAVY_GRADIENT, SHADOW, BORDER } from '../theme';
+import constants from '../constants.json';
 
 const FADE = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 } };
 
@@ -231,10 +232,10 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
           {step === 'website-required' && (
             <motion.div key="website" {...FADE} transition={{ duration: 0.2 }}>
               <Box sx={{ p: 3 }}>
-                <Box sx={{ p: 2, bgcolor: 'rgba(212,175,55,0.08)', borderRadius: 2, border: '1px solid rgba(212,175,55,0.2)', mb: 2.5 }}>
+                <Box sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--app-primary) 8%, transparent)', borderRadius: 2, border: '1px solid color-mix(in srgb, var(--app-primary) 20%, transparent)', mb: 2.5 }}>
                   <Typography sx={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>Website not found on Google Maps</Typography>
                   <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.5 }}>
-                    Enter the website URL for <strong>{selectedPlace?.name}</strong> so Samantha can crawl it for hotel details.
+                    Enter the website URL for <strong>{selectedPlace?.name}</strong> so {constants.APP_NAME} can crawl it for hotel details.
                   </Typography>
                 </Box>
                 <TextField fullWidth label="Hotel Website URL" value={manualWebsite}
@@ -257,10 +258,10 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
               <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Box sx={{ position: 'relative', mx: 'auto', mb: 2.5, width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <motion.div animate={{ scale: [1, 1.5, 1], opacity: [0.25, 0, 0.25] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(212,175,55,0.35)' }} />
+                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'color-mix(in srgb, var(--app-primary) 35%, transparent)' }} />
                   <motion.div animate={{ scale: [1, 1.25, 1], opacity: [0.4, 0.1, 0.4] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
-                    style={{ position: 'absolute', inset: 6, borderRadius: '50%', background: 'rgba(212,175,55,0.3)' }} />
-                  <Box sx={{ width: 56, height: 56, borderRadius: '50%', background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(212,175,55,0.5)', zIndex: 1 }}>
+                    style={{ position: 'absolute', inset: 6, borderRadius: '50%', background: 'color-mix(in srgb, var(--app-primary) 30%, transparent)' }} />
+                  <Box sx={{ width: 56, height: 56, borderRadius: '50%', background: BRAND_GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px color-mix(in srgb, var(--app-primary) 50%, transparent)', zIndex: 1 }}>
                     <ApartmentIcon sx={{ color: PRIMARY_CONTRAST, fontSize: 28 }} />
                   </Box>
                 </Box>
@@ -299,7 +300,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         {extractedData.brandName && (
-                          <Chip label={extractedData.brandName} size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(212,175,55,0.12)', color: 'primary.main', border: '1px solid rgba(212,175,55,0.25)' }} />
+                          <Chip label={extractedData.brandName} size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'color-mix(in srgb, var(--app-primary) 12%, transparent)', color: 'primary.main', border: '1px solid color-mix(in srgb, var(--app-primary) 25%, transparent)' }} />
                         )}
                         {extractedData.brandFound && (
                           <Chip label="Brand matched ✓" size="small" sx={{ fontSize: 11, fontWeight: 700, bgcolor: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }} />
@@ -372,7 +373,7 @@ function AddHotelOnboarding({ open, onClose, onHotelCreated, alertError, alertSu
       {step === 'review' && (
         <Box sx={{ px: 3, py: 2, borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'flex-end' }}>
           <Button onClick={handleFinalize} variant="contained" disabled={loading}
-            sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, px: 3.5, py: 1, borderRadius: 2, fontWeight: 700, fontSize: 13, boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
+            sx={{ background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, px: 3.5, py: 1, borderRadius: 2, fontWeight: 700, fontSize: 13, boxShadow: '0 4px 14px color-mix(in srgb, var(--app-primary) 35%, transparent)' }}>
             {loading ? <><CircularProgress size={14} sx={{ mr: 1, color: 'inherit' }} />Saving...</> : 'Confirm & Save'}
           </Button>
         </Box>

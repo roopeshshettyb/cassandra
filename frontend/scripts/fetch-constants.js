@@ -4,12 +4,18 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load the correct .env file so that process.env values are available in this Node script
-const envFile = '.env.development';
-
-dotenv.config({ path: path.join(__dirname, '..', envFile) });
+// In a build container (Amplify, CI) REACT_APP_BACKEND_URL is exported in the environment and
+// .env.development does not exist there — it is gitignored. Locally it comes from that file.
+if (!process.env.REACT_APP_BACKEND_URL) {
+  dotenv.config({ path: path.join(__dirname, '..', '.env.development') });
+}
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+if (!BACKEND_URL) {
+  console.error('✗ REACT_APP_BACKEND_URL is not set. Export it in the build environment, or add it to frontend/.env.development for local runs.');
+  process.exit(1);
+}
 
 const OUTPUT_PATH = path.join(__dirname, '..', 'src', 'constants.json');
 
@@ -40,7 +46,7 @@ function fetchConstants() {
     });
 
     req.on('error', (error) => {
-      // reject(new Error(`Request failed: ${error.message}`));
+      reject(new Error(`Request failed: ${error.message || error.code || error}`));
     });
 
     req.setTimeout(10000, () => {

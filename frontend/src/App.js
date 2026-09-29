@@ -46,25 +46,6 @@ import { useNotifications } from './notifications/hooks/useNotifications';
 import { useSocketVoice } from './components/AvatarChatbot/hooks/useSocketVoice';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 
-// Default theme if not in constants
-const DEFAULT_THEME_DEFAULTS = {
-  PRIMARY_COLOR: '#D4AF37',
-  SECONDARY_COLOR: '#C5A022',
-  NAVY_COLOR: '#1B2340',
-  NAVY_LIGHT_COLOR: '#263462',
-  PRIMARY_HOVER_COLOR: '#B8860B',
-  BACKGROUND_DEFAULT_LIGHT: '#F8F7F4',
-  BACKGROUND_DEFAULT_DARK: '#000000',
-  BACKGROUND_PAPER_LIGHT: '#FFFFFF',
-  BACKGROUND_PAPER_DARK: '#121212',
-  FONT_FAMILY: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-};
-
-// Ensure constants has THEME_DEFAULTS
-if (!constants.THEME_DEFAULTS) {
-  constants.THEME_DEFAULTS = DEFAULT_THEME_DEFAULTS;
-}
-
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -257,8 +238,15 @@ const AppContent = () => {
     r.setProperty('--app-brand-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`);
     r.setProperty('--app-navy-gradient', `linear-gradient(135deg, ${navy} 0%, ${navyLight} 100%)`);
     r.setProperty('--app-navy', navy);
+    r.setProperty('--app-navy-light', navyLight);
+    r.setProperty('--app-primary-hover', themeConfig?.primaryHoverColor || constants.THEME_DEFAULTS.PRIMARY_HOVER_COLOR);
     r.setProperty('--app-primary', primary);
     r.setProperty('--app-secondary', secondary);
+    r.setProperty(
+      '--app-bg',
+      themeConfig?.backgroundDefault ||
+        (mode === 'dark' ? constants.THEME_DEFAULTS.BACKGROUND_DEFAULT_DARK : constants.THEME_DEFAULTS.BACKGROUND_DEFAULT_LIGHT),
+    );
     r.setProperty('--app-primary-contrast', contrastText);
     r.setProperty('--app-border', mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)');
     r.setProperty('--app-nav-bg', mode === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.8)');
