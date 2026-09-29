@@ -249,9 +249,7 @@ export class HotelsService {
       await Cost.destroy({ where: { hotelId: id }, force, transaction });
       await HotelIntegration.destroy({ where: { hotelId: id }, force, transaction });
 
-      // room_inventory hangs off room types, not the hotel, so its ids have to be
-      // collected before the room types they point at are destroyed. Bookings are
-      // already gone by here, which is what released the nights these rows held.
+      // room_inventory is keyed by room type, not hotel.
       const roomTypes = await RoomType.findAll({
         where: { hotelId: id },
         attributes: ['id'],
@@ -259,9 +257,7 @@ export class HotelsService {
         transaction,
       });
       const roomTypeIds = roomTypes.map((roomType) => roomType.id);
-      if (roomTypeIds.length > 0) {
-        await RoomInventory.destroy({ where: { roomTypeId: { [Op.in]: roomTypeIds } }, force, transaction });
-      }
+      await RoomInventory.destroy({ where: { roomTypeId: { [Op.in]: roomTypeIds } }, force, transaction });
       await Room.destroy({ where: { hotelId: id }, force, transaction });
       await RoomType.destroy({ where: { hotelId: id }, force, transaction });
       await this.hotelAccountsRepository.destroy({ where: { hotelId: id }, force, transaction });

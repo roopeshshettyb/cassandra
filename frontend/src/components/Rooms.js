@@ -16,29 +16,14 @@ const TABS = [
   { key: 'availability', label: 'Availability', Icon: EventAvailableOutlined },
 ];
 
-/**
- * Rooms & Inventory as its own top-level page, alongside Manage Hotels.
- *
- * Rooms belong to a hotel, so the hotel is picked here and everything below reacts
- * to it — rather than reaching this screen through a particular hotel, which is how
- * it worked when it lived as a tab on the hotel page.
- */
 function Rooms({ loading, setLoading, account, alertSuccess, alertError, isMobile }) {
   const [hotels, setHotels] = useState([]);
   const [hotelId, setHotelId] = useState('');
-  // Held here rather than in ManageRooms, which remounts on a hotel switch, so the open tab survives it.
+  // Kept here so the open tab survives ManageRooms remounting on a hotel switch.
   const [tab, setTab] = useState('types');
 
   useEffect(() => {
-    (async () => {
-      const res = await request({ endpoint: '/hotels', method: 'GET', setLoading, defaultData: [], alertError, setData: setHotels, delay: false });
-      // Most staff are on a single property, so making them choose it every time is
-      // friction for nothing. Anyone with more than one still picks.
-      const list = res?.data || [];
-      if (list.length === 1) {
-        setHotelId(String(list[0].id));
-      }
-    })();
+    request({ endpoint: '/hotels', method: 'GET', defaultData: [], alertError, setData: setHotels });
   }, []);
 
   return (
@@ -54,9 +39,7 @@ function Rooms({ loading, setLoading, account, alertSuccess, alertError, isMobil
         {hotelId ? (
           <>
             <DetailTabBar tabs={TABS} active={tab} onChange={setTab} />
-            {/* Keyed by hotel so switching hotels remounts it: ManageRooms loads its
-                room types and rooms once on mount, and every form and filter inside it
-                belongs to the hotel it was opened for. */}
+            {/* Keyed by hotel so switching hotels reloads everything. */}
             <ManageRooms
               key={hotelId}
               hotelId={Number(hotelId)}
