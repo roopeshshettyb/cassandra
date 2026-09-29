@@ -1,6 +1,6 @@
 import { WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
@@ -38,7 +38,7 @@ interface TurnState {
  */
 @WebSocketGateway({ cors: true, namespace: '/reservation-voice' })
 @Injectable()
-export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -322,6 +322,45 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.emit('error', { message: this.constantsService.public.ERROR_RESERVATION_VOICE_FAILED });
       return null;
     }
+  }
+
+  /**
+   * Synthesise every filler once at boot, so no caller is the one who warms it.
+   *
+   * Warming a phrase on demand does not work: with two dozen of them picked at
+   * random, a call has to be unlucky to reuse one, so measured across eight
+   * calls only the last was fast and the mean came out worse than having no
+   * filler at all. Every deploy empties the cache, so the alternative is most
+   * callers hearing nothing.
+   *
+   * In the background and never awaited — a TTS outage must not stop the
+   * gateway coming up, and the fillers are the first thing to go without.
+   */
+  onModuleInit(): void {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const phrases = cfg.THINKING_FILLERS ?? [];
+    if (phrases.length === 0) {
+      return;
+    }
+    void (async () => {
+      try {
+        const provider = this.ttsFactory.getProvider(cfg.TTS_PROVIDER) as TtsProvider;
+        const keepTags = this.ttsUnderstandsTags();
+        for (const phrase of phrases) {
+          const spoken = keepTags ? phrase : stripAudioTags(phrase);
+          if (spoken) {
+            // One at a time: this is warming a cache, not racing anybody.
+            await this.getFillerChunks(spoken, null, provider);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn({
+          message: err?.message ?? String(err),
+          serviceName: 'ReservationVoiceGateway',
+          actionName: 'warmFillers',
+        });
+      }
+    })();
   }
 
   /**
