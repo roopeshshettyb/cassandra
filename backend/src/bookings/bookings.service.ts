@@ -458,9 +458,9 @@ export class BookingsService {
     const subject = `Your booking is confirmed - open ${appName} to help with your stay`;
 
     const greeting = guestName ? `Hi ${guestName},` : 'Hi,';
-    const cta = 'Start talking with Samantha by clicking here';
+    const cta = `Start talking with ${appName} by clicking here`;
     const text = `${greeting}\n\nYour booking at ${hotel.name} is confirmed.\n\n${cta}\n\n${inviteUrl}`;
-    const contentHtml = `<p>${greeting}</p><p>Your booking at <strong>${hotel.name}</strong> is confirmed.</p><p>Start talking with Samantha by clicking <a href="${inviteUrl}">here</a>.</p>`;
+    const contentHtml = `<p>${greeting}</p><p>Your booking at <strong>${hotel.name}</strong> is confirmed.</p><p>Start talking with ${appName} by clicking <a href="${inviteUrl}">here</a>.</p>`;
     const html = this.mailerService.buildBaseEmailHtml(contentHtml);
 
     await this.mailerService.sendMail({

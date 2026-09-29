@@ -551,6 +551,7 @@ export class HotelsService {
 
     const publicConstants = this.constantsService.public;
     const appName = publicConstants.APP_NAME;
+    const theme = publicConstants.THEME_DEFAULTS;
 
     const subject = `${appName} - You have been invited to join hotel members`;
 
@@ -569,7 +570,7 @@ ${inviteUrl}`;
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
   <tr>
     <td align="center" valign="middle" style="padding:16px 0;">
-      <a href="${inviteUrl}" style="display:inline-block;background:linear-gradient(135deg,#D4AF37,#C5A022);color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:8px;">${cta}</a>
+      <a href="${inviteUrl}" style="display:inline-block;background:linear-gradient(135deg,${theme.PRIMARY_COLOR},${theme.SECONDARY_COLOR});color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:8px;">${cta}</a>
     </td>
   </tr>
 </table>`;

@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import MapComponent from './MapComponent';
 import { FormCard, FormField, HoursRow, HOURS_FIELDS, LABEL_SX, inputSx } from './cards/AppCards';
 import { NAVY, NAVY_GRADIENT, NAVY_CONTRAST, MUTED, BORDER, BRAND_GRADIENT, PRIMARY_CONTRAST, TEXT_MUTED_LIGHT } from '../theme';
+import constants from '../constants.json';
 
 // ── Shell components ───────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export function BasicThemePicker({ editValues, handleInputChange }) {
         <FormField key={key} label={label}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '6px 6px 6px 14px', borderRadius: 1.5, border: `1px solid ${BORDER}`, bgcolor: 'background.paper' }}>
             <Typography sx={{ flex: 1, fontSize: 13, fontFamily: 'monospace', color: NAVY }}>{editValues[key] || '—'}</Typography>
-            <Box component="input" type="color" value={editValues[key] || '#1B2340'} onChange={handleInputChange(key)}
+            <Box component="input" type="color" value={editValues[key] || constants.THEME_DEFAULTS.NAVY_COLOR} onChange={handleInputChange(key)}
               sx={{ width: 38, height: 38, border: 'none', borderRadius: 1, cursor: 'pointer', p: 0, bgcolor: 'transparent' }} />
           </Box>
         </FormField>
