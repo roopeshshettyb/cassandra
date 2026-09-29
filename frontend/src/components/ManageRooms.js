@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, TextField, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem as MuiMenuItem } from '@mui/material';
+import { Autocomplete, Box, Chip, Typography, TextField, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem as MuiMenuItem } from '@mui/material';
 import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
-import { CARD_SX, ROW_SX, ColumnLabel } from './cards/AppCards';
-import { NAVY, MUTED, BORDER, BG, BRAND_GRADIENT, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
+import { CARD_SX, ROW_SX, ColumnLabel, FormFieldRow, PrimaryButton, inputSx } from './cards/AppCards';
+import { NAVY, MUTED, BORDER, BG, PERK_BG, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
 import constants from '../constants.json';
 
-const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13 } };
-const noSpinnerSx = {
-  ...inputSx,
-  '& input[type=number]': { MozAppearance: 'textfield' },
-  '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-};
+// Same field setup as the New Booking form, so the two read as one app.
+const TYPE_FIELDS = [
+  { field: 'name', label: 'Name', type: 'text', required: true },
+  { field: 'maxOccupancy', label: 'Max occupancy', type: 'number', required: true, getInputProps: () => ({ min: 1 }) },
+  { field: 'totalRooms', label: 'Total rooms', type: 'number', required: true, getInputProps: () => ({ min: 0 }) },
+];
+const ROOM_NUMBER_FIELD = { field: 'roomNumber', label: 'Room number', type: 'text', required: true };
+
+// Menus sit above the fixed mobile header (1400), as the booking form's do.
+const SELECT_PROPS = { MenuProps: { sx: { zIndex: 1400 } } };
+
+// Matches the perk chips the booking form shows for the chosen room type.
+const PERK_CHIP_SX = { fontSize: 11, fontWeight: 700, bgcolor: PERK_BG, color: NAVY, border: `1px solid ${BORDER}` };
 
 const ROOM_STATUSES = [
   { value: 'active', label: 'Active' },
@@ -59,7 +66,7 @@ const RoomTypeImage = ({ data: url, onRemove }) => (
   </Box>
 );
 
-const defaultTypeForm = { name: '', maxOccupancy: '', totalRooms: '', perks: '' };
+const defaultTypeForm = { name: '', maxOccupancy: '', totalRooms: '', perks: [] };
 const defaultRoomForm = { roomNumber: '', roomTypeId: '', status: 'active' };
 
 const toDateInput = date => {
@@ -75,10 +82,24 @@ const addDays = (date, days) => {
   return next;
 };
 
-// The desktop sidebar is fixed at 20vw and stacks above dialogs, so a form centred on
-// the whole window slides underneath it on narrower screens. Centring it in the content
-// area instead, as ManageBookings does for its New Booking form, keeps it clear.
-const dialogSx = isMobile => ({ '& .MuiDialog-container': { pl: isMobile ? 0 : '20vw' } });
+// Placed as ManageBookings places its New Booking form: below the header, and centred
+// in the content area so the fixed 20vw desktop sidebar cannot cover it.
+const dialogSx = isMobile => ({ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)', pl: isMobile ? 0 : '20vw' } });
+// Rounded like the booking dialogs, and never taller than the space under the header,
+// so a long form scrolls inside while its buttons stay in view.
+const DIALOG_PAPER_PROPS = { sx: { borderRadius: 3, maxHeight: 'calc(100svh - var(--app-header-height) - 1svh - 64px - 2svh)' } };
+const DIALOG_TITLE_SX = { fontWeight: 700, color: NAVY };
+const FORM_SX = { display: 'flex', flexDirection: 'column', minHeight: 0 };
+const ACTIONS_SX = { px: 3, pb: 3, pt: 2, borderTop: `1px solid ${BORDER}`, flexShrink: 0 };
+
+// Adds typed text to the perk list, split on commas, dropping blanks and repeats.
+const addPerks = (perks, text) => {
+  const next = [...perks];
+  text.split(',').map(p => p.trim()).filter(Boolean).forEach(p => {
+    if (!next.some(existing => existing.toLowerCase() === p.toLowerCase())) next.push(p);
+  });
+  return next;
+};
 
 const TODAY = toDateInput(new Date());
 const IN_A_WEEK = toDateInput(addDays(new Date(), 7));
@@ -202,13 +223,6 @@ const SectionHeader = ({ title, subtitle, action }) => (
   </Box>
 );
 
-const PrimaryButton = ({ children, onClick, type }) => (
-  <Box component="button" type={type || 'button'} onClick={onClick}
-    sx={{ border: 'none', background: BRAND_GRADIENT, color: 'var(--app-primary-contrast)', px: 2, py: 0.9, borderRadius: 1.5, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-    {children}
-  </Box>
-);
-
 function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, alertSuccess, alertError }) {
   const canManage = !!constants.PERMISSIONS.CAN_MANAGE_ROOMS[account?.role];
 
@@ -225,6 +239,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [typeForm, setTypeForm] = useState(defaultTypeForm);
   const [editingTypeImages, setEditingTypeImages] = useState([]);
+  const [perkInput, setPerkInput] = useState('');
   const [roomForm, setRoomForm] = useState(defaultRoomForm);
 
   const [inventoryFilter, setInventoryFilter] = useState({ roomTypeId: '', startDate: TODAY, endDate: IN_A_WEEK });
@@ -249,10 +264,21 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
   const handleStockChange = field => e => setStockForm(prev => ({ ...prev, [field]: e.target.value }));
   const handleSearchChange = field => e => setSearchForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setEditingTypeImages([]); setShowTypeForm(true); };
+  // A comma finishes a perk just as Enter does, so pasting "Wi-Fi, Breakfast" gives two chips.
+  const handlePerkInput = (_, value) => {
+    if (!value.includes(',')) { setPerkInput(value); return; }
+    const parts = value.split(',');
+    const unfinished = parts.pop();
+    setTypeForm(prev => ({ ...prev, perks: addPerks(prev.perks, parts.join(',')) }));
+    setPerkInput(unfinished.trimStart());
+  };
+  const handlePerksChange = (_, perks) => setTypeForm(prev => ({ ...prev, perks: addPerks([], perks.join(',')) }));
+
+  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setPerkInput(''); setEditingTypeImages([]); setShowTypeForm(true); };
   const openEditType = roomType => {
     setEditingType(roomType);
-    setTypeForm({ name: roomType.name || '', maxOccupancy: roomType.maxOccupancy ?? '', totalRooms: roomType.totalRooms ?? '', perks: (roomType.perks || []).join(', ') });
+    setTypeForm({ name: roomType.name || '', maxOccupancy: roomType.maxOccupancy ?? '', totalRooms: roomType.totalRooms ?? '', perks: roomType.perks || [] });
+    setPerkInput('');
     setEditingTypeImages(roomType.images || []);
     setShowTypeForm(true);
   };
@@ -322,8 +348,8 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
       name: typeForm.name,
       maxOccupancy,
       totalRooms,
-      // Typed as a comma-separated line, stored as an array.
-      perks: typeForm.perks.split(',').map(p => p.trim()).filter(Boolean),
+      // A perk still being typed when Save is pressed is kept, not dropped.
+      perks: addPerks(typeForm.perks, perkInput),
     };
     const res = await request({
       endpoint: editingType ? `/rooms/types/${editingType.id}` : '/rooms/types',
@@ -446,19 +472,20 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
             title="Inventory calendar"
             subtitle="Rooms sellable per night. Available is total minus reserved minus blocked."
           />
-          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
-            <TextField size="small" select label="Room type" value={inventoryFilter.roomTypeId} onChange={handleFilterChange('roomTypeId')} sx={inputSx}>
+          {/* Full-size fields as in the booking form; the button stretches to their height. */}
+          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
+            <TextField select label="Room type" value={inventoryFilter.roomTypeId} onChange={handleFilterChange('roomTypeId')} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
               {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
             </TextField>
-            <TextField size="small" type="date" label="From" value={inventoryFilter.startDate} onChange={handleFilterChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField size="small" type="date" label="To" value={inventoryFilter.endDate} onChange={handleFilterChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="date" label="From" value={inventoryFilter.startDate} onChange={handleFilterChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="date" label="To" value={inventoryFilter.endDate} onChange={handleFilterChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
             <PrimaryButton onClick={loadInventory}>Show nights</PrimaryButton>
           </Box>
 
           {canManage && (
-            <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
-              <TextField size="small" type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.total} onChange={handleStockChange('total')} InputLabelProps={{ shrink: true }} sx={noSpinnerSx} />
-              <TextField size="small" type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.blocked} onChange={handleStockChange('blocked')} InputLabelProps={{ shrink: true }} sx={noSpinnerSx} />
+            <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
+              <TextField type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.total} onChange={handleStockChange('total')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+              <TextField type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.blocked} onChange={handleStockChange('blocked')} InputLabelProps={{ shrink: true }} sx={inputSx} />
               <PrimaryButton onClick={saveStock}>Apply to range</PrimaryButton>
             </Box>
           )}
@@ -477,11 +504,11 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
             title="Check availability"
             subtitle="A room type only shows here if every night of the stay has enough rooms free."
           />
-          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'center' }}>
-            <TextField size="small" type="date" label="Check-in" value={searchForm.startDate} onChange={handleSearchChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField size="small" type="date" label="Check-out" value={searchForm.endDate} onChange={handleSearchChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField size="small" type="number" label="Guests" inputProps={{ min: 1 }} value={searchForm.guests} onChange={handleSearchChange('guests')} sx={noSpinnerSx} />
-            <TextField size="small" type="number" label="Rooms" inputProps={{ min: 1 }} value={searchForm.rooms} onChange={handleSearchChange('rooms')} sx={noSpinnerSx} />
+          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
+            <TextField type="date" label="Check-in" value={searchForm.startDate} onChange={handleSearchChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="date" label="Check-out" value={searchForm.endDate} onChange={handleSearchChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="number" label="Guests" inputProps={{ min: 1 }} value={searchForm.guests} onChange={handleSearchChange('guests')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="number" label="Rooms" inputProps={{ min: 1 }} value={searchForm.rooms} onChange={handleSearchChange('rooms')} InputLabelProps={{ shrink: true }} sx={inputSx} />
             <PrimaryButton onClick={search}>Search</PrimaryButton>
           </Box>
           <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: AVAILABILITY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
@@ -492,23 +519,34 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
       )}
 
       {/* Room type add / edit */}
-      <Dialog open={showTypeForm} onClose={() => setShowTypeForm(false)} fullWidth maxWidth="sm" sx={dialogSx(isMobile)}>
-        <DialogTitle sx={{ fontWeight: 800 }}>{editingType ? 'Edit room type' : 'Add room type'}</DialogTitle>
-        <Box component="form" onSubmit={submitType}>
+      <Dialog open={showTypeForm} onClose={() => setShowTypeForm(false)} fullWidth maxWidth="sm" PaperProps={DIALOG_PAPER_PROPS} sx={dialogSx(isMobile)}>
+        <DialogTitle sx={DIALOG_TITLE_SX}>{editingType ? 'Edit room type' : 'Add room type'}</DialogTitle>
+        <Box component="form" onSubmit={submitType} sx={FORM_SX}>
           <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField fullWidth size="small" label="Name" placeholder="Deluxe King" value={typeForm.name} onChange={handleTypeChange('name')} required sx={inputSx} />
-              <TextField fullWidth size="small" type="number" label="Max occupancy" inputProps={{ min: 1 }} value={typeForm.maxOccupancy} onChange={handleTypeChange('maxOccupancy')} required sx={noSpinnerSx} />
-              <TextField fullWidth size="small" type="number" label="Total rooms" inputProps={{ min: 0 }} value={typeForm.totalRooms} onChange={handleTypeChange('totalRooms')} required sx={noSpinnerSx} />
-              <TextField
-                fullWidth
-                size="small"
-                label="Perks"
-                placeholder="Breakfast included, Free Wi-Fi, Airport pickup"
-                helperText="Separate each one with a comma"
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <MapComponent Component={FormFieldRow} data={TYPE_FIELDS} values={typeForm} onChange={handleTypeChange} showNoDataAvailable={false} isLoading={false} />
+              <Autocomplete
+                multiple
+                freeSolo
+                options={[]}
                 value={typeForm.perks}
-                onChange={handleTypeChange('perks')}
-                sx={inputSx}
+                onChange={handlePerksChange}
+                inputValue={perkInput}
+                onInputChange={handlePerkInput}
+                renderTags={(perks, getTagProps) => perks.map((perk, index) => {
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return <Chip key={key} label={perk} size="small" {...tagProps} sx={PERK_CHIP_SX} />;
+                })}
+                renderInput={params => (
+                  <TextField
+                    {...params}
+                    label="Perks"
+                    placeholder={typeForm.perks.length ? 'Add another' : 'Breakfast included'}
+                    helperText="Press Enter or type a comma after each perk"
+                    InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+                    sx={inputSx}
+                  />
+                )}
               />
               {editingType && (
                 <Typography sx={{ fontSize: 12, color: MUTED }}>
@@ -533,45 +571,45 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
               )}
             </Box>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setShowTypeForm(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">{editingType ? 'Save changes' : 'Add room type'}</Button>
+          <DialogActions sx={ACTIONS_SX}>
+            <Button onClick={() => setShowTypeForm(false)} sx={{ color: MUTED }}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary">{editingType ? 'Save changes' : 'Add room type'}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       {/* Room add / edit */}
-      <Dialog open={showRoomForm} onClose={() => setShowRoomForm(false)} fullWidth maxWidth="sm" sx={dialogSx(isMobile)}>
-        <DialogTitle sx={{ fontWeight: 800 }}>{editingRoom ? 'Edit room' : 'Add room'}</DialogTitle>
-        <Box component="form" onSubmit={submitRoom}>
+      <Dialog open={showRoomForm} onClose={() => setShowRoomForm(false)} fullWidth maxWidth="sm" PaperProps={DIALOG_PAPER_PROPS} sx={dialogSx(isMobile)}>
+        <DialogTitle sx={DIALOG_TITLE_SX}>{editingRoom ? 'Edit room' : 'Add room'}</DialogTitle>
+        <Box component="form" onSubmit={submitRoom} sx={FORM_SX}>
           <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField fullWidth size="small" label="Room number" value={roomForm.roomNumber} onChange={handleRoomChange('roomNumber')} required sx={inputSx} />
-              <TextField fullWidth size="small" select label="Room type" value={roomForm.roomTypeId} onChange={handleRoomChange('roomTypeId')} required disabled={!!editingRoom} sx={inputSx}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <FormFieldRow data={ROOM_NUMBER_FIELD} values={roomForm} onChange={handleRoomChange} />
+              <TextField fullWidth select label="Room type" value={roomForm.roomTypeId} onChange={handleRoomChange('roomTypeId')} required disabled={!!editingRoom} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
                 {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
               </TextField>
-              <TextField fullWidth size="small" select label="Status" value={roomForm.status} onChange={handleRoomChange('status')} sx={inputSx}>
+              <TextField fullWidth select label="Status" value={roomForm.status} onChange={handleRoomChange('status')} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
                 {ROOM_STATUSES.map(s => <MuiMenuItem key={s.value} value={s.value}>{s.label}</MuiMenuItem>)}
               </TextField>
             </Box>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setShowRoomForm(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">{editingRoom ? 'Save changes' : 'Add room'}</Button>
+          <DialogActions sx={ACTIONS_SX}>
+            <Button onClick={() => setShowRoomForm(false)} sx={{ color: MUTED }}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary">{editingRoom ? 'Save changes' : 'Add room'}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       {/* Delete confirm */}
-      <Dialog open={showDelete} onClose={() => setShowDelete(false)} sx={dialogSx(isMobile)}>
-        <DialogTitle>{deleteTarget?.kind === 'type' ? 'Delete room type' : 'Delete room'}</DialogTitle>
+      <Dialog open={showDelete} onClose={() => setShowDelete(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }} sx={dialogSx(isMobile)}>
+        <DialogTitle sx={DIALOG_TITLE_SX}>{deleteTarget?.kind === 'type' ? 'Delete room type' : 'Delete room'}</DialogTitle>
         <DialogContent>
           <DialogContentText>
             Delete &quot;{deleteTarget?.kind === 'type' ? deleteTarget?.item?.name : deleteTarget?.item?.roomNumber}&quot;? Cannot be undone.
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowDelete(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setShowDelete(false)} sx={{ color: MUTED }}>Cancel</Button>
           <Button onClick={handleDelete} color="error" variant="contained">Delete</Button>
         </DialogActions>
       </Dialog>
