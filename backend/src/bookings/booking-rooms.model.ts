@@ -2,8 +2,6 @@ import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize
 import { Booking } from './bookings.model';
 import { Room } from '../rooms/rooms.model';
 
-// Which physical room is held for which nights. Dates are stored here as well as
-// on the booking so a room can be swapped mid-stay without rewriting the booking.
 @Table({ tableName: 'booking_rooms' })
 export class BookingRoom extends Model<BookingRoom> {
   @Column({

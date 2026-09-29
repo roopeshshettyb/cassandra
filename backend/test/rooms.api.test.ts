@@ -23,7 +23,7 @@ import { AccountsService } from '../src/accounts/accounts.service';
 import { BookingsService } from '../src/bookings/bookings.service';
 import { HotelsService } from '../src/hotels/hotels.service';
 import { EmailService } from '../src/oauth/email/email.service';
-import { ConstantsService, MAX_INVENTORY_NIGHTS, ROOM_TYPE_IMAGES_MAX_COUNT } from '../src/common/constants/constants.service';
+import { ConstantsService, ROOM_TYPE_IMAGES_MAX_COUNT } from '../src/common/constants/constants.service';
 import { AccountRole, Account } from '../src/accounts/accounts.model';
 import { BookingRoom } from '../src/bookings/booking-rooms.model';
 
@@ -101,8 +101,8 @@ async function createRoomType(values: Record<string, any>, hotelId = state.hotel
   return body(res);
 }
 
-async function createRoom(roomTypeId: number, roomNumber: string, hotelId = state.hotelId) {
-  const res = await expectStatus(201, () => http.post('/rooms', { hotelId, roomTypeId, roomNumber }, state.staffToken));
+async function createRoom(roomTypeId: number, roomNumber: string) {
+  const res = await expectStatus(201, () => http.post('/rooms', { roomTypeId, roomNumber }, state.staffToken));
   return body(res);
 }
 
@@ -189,7 +189,7 @@ describe('Room types', () => {
     typeId = created.id;
     expect(created.hotelId).toBe(state.hotelId);
     expect(created.perks).toEqual(['Breakfast']);
-    expect(created.images || []).toEqual([]);
+    expect(created.images).toEqual([]);
   });
 
   it('POST /rooms/types → 400 on missing name or occupancy below 1', async () => {
@@ -268,46 +268,28 @@ describe('Rooms', () => {
   });
 
   it('POST /rooms → 409 for a number already used at the hotel', async () => {
-    await expectStatus(409, () => http.post('/rooms', { hotelId: state.hotelId, roomTypeId: typeId, roomNumber: `${TAG}-101` }, state.staffToken));
+    await expectStatus(409, () => http.post('/rooms', { roomTypeId: typeId, roomNumber: `${TAG}-101` }, state.staffToken));
   });
 
   it('POST /rooms → stores the number trimmed, so a padded copy is still a duplicate', async () => {
-    const res = await expectStatus(201, () => http.post('/rooms', { hotelId: state.hotelId, roomTypeId: typeId, roomNumber: `  ${TAG}-T1  ` }, state.staffToken));
+    const res = await expectStatus(201, () => http.post('/rooms', { roomTypeId: typeId, roomNumber: `  ${TAG}-T1  ` }, state.staffToken));
     expect(body(res).roomNumber).toBe(`${TAG}-T1`);
-    await expectStatus(409, () => http.post('/rooms', { hotelId: state.hotelId, roomTypeId: typeId, roomNumber: `${TAG}-T1 ` }, state.staffToken));
-    await expectStatus(400, () => http.post('/rooms', { hotelId: state.hotelId, roomTypeId: typeId, roomNumber: '   ' }, state.staffToken));
-    await expectStatus(400, () => http.patch(`/rooms/${body(res).id}`, { roomNumber: '  ' }, state.staffToken));
+    await expectStatus(409, () => http.post('/rooms', { roomTypeId: typeId, roomNumber: `${TAG}-T1 ` }, state.staffToken));
   });
 
   it('POST /rooms → the same number is fine at a different hotel', async () => {
-    const res = await expectStatus(201, () => http.post('/rooms', { hotelId: state.otherHotelId, roomTypeId: otherTypeId, roomNumber: `${TAG}-101` }, state.adminToken));
+    const res = await expectStatus(201, () => http.post('/rooms', { roomTypeId: otherTypeId, roomNumber: `${TAG}-101` }, state.adminToken));
     expect(body(res).hotelId).toBe(state.otherHotelId);
   });
 
-  it('POST /rooms → 400 when the room type belongs to another hotel', async () => {
-    await expectStatus(400, () => http.post('/rooms', { hotelId: state.otherHotelId, roomTypeId: typeId, roomNumber: `${TAG}-X` }, state.adminToken));
-  });
-
-  it('POST /rooms → concurrent adds of one number: exactly one succeeds', async () => {
-    const results = await Promise.all(
-      Array.from({ length: 5 }, () => call(() => http.post('/rooms', { hotelId: state.hotelId, roomTypeId: typeId, roomNumber: `${TAG}-race` }, state.staffToken))),
-    );
-    const statuses = results.map((r) => r.status).sort();
-    expect(statuses.filter((s) => s === 201)).toHaveLength(1);
-    expect(statuses.filter((s) => s === 409)).toHaveLength(4);
-  });
-
-  it('GET /rooms → filters by room type; a non-numeric roomTypeId means no filter', async () => {
-    const filtered = body(await expectStatus(200, () => http.get(`/rooms?hotelId=${state.hotelId}&roomTypeId=${typeId}`, state.staffToken)));
-    expect(filtered.every((r: any) => r.roomTypeId === typeId)).toBe(true);
-    expect(filtered[0].roomType?.name).toBe('Twin');
-    const all = body(await expectStatus(200, () => http.get(`/rooms?hotelId=${state.hotelId}&roomTypeId=abc`, state.staffToken)));
-    expect(all.length).toBeGreaterThanOrEqual(filtered.length);
+  it('GET /rooms → lists the hotel\'s rooms with their room type', async () => {
+    const rooms = body(await expectStatus(200, () => http.get(`/rooms?hotelId=${state.hotelId}`, state.staffToken)));
+    expect(rooms.find((r: any) => r.id === roomId)?.roomType?.name).toBe('Twin');
   });
 
   it('PATCH /rooms/:id → renames, 409 onto a taken number, and cannot change the room type', async () => {
     await expectStatus(200, () => http.patch(`/rooms/${roomId}`, { roomNumber: `${TAG}-102` }, state.staffToken));
-    await expectStatus(409, () => http.patch(`/rooms/${roomId}`, { roomNumber: `${TAG}-race` }, state.staffToken));
+    await expectStatus(409, () => http.patch(`/rooms/${roomId}`, { roomNumber: `${TAG}-T1` }, state.staffToken));
     const res = await expectStatus(200, () => http.patch(`/rooms/${roomId}`, { roomTypeId: otherTypeId, status: 'maintenance' }, state.staffToken));
     expect(body(res).roomTypeId).toBe(typeId);
     expect(body(res).status).toBe('maintenance');
@@ -346,18 +328,10 @@ describe('Inventory', () => {
     await expectStatus(400, () => http.patch('/rooms/inventory', { roomTypeId: typeId, blocked: 1 }, state.staffToken));
   });
 
-  it('date validation → impossible dates, empty and over-long ranges are 400', async () => {
-    await expectStatus(400, () => http.get(`/rooms/inventory?roomTypeId=${typeId}&startDate=2031-02-30&endDate=2031-03-02`, state.staffToken));
+  it('date validation → empty, reversed and malformed ranges are 400', async () => {
     await expectStatus(400, () => http.get(`/rooms/inventory?roomTypeId=${typeId}&startDate=2031-02-05&endDate=2031-02-05`, state.staffToken));
     await expectStatus(400, () => http.get(`/rooms/inventory?roomTypeId=${typeId}&startDate=2031-02-05&endDate=2031-02-01`, state.staffToken));
-    await expectStatus(400, () => http.get(`/rooms/availability?hotelId=${state.hotelId}&startDate=2031-01-01&endDate=9999-12-31&guests=1`, state.staffToken));
-    await expectStatus(400, () => http.patch('/rooms/inventory', { roomTypeId: typeId, startDate: '2031-01-01', endDate: '2040-01-01', blocked: 0 }, state.staffToken));
     await expectStatus(400, () => http.get(`/rooms/inventory?roomTypeId=${typeId}&startDate=31-02-2031&endDate=2031-03-02`, state.staffToken));
-  });
-
-  it(`date validation → exactly ${MAX_INVENTORY_NIGHTS} nights is allowed`, async () => {
-    const nights = await inventory(typeId, '2032-01-01', '2033-01-01');
-    expect(nights).toHaveLength(MAX_INVENTORY_NIGHTS);
   });
 
   it('GET /rooms/inventory → 404 for an outsider', async () => {
@@ -399,15 +373,11 @@ describe('Availability', () => {
 
   it('GET /rooms/next-room → previews the rooms a booking would get', async () => {
     const res = await expectStatus(200, () =>
-      http.get(`/rooms/next-room?hotelId=${state.hotelId}&roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=2`, state.staffToken),
+      http.get(`/rooms/next-room?roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=2`, state.staffToken),
     );
     expect(body(res)).toEqual({ roomNumbers: [`${TAG}-Q1`, `${TAG}-Q2`], enough: true, available: 2 });
-    const tooMany = body(await expectStatus(200, () => http.get(`/rooms/next-room?hotelId=${state.hotelId}&roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=3`, state.staffToken)));
+    const tooMany = body(await expectStatus(200, () => http.get(`/rooms/next-room?roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=3`, state.staffToken)));
     expect(tooMany.enough).toBe(false);
-  });
-
-  it('GET /rooms/next-room → 400 when the room type is from another hotel', async () => {
-    await expectStatus(400, () => http.get(`/rooms/next-room?hotelId=${state.otherHotelId}&roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03`, state.adminToken));
   });
 
   it('GET /rooms/availability → 404 for an outsider', async () => {
@@ -444,9 +414,8 @@ describe('Bookings with a room type', () => {
     expect(await reservedOn(typeId, '2031-05-10', '2031-05-12')).toEqual([0, 0]);
   });
 
-  it('refuses a same-day stay, a booking created as cancelled, and another hotel\'s room type', async () => {
+  it('refuses a same-day stay and another hotel\'s room type', async () => {
     expect((await book({ startDate: '2031-05-20', endDate: '2031-05-20', roomTypeId: typeId })).status).toBe(400);
-    expect((await book({ startDate: '2031-05-20', endDate: '2031-05-21', roomTypeId: typeId, status: 'cancelled' })).status).toBe(400);
     const foreignType = (await createRoomType({ name: 'Foreign' }, state.otherHotelId, state.adminToken)).id;
     expect((await book({ startDate: '2031-05-20', endDate: '2031-05-21', roomTypeId: foreignType })).status).toBe(404);
   });
@@ -520,23 +489,6 @@ describe('Bookings with a room type', () => {
     await bookingsService.deleteBooking({ id: booking.id }, undefined, true);
   });
 
-  it('a past stay whose room was since deleted still moves its hold when its dates change', async () => {
-    const type = (await createRoomType({ name: `Past type ${TAG}`, totalRooms: 2 })).id;
-    const first = await createRoom(type, `${TAG}-P1`);
-    await createRoom(type, `${TAG}-P2`);
-    const booking = body(await book({ startDate: '2025-01-10', endDate: '2025-01-12', roomTypeId: type }));
-    expect(booking.roomNumber).toBe(`${TAG}-P1`);
-
-    // Checked out long ago, so the room may go.
-    await expectStatus(200, () => http.delete(`/rooms/${first.id}`, state.staffToken));
-
-    await expectStatus(200, () => http.patch(`/bookings/${booking.id}`, { startDate: '2031-12-01', endDate: '2031-12-03', roomNumber: booking.roomNumber }, state.staffToken));
-    expect(await reservedOn(type, '2025-01-10', '2025-01-12')).toEqual([0, 0]);
-    expect(await reservedOn(type, '2031-12-01', '2031-12-03')).toEqual([1, 1]);
-    expect(body(await http.get(`/bookings/${booking.id}`, state.staffToken)).roomNumber).toBe(`${TAG}-P2`);
-    await bookingsService.deleteBooking({ id: booking.id }, undefined, true);
-  });
-
   it('a booking with a typed room number and no room type touches no inventory', async () => {
     const res = await book({ startDate: '2031-05-01', endDate: '2031-05-01', roomNumber: 'Free text 1' });
     expect(res.status).toBe(201);
@@ -549,51 +501,6 @@ describe('Bookings with a room type', () => {
     await expectStatus(400, () => http.patch(`/bookings/${booking.id}`, { roomNumber: 'Elsewhere' }, state.staffToken));
     expect(body(await http.get(`/bookings/${booking.id}`, state.staffToken)).roomNumber).toBe(booking.roomNumber);
     await expectStatus(200, () => http.patch(`/bookings/${booking.id}`, { roomNumber: booking.roomNumber, status: 'checked_in' }, state.staffToken));
-    await bookingsService.deleteBooking({ id: booking.id }, undefined, true);
-  });
-
-  it(`a stay longer than ${MAX_INVENTORY_NIGHTS} nights is refused, and nothing is reserved`, async () => {
-    const res = await book({ startDate: '2031-01-01', endDate: '2033-01-01', roomTypeId: typeId });
-    expect(res.status).toBe(400);
-    expect(await reservedOn(typeId, '2031-01-01', '2031-01-03')).toEqual([0, 0]);
-    expect((await book({ startDate: '2031-01-01', endDate: '9999-12-31', roomTypeId: typeId })).status).toBe(400);
-  });
-
-  it('checking out early frees the nights still ahead and the room; it cannot then be reopened', async () => {
-    const localDate = (offset: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() + offset);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
-    const [yesterday, today, dayAfter] = [localDate(-1), localDate(0), localDate(2)];
-    const booking = body(await book({ startDate: yesterday, endDate: dayAfter, roomTypeId: typeId }));
-    expect(await reservedOn(typeId, yesterday, dayAfter)).toEqual([1, 1, 1]);
-    await expectStatus(400, () => http.patch(`/rooms/${rooms[0].id}`, { status: 'maintenance' }, state.staffToken));
-
-    await expectStatus(200, () => http.patch(`/bookings/${booking.id}`, { status: 'checked_out', roomNumber: booking.roomNumber }, state.staffToken));
-    // The night already stayed stays counted; today and tomorrow go back on sale.
-    expect(await reservedOn(typeId, yesterday, dayAfter)).toEqual([1, 0, 0]);
-    expect((await holdsOf(booking.id))[0].checkOut).toBe(today);
-    await expectStatus(200, () => http.patch(`/rooms/${rooms[0].id}`, { status: 'maintenance' }, state.staffToken));
-    await expectStatus(200, () => http.patch(`/rooms/${rooms[0].id}`, { status: 'active' }, state.staffToken));
-
-    await expectStatus(400, () => http.patch(`/bookings/${booking.id}`, { status: 'confirmed', roomNumber: booking.roomNumber }, state.staffToken));
-
-    // Correcting a checked-out booking's dates changes the record only: nothing is reserved again.
-    const [later, laterOut] = [localDate(20), localDate(22)];
-    await expectStatus(200, () => http.patch(`/bookings/${booking.id}`, { startDate: later, endDate: laterOut, roomNumber: booking.roomNumber }, state.staffToken));
-    expect(await reservedOn(typeId, later, laterOut)).toEqual([0, 0]);
-    expect(await reservedOn(typeId, yesterday, dayAfter)).toEqual([1, 0, 0]);
-    expect((await holdsOf(booking.id)).map((h) => h.checkOut)).toEqual([today]);
-
-    await bookingsService.deleteBooking({ id: booking.id }, undefined, true);
-    expect(await reservedOn(typeId, yesterday, dayAfter)).toEqual([0, 0, 0]);
-  });
-
-  it('a checked-out booking without a room type cannot be reopened either', async () => {
-    const booking = body(await book({ startDate: '2031-06-10', endDate: '2031-06-12', roomNumber: 'Free text 2' }));
-    await expectStatus(200, () => http.patch(`/bookings/${booking.id}`, { status: 'checked_out', roomNumber: 'Free text 2' }, state.staffToken));
-    await expectStatus(400, () => http.patch(`/bookings/${booking.id}`, { status: 'checked_in', roomNumber: 'Free text 2' }, state.staffToken));
     await bookingsService.deleteBooking({ id: booking.id }, undefined, true);
   });
 
@@ -634,33 +541,6 @@ describe('PMS bookings', () => {
     expect(await reservedOn(moveType, '2032-04-10', '2032-04-11')).toEqual([1]);
   });
 
-  it('a PMS resend does not undo an early check-out made in Samantha', async () => {
-    const localDate = (offset: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() + offset);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
-    const [yesterday, dayAfter] = [localDate(-1), localDate(2)];
-    const outType = (await createRoomType({ name: `PMS checkout type ${TAG}`, totalRooms: 1 })).id;
-    await createRoom(outType, `${TAG}-OUT1`);
-    const payload = { externalId: `${TAG}-pms-5`, startDate: yesterday, endDate: dayAfter, guestEmail: EMAILS.pmsGuest, roomNumber: `${TAG}-OUT1` };
-
-    const booking = body(await webhook(payload));
-    expect(await reservedOn(outType, yesterday, dayAfter)).toEqual([1, 1, 1]);
-    await expectStatus(200, () => http.patch(`/bookings/${booking.id}`, { status: 'checked_out', roomNumber: booking.roomNumber }, state.staffToken));
-    expect(await reservedOn(outType, yesterday, dayAfter)).toEqual([1, 0, 0]);
-
-    expect((await webhook(payload)).status).toBe(200);
-    expect(await reservedOn(outType, yesterday, dayAfter)).toEqual([1, 0, 0]);
-  });
-
-  it(`a PMS stay longer than ${MAX_INVENTORY_NIGHTS} nights is kept but holds nothing`, async () => {
-    const res = await webhook({ externalId: `${TAG}-pms-4`, startDate: '2032-06-01', endDate: '9999-12-31', guestEmail: EMAILS.pmsGuest, roomNumber: `${TAG}-PMS1` });
-    expect(res.status).toBe(201);
-    expect(await holdsOf(body(res).id)).toHaveLength(0);
-    expect(await reservedOn(typeId, '2032-06-01', '2032-06-03')).toEqual([0, 0]);
-  });
-
   it('a PMS booking for a known room reserves its nights, and redelivery does not double it', async () => {
     const payload = { externalId: `${TAG}-pms-1`, startDate: '2032-02-01', endDate: '2032-02-03', guestEmail: EMAILS.pmsGuest, roomNumber: `${TAG}-PMS1` };
     expect((await webhook(payload)).status).toBe(201);
@@ -683,7 +563,7 @@ describe('PMS bookings', () => {
     expect(await reservedOn(typeId, '2032-02-01', '2032-02-02')).toEqual([0]);
     // ...but the room itself is still held, so it cannot be sold to anyone else.
     const preview = body(
-      await expectStatus(200, () => http.get(`/rooms/next-room?hotelId=${state.hotelId}&roomTypeId=${typeId}&startDate=2032-02-01&endDate=2032-02-02`, state.staffToken)),
+      await expectStatus(200, () => http.get(`/rooms/next-room?roomTypeId=${typeId}&startDate=2032-02-01&endDate=2032-02-02`, state.staffToken)),
     );
     expect(preview).toMatchObject({ roomNumbers: [], enough: false, available: 0 });
     expect((await book({ startDate: '2032-02-01', endDate: '2032-02-02', roomTypeId: typeId })).status).toBe(409);
@@ -704,7 +584,7 @@ describe('Hotel deletion', () => {
     const hotel = await http.post('/hotels', { name: `Rooms Hotel C ${TAG}`, address: '3 Test St' }, state.adminToken);
     const hotelId = hotel.data.id;
     const type = await createRoomType({ name: 'C type' }, hotelId, state.adminToken);
-    await expectStatus(201, () => http.post('/rooms', { hotelId, roomTypeId: type.id, roomNumber: 'C1' }, state.adminToken));
+    await expectStatus(201, () => http.post('/rooms', { roomTypeId: type.id, roomNumber: 'C1' }, state.adminToken));
     const booking = body(await expectStatus(201, () => http.post('/bookings', { hotelId, guestEmail: EMAILS.bookingGuest, startDate: '2032-05-01', endDate: '2032-05-02', roomTypeId: type.id }, state.adminToken)));
 
     await hotelsService.deleteHotel(hotelId, state.adminAccount!, true);

@@ -4,10 +4,9 @@ import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import { CARD_SX, ROW_SX, ColumnLabel, FormFieldRow, PrimaryButton, inputSx } from './cards/AppCards';
-import { NAVY, MUTED, BORDER, BG, PERK_BG, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
+import { NAVY, MUTED, BORDER, BG, HOVER_BG, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
 import constants from '../constants.json';
 
-// Same field setup as the New Booking form, so the two read as one app.
 const TYPE_FIELDS = [
   { field: 'name', label: 'Name', type: 'text', required: true },
   { field: 'maxOccupancy', label: 'Max occupancy', type: 'number', required: true, getInputProps: () => ({ min: 1 }) },
@@ -15,11 +14,10 @@ const TYPE_FIELDS = [
 ];
 const ROOM_NUMBER_FIELD = { field: 'roomNumber', label: 'Room number', type: 'text', required: true };
 
-// Menus sit above the fixed mobile header (1400), as the booking form's do.
+// Above the fixed mobile header (z-index 1400).
 const SELECT_PROPS = { MenuProps: { sx: { zIndex: 1400 } } };
 
-// Matches the perk chips the booking form shows for the chosen room type.
-const PERK_CHIP_SX = { fontSize: 11, fontWeight: 700, bgcolor: PERK_BG, color: NAVY, border: `1px solid ${BORDER}` };
+const PERK_CHIP_SX = { fontSize: 11, fontWeight: 700, bgcolor: HOVER_BG, color: NAVY, border: `1px solid ${BORDER}` };
 
 const ROOM_STATUSES = [
   { value: 'active', label: 'Active' },
@@ -42,10 +40,7 @@ const INVENTORY_GRID = '1.6fr 1fr 1fr 1fr 1fr';
 const AVAILABILITY_COLS = ['Room type', 'Max occupancy', 'Available'];
 const AVAILABILITY_GRID = '2fr 1fr 1fr';
 
-// Mirrors ROOM_TYPE_IMAGES_MAX_COUNT in the backend constants service, which is the
-// one that actually enforces this. Kept here only to grey out the button before an
-// upload starts — without it the file would reach S3 and then be rejected, leaving
-// an orphaned object behind. Change both together.
+// Same as ROOM_TYPE_IMAGES_MAX_COUNT in the backend.
 const ROOM_TYPE_IMAGES_MAX = 8;
 
 const RoomTypeImage = ({ data: url, onRemove }) => (
@@ -54,7 +49,7 @@ const RoomTypeImage = ({ data: url, onRemove }) => (
     <Box
       component="button"
       type="button"
-      onClick={() => onRemove?.(url)}
+      onClick={() => onRemove(url)}
       sx={{
         position: 'absolute', top: 2, right: 2, width: 20, height: 20, lineHeight: 1,
         border: 'none', borderRadius: '50%', cursor: 'pointer',
@@ -82,17 +77,14 @@ const addDays = (date, days) => {
   return next;
 };
 
-// Placed as ManageBookings places its New Booking form: below the header, and centred
-// in the content area so the fixed 20vw desktop sidebar cannot cover it.
+// Same placement as the New Booking dialog: below the header and clear of the 20vw sidebar.
 const dialogSx = isMobile => ({ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)', pl: isMobile ? 0 : '20vw' } });
-// Rounded like the booking dialogs, and never taller than the space under the header,
-// so a long form scrolls inside while its buttons stay in view.
 const DIALOG_PAPER_PROPS = { sx: { borderRadius: 3, maxHeight: 'calc(100svh - var(--app-header-height) - 1svh - 64px - 2svh)' } };
 const DIALOG_TITLE_SX = { fontWeight: 700, color: NAVY };
 const FORM_SX = { display: 'flex', flexDirection: 'column', minHeight: 0 };
 const ACTIONS_SX = { px: 3, pb: 3, pt: 2, borderTop: `1px solid ${BORDER}`, flexShrink: 0 };
 
-// Adds typed text to the perk list, split on commas, dropping blanks and repeats.
+// Splits on commas and skips blanks and duplicates.
 const addPerks = (perks, text) => {
   const next = [...perks];
   text.split(',').map(p => p.trim()).filter(Boolean).forEach(p => {
@@ -106,11 +98,11 @@ const IN_A_WEEK = toDateInput(addDays(new Date(), 7));
 
 const ActionButtons = ({ onEdit, onDelete }) => (
   <Box sx={{ display: 'flex', gap: 1, mt: { xs: 1, md: 0 } }}>
-    <Box component="button" onClick={e => { e.stopPropagation(); onEdit(); }}
+    <Box component="button" onClick={onEdit}
       sx={{ border: `1px solid ${BORDER}`, bgcolor: 'transparent', color: NAVY, px: 1.5, py: 0.5, borderRadius: 1, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
       Edit
     </Box>
-    <Box component="button" onClick={e => { e.stopPropagation(); onDelete(); }}
+    <Box component="button" onClick={onDelete}
       sx={{ border: `1px solid ${STATUS_ERROR_BG}`, bgcolor: 'transparent', color: STATUS_ERROR, px: 1.5, py: 0.5, borderRadius: 1, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
       Delete
     </Box>
@@ -118,7 +110,7 @@ const ActionButtons = ({ onEdit, onDelete }) => (
 );
 
 const RoomTypeRow = ({ data: roomType, onEdit, onDelete, canManage }) => {
-  const actions = canManage && <ActionButtons onEdit={() => onEdit?.(roomType)} onDelete={() => onDelete?.(roomType)} />;
+  const actions = canManage && <ActionButtons onEdit={() => onEdit(roomType)} onDelete={() => onDelete(roomType)} />;
   return (
     <>
       <Box sx={{ ...ROW_SX, display: { xs: 'none', md: 'grid' }, gridTemplateColumns: TYPE_GRID, px: 2.5, py: 1.5, alignItems: 'center', gap: 1 }}>
@@ -139,9 +131,9 @@ const RoomTypeRow = ({ data: roomType, onEdit, onDelete, canManage }) => {
 };
 
 const RoomRow = ({ data: room, onEdit, onDelete, canManage }) => {
-  const colours = STATUS_COLOURS[room.status] || { fg: MUTED, bg: BG };
-  const label = ROOM_STATUSES.find(s => s.value === room.status)?.label || room.status;
-  const actions = canManage && <ActionButtons onEdit={() => onEdit?.(room)} onDelete={() => onDelete?.(room)} />;
+  const colours = STATUS_COLOURS[room.status];
+  const label = ROOM_STATUSES.find(s => s.value === room.status).label;
+  const actions = canManage && <ActionButtons onEdit={() => onEdit(room)} onDelete={() => onDelete(room)} />;
   const chip = (
     <Typography sx={{ fontSize: 11, fontWeight: 700, color: colours.fg, bgcolor: colours.bg, px: 1, py: 0.25, borderRadius: 1, display: 'inline-block' }}>
       {label}
@@ -151,7 +143,7 @@ const RoomRow = ({ data: room, onEdit, onDelete, canManage }) => {
     <>
       <Box sx={{ ...ROW_SX, display: { xs: 'none', md: 'grid' }, gridTemplateColumns: ROOM_GRID, px: 2.5, py: 1.5, alignItems: 'center', gap: 1 }}>
         <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{room.roomNumber}</Typography>
-        <Typography sx={{ fontSize: 12, color: MUTED }}>{room.roomType?.name || '—'}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED }}>{room.roomType.name}</Typography>
         <Box>{chip}</Box>
         {actions}
       </Box>
@@ -160,16 +152,13 @@ const RoomRow = ({ data: room, onEdit, onDelete, canManage }) => {
           <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{room.roomNumber}</Typography>
           {chip}
         </Box>
-        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>{room.roomType?.name || '—'}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>{room.roomType.name}</Typography>
         {actions}
       </Box>
     </>
   );
 };
 
-// available = total - reserved - blocked, exactly as the backend derives it. Zero
-// is called out in red because it is what makes the whole stay unbookable, even
-// when every other night in the range has rooms left.
 const InventoryRow = ({ data: night }) => {
   const soldOut = night.available <= 0;
   return (
@@ -224,7 +213,7 @@ const SectionHeader = ({ title, subtitle, action }) => (
 );
 
 function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, alertSuccess, alertError }) {
-  const canManage = !!constants.PERMISSIONS.CAN_MANAGE_ROOMS[account?.role];
+  const canManage = !!constants.PERMISSIONS.CAN_MANAGE_ROOMS[account.role];
 
   const [roomTypes, setRoomTypes] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -264,7 +253,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
   const handleStockChange = field => e => setStockForm(prev => ({ ...prev, [field]: e.target.value }));
   const handleSearchChange = field => e => setSearchForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  // A comma finishes a perk just as Enter does, so pasting "Wi-Fi, Breakfast" gives two chips.
+  // A comma adds a chip, like Enter.
   const handlePerkInput = (_, value) => {
     if (!value.includes(',')) { setPerkInput(value); return; }
     const parts = value.split(',');
@@ -277,30 +266,23 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
   const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setPerkInput(''); setEditingTypeImages([]); setShowTypeForm(true); };
   const openEditType = roomType => {
     setEditingType(roomType);
-    setTypeForm({ name: roomType.name || '', maxOccupancy: roomType.maxOccupancy ?? '', totalRooms: roomType.totalRooms ?? '', perks: roomType.perks || [] });
+    setTypeForm({ name: roomType.name, maxOccupancy: roomType.maxOccupancy, totalRooms: roomType.totalRooms, perks: roomType.perks });
     setPerkInput('');
-    setEditingTypeImages(roomType.images || []);
+    setEditingTypeImages(roomType.images);
     setShowTypeForm(true);
   };
 
   const openAddRoom = () => { setEditingRoom(null); setRoomForm(defaultRoomForm); setShowRoomForm(true); };
   const openEditRoom = room => {
     setEditingRoom(room);
-    setRoomForm({ roomNumber: room.roomNumber || '', roomTypeId: room.roomTypeId ?? '', status: room.status || 'active' });
+    setRoomForm({ roomNumber: room.roomNumber, roomTypeId: room.roomTypeId, status: room.status });
     setShowRoomForm(true);
   };
 
-  /**
-   * Presigned URL, then a raw PUT straight to S3, then tell the backend the URL.
-   *
-   * The PUT is the one place raw fetch is correct — it goes to S3, not to us, so
-   * api.js has nothing to add. The loader is held across all three steps since the
-   * middle one carries none of its own.
-   */
   const uploadTypeImage = async e => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !editingType) return;
+    if (!file) return;
 
     setLoading(true);
     try {
@@ -322,7 +304,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
         data: { s3Url },
         alertSuccess, alertError,
       });
-      if (res?.success) { setEditingTypeImages(res.data?.images || []); fetchRoomTypes(); }
+      if (res?.success) { setEditingTypeImages(res.data.images); fetchRoomTypes(); }
     } finally {
       setLoading(false);
     }
@@ -335,20 +317,16 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
       data: { s3Url: url },
       setLoading, alertSuccess, alertError,
     });
-    if (res?.success) { setEditingTypeImages(res.data?.images || []); fetchRoomTypes(); }
+    if (res?.success) { setEditingTypeImages(res.data.images); fetchRoomTypes(); }
   };
 
   const submitType = async e => {
     e.preventDefault();
-    const maxOccupancy = parseInt(typeForm.maxOccupancy, 10);
-    const totalRooms = parseInt(typeForm.totalRooms, 10);
-    if (!typeForm.name || isNaN(maxOccupancy) || isNaN(totalRooms)) { alertError?.('Name, max occupancy and total rooms are required'); return; }
-
     const payload = {
       name: typeForm.name,
-      maxOccupancy,
-      totalRooms,
-      // A perk still being typed when Save is pressed is kept, not dropped.
+      maxOccupancy: Number(typeForm.maxOccupancy),
+      totalRooms: Number(typeForm.totalRooms),
+      // Keeps a perk that was typed but not yet turned into a chip.
       perks: addPerks(typeForm.perks, perkInput),
     };
     const res = await request({
@@ -362,20 +340,17 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
 
   const submitRoom = async e => {
     e.preventDefault();
-    if (!roomForm.roomNumber || !roomForm.roomTypeId) { alertError?.('Room number and room type are required'); return; }
-
     const payload = { roomNumber: roomForm.roomNumber, status: roomForm.status };
     const res = await request({
       endpoint: editingRoom ? `/rooms/${editingRoom.id}` : '/rooms',
       method: editingRoom ? 'PATCH' : 'POST',
-      data: editingRoom ? payload : { hotelId: Number(hotelId), roomTypeId: Number(roomForm.roomTypeId), ...payload },
+      data: editingRoom ? payload : { roomTypeId: Number(roomForm.roomTypeId), ...payload },
       setLoading, alertSuccess, alertError,
     });
     if (res?.success) { setShowRoomForm(false); fetchRooms(); }
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
     const isType = deleteTarget.kind === 'type';
     const res = await request({
       endpoint: isType ? `/rooms/types/${deleteTarget.item.id}` : `/rooms/${deleteTarget.item.id}`,
@@ -383,15 +358,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
     });
     if (res?.success) {
       setShowDelete(false);
-      if (isType) {
-        fetchRoomTypes();
-        // The Inventory tab would otherwise keep asking for the type just deleted.
-        if (String(inventoryFilter.roomTypeId) === String(deleteTarget.item.id)) {
-          setInventoryFilter(prev => ({ ...prev, roomTypeId: '' }));
-          setInventory([]);
-        }
-      }
-      fetchRooms();
+      if (isType) fetchRoomTypes(); else fetchRooms();
     }
   };
 
@@ -417,11 +384,10 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
         endDate: inventoryFilter.endDate,
         total, blocked,
       },
-      // No setData: api.js empties the list on a failed request, and a refused
-      // update leaves the nights exactly as they were, so they should stay shown.
+      // Not setData: on failure it would clear the nights, which are unchanged.
       setLoading, alertSuccess, alertError,
     });
-    if (res?.success) { setInventory(res.data || []); setStockForm({ total: '', blocked: '' }); }
+    if (res?.success) { setInventory(res.data); setStockForm({ total: '', blocked: '' }); }
   };
 
   const search = async () => {
@@ -472,7 +438,6 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
             title="Inventory calendar"
             subtitle="Rooms sellable per night. Available is total minus reserved minus blocked."
           />
-          {/* Full-size fields as in the booking form; the button stretches to their height. */}
           <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
             <TextField select label="Room type" value={inventoryFilter.roomTypeId} onChange={handleFilterChange('roomTypeId')} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
               {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
@@ -553,8 +518,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
                   Changing total rooms stocks nights that have not opened yet. Use the inventory calendar to restock nights already in use.
                 </Typography>
               )}
-              {/* Images need a room type id to attach to, so they are only offered
-                  once it exists — on create, the form is saved first. */}
+              {/* Images can be added once the room type exists. */}
               {editingType && (
                 <Box>
                   <Typography sx={{ fontSize: 12, color: MUTED, mb: 0.75 }}>
@@ -605,7 +569,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
         <DialogTitle sx={DIALOG_TITLE_SX}>{deleteTarget?.kind === 'type' ? 'Delete room type' : 'Delete room'}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Delete &quot;{deleteTarget?.kind === 'type' ? deleteTarget?.item?.name : deleteTarget?.item?.roomNumber}&quot;? Cannot be undone.
+            Delete &quot;{deleteTarget?.kind === 'type' ? deleteTarget.item.name : deleteTarget?.item.roomNumber}&quot;? Cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
