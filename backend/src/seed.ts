@@ -374,9 +374,11 @@ async function seed() {
   ];
   const bookings: Booking[] = [];
   for (const row of bookingData) {
-    const bookingWhere: any = { guestId: row.guestId, hotelId: row.hotelId, startTime: row.startTime };
-    const bookingDefaults: any = row;
-    const [b] = await Booking.findOrCreate({ where: bookingWhere, defaults: bookingDefaults, paranoid: false });
+    const [b] = await Booking.findOrCreate({
+      where: { guestId: row.guestId, hotelId: row.hotelId, startTime: row.startTime } as any,
+      defaults: row as any,
+      paranoid: false,
+    });
     await restoreIfSoftDeleted(b);
     bookings.push(b);
   }
