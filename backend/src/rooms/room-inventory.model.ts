@@ -1,8 +1,7 @@
 import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { RoomType } from './room-types.model';
 
-// One row per room type per night. `available` is never stored — it is always
-// derived as total - reserved - blocked, so it cannot drift out of sync.
+// One row per room type per night. Available = total - reserved - blocked.
 @Table({ tableName: 'room_inventory' })
 export class RoomInventory extends Model<RoomInventory> {
   @ForeignKey(() => RoomType)

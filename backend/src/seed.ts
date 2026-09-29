@@ -298,10 +298,7 @@ async function seed() {
   }
 
   // ── Room Types & Rooms ───────────────────────────────────────────────────────
-  // Every hotel gets the same three types so any hotel is bookable against
-  // inventory, not just the first one. totalRooms counts only the rooms that are
-  // actually sellable: a room under maintenance is excluded from findAvailableRooms,
-  // so counting it here would let inventory promise a room that cannot be assigned.
+  // totalRooms counts only rooms in service.
   const roomTypeTemplates = [
     {
       name: 'Deluxe King', maxOccupancy: 2, firstRoom: 101, count: 12,

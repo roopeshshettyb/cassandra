@@ -72,16 +72,9 @@ export const DATABASE_PROVIDERS = [
         'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status VARCHAR(255)',
         "UPDATE bookings SET status = 'confirmed' WHERE status IS NULL",
-        // room_types can predate its images and perks columns, and sync() creates
-        // missing tables but never adds columns to existing ones.
-        "ALTER TABLE room_types ADD COLUMN IF NOT EXISTS images JSON DEFAULT '[]'",
-        "ALTER TABLE room_types ADD COLUMN IF NOT EXISTS perks JSON DEFAULT '[]'",
         'ALTER TABLE requests ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)',
         'CREATE UNIQUE INDEX IF NOT EXISTS bookings_hotel_id_external_id_unique ON bookings (hotel_id, external_id) WHERE external_id IS NOT NULL',
         'CREATE UNIQUE INDEX IF NOT EXISTS requests_hotel_id_external_id_unique ON requests (hotel_id, external_id) WHERE external_id IS NOT NULL',
-        // Backs RoomsService.ensureRoomNumberFree, which a concurrent create can slip
-        // past. Soft-deleted rooms are left out, as they are by that check.
-        'CREATE UNIQUE INDEX IF NOT EXISTS rooms_hotel_id_room_number_unique ON rooms (hotel_id, room_number) WHERE deleted_at IS NULL',
         // Skipping this locks everyone out — the model declares the column, so
         // every account query selects it. Check information_schema, not the log
         // above: ownership is tested before IF NOT EXISTS, so it errors regardless.

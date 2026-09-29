@@ -1,6 +1,5 @@
-import { Table, Model, Column, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
+import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { Hotel } from '../hotels/hotels.model';
-import { Room } from './rooms.model';
 
 @Table({ tableName: 'room_types' })
 export class RoomType extends Model<RoomType> {
@@ -32,8 +31,6 @@ export class RoomType extends Model<RoomType> {
   })
   maxOccupancy: number;
 
-  // Same shape as hotels.images: a JSON array of public S3 URLs, ordered as the
-  // guest should see them.
   @Column({
     type: DataType.JSON,
     allowNull: true,
@@ -41,9 +38,6 @@ export class RoomType extends Model<RoomType> {
   })
   images: string[];
 
-  // Free-text inclusions — "Breakfast included", "Airport pickup". An array rather
-  // than a fixed set, because what a room type throws in differs per hotel and the
-  // list grows without a migration.
   @Column({
     type: DataType.JSON,
     allowNull: true,
@@ -51,8 +45,7 @@ export class RoomType extends Model<RoomType> {
   })
   perks: string[];
 
-  // Sellable room count for this type. Inventory rows are created from this
-  // value, and changing it only rewrites `total` for today onward.
+  // Copied into room_inventory.total when a night is first booked.
   @Column({
     type: DataType.INTEGER,
     allowNull: false,
@@ -62,7 +55,4 @@ export class RoomType extends Model<RoomType> {
 
   @BelongsTo(() => Hotel, { foreignKey: 'hotelId', as: 'hotel' })
   hotel: Hotel;
-
-  @HasMany(() => Room, { foreignKey: 'roomTypeId', as: 'rooms' })
-  rooms: Room[];
 }

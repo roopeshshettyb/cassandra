@@ -21,8 +21,7 @@ import { Account } from '../accounts/accounts.model';
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
-  // Declared before the `:id` routes below, or `types` and `inventory` would be
-  // parsed as a room id.
+  // Declared before the `:id` routes so `types` and `inventory` are not parsed as ids.
   @Get('types')
   async findAllRoomTypes(
     @Query('hotelId', ParseIntPipe) hotelId: number,
@@ -31,10 +30,6 @@ export class RoomsController {
     return this.roomsService.findAllRoomTypes(hotelId, account);
   }
 
-  // `whitelist` on both: the service hands the DTO straight to Sequelize, so any
-  // property left in it reaches a column. Without it, a body could carry `images`
-  // and skip the cap enforced in addImage, or carry `hotelId` and move the room
-  // type to a hotel the caller does not own.
   @Post('types')
   async createRoomType(
     @Body(new ValidationPipe({ whitelist: true })) dto: CreateRoomTypeDto,
@@ -46,7 +41,7 @@ export class RoomsController {
   @Patch('types/:id')
   async updateRoomType(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ValidationPipe({ skipMissingProperties: true, whitelist: true })) dto: UpdateRoomTypeDto,
+    @Body(new ValidationPipe({ whitelist: true })) dto: UpdateRoomTypeDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.updateRoomType(id, dto, account);
@@ -89,8 +84,6 @@ export class RoomsController {
 
   @Get('next-room')
   async findNextRoom(
-    // `transform` so the ids arrive as the numbers the DTO declares. Query params are
-    // strings, and this handler compares them against a model's id with `!==`.
     @Query(new ValidationPipe({ transform: true })) query: NextRoomQueryDto,
     @CurrentAccount() account: Account,
   ) {
@@ -105,9 +98,6 @@ export class RoomsController {
     return this.roomsService.findInventory(query, account);
   }
 
-  // Not skipMissingProperties: roomTypeId and both dates are required here, and
-  // skipping them let a body without dates through to crash the service. total
-  // and blocked are @IsOptional in the DTO, which is all a partial update needs.
   @Patch('inventory')
   async updateInventory(
     @Body(ValidationPipe) dto: UpdateInventoryDto,
@@ -127,20 +117,11 @@ export class RoomsController {
   @Get()
   async findAllRooms(
     @Query('hotelId', ParseIntPipe) hotelId: number,
-    @Query('roomTypeId') roomTypeId: string,
     @CurrentAccount() account: Account,
   ) {
-    // Optional, so ParseIntPipe would reject the common case of it being absent.
-    // Parsed by hand instead, and anything non-numeric is treated as no filter —
-    // passing NaN straight through would reach Postgres and fail the request.
-    const parsed = Number(roomTypeId);
-    const filterRoomTypeId = Number.isInteger(parsed) ? parsed : undefined;
-    return this.roomsService.findAllRooms(hotelId, filterRoomTypeId, account);
+    return this.roomsService.findAllRooms(hotelId, account);
   }
 
-  // Whitelisted for the same reason as the room type routes above. It matters more
-  // now that rooms back dated inventory: a body carrying `roomTypeId` would move a
-  // room to another type and leave the two types' counts disagreeing with reality.
   @Post()
   async createRoom(
     @Body(new ValidationPipe({ whitelist: true })) dto: CreateRoomDto,
@@ -152,7 +133,7 @@ export class RoomsController {
   @Patch(':id')
   async updateRoom(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ValidationPipe({ skipMissingProperties: true, whitelist: true })) dto: UpdateRoomDto,
+    @Body(new ValidationPipe({ whitelist: true })) dto: UpdateRoomDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.updateRoom(id, dto, account);
