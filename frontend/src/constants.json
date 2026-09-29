@@ -336,5 +336,13 @@
   "RESERVATION_VOICE_AMBIENCE_DBFS": -35,
   "RESERVATION_VOICE_AMBIENCE_URL": "",
   "RESERVATION_VOICE_RECONNECTING": "Reconnecting…",
-  "ERROR_RESERVATION_VOICE_DISCONNECTED": "The call was disconnected. Please refresh to start a new one."
+  "ERROR_RESERVATION_VOICE_DISCONNECTED": "The call was disconnected. Please refresh to start a new one.",
+  "AI_BOOKINGS_SHOW_CONVERSATION": "Read the conversation",
+  "AI_BOOKINGS_CONVERSATION_TITLE": "Conversation",
+  "AI_BOOKINGS_CONVERSATION_CLOSE": "Close",
+  "AI_BOOKINGS_ROLE_GUEST": "Guest",
+  "AI_BOOKINGS_ROLE_AGENT": "Samantha",
+  "AI_BOOKINGS_HIDE_CONVERSATION": "Hide the conversation",
+  "AI_BOOKINGS_ENQUIRY_NTH": "Enquiry",
+  "AI_BOOKINGS_ENQUIRY_LATEST": "Latest enquiry"
 }

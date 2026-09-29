@@ -1,4 +1,4 @@
-import { Controller, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
@@ -20,5 +20,15 @@ export class ReservationController {
     @CurrentAccount() account: Account,
   ) {
     return this.reservationService.listEnquiriesForHotel(hotelId, account);
+  }
+
+  /** One conversation in full, for staff who want to read past the summary. */
+  @Get('enquiries/:chatId/messages')
+  async conversation(
+    @Param('chatId', ParseIntPipe) chatId: number,
+    @Query('hotelId', ParseIntPipe) hotelId: number,
+    @CurrentAccount() account: Account,
+  ) {
+    return this.reservationService.conversationForHotel(chatId, hotelId, account);
   }
 }

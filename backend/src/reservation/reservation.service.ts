@@ -135,12 +135,22 @@ export class ReservationService {
     const data = chats.map((chat) => {
       const chatMessages = byChat.get(chat.id) ?? [];
       const enquiries: Record<string, unknown>[] = [];
+      // The dates the agent wrote down when it first heard them, which beat the
+      // ones it works out again at the end. Measured on stage, it resolves a
+      // date correctly, says it back, and then records a different one several
+      // turns later — with the whole conversation still in its prompt. So the
+      // note is treated as the record and the recomputed value is only used for
+      // an enquiry that never had one.
+      let noted: Record<string, unknown> | null = null;
       for (const message of chatMessages) {
         // createdAt comes from Sequelize timestamps, which the model does not declare.
         const messageRow: any = message;
         for (const call of message.toolCalls ?? []) {
+          if (call.toolName === 'note_reservation_dates' && call.input) {
+            noted = call.input;
+          }
           if (call.toolName === 'record_reservation_enquiry' && call.input) {
-            enquiries.push({ ...call.input, recordedAt: messageRow.createdAt });
+            enquiries.push({ ...call.input, ...(noted ?? {}), recordedAt: messageRow.createdAt });
           }
         }
       }
@@ -155,6 +165,35 @@ export class ReservationService {
     });
 
     return { success: true, message: this.constantsService.public.RESERVATION_ENQUIRIES_FETCHED, data };
+  }
+
+  /**
+   * One conversation, in full, for a staff member who wants to read it.
+   *
+   * Kept off the list response on purpose: fifty conversations of fifty
+   * messages is a payload nobody asked for, and the list is opened far more
+   * often than any single thread is read.
+   *
+   * Ownership twice over — the hotel has to resolve as this account, and the
+   * chat has to belong to that hotel and be a reservation chat, so a guessed id
+   * cannot reach another property's conversation or a guest's private one.
+   */
+  async conversationForHotel(chatId: number, hotelId: number, account: Account) {
+    await this.hotelsService.findByIdForAccount(hotelId, account);
+    const chat = await this.chatService.findReservationChat(chatId, hotelId);
+    if (!chat) {
+      throw new NotFoundException(this.constantsService.public.ERROR_RESERVATION_CONVERSATION_NOT_FOUND);
+    }
+
+    const cfg = this.constantsService.private.RESERVATION;
+    const messages = await this.messagesService.findRecentByChatId(chat.id, cfg.STAFF_CONVERSATION_MESSAGE_LIMIT);
+    const data = messages.map((message) => {
+      // createdAt comes from Sequelize timestamps, which the model does not declare.
+      const row: any = message;
+      return { id: message.id, role: message.role, content: message.content, createdAt: row.createdAt };
+    });
+
+    return { success: true, message: this.constantsService.public.RESERVATION_CONVERSATION_FETCHED, data };
   }
 
   /**
