@@ -377,6 +377,17 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     if (!spoken) {
       return;
     }
+    // Only ever play one that is already in memory. A phrase being used for the
+    // first time has to be synthesised, and the answer queues behind whatever
+    // this returns — measured, that turned a 2.8s wait into a 6.0s one, which is
+    // the exact opposite of the job. So a cold phrase is synthesised in the
+    // background for next time and this turn simply goes without.
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${spoken}`;
+    if (!this.cacheService.get<string[]>(key)) {
+      void this.getFillerChunks(spoken, languageCode, provider).catch(() => {});
+      return;
+    }
     try {
       const chunks = await this.getFillerChunks(spoken, languageCode, provider);
       for (const delta of chunks) {
