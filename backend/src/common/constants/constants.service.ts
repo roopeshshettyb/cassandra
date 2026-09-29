@@ -788,6 +788,50 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * interrupts a real conversation costs more than the spend it saves.
          * Set them above zero to cap an unauthenticated, per-turn-billed surface.
          */
+        /**
+         * Noises to fill the gap between a caller finishing and the answer
+         * starting — measured at 2.76s, nearly all of it the model thinking.
+         *
+         * Every one of these is a plain acknowledgement. The first version of
+         * this list had "let me see" and "let me check" in it, and saying you
+         * are looking something up when you are not is what made it grate:
+         * say hello and be told "let me check" and you can hear the machine.
+         * These say only "I heard you, I am still here", which is true on
+         * every turn, so it never has to decide whether it has earned one.
+         *
+         * Long, because repetition is the tell. Six phrases over a ten-turn
+         * call means hearing the same one twice, and the ear catches that
+         * faster than it catches the silence they replace.
+         */
+        THINKING_FILLERS: [
+          '[thoughtful] Mmm…',
+          '[thoughtful] Mm-hmm…',
+          '[inhales] Okay…',
+          '[thoughtful] Right…',
+          '[thoughtful] Sure…',
+          '[thoughtful] Got it…',
+          '[inhales] Right, okay…',
+          '[thoughtful] Ah, okay…',
+          '[thoughtful] Mm, right…',
+          '[exhales] Okay then…',
+          '[thoughtful] Of course…',
+          '[thoughtful] Lovely…',
+          '[inhales] Mm…',
+          '[thoughtful] Yep…',
+          '[thoughtful] Okay, sure…',
+          '[thoughtful] Right you are…',
+          '[inhales] Ah…',
+          '[thoughtful] Perfect…',
+          '[thoughtful] Understood…',
+          '[exhales] Mm-hmm, okay…',
+          '[thoughtful] Great…',
+          '[thoughtful] Noted…',
+          '[inhales] Okay, right…',
+          '[thoughtful] Yeah, okay…',
+        ],
+        /** Synthesised once per phrase per language, then replayed from memory. */
+        FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
+        FILLER_CACHE_MINUTES: 720,
         MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
         MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
         IP_WINDOW_MINUTES: 60,

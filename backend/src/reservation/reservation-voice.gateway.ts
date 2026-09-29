@@ -324,6 +324,74 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     }
   }
 
+  /**
+   * PCM for one filler phrase, synthesised on first use and then replayed from
+   * memory. Caching is the point: a filler that had to wait for a TTS round
+   * trip would add the very delay it exists to hide.
+   *
+   * The provider writes to a collector rather than the socket, which is how the
+   * audio gets captured without changing the TTS interface.
+   */
+  private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
+    const cached = this.cacheService.get<string[]>(key);
+    if (cached) {
+      return cached;
+    }
+
+    const chunks: string[] = [];
+    const collector = {
+      emit: (event: string, payload?: any) => {
+        if (event === 'voice_audio_chunk' && payload?.delta) {
+          chunks.push(payload.delta);
+        }
+      },
+    };
+    await provider.streamToClient(collector, phrase, { emitEnd: false, languageCode });
+    if (chunks.length > 0) {
+      this.cacheService.set(key, chunks, cfg.FILLER_CACHE_MINUTES);
+    }
+    return chunks;
+  }
+
+  /**
+   * Fill the gap between the caller finishing and the answer beginning.
+   *
+   * Never the same one twice running: picking at random from a long list still
+   * repeats, and a repeat back-to-back is more noticeable than any single
+   * phrase, because it is the one thing a person would never do.
+   */
+  private async playThinkingFiller(client: any, provider: TtsProvider, languageCode: string | null): Promise<void> {
+    const phrases = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
+    if (!phrases || phrases.length === 0) {
+      return;
+    }
+    let index = Math.floor(Math.random() * phrases.length);
+    if (phrases.length > 1 && index === client.lastFiller) {
+      index = (index + 1) % phrases.length;
+    }
+    client.lastFiller = index;
+
+    const spoken = this.ttsUnderstandsTags() ? phrases[index] : stripAudioTags(phrases[index]);
+    if (!spoken) {
+      return;
+    }
+    try {
+      const chunks = await this.getFillerChunks(spoken, languageCode, provider);
+      for (const delta of chunks) {
+        client.emit('voice_audio_chunk', { delta });
+      }
+    } catch (err: any) {
+      // A filler is a nicety; never let it stop the real answer.
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'playThinkingFiller',
+      });
+    }
+  }
+
   /** One spoken turn: transcript in, budgets checked, spoken answer out. */
   private async handleTurn(client: any, transcript: string): Promise<void> {
     const strings = this.constantsService.public;
@@ -363,7 +431,11 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
         this.constantsService.private.RESERVATION_VOICE.TTS_PROVIDER,
       ) as TtsProvider;
       const languageCode = session.languageCode ?? null;
-      const state: TurnState = { sentenceBuffer: '', ttsQueue: Promise.resolve() };
+      // Speak a thinking noise now, while the model is still working. The client
+      // queues audio in order, so this plays first and the answer follows on.
+      // It goes out on every turn: these say only "I heard you", which is always
+      // true, so there is no judgement call about whether one is warranted.
+      const state: TurnState = { sentenceBuffer: '', ttsQueue: this.playThinkingFiller(client, provider, languageCode) };
 
       await this.chatLlmService.streamUserMessage(session, text, {
         mode: 'voice',
