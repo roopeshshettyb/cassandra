@@ -764,6 +764,23 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * call means hearing the same one twice, and the ear catches that
          * faster than it catches the silence they replace.
          */
+        /**
+         * Spoken the moment the caller opens the line, before they say anything.
+         *
+         * A phone that answers with silence makes you say "hello?" into it to
+         * find out whether anything is there. The agent speaks first now, the
+         * way a person picking up would.
+         *
+         * Fixed words rather than a generated opener: it has to arrive instantly,
+         * and a model round trip is the one thing that would put the silence
+         * back. Synthesised and cached per property alongside the fillers.
+         * {HOTEL} is replaced with the property's name.
+         */
+        GREETING: this.configService.get<string>(
+          'RESERVATION_VOICE_GREETING',
+          '[warm] Hello, thanks for calling {HOTEL}. When were you thinking of staying with us?',
+        ),
+        GREETING_HOTEL_TOKEN: '{HOTEL}',
         THINKING_FILLERS: [
           '[thoughtful] Mmm…',
           '[thoughtful] Mm-hmm…',
