@@ -519,16 +519,23 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       // The turn ends when the caller has heard the reply, not when the last
       // audio left here — chunks are scheduled ahead, so only the browser
       // knows. It reports back, exactly as the concierge's client does.
-      //
-      // The timer is the safety net: a tab that is closed, backgrounded or
-      // disconnected never reports, and the line must not stay busy for the
-      // rest of the session because of it.
-      this.clearPlaybackWait(client);
-      client.playbackWait = setTimeout(
-        () => this.releaseTurn(client),
-        this.constantsService.private.RESERVATION_VOICE.PLAYBACK_DONE_TIMEOUT_MS,
-      );
+      this.armPlaybackWait(client);
     }
+  }
+
+  /**
+   * Hold the turn until the browser says the reply has finished playing.
+   *
+   * The timer is the safety net: a tab that is closed, backgrounded or
+   * disconnected never reports, and the line must not stay busy for the rest of
+   * the session because of it.
+   */
+  private armPlaybackWait(client: any): void {
+    this.clearPlaybackWait(client);
+    client.playbackWait = setTimeout(
+      () => this.releaseTurn(client),
+      this.constantsService.private.RESERVATION_VOICE.PLAYBACK_DONE_TIMEOUT_MS,
+    );
   }
 
   @SubscribeMessage('voice_client_chunk')
@@ -573,7 +580,52 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     if (!client.reservationContext || client.voiceBusy || client.sttSession) {
       return;
     }
+    // The line opens with the agent speaking, not with silence the caller has to
+    // say "hello?" into. It runs as turn zero through the same handshake a reply
+    // uses — busy while it plays, so the open microphone cannot hear it, and the
+    // browser reports when it has finished, which reopens the mic. Greeting on
+    // connect instead would be too early: the page only gets permission to make
+    // sound inside the tap.
+    if (!client.greeted) {
+      client.greeted = true;
+      void this.playGreeting(client);
+      return;
+    }
     this.createSttSession(client);
+  }
+
+  /** The agent's opening line, spoken before the caller has said anything. */
+  private async playGreeting(client: any): Promise<void> {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const hotel = client.reservationContext?.publicHotel;
+    const name = hotel && typeof hotel.name === 'string' ? hotel.name : '';
+    const phrase = (cfg.GREETING ?? '').split(cfg.GREETING_HOTEL_TOKEN).join(name).replace(/\s+/g, ' ').trim();
+    if (!phrase) {
+      this.createSttSession(client);
+      return;
+    }
+
+    client.voiceBusy = true;
+    try {
+      const provider = this.ttsFactory.getProvider(cfg.TTS_PROVIDER) as TtsProvider;
+      const spoken = this.ttsUnderstandsTags() ? phrase : stripAudioTags(phrase);
+      // Cached per property, so only the first caller at a property waits for it.
+      const chunks = await this.getFillerChunks(spoken, null, provider);
+      for (const delta of chunks) {
+        client.emit('voice_audio_chunk', { delta });
+      }
+      client.emit('voice_audio_end');
+      client.emit('voice_text_end', { text: stripAudioTags(phrase) });
+      this.armPlaybackWait(client);
+    } catch (err: any) {
+      // Never let the opening line cost the caller the call.
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'playGreeting',
+      });
+      this.releaseTurn(client);
+    }
   }
 
   /** Cancel the safety net that would otherwise release the turn on its own. */
