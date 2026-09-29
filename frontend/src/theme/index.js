@@ -56,16 +56,7 @@ export const STATUS_WARNING_BG = 'rgba(197,160,34,0.1)';
 export const STATUS_ERROR = '#DC2626';
 export const STATUS_ERROR_BG = 'rgba(220,38,38,0.1)';
 export const BACKDROP_BG = 'rgba(0,0,0,0.5)';
-// Viewing a photo full size. Darker than the standard backdrop so the image is
-// what the eye lands on, with controls that stay legible over any picture.
-export const PHOTO_BACKDROP = 'rgba(0,0,0,0.88)';
-export const PHOTO_CONTROL_BG = 'rgba(0,0,0,0.55)';
-export const PHOTO_CONTROL_BG_HOVER = 'rgba(0,0,0,0.75)';
-export const PHOTO_ON_DARK = '#FFFFFF';
 export const HOVER_BG = 'rgba(0,0,0,0.04)';
-// Quiet neutral fill for informational chips, such as what a room type includes.
-// Aliased rather than repeating the value, so the two cannot drift apart.
-export const PERK_BG = HOVER_BG;
 export const TEXT_MUTED_LIGHT = 'rgba(255,255,255,0.7)';
 // Fainter still — watermark letters and hairlines on a dark hero.
 export const TEXT_FAINT_LIGHT = 'rgba(255,255,255,0.35)';
