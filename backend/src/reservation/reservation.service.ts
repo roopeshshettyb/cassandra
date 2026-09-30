@@ -141,21 +141,25 @@ export class ReservationService {
       // turns later — with the whole conversation still in its prompt. So the
       // note is treated as the record and the recomputed value is only used for
       // an enquiry that never had one.
-      let noted: Record<string, unknown> | null = null;
+      //
+      // Accumulated field by field across every note, not taken wholesale from
+      // the last one: the notes arrive as the call goes on, each carrying what
+      // was just learned, so the name noted three turns ago has to survive a
+      // later note about the phone number.
+      const noted: Record<string, unknown> = {};
       for (const message of chatMessages) {
         // createdAt comes from Sequelize timestamps, which the model does not declare.
         const messageRow: any = message;
         for (const call of message.toolCalls ?? []) {
           if (call.toolName === 'note_reservation_dates' && call.input) {
-            noted = call.input;
+            for (const [field, value] of Object.entries(call.input)) {
+              if (value !== undefined && value !== null && value !== '') {
+                noted[field] = value;
+              }
+            }
           }
           if (call.toolName === 'record_reservation_enquiry' && call.input) {
-            // Only fields the note actually carries: a note taken before the
-            // party size was known must not blank out a size that was recorded.
-            const fromNote = Object.fromEntries(
-              Object.entries(noted ?? {}).filter(([, value]) => value !== undefined && value !== null),
-            );
-            enquiries.push({ ...call.input, ...fromNote, recordedAt: messageRow.createdAt });
+            enquiries.push({ ...call.input, ...noted, recordedAt: messageRow.createdAt });
           }
         }
       }
