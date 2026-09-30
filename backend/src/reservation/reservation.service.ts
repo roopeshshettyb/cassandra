@@ -135,17 +135,10 @@ export class ReservationService {
     const data = chats.map((chat) => {
       const chatMessages = byChat.get(chat.id) ?? [];
       const enquiries: Record<string, unknown>[] = [];
-      // The dates the agent wrote down when it first heard them, which beat the
-      // ones it works out again at the end. Measured on stage, it resolves a
-      // date correctly, says it back, and then records a different one several
-      // turns later — with the whole conversation still in its prompt. So the
-      // note is treated as the record and the recomputed value is only used for
-      // an enquiry that never had one.
-      //
-      // Accumulated field by field across every note, not taken wholesale from
-      // the last one: the notes arrive as the call goes on, each carrying what
-      // was just learned, so the name noted three turns ago has to survive a
-      // later note about the phone number.
+      // What the agent wrote down as it heard it beats what it recalls at the end,
+      // which is reconstructed and often wrong. Accumulated field by field: notes
+      // arrive through the call carrying whatever was just learned, so a name
+      // noted early must survive a later note about the phone number.
       const noted: Record<string, unknown> = {};
       for (const message of chatMessages) {
         // createdAt comes from Sequelize timestamps, which the model does not declare.
@@ -177,15 +170,11 @@ export class ReservationService {
   }
 
   /**
-   * One conversation, in full, for a staff member who wants to read it.
+   * One conversation in full. Kept off the list response because fifty threads of
+   * fifty messages is a payload nobody asked for.
    *
-   * Kept off the list response on purpose: fifty conversations of fifty
-   * messages is a payload nobody asked for, and the list is opened far more
-   * often than any single thread is read.
-   *
-   * Ownership twice over — the hotel has to resolve as this account, and the
-   * chat has to belong to that hotel and be a reservation chat, so a guessed id
-   * cannot reach another property's conversation or a guest's private one.
+   * Ownership twice over: the hotel must resolve as this account, and the chat
+   * must belong to that hotel and be a reservation chat.
    */
   async conversationForHotel(chatId: number, hotelId: number, account: Account) {
     await this.hotelsService.findByIdForAccount(hotelId, account);
