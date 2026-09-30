@@ -87,11 +87,14 @@ export function createReservationTools(
     new DynamicStructuredTool({
       name: 'note_reservation_dates',
       description:
-        'Call this the moment the enquirer gives their dates, before you ask them anything else, and again with the party size the moment you have that. It writes them down so they cannot drift later in the call. Call it again whenever they change either.',
+        'Write down what the enquirer has just told you, the moment they tell you. Call it first with their dates, and again after every further detail — the party size, the name, the phone number, the email — carrying whatever you now know. Call it again whenever they correct something. Everything recorded at the end of the call is taken from these notes, not from memory.',
       schema: z.object({
         checkInDate: z.string().describe('Resolved check-in date as YYYY-MM-DD'),
         checkOutDate: z.string().describe('Resolved check-out date as YYYY-MM-DD'),
-        partySize: z.number().optional().describe('Number of guests, once they have said — measured, this drifts exactly as the dates do'),
+        partySize: z.number().optional().describe('Number of guests, as soon as they have said'),
+        guestName: z.string().optional().describe('Name as spelled out, as soon as they have given it'),
+        guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
+        guestEmail: z.string().optional().describe('Email address as spelled out, as soon as they have given it'),
       }),
       func: async (args) => {
         // Nothing is stored server-side: the value is that the call itself is
