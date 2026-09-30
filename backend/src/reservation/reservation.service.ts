@@ -150,7 +150,12 @@ export class ReservationService {
             noted = call.input;
           }
           if (call.toolName === 'record_reservation_enquiry' && call.input) {
-            enquiries.push({ ...call.input, ...(noted ?? {}), recordedAt: messageRow.createdAt });
+            // Only fields the note actually carries: a note taken before the
+            // party size was known must not blank out a size that was recorded.
+            const fromNote = Object.fromEntries(
+              Object.entries(noted ?? {}).filter(([, value]) => value !== undefined && value !== null),
+            );
+            enquiries.push({ ...call.input, ...fromNote, recordedAt: messageRow.createdAt });
           }
         }
       }
