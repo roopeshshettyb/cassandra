@@ -11,6 +11,7 @@ import { NAVY, MUTED } from '../../theme';
 // rules, but to whoever is talking it is the same assistant.
 import { VoiceMicButton } from '../AvatarChatbot/ui/VoiceMic';
 import constants from '../../constants.json';
+import { sessionStorageKey, sessionAuth } from './reservationSession';
 
 const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
@@ -18,17 +19,12 @@ const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\
 const SAMPLE_RATE = 24000;
 
 /**
- * Comfort noise — the faint life a real call always carries.
+ * Comfort noise — the faint life a real call carries. Dead silence between
+ * sentences is the clearest tell that a voice is synthetic.
  *
- * Real calls are never silent, and dead silence between sentences is the
- * clearest tell that a voice is synthetic. This runs continuously for the whole
- * call, not just under the agent's speech: noise that appeared and vanished with
- * the voice would be a worse tell than none at all.
- *
- * The bed is a recording of a real room. Nothing is synthesised as a stand-in:
- * generated noise is steady by definition, and a bed that never changes stops
- * sounding like a room and starts sounding like a hiss — which is the thing it
- * was meant to hide. If the recording cannot be fetched the call runs dry.
+ * A recording of a real room, with no synthesised stand-in: generated noise is
+ * steady by definition and reads as a hiss, which is the thing it should hide.
+ * If the recording cannot be fetched the call runs dry.
  */
 
 /** Scale samples in place so their RMS sits at the configured level. */
@@ -78,15 +74,12 @@ function toLoopBuffer(ctx, decoded) {
 /**
  * Open the line with a freshly built buffer, levelled to the configured dBFS.
  *
- * The bed runs for the whole call, under the caller as much as under the agent.
- * It was briefly gated to the agent's voice only, on the reasoning that the
- * caller's own line already has a room behind it — but that put real silence in
- * every gap, and silence is exactly what the bed is for. A line with nothing on
- * it sounds hung up, and the wait for an answer sounds longer than it is.
+ * Runs for the whole call, under the caller as much as the agent: gating it to
+ * the agent's voice puts real silence in every gap, and a line with nothing on
+ * it sounds hung up.
  *
- * Faded in rather than switched on, so the line "opens" instead of clicking.
- * The gain has to be set before it is ramped: a gain node is born at 1, so
- * scheduling alone would leak a moment of full-level room tone at the top.
+ * Faded in rather than switched on. The gain is set before it is ramped because
+ * a gain node is born at 1, and scheduling alone leaks a moment of full level.
  */
 function startAmbience(ctx, buffer, dbfs) {
   if (!ctx || !buffer || !dbfs || dbfs <= -100) return null;
@@ -161,7 +154,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const lastErrorRef = useRef('');
 
   const hotelIdRef = useRef(hotelId);
-  const storageKeyRef = useRef(`${constants.RESERVATION_SESSION_STORAGE_KEY_PREFIX}${hotelId}`);
+  const storageKeyRef = useRef(sessionStorageKey(hotelId));
   const alertErrorRef = useRef(alertError);
   alertErrorRef.current = alertError;
   const onHotelResolvedRef = useRef(onHotelResolved);
@@ -258,13 +251,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       query: { hotelId: String(hotelIdRef.current) },
-      // Read fresh for every connection attempt, which is the whole point of
-      // putting it here rather than in the query string. The query is frozen when
-      // the socket is built, and at that moment there is no token to send: the
-      // chat is not created until the caller's first turn. A reconnect carrying
-      // the query's empty token got a brand new chat, so the line came back and
-      // the agent had forgotten the dates it had just been given.
-      auth: (cb) => cb({ sessionToken: localStorage.getItem(storageKeyRef.current) || undefined }),
+      auth: sessionAuth(storageKeyRef.current),
       // The same retry the text chat and the concierge already use. This page
       // was the only socket in the app that gave up permanently on one drop,
       // and a deploy reloads the API and drops every open socket — so any call
@@ -354,20 +341,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       alertErrorRef.current?.(p?.message);
       setStatus('idle');
     });
-    // A dropped line is not an idle one. Saying "tap to speak" over a dead
-    // socket is the worst state the page can be in: the tap is refused in
-    // silence because there is nothing to send it to, so the call looks ready
-    // and answers nothing. Retrying happens underneath us, and the server
-    // rebuilds the session from the token in storage, so a live call comes back
-    // and voice_ready picks the turn up where it left off.
+    // A dropped line is not an idle one: "tap to speak" over a dead socket
+    // refuses every tap in silence. Retrying happens underneath, and voice_ready
+    // picks the turn back up when it succeeds.
     socket.on('disconnect', (reason) => {
       micGateRef.current = false;
       setStatus('idle');
-      // The server hanging up on purpose — a turn limit, an expired session, a
-      // rate limit — is not a dropped line. socket.io does not retry that one, so
-      // promising a reconnect leaves the caller watching "Reconnecting…" forever
-      // for something that is never coming. It sent a reason just before it hung
-      // up; that is what belongs on screen.
+      // A deliberate hangup is not a dropped line, and socket.io never retries
+      // one — so show the reason it sent rather than promise a reconnect.
       if (endedRef.current || reason === 'io server disconnect') {
         setBlocked((prev) => prev || lastErrorRef.current);
         return;
