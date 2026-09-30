@@ -750,30 +750,20 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * Set them above zero to cap an unauthenticated, per-turn-billed surface.
          */
         /**
-         * Noises to fill the gap between a caller finishing and the answer
-         * starting — measured at 2.76s, nearly all of it the model thinking.
+         * Noises that fill the gap between the caller finishing and the answer
+         * starting. All plain acknowledgements, never "let me check" — claiming
+         * to look something up when nothing is being looked up is what gives it
+         * away, and an acknowledgement is true on every turn.
          *
-         * Every one of these is a plain acknowledgement. The first version of
-         * this list had "let me see" and "let me check" in it, and saying you
-         * are looking something up when you are not is what made it grate:
-         * say hello and be told "let me check" and you can hear the machine.
-         * These say only "I heard you, I am still here", which is true on
-         * every turn, so it never has to decide whether it has earned one.
-         *
-         * Long, because repetition is the tell. Six phrases over a ten-turn
-         * call means hearing the same one twice, and the ear catches that
-         * faster than it catches the silence they replace.
+         * Long list because repetition is the tell: a short one repeats within a
+         * single call, and the ear catches that sooner than the silence.
          */
         /**
-         * Spoken the moment the caller opens the line, before they say anything.
+         * Spoken the moment the caller opens the line, so it does not answer with
+         * the silence they have to say "hello?" into.
          *
-         * A phone that answers with silence makes you say "hello?" into it to
-         * find out whether anything is there. The agent speaks first now, the
-         * way a person picking up would.
-         *
-         * Fixed words rather than a generated opener: it has to arrive instantly,
-         * and a model round trip is the one thing that would put the silence
-         * back. Synthesised and cached per property alongside the fillers.
+         * Fixed words rather than a generated opener, because a model round trip
+         * would put that silence straight back. Cached alongside the fillers.
          * {HOTEL} is replaced with the property's name.
          */
         GREETING: this.configService.get<string>(

@@ -154,11 +154,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
   async handleConnection(client: any) {
     const strings = this.constantsService.public;
     const query: any = client.handshake?.query ?? {};
-    // auth as well as query, the way the text gateway already reads it. The query
-    // string is fixed when the socket is constructed, so a reconnect can only
-    // carry the token it had at mount — which is none, because the chat does not
-    // exist until the first turn. auth is re-read on every attempt, so this is
-    // what lets a recovered call resume its conversation instead of starting over.
+    // auth as well as query, as the text gateway does: a query is fixed when the
+    // socket is built, before any chat exists, so only auth survives a reconnect.
     const auth: any = client.handshake?.auth ?? {};
 
     const hotelId = parseHotelId(query.hotelId ?? auth.hotelId);
@@ -326,15 +323,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
 
   /**
    * Synthesise every filler once at boot, so no caller is the one who warms it.
+   * Warming on demand leaves most calls without one, since a phrase picked from
+   * two dozen is rarely reused before the next deploy empties the cache.
    *
-   * Warming a phrase on demand does not work: with two dozen of them picked at
-   * random, a call has to be unlucky to reuse one, so measured across eight
-   * calls only the last was fast and the mean came out worse than having no
-   * filler at all. Every deploy empties the cache, so the alternative is most
-   * callers hearing nothing.
-   *
-   * In the background and never awaited — a TTS outage must not stop the
-   * gateway coming up, and the fillers are the first thing to go without.
+   * Never awaited: a TTS outage must not stop the gateway coming up.
    */
   onModuleInit(): void {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
@@ -364,12 +356,11 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
   }
 
   /**
-   * PCM for one filler phrase, synthesised on first use and then replayed from
-   * memory. Caching is the point: a filler that had to wait for a TTS round
-   * trip would add the very delay it exists to hide.
+   * PCM for one phrase, synthesised once and replayed from memory — a filler that
+   * waited for a TTS round trip would add the delay it exists to hide.
    *
-   * The provider writes to a collector rather than the socket, which is how the
-   * audio gets captured without changing the TTS interface.
+   * The provider writes to a collector rather than the socket, which captures the
+   * audio without changing the TTS interface.
    */
   private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
@@ -416,11 +407,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     if (!spoken) {
       return;
     }
-    // Only ever play one that is already in memory. A phrase being used for the
-    // first time has to be synthesised, and the answer queues behind whatever
-    // this returns — measured, that turned a 2.8s wait into a 6.0s one, which is
-    // the exact opposite of the job. So a cold phrase is synthesised in the
-    // background for next time and this turn simply goes without.
+    // Only play one already in memory: the answer queues behind whatever this
+    // returns, so synthesising here would add the delay it exists to hide. A cold
+    // phrase is warmed in the background and this turn goes without.
     const cfg = this.constantsService.private.RESERVATION_VOICE;
     const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${spoken}`;
     if (!this.cacheService.get<string[]>(key)) {
@@ -580,12 +569,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     if (!client.reservationContext || client.voiceBusy || client.sttSession) {
       return;
     }
-    // The line opens with the agent speaking, not with silence the caller has to
-    // say "hello?" into. It runs as turn zero through the same handshake a reply
-    // uses — busy while it plays, so the open microphone cannot hear it, and the
-    // browser reports when it has finished, which reopens the mic. Greeting on
-    // connect instead would be too early: the page only gets permission to make
-    // sound inside the tap.
+    // Turn zero, through the same handshake a reply uses: busy while it plays so
+    // the open mic cannot hear it, and the browser reports when it has finished.
+    // Greeting on connect would be too early — the page only gets permission to
+    // make sound inside the tap.
     if (!client.greeted) {
       client.greeted = true;
       void this.playGreeting(client);

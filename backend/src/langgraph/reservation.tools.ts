@@ -97,12 +97,9 @@ export function createReservationTools(
         guestEmail: z.string().optional().describe('Email address as spelled out, as soon as they have given it'),
       }),
       func: async (args) => {
-        // Nothing is stored server-side: the value is that the call itself is
-        // persisted on the assistant message, and the conversation context is
-        // built with tool calls and their inputs inline. So the resolved dates
-        // come back into every later prompt as machine-readable ISO rather than
-        // as words the model has to resolve a second time — which is exactly
-        // what it was getting wrong, turning a November booking into October.
+        // Nothing is stored here: the call itself is persisted on the assistant
+        // message, and context is built with tool inputs inline, so the details
+        // return to every later prompt as data rather than as words to re-read.
         return JSON.stringify({
           success: true,
           message: constantsService.public.RESERVATION_DATES_NOTED,

@@ -11,6 +11,7 @@ import remarkGfm from 'remark-gfm';
 import dayjs from 'dayjs';
 import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, HOVER_BG } from '../../theme';
 import constants from '../../constants.json';
+import { sessionStorageKey, sessionAuth } from './reservationSession';
 // The bubble the concierge draws, so a message looks the same wherever it is read.
 import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
 
@@ -106,7 +107,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
   const onFatalErrorRef = useRef(onFatalError);
   onFatalErrorRef.current = onFatalError;
 
-  const storageKey = `${constants.RESERVATION_SESSION_STORAGE_KEY_PREFIX}${hotelId}`;
+  const storageKey = sessionStorageKey(hotelId);
   const storageKeyRef = useRef(storageKey);
 
   const scrollToBottom = useCallback(() => {
@@ -124,15 +125,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       query: { hotelId: String(hotelIdRef.current) },
-      // Signed by the backend, so resuming only ever reaches this visitor's chat.
-      //
-      // In auth rather than query, and read fresh, because query belongs to the
-      // manager and not to this socket. Switching here from the voice page reuses
-      // the manager that page already opened, whose query was fixed at page load
-      // when there was no token yet — so the token never went, the server started
-      // a new chat, and the transcript the caller had just spoken was not there.
-      // A refresh made it work only because it built a new manager.
-      auth: (cb) => cb({ sessionToken: localStorage.getItem(storageKeyRef.current) || undefined }),
+      auth: sessionAuth(storageKeyRef.current),
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
