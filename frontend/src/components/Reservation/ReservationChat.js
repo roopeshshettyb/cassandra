@@ -120,17 +120,19 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
     const url = getBackendUrl();
     if (!url) return undefined;
 
-    const query = { hotelId: String(hotelIdRef.current) };
-    // Signed by the backend, so resuming only ever reaches this visitor's chat.
-    const saved = localStorage.getItem(storageKeyRef.current);
-    if (saved) {
-      query.sessionToken = saved;
-    }
-
     const socket = io(`${url}/reservation`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
-      query,
+      query: { hotelId: String(hotelIdRef.current) },
+      // Signed by the backend, so resuming only ever reaches this visitor's chat.
+      //
+      // In auth rather than query, and read fresh, because query belongs to the
+      // manager and not to this socket. Switching here from the voice page reuses
+      // the manager that page already opened, whose query was fixed at page load
+      // when there was no token yet — so the token never went, the server started
+      // a new chat, and the transcript the caller had just spoken was not there.
+      // A refresh made it work only because it built a new manager.
+      auth: (cb) => cb({ sessionToken: localStorage.getItem(storageKeyRef.current) || undefined }),
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
