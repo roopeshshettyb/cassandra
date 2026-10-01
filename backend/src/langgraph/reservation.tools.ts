@@ -4,6 +4,7 @@ import { AgentToolContext } from './langgraph-tools.context';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { Hotel } from '../hotels/hotels.model';
 import { ConstantsService } from '../common/constants/constants.service';
+import { ChatService } from '../chat/chat.service';
 
 /**
  * The subset of a hotel an anonymous member of the public may see. This is an
@@ -51,6 +52,7 @@ export function createReservationTools(
   ctx: AgentToolContext,
   restaurantService: RestaurantService,
   constantsService: ConstantsService,
+  chatService: ChatService,
 ): StructuredToolInterface[] {
   const hotelId = ctx.hotelId;
 
@@ -82,6 +84,23 @@ export function createReservationTools(
         }
         const result = await restaurantService.searchPublicMenuItems(hotelId, args.keywords);
         return JSON.stringify(result.data);
+      },
+    }),
+    new DynamicStructuredTool({
+      name: 'set_chat_language',
+      description:
+        'Store the language this call is being held in, as soon as you know it from the first thing they say. Until it is stored the language is decided again on every turn, which is how a call drifts back into English. Call it again only if they genuinely start speaking another language — not because they spelled something in English letters.',
+      schema: z.object({
+        languageCode: z
+          .enum(['en', 'hi', 'kn', 'ta', 'te'])
+          .describe('The ISO-639-1 language code for this call (en, hi, kn, ta, or te).'),
+      }),
+      func: async (args) => {
+        await chatService.updateLanguageCode(ctx.chatId, args.languageCode);
+        // Also on the live session, so the voice that speaks the rest of this
+        // call follows it without waiting for a reconnect to re-read the row.
+        ctx.languageCode = args.languageCode;
+        return JSON.stringify({ success: true, languageCode: args.languageCode });
       },
     }),
     new DynamicStructuredTool({

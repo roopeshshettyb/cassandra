@@ -241,7 +241,7 @@ export class LangGraphService {
     // read-only tool set rather than a role-filtered slice of the staff one.
     const tools = ctx.account
       ? createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService)
-      : createReservationTools(ctx, this.restaurantService, this.constantsService);
+      : createReservationTools(ctx, this.restaurantService, this.constantsService, this.chatService);
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 
