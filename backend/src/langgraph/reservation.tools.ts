@@ -89,8 +89,8 @@ export function createReservationTools(
       description:
         'Write down what the enquirer has just told you, the moment they tell you. Call it first with their dates, and again after every further detail — the party size, the name, the phone number, the email — carrying whatever you now know. Call it again whenever they correct something. Everything recorded at the end of the call is taken from these notes, not from memory.',
       schema: z.object({
-        checkInDate: z.string().describe('Resolved check-in date as YYYY-MM-DD'),
-        checkOutDate: z.string().describe('Resolved check-out date as YYYY-MM-DD'),
+        checkInDate: z.string().optional().describe('Resolved check-in date as YYYY-MM-DD'),
+        checkOutDate: z.string().optional().describe('Resolved check-out date as YYYY-MM-DD. Leave it out until they have actually given you one — do not pick a checkout for them'),
         partySize: z.number().optional().describe('Number of guests, as soon as they have said'),
         guestName: z.string().optional().describe('The name itself, assembled from the letters they spelled: "Ram", never "R A M" and never "Ram, R A M"'),
         guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
