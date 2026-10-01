@@ -92,9 +92,9 @@ export function createReservationTools(
         checkInDate: z.string().describe('Resolved check-in date as YYYY-MM-DD'),
         checkOutDate: z.string().describe('Resolved check-out date as YYYY-MM-DD'),
         partySize: z.number().optional().describe('Number of guests, as soon as they have said'),
-        guestName: z.string().optional().describe('Name as spelled out, as soon as they have given it'),
+        guestName: z.string().optional().describe('The name itself, assembled from the letters they spelled: "Ram", never "R A M" and never "Ram, R A M"'),
         guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
-        guestEmail: z.string().optional().describe('Email address as spelled out, as soon as they have given it'),
+        guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
       }),
       func: async (args) => {
         // Nothing is stored here: the call itself is persisted on the assistant
@@ -112,8 +112,8 @@ export function createReservationTools(
       description:
         'Record the reservation enquiry once you have the dates, the number of guests and a name with either an email or a phone number. Call this exactly once, after confirming the details back to the enquirer. Recording it hands the enquiry to the hotel team, who will confirm the booking; you cannot confirm a booking yourself.',
       schema: z.object({
-        guestName: z.string().describe('Full name of the person making the reservation'),
-        guestEmail: z.string().describe('Email address — required, always ask for it and spell it back'),
+        guestName: z.string().describe('Full name of the person making the reservation, as a name — never with its spelling appended'),
+        guestEmail: z.string().describe('Email address as a working address, required — spell it back to them, but record it assembled, never letter by letter'),
         guestPhone: z.string().optional().describe('Phone number, if given'),
         checkInDate: z.string().describe('Requested check-in date as YYYY-MM-DD'),
         checkOutDate: z.string().describe('Requested check-out date as YYYY-MM-DD'),

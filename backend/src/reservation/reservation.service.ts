@@ -20,6 +20,42 @@ export interface ReservationSessionResult {
   messages: Message[];
 }
 
+/**
+ * Undo a spelling that was recorded instead of the value it spells.
+ *
+ * The agent is told to have names and addresses spelled out, and it sometimes
+ * writes down the letters rather than what they assemble to — "Ram, R A N",
+ * "S H R I J I T M O R E 5 5 6 @ gmail.com". The prompt and the tool now ask for
+ * the assembled value, but a staff member should not be shown letters because a
+ * model drifted, so the obvious cases are undone here as well.
+ *
+ * Conservative on purpose: a run of single characters is only ever a spelling,
+ * but "Mary Jane" and "J K Rowling" must survive untouched.
+ */
+function unspell(value: unknown, stripSpaces: boolean): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  const text = value.trim();
+  if (!text) {
+    return value;
+  }
+  // An address can never contain a space, so any spacing in one is a spelling.
+  if (stripSpaces && /\s/.test(text)) {
+    return text.replace(/\s+/g, '');
+  }
+  // "Ram, R A N" — a tail of single characters spells the head.
+  const tail = /^(.*?),\s*((?:[A-Za-z0-9]\s+){2,}[A-Za-z0-9])\s*$/.exec(text);
+  if (tail) {
+    return tail[1].trim();
+  }
+  // "R A N" on its own is a spelling with nothing else to fall back on.
+  if (/^(?:[A-Za-z0-9]\s+){2,}[A-Za-z0-9]$/.test(text)) {
+    return text.replace(/\s+/g, '');
+  }
+  return text;
+}
+
 @Injectable()
 export class ReservationService {
   constructor(
@@ -152,7 +188,10 @@ export class ReservationService {
             }
           }
           if (call.toolName === 'record_reservation_enquiry' && call.input) {
-            enquiries.push({ ...call.input, ...noted, recordedAt: messageRow.createdAt });
+            const enquiry: Record<string, unknown> = { ...call.input, ...noted };
+            enquiry.guestName = unspell(enquiry.guestName, false);
+            enquiry.guestEmail = unspell(enquiry.guestEmail, true);
+            enquiries.push({ ...enquiry, recordedAt: messageRow.createdAt });
           }
         }
       }
