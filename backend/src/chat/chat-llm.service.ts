@@ -38,6 +38,25 @@ export class ChatLlmService {
     return session.hotelId ?? null;
   }
 
+  /**
+   * Follow a language change on the live session, not just in the database.
+   *
+   * The row is what a later connection reads, but the voice speaking the rest of
+   * this call reads session.languageCode — so without this a caller who switches
+   * to Hindi keeps hearing English until they hang up and call back.
+   */
+  private syncSessionLanguageFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
+    for (const call of toolCalls) {
+      if (call.toolName !== 'set_chat_language') {
+        continue;
+      }
+      const code = (call.input as any)?.languageCode;
+      if (typeof code === 'string' && code) {
+        session.languageCode = code;
+      }
+    }
+  }
+
   private syncSessionBookingFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
     for (let i = 0; i < toolCalls.length; i += 1) {
       const call = toolCalls[i];
@@ -79,7 +98,7 @@ export class ChatLlmService {
     const isReservation = !session.account;
 
     const { messages } = isReservation
-      ? await buildReservationPrompt(this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice)
+      ? await buildReservationPrompt(this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice, session.languageCode ?? null)
       : await buildChatPrompt(
           this.chatContextService,
           chatId,
@@ -136,6 +155,7 @@ export class ChatLlmService {
     this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
+    this.syncSessionLanguageFromToolCalls(session, toolCalls);
 
     this.costsService.recordLlmCost({
       // This same LangGraph call path serves both text chat and the "custom"
