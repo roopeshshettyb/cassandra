@@ -33,7 +33,9 @@ export class MessagesService {
   async findRecentByChatId(chatId: number, limit: number = 50): Promise<Message[]> {
     const rows = await this.messageRepository.findAll({
       where: { chatId },
-      order: [['createdAt', 'desc']],
+      // id breaks the tie: a voice turn writes the question and the answer in the
+      // same second, and createdAt alone leaves their order to the database.
+      order: [['createdAt', 'desc'], ['id', 'desc']],
       limit,
     });
     return rows.reverse();
