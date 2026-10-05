@@ -961,6 +961,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * nothing reached TTS until the whole answer was written and the line
          * sat silent the entire time.
          */
+        /** How many tool round trips one turn may take before it is cut off. */
+        AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '12', 10),
         SENTENCE_TERMINATORS_LATIN: '.!?',
         SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
         STT_CONFIG: {
