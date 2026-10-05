@@ -1,12 +1,9 @@
 import { Table, Model, Column, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { Hotel } from '../hotels/hotels.model';
 import { RoomType } from './room-types.model';
+import { RoomStatus } from '../common/constants/constants.service';
 
-export enum RoomStatus {
-  ACTIVE = 'active',
-  MAINTENANCE = 'maintenance',
-  OUT_OF_SERVICE = 'out_of_service',
-}
+export { RoomStatus };
 
 @Table({ tableName: 'rooms' })
 export class Room extends Model<Room> {
