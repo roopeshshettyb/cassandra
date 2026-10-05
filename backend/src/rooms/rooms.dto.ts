@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RoomStatus } from './rooms.model';
 import { DATE_REGEX } from '../bookings/bookings.dto';
@@ -159,10 +159,10 @@ export class UpdateInventoryDto {
   @ApiProperty()
   readonly endDate: string;
 
-  @IsOptional()
-  @IsInt()
+  @ValidateIf((dto) => dto.total === undefined)
   @Min(0)
-  @ApiProperty({ required: false, description: 'Rooms held back from sale on every night in the range' })
+  @IsInt({ message: 'Provide total, blocked, or both' })
+  @ApiProperty({ required: false, description: 'Rooms held back from sale on every night in the range. Required when total is not given.' })
   readonly blocked?: number;
 
   @IsOptional()

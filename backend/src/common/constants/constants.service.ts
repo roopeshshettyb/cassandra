@@ -68,6 +68,18 @@ export const BOOKING_STATUSES = [
   { value: BookingStatus.CANCELLED, label: 'Cancelled' },
 ] as const;
 
+export enum RoomStatus {
+  ACTIVE = 'active',
+  MAINTENANCE = 'maintenance',
+  OUT_OF_SERVICE = 'out_of_service',
+}
+
+export const ROOM_STATUSES = [
+  { value: RoomStatus.ACTIVE, label: 'Active' },
+  { value: RoomStatus.MAINTENANCE, label: 'Maintenance' },
+  { value: RoomStatus.OUT_OF_SERVICE, label: 'Out of service' },
+] as const;
+
 export const HOTEL_MEMBER_INVITE_TYPE_STAFF = 'staff';
 
 export const ACCOUNT_ROLES = {
@@ -367,6 +379,9 @@ export class ConstantsService {
       BOOKING_STATUSES,
       BOOKING_STATUS_CANCELLED: BookingStatus.CANCELLED,
       BOOKING_STATUS_DEFAULT: DEFAULT_BOOKING_STATUS,
+      ROOM_STATUSES,
+      ROOM_STATUS_DEFAULT: RoomStatus.ACTIVE,
+      ROOM_TYPE_IMAGES_MAX_COUNT,
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
       ERROR_NO_ACCESS_TO_HOTEL_MENU: 'No access to this hotel menu',

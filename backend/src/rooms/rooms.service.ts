@@ -1,4 +1,4 @@
-import { Inject, Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, ConflictException, NotFoundException, forwardRef } from '@nestjs/common';
 import { Op } from 'sequelize';
 import { ROOMS_REPOSITORY, ROOM_TYPES_REPOSITORY } from './rooms.repository';
 import { RoomType } from './room-types.model';
@@ -18,7 +18,7 @@ import {
   RoomTypeImageDto,
   NextRoomQueryDto,
 } from './rooms.dto';
-import { Account, AccountRole } from '../accounts/accounts.model';
+import { Account } from '../accounts/accounts.model';
 import { HotelsService } from '../hotels/hotels.service';
 import { ConstantsService, DEFAULT_AVAILABILITY_ROOMS, ROOM_TYPE_IMAGES_MAX_COUNT, ROOM_TYPE_IMAGE_MAX_FILE_SIZE_MB } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
@@ -42,12 +42,6 @@ export class RoomsService {
     await this.hotelsService.findByIdForAccount(hotelId, currentAccount);
   }
 
-  private ensureCanManage(currentAccount: Account): void {
-    if (currentAccount.role !== AccountRole.ADMIN && currentAccount.role !== AccountRole.HOTEL_OWNER && currentAccount.role !== AccountRole.HOTEL_STAFF) {
-      throw new ForbiddenException();
-    }
-  }
-
   private async findRoomTypeForAccount(id: number, currentAccount: Account): Promise<RoomType> {
     const roomType = await this.roomTypesRepository.findByPk(id);
     if (!roomType) {
@@ -66,8 +60,8 @@ export class RoomsService {
     return room;
   }
 
-  private nightsOrFail(startDate: string, endDate: string): string[] {
-    const nights = this.inventoryService.nightsBetweenDates(startDate, endDate);
+  private nightsBetweenOrFail(startDate: string, endDate: string): string[] {
+    const nights = this.inventoryService.nightsBetweenDateStrings(startDate, endDate);
     if (nights.length === 0) {
       throw new BadRequestException('Check-out must be after check-in');
     }
@@ -76,7 +70,6 @@ export class RoomsService {
 
   async findAllRoomTypes(hotelId: number, currentAccount: Account) {
     await this.ensureCanAccessHotel(hotelId, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     const roomTypes = await this.roomTypesRepository.findAll({ where: { hotelId }, order: [['name', 'ASC']] });
 
@@ -85,7 +78,6 @@ export class RoomsService {
 
   async createRoomType(dto: CreateRoomTypeDto, currentAccount: Account) {
     await this.ensureCanAccessHotel(dto.hotelId, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     const roomTypeValues: any = dto;
     const roomType = await this.roomTypesRepository.create(roomTypeValues);
@@ -95,7 +87,6 @@ export class RoomsService {
 
   async updateRoomType(id: number, dto: UpdateRoomTypeDto, currentAccount: Account) {
     const roomType = await this.findRoomTypeForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     await roomType.update(dto);
 
@@ -104,7 +95,6 @@ export class RoomsService {
 
   async deleteRoomType(id: number, currentAccount: Account) {
     const roomType = await this.findRoomTypeForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     const rooms = await this.roomsRepository.count({ where: { roomTypeId: id } });
     if (rooms > 0) {
@@ -120,7 +110,6 @@ export class RoomsService {
 
   async getImageUploadUrl(id: number, dto: RoomTypeImageUploadUrlDto, currentAccount: Account) {
     const roomType = await this.findRoomTypeForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     const keyPrefix = this.constantsService.private.AWS_S3_KEY_PREFIX;
     const s3Key = `${keyPrefix}room-type-images/${roomType.id}-${Date.now()}-${dto.fileName}`;
@@ -138,7 +127,6 @@ export class RoomsService {
 
   async addImage(id: number, dto: RoomTypeImageDto, currentAccount: Account) {
     const roomType = await this.findRoomTypeForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     if (roomType.images.length >= ROOM_TYPE_IMAGES_MAX_COUNT) {
       throw new BadRequestException(`A room type can have at most ${ROOM_TYPE_IMAGES_MAX_COUNT} images`);
@@ -151,7 +139,6 @@ export class RoomsService {
 
   async removeImage(id: number, dto: RoomTypeImageDto, currentAccount: Account) {
     const roomType = await this.findRoomTypeForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     await roomType.update({ images: roomType.images.filter((url) => url !== dto.s3Url) });
 
@@ -159,16 +146,15 @@ export class RoomsService {
   }
 
   /** Preview of the room(s) a booking would get. Nothing is reserved; the booking assigns rooms itself. */
-  async findNextRoom(query: NextRoomQueryDto, currentAccount: Account) {
+  async previewRoomAssignment(query: NextRoomQueryDto, currentAccount: Account) {
     await this.findRoomTypeForAccount(query.roomTypeId, currentAccount);
-    this.ensureCanManage(currentAccount);
 
-    const nights = this.nightsOrFail(query.startDate, query.endDate);
+    const nights = this.nightsBetweenOrFail(query.startDate, query.endDate);
     const wanted = query.rooms ?? DEFAULT_AVAILABILITY_ROOMS;
 
-    const rooms = await this.inventoryService.findAvailableRooms(query.roomTypeId, query.startDate, query.endDate, wanted);
+    const rooms = await this.inventoryService.findFreeRooms(query.roomTypeId, query.startDate, query.endDate, wanted);
     const free = await this.inventoryService.countFreeRooms(query.roomTypeId, query.startDate, query.endDate);
-    const inventory = await this.inventoryService.findRange(query.roomTypeId, nights);
+    const inventory = await this.inventoryService.getInventoryForNights(query.roomTypeId, nights);
     // Rooms out of service are in the inventory counts but can never be assigned.
     const available = Math.min(free, ...inventory.map((night) => night.available));
 
@@ -185,7 +171,6 @@ export class RoomsService {
 
   async findAllRooms(hotelId: number, currentAccount: Account) {
     await this.ensureCanAccessHotel(hotelId, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     const rooms = await this.roomsRepository.findAll({
       where: { hotelId },
@@ -197,7 +182,6 @@ export class RoomsService {
   }
 
   async createRoom(dto: CreateRoomDto, currentAccount: Account) {
-    this.ensureCanManage(currentAccount);
 
     const roomType = await this.findRoomTypeForAccount(dto.roomTypeId, currentAccount);
 
@@ -210,9 +194,9 @@ export class RoomsService {
     return { success: true, message: 'Room created', data: room };
   }
 
-  /** Held by a stay that has not checked out yet. */
-  private async hasUpcomingHolds(roomId: number): Promise<boolean> {
-    const today = this.inventoryService.toDateString(new Date());
+  /** Assigned to a booking that has not checked out yet. */
+  private async hasUpcomingBookings(roomId: number): Promise<boolean> {
+    const today = this.inventoryService.toDateOnly(new Date());
     return (await BookingRoom.count({ where: { roomId, checkOut: { [Op.gt]: today } } })) > 0;
   }
 
@@ -229,12 +213,11 @@ export class RoomsService {
 
   async updateRoom(id: number, dto: UpdateRoomDto, currentAccount: Account) {
     const room = await this.findRoomForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
     const roomNumber = dto.roomNumber?.trim();
     const renumbering = roomNumber !== undefined && roomNumber !== room.roomNumber;
     const leavingService = dto.status !== undefined && dto.status !== RoomStatus.ACTIVE && room.status === RoomStatus.ACTIVE;
-    if ((renumbering || leavingService) && (await this.hasUpcomingHolds(room.id))) {
+    if ((renumbering || leavingService) && (await this.hasUpcomingBookings(room.id))) {
       throw new BadRequestException('This room is held by a booking; cancel or move that booking first');
     }
 
@@ -250,9 +233,8 @@ export class RoomsService {
 
   async deleteRoom(id: number, currentAccount: Account) {
     const room = await this.findRoomForAccount(id, currentAccount);
-    this.ensureCanManage(currentAccount);
 
-    if (await this.hasUpcomingHolds(id)) {
+    if (await this.hasUpcomingBookings(id)) {
       throw new BadRequestException('This room is held by a booking; cancel or move that booking first');
     }
 
@@ -263,29 +245,23 @@ export class RoomsService {
 
   async findInventory(query: InventoryQueryDto, currentAccount: Account) {
     await this.findRoomTypeForAccount(query.roomTypeId, currentAccount);
-    this.ensureCanManage(currentAccount);
 
-    const nights = this.nightsOrFail(query.startDate, query.endDate);
-    const data = await this.inventoryService.findRange(query.roomTypeId, nights);
+    const nights = this.nightsBetweenOrFail(query.startDate, query.endDate);
+    const data = await this.inventoryService.getInventoryForNights(query.roomTypeId, nights);
 
     return { success: true, message: 'Inventory fetched', data };
   }
 
   async updateInventory(dto: UpdateInventoryDto, currentAccount: Account) {
     await this.findRoomTypeForAccount(dto.roomTypeId, currentAccount);
-    this.ensureCanManage(currentAccount);
 
-    if (dto.total === undefined && dto.blocked === undefined) {
-      throw new BadRequestException('Provide total, blocked, or both');
-    }
-
-    const nights = this.nightsOrFail(dto.startDate, dto.endDate);
+    const nights = this.nightsBetweenOrFail(dto.startDate, dto.endDate);
 
     await this.sequelize.transaction(async (transaction) => {
-      await this.inventoryService.setForNights(dto.roomTypeId, nights, dto.total, dto.blocked, transaction);
+      await this.inventoryService.updateTotalAndBlockedForNights(dto.roomTypeId, nights, dto.total, dto.blocked, transaction);
     });
 
-    const data = await this.inventoryService.findRange(dto.roomTypeId, nights);
+    const data = await this.inventoryService.getInventoryForNights(dto.roomTypeId, nights);
 
     return { success: true, message: 'Inventory updated', data };
   }
@@ -293,8 +269,8 @@ export class RoomsService {
   async findAvailability(query: AvailabilityQueryDto, currentAccount: Account) {
     await this.ensureCanAccessHotel(query.hotelId, currentAccount);
 
-    const nights = this.nightsOrFail(query.startDate, query.endDate);
-    const data = await this.inventoryService.findAvailability(
+    const nights = this.nightsBetweenOrFail(query.startDate, query.endDate);
+    const data = await this.inventoryService.findAvailableRoomTypes(
       query.hotelId,
       nights,
       query.startDate,

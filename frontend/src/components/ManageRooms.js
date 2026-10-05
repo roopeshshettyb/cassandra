@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import request from '../helper/api';
 import MapComponent from './MapComponent';
 import { CARD_SX, ROW_SX, ColumnLabel, FormFieldRow, PrimaryButton, inputSx } from './cards/AppCards';
-import { NAVY, MUTED, BORDER, BG, HOVER_BG, STATUS_ERROR, STATUS_ERROR_BG, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
+import { NAVY, MUTED, BORDER, BG, HOVER_BG, STATUS_ERROR, STATUS_ERROR_BG, STATUS_CONTRAST, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
 import constants from '../constants.json';
 
 const TYPE_FIELDS = [
@@ -19,11 +19,6 @@ const SELECT_PROPS = { MenuProps: { sx: { zIndex: 1400 } } };
 
 const PERK_CHIP_SX = { fontSize: 11, fontWeight: 700, bgcolor: HOVER_BG, color: NAVY, border: `1px solid ${BORDER}` };
 
-const ROOM_STATUSES = [
-  { value: 'active', label: 'Active' },
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'out_of_service', label: 'Out of service' },
-];
 
 const STATUS_COLOURS = {
   active: { fg: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
@@ -40,8 +35,6 @@ const INVENTORY_GRID = '1.6fr 1fr 1fr 1fr 1fr';
 const AVAILABILITY_COLS = ['Room type', 'Max occupancy', 'Available'];
 const AVAILABILITY_GRID = '2fr 1fr 1fr';
 
-// Same as ROOM_TYPE_IMAGES_MAX_COUNT in the backend.
-const ROOM_TYPE_IMAGES_MAX = 8;
 
 const RoomTypeImage = ({ data: url, onRemove }) => (
   <Box sx={{ position: 'relative', width: 96, height: 72, borderRadius: 1.5, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
@@ -53,7 +46,7 @@ const RoomTypeImage = ({ data: url, onRemove }) => (
       sx={{
         position: 'absolute', top: 2, right: 2, width: 20, height: 20, lineHeight: 1,
         border: 'none', borderRadius: '50%', cursor: 'pointer',
-        bgcolor: STATUS_ERROR, color: '#fff', fontSize: 12, fontWeight: 700,
+        bgcolor: STATUS_ERROR, color: STATUS_CONTRAST, fontSize: 12, fontWeight: 700,
       }}
     >
       ×
@@ -62,7 +55,7 @@ const RoomTypeImage = ({ data: url, onRemove }) => (
 );
 
 const defaultTypeForm = { name: '', maxOccupancy: '', totalRooms: '', perks: [] };
-const defaultRoomForm = { roomNumber: '', roomTypeId: '', status: 'active' };
+const defaultRoomForm = { roomNumber: '', roomTypeId: '', status: constants.ROOM_STATUS_DEFAULT };
 
 const toDateInput = date => {
   const year = date.getFullYear();
@@ -83,15 +76,6 @@ const DIALOG_PAPER_PROPS = { sx: { borderRadius: 3, maxHeight: 'calc(100svh - va
 const DIALOG_TITLE_SX = { fontWeight: 700, color: NAVY };
 const FORM_SX = { display: 'flex', flexDirection: 'column', minHeight: 0 };
 const ACTIONS_SX = { px: 3, pb: 3, pt: 2, borderTop: `1px solid ${BORDER}`, flexShrink: 0 };
-
-// Splits on commas and skips blanks and duplicates.
-const addPerks = (perks, text) => {
-  const next = [...perks];
-  text.split(',').map(p => p.trim()).filter(Boolean).forEach(p => {
-    if (!next.some(existing => existing.toLowerCase() === p.toLowerCase())) next.push(p);
-  });
-  return next;
-};
 
 const TODAY = toDateInput(new Date());
 const IN_A_WEEK = toDateInput(addDays(new Date(), 7));
@@ -132,7 +116,7 @@ const RoomTypeRow = ({ data: roomType, onEdit, onDelete, canManage }) => {
 
 const RoomRow = ({ data: room, onEdit, onDelete, canManage }) => {
   const colours = STATUS_COLOURS[room.status];
-  const label = ROOM_STATUSES.find(s => s.value === room.status).label;
+  const label = constants.ROOM_STATUSES.find(s => s.value === room.status).label;
   const actions = canManage && <ActionButtons onEdit={() => onEdit(room)} onDelete={() => onDelete(room)} />;
   const chip = (
     <Typography sx={{ fontSize: 11, fontWeight: 700, color: colours.fg, bgcolor: colours.bg, px: 1, py: 0.25, borderRadius: 1, display: 'inline-block' }}>
@@ -228,12 +212,12 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [typeForm, setTypeForm] = useState(defaultTypeForm);
   const [editingTypeImages, setEditingTypeImages] = useState([]);
-  const [perkInput, setPerkInput] = useState('');
+  const [pendingImages, setPendingImages] = useState([]);
   const [roomForm, setRoomForm] = useState(defaultRoomForm);
 
   const [inventoryFilter, setInventoryFilter] = useState({ roomTypeId: '', startDate: TODAY, endDate: IN_A_WEEK });
-  const [stockForm, setStockForm] = useState({ total: '', blocked: '' });
-  const [searchForm, setSearchForm] = useState({ startDate: TODAY, endDate: IN_A_WEEK, guests: 2, rooms: 1 });
+  const [inventoryForm, setInventoryForm] = useState({ total: '', blocked: '' });
+  const [availabilityForm, setAvailabilityForm] = useState({ startDate: TODAY, endDate: IN_A_WEEK, guests: 2, rooms: 1 });
 
   const fetchRoomTypes = () => request({
     endpoint: `/rooms/types?hotelId=${hotelId}`,
@@ -250,24 +234,15 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
   const handleTypeChange = field => e => setTypeForm(prev => ({ ...prev, [field]: e.target.value }));
   const handleRoomChange = field => e => setRoomForm(prev => ({ ...prev, [field]: e.target.value }));
   const handleFilterChange = field => e => setInventoryFilter(prev => ({ ...prev, [field]: e.target.value }));
-  const handleStockChange = field => e => setStockForm(prev => ({ ...prev, [field]: e.target.value }));
-  const handleSearchChange = field => e => setSearchForm(prev => ({ ...prev, [field]: e.target.value }));
+  const handleInventoryFormChange = field => e => setInventoryForm(prev => ({ ...prev, [field]: e.target.value }));
+  const handleAvailabilityFormChange = field => e => setAvailabilityForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  // A comma adds a chip, like Enter.
-  const handlePerkInput = (_, value) => {
-    if (!value.includes(',')) { setPerkInput(value); return; }
-    const parts = value.split(',');
-    const unfinished = parts.pop();
-    setTypeForm(prev => ({ ...prev, perks: addPerks(prev.perks, parts.join(',')) }));
-    setPerkInput(unfinished.trimStart());
-  };
-  const handlePerksChange = (_, perks) => setTypeForm(prev => ({ ...prev, perks: addPerks([], perks.join(',')) }));
+  const handlePerksChange = (_, perks) => setTypeForm(prev => ({ ...prev, perks }));
 
-  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setPerkInput(''); setEditingTypeImages([]); setShowTypeForm(true); };
+  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setPendingImages([]); setShowTypeForm(true); };
   const openEditType = roomType => {
     setEditingType(roomType);
     setTypeForm({ name: roomType.name, maxOccupancy: roomType.maxOccupancy, totalRooms: roomType.totalRooms, perks: roomType.perks });
-    setPerkInput('');
     setEditingTypeImages(roomType.images);
     setShowTypeForm(true);
   };
@@ -279,38 +254,46 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
     setShowRoomForm(true);
   };
 
-  const uploadTypeImage = async e => {
+  const uploadImage = async (roomTypeId, file, onSuccessAlert) => {
+    const presigned = await request({
+      endpoint: `/rooms/types/${roomTypeId}/images/presigned-url`,
+      method: 'POST',
+      data: { fileName: file.name, fileSize: file.size, contentType: file.type },
+      alertError,
+    });
+    const { presignedUrl, s3Url } = presigned?.data || {};
+    if (!presignedUrl) return null;
+
+    // A network error rejects instead of returning !ok; caught so a new room type's dialog still closes.
+    const put = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file }).catch(() => null);
+    if (!put?.ok) { alertError?.('Image upload failed'); return null; }
+
+    return request({
+      endpoint: `/rooms/types/${roomTypeId}/images`,
+      method: 'POST',
+      data: { s3Url },
+      alertSuccess: onSuccessAlert, alertError,
+    });
+  };
+
+  const pickTypeImage = async e => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
 
+    // A new room type has no id yet, so its images are uploaded once it is created.
+    if (!editingType) { setPendingImages(prev => [...prev, { url: URL.createObjectURL(file), file }]); return; }
+
     setLoading(true);
     try {
-      const presigned = await request({
-        endpoint: `/rooms/types/${editingType.id}/images/presigned-url`,
-        method: 'POST',
-        data: { fileName: file.name, fileSize: file.size, contentType: file.type },
-        alertError,
-      });
-      const { presignedUrl, s3Url } = presigned?.data || {};
-      if (!presignedUrl) return;
-
-      const put = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-      if (!put.ok) { alertError?.(`Upload failed (${put.status})`); return; }
-
-      const res = await request({
-        endpoint: `/rooms/types/${editingType.id}/images`,
-        method: 'POST',
-        data: { s3Url },
-        alertSuccess, alertError,
-      });
+      const res = await uploadImage(editingType.id, file, alertSuccess);
       if (res?.success) { setEditingTypeImages(res.data.images); fetchRoomTypes(); }
     } finally {
       setLoading(false);
     }
   };
 
-  const removeTypeImage = async url => {
+  const deleteSavedImage = async url => {
     const res = await request({
       endpoint: `/rooms/types/${editingType.id}/images`,
       method: 'DELETE',
@@ -326,8 +309,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
       name: typeForm.name,
       maxOccupancy: Number(typeForm.maxOccupancy),
       totalRooms: Number(typeForm.totalRooms),
-      // Keeps a perk that was typed but not yet turned into a chip.
-      perks: addPerks(typeForm.perks, perkInput),
+      perks: typeForm.perks,
     };
     const res = await request({
       endpoint: editingType ? `/rooms/types/${editingType.id}` : '/rooms/types',
@@ -335,8 +317,21 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
       data: editingType ? payload : { hotelId: Number(hotelId), ...payload },
       setLoading, alertSuccess, alertError,
     });
-    if (res?.success) { setShowTypeForm(false); fetchRoomTypes(); }
+    if (!res?.success) return;
+    if (!editingType && pendingImages.length > 0) {
+      setLoading(true);
+      try {
+        for (const { file } of pendingImages) await uploadImage(res.data.id, file);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setShowTypeForm(false);
+    fetchRoomTypes();
   };
+
+  const typeImages = editingType ? editingTypeImages : pendingImages.map(image => image.url);
+  const removeImage = editingType ? deleteSavedImage : url => setPendingImages(prev => prev.filter(image => image.url !== url));
 
   const submitRoom = async e => {
     e.preventDefault();
@@ -370,11 +365,10 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
     });
   };
 
-  const saveStock = async () => {
+  const updateInventory = async () => {
     if (!inventoryFilter.roomTypeId) { alertError?.('Pick a room type first'); return; }
-    const total = stockForm.total === '' ? undefined : parseInt(stockForm.total, 10);
-    const blocked = stockForm.blocked === '' ? undefined : parseInt(stockForm.blocked, 10);
-    if (total === undefined && blocked === undefined) { alertError?.('Enter a total, a blocked count, or both'); return; }
+    const total = inventoryForm.total === '' ? undefined : parseInt(inventoryForm.total, 10);
+    const blocked = inventoryForm.blocked === '' ? undefined : parseInt(inventoryForm.blocked, 10);
 
     const res = await request({
       endpoint: '/rooms/inventory', method: 'PATCH',
@@ -387,12 +381,12 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
       // Not setData: on failure it would clear the nights, which are unchanged.
       setLoading, alertSuccess, alertError,
     });
-    if (res?.success) { setInventory(res.data); setStockForm({ total: '', blocked: '' }); }
+    if (res?.success) { setInventory(res.data); setInventoryForm({ total: '', blocked: '' }); }
   };
 
-  const search = async () => {
+  const checkAvailability = async () => {
     await request({
-      endpoint: `/rooms/availability?hotelId=${hotelId}&startDate=${searchForm.startDate}&endDate=${searchForm.endDate}&guests=${searchForm.guests}&rooms=${searchForm.rooms}`,
+      endpoint: `/rooms/availability?hotelId=${hotelId}&startDate=${availabilityForm.startDate}&endDate=${availabilityForm.endDate}&guests=${availabilityForm.guests}&rooms=${availabilityForm.rooms}`,
       method: 'GET', setLoading, setData: setAvailability, defaultData: [], alertError,
     });
   };
@@ -449,9 +443,9 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
 
           {canManage && (
             <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
-              <TextField type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.total} onChange={handleStockChange('total')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-              <TextField type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={stockForm.blocked} onChange={handleStockChange('blocked')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-              <PrimaryButton onClick={saveStock}>Apply to range</PrimaryButton>
+              <TextField type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={inventoryForm.total} onChange={handleInventoryFormChange('total')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+              <TextField type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={inventoryForm.blocked} onChange={handleInventoryFormChange('blocked')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+              <PrimaryButton onClick={updateInventory}>Apply to range</PrimaryButton>
             </Box>
           )}
 
@@ -470,11 +464,11 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
             subtitle="A room type only shows here if every night of the stay has enough rooms free."
           />
           <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
-            <TextField type="date" label="Check-in" value={searchForm.startDate} onChange={handleSearchChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField type="date" label="Check-out" value={searchForm.endDate} onChange={handleSearchChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField type="number" label="Guests" inputProps={{ min: 1 }} value={searchForm.guests} onChange={handleSearchChange('guests')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <TextField type="number" label="Rooms" inputProps={{ min: 1 }} value={searchForm.rooms} onChange={handleSearchChange('rooms')} InputLabelProps={{ shrink: true }} sx={inputSx} />
-            <PrimaryButton onClick={search}>Search</PrimaryButton>
+            <TextField type="date" label="Check-in" value={availabilityForm.startDate} onChange={handleAvailabilityFormChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="date" label="Check-out" value={availabilityForm.endDate} onChange={handleAvailabilityFormChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="number" label="Guests" inputProps={{ min: 1 }} value={availabilityForm.guests} onChange={handleAvailabilityFormChange('guests')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="number" label="Rooms" inputProps={{ min: 1 }} value={availabilityForm.rooms} onChange={handleAvailabilityFormChange('rooms')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <PrimaryButton onClick={checkAvailability}>Search</PrimaryButton>
           </Box>
           <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: AVAILABILITY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
             <MapComponent Component={ColumnLabel} data={AVAILABILITY_COLS} showNoDataAvailable={false} />
@@ -496,8 +490,6 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
                 options={[]}
                 value={typeForm.perks}
                 onChange={handlePerksChange}
-                inputValue={perkInput}
-                onInputChange={handlePerkInput}
                 renderTags={(perks, getTagProps) => perks.map((perk, index) => {
                   const { key, ...tagProps } = getTagProps({ index });
                   return <Chip key={key} label={perk} size="small" {...tagProps} sx={PERK_CHIP_SX} />;
@@ -507,7 +499,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
                     {...params}
                     label="Perks"
                     placeholder={typeForm.perks.length ? 'Add another' : 'Breakfast included'}
-                    helperText="Press Enter or type a comma after each perk"
+                    helperText="Press Enter after each perk"
                     InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
                     sx={inputSx}
                   />
@@ -518,21 +510,18 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
                   Changing total rooms stocks nights that have not opened yet. Use the inventory calendar to restock nights already in use.
                 </Typography>
               )}
-              {/* Images can be added once the room type exists. */}
-              {editingType && (
-                <Box>
-                  <Typography sx={{ fontSize: 12, color: MUTED, mb: 0.75 }}>
-                    Images ({editingTypeImages.length}/{ROOM_TYPE_IMAGES_MAX})
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-                    <MapComponent Component={RoomTypeImage} data={editingTypeImages} showNoDataAvailable={false} onRemove={removeTypeImage} />
-                  </Box>
-                  <Button variant="outlined" component="label" disabled={loading || editingTypeImages.length >= ROOM_TYPE_IMAGES_MAX} fullWidth sx={{ py: 1 }}>
-                    {loading ? 'Uploading…' : 'Add image'}
-                    <input type="file" hidden accept="image/*" onChange={uploadTypeImage} />
-                  </Button>
+              <Box>
+                <Typography sx={{ fontSize: 12, color: MUTED, mb: 0.75 }}>
+                  Images ({typeImages.length}/{constants.ROOM_TYPE_IMAGES_MAX_COUNT})
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                  <MapComponent Component={RoomTypeImage} data={typeImages} showNoDataAvailable={false} onRemove={removeImage} />
                 </Box>
-              )}
+                <Button variant="outlined" component="label" disabled={loading || typeImages.length >= constants.ROOM_TYPE_IMAGES_MAX_COUNT} fullWidth sx={{ py: 1 }}>
+                  {loading ? 'Uploading…' : 'Add image'}
+                  <input type="file" hidden accept="image/*" onChange={pickTypeImage} />
+                </Button>
+              </Box>
             </Box>
           </DialogContent>
           <DialogActions sx={ACTIONS_SX}>
@@ -553,7 +542,7 @@ function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, ale
                 {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
               </TextField>
               <TextField fullWidth select label="Status" value={roomForm.status} onChange={handleRoomChange('status')} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
-                {ROOM_STATUSES.map(s => <MuiMenuItem key={s.value} value={s.value}>{s.label}</MuiMenuItem>)}
+                {constants.ROOM_STATUSES.map(s => <MuiMenuItem key={s.value} value={s.value}>{s.label}</MuiMenuItem>)}
               </TextField>
             </Box>
           </DialogContent>
