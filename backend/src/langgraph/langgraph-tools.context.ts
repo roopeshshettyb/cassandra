@@ -10,4 +10,6 @@ export interface AgentToolContext {
   hotel: Record<string, unknown> | null;
   booking: Record<string, unknown> | null;
    languageCode?: string | null;
+  /** The user message this turn is answering, so a note can cite what prompted it. */
+  sourceMessageId?: number | null;
 }

@@ -5,6 +5,7 @@ import { RestaurantService } from '../restaurant/restaurant.service';
 import { Hotel } from '../hotels/hotels.model';
 import { ConstantsService } from '../common/constants/constants.service';
 import { ChatService } from '../chat/chat.service';
+import { NotesService } from '../notes/notes.service';
 
 /**
  * The subset of a hotel an anonymous member of the public may see. This is an
@@ -53,6 +54,7 @@ export function createReservationTools(
   restaurantService: RestaurantService,
   constantsService: ConstantsService,
   chatService: ChatService,
+  notesService: NotesService,
 ): StructuredToolInterface[] {
   const hotelId = ctx.hotelId;
 
@@ -84,6 +86,43 @@ export function createReservationTools(
         }
         const result = await restaurantService.searchPublicMenuItems(hotelId, args.keywords);
         return JSON.stringify(result.data);
+      },
+    }),
+    new DynamicStructuredTool({
+      name: 'add_note',
+      description:
+        'Write something down about this enquirer the moment they tell you, so you do not have to hold it in your head for the rest of the call. Use it for anything you will need later: their dates, how many are staying, a name, a number, a preference, a reason for the trip, anything they ask you to remember. Give a subject so a later note about the same thing replaces the earlier one rather than contradicting it.',
+      schema: z.object({
+        subject: z
+          .string()
+          .describe('What this note is about, lowercase and consistent: dates, party size, name, phone, email, preference, occasion'),
+        content: z.string().describe('The note itself, written so it reads on its own later'),
+      }),
+      func: async (args) => {
+        const note = await notesService.create({
+          chatId: ctx.chatId,
+          accountId: ctx.account ? ctx.account.id : null,
+          hotelId: hotelId ?? null,
+          // What was said to produce this, so a note is never just an assertion.
+          sourceMessageId: ctx.sourceMessageId ?? null,
+          subject: args.subject,
+          content: args.content,
+        });
+        return JSON.stringify({ success: true, data: { id: note.id, subject: args.subject } });
+      },
+    }),
+    new DynamicStructuredTool({
+      name: 'get_notes',
+      description:
+        'Read back everything you have written down on this call. Use it before you summarise, before you record the enquiry, and any time you are about to ask for something in case you already have it. What comes back is what you were told; it beats anything you are reconstructing from memory.',
+      schema: z.object({}),
+      func: async () => {
+        const cfg = constantsService.private.RESERVATION;
+        const notes = await notesService.currentByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT);
+        return JSON.stringify({
+          success: true,
+          data: notes.map((note) => ({ subject: note.subject, content: note.content })),
+        });
       },
     }),
     new DynamicStructuredTool({
