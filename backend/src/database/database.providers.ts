@@ -12,6 +12,7 @@ import { Booking } from '../bookings/bookings.model';
 import { Request } from '../requests/requests.model';
 import { Chat } from '../chat/chat.model';
 import { Message } from '../messages/message.model';
+import { Note } from '../notes/note.model';
 import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { ChatSummary } from '../chat-summary/chat-summary.model';
@@ -28,7 +29,7 @@ export const DATABASE_PROVIDERS = [
       const config = databaseConfig.databaseConfiguration;
       const sequelize = new Sequelize({
         ...config,
-        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration, Organisation],
+        models: [Sample, Account, Notification, Hotel, HotelAccount, HotelBrand, Booking, Chat, Message, Request, MenuItem, Cost, ChatSummary, LlmEval, HotelIntegration, Organisation, Note],
       });
       await sequelize.authenticate();
       try {

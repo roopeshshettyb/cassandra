@@ -832,6 +832,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         MAX_MESSAGE_LENGTH: 1000,
         HISTORY_MESSAGE_LIMIT: 50,
         STAFF_CHAT_LIST_LIMIT: 50,
+        /** Notes handed back to the agent when it reads its scratchpad. */
+        SCRATCHPAD_NOTE_LIMIT: 50,
         /** Messages returned when a staff member opens one conversation to read it. */
         STAFF_CONVERSATION_MESSAGE_LIMIT: 200,
         SESSION_TOKEN_SEPARATOR: '.',
