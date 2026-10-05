@@ -57,6 +57,8 @@ export function createReservationTools(
   notesService: NotesService,
 ): StructuredToolInterface[] {
   const hotelId = ctx.hotelId;
+  /** Memoised for this turn only; these tools are rebuilt for the next one. */
+  let notesThisTurn: Promise<{ subject: string | null; content: string }[]> | null = null;
 
   return [
     new DynamicStructuredTool({
@@ -117,12 +119,16 @@ export function createReservationTools(
         'Read back everything you have written down on this call. Use it before you summarise, before you record the enquiry, and any time you are about to ask for something in case you already have it. What comes back is what you were told; it beats anything you are reconstructing from memory.',
       schema: z.object({}),
       func: async () => {
-        const cfg = constantsService.private.RESERVATION;
-        const notes = await notesService.currentByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT);
-        return JSON.stringify({
-          success: true,
-          data: notes.map((note) => ({ subject: note.subject, content: note.content })),
-        });
+        // Once per turn. Nothing can change the notes between two reads inside
+        // one turn, so a second call is the model re-reading rather than new
+        // information, and it should cost nothing.
+        if (!notesThisTurn) {
+          const cfg = constantsService.private.RESERVATION;
+          notesThisTurn = notesService
+            .currentByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)
+            .then((notes) => notes.map((note) => ({ subject: note.subject, content: note.content })));
+        }
+        return JSON.stringify({ success: true, data: await notesThisTurn });
       },
     }),
     new DynamicStructuredTool({
