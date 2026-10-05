@@ -118,6 +118,7 @@ export class ChatLlmService {
       hotel: session.hotel,
       booking: session.booking,
       languageCode: session.languageCode ?? null,
+      sourceMessageId: userMsg.id,
     };
 
     let fullContent = '';
