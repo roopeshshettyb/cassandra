@@ -28,7 +28,7 @@ import { forwardRef } from '@nestjs/common';
 import { CostsService } from '../costs/costs.service';
 import { randomUUID } from 'crypto';
 
-interface HeldRoom {
+interface PickedRoom {
   id: number;
   roomNumber: string;
 }
@@ -99,7 +99,7 @@ export class BookingsService {
     const endTime = this.parseDateTime(endDate, checkOutTime);
 
     const booking = dto.roomTypeId
-      ? await this.createWithInventory(dto, hotel, guest.id, startTime, endTime)
+      ? await this.createBookingWithRoomType(dto, hotel, guest.id, startTime, endTime)
       : await this.bookingsRepository.create({
           guestId: guest.id,
           hotelId: hotel.id,
@@ -138,46 +138,46 @@ export class BookingsService {
     };
   }
 
-  private stayFor(startTime: Date, endTime: Date): Stay {
+  private buildStay(startTime: Date, endTime: Date): Stay {
     return {
       nights: this.inventoryService.nightsBetween(startTime, endTime),
-      checkIn: this.inventoryService.toDateString(startTime),
-      checkOut: this.inventoryService.toDateString(endTime),
+      checkIn: this.inventoryService.toDateOnly(startTime),
+      checkOut: this.inventoryService.toDateOnly(endTime),
     };
   }
 
-  // releaseForBookings reads booking_rooms, so it must run before the holds are deleted.
-  private async releaseHolds(bookingId: number, transaction: Transaction): Promise<void> {
-    await this.inventoryService.releaseForBookings([bookingId], transaction);
+  /** Gives the booking's nights back to inventory, then unassigns its rooms. Inventory first, as it reads booking_rooms. */
+  private async unassignRoomsAndRestoreInventory(bookingId: number, transaction: Transaction): Promise<void> {
+    await this.inventoryService.restoreInventoryForBookings([bookingId], transaction);
     await BookingRoom.destroy({ where: { bookingId }, transaction, force: true });
   }
 
-  private async reserveAndPickRooms(roomTypeId: number, count: number, stay: Stay, transaction: Transaction): Promise<HeldRoom[]> {
-    await this.inventoryService.ensureNights(roomTypeId, stay.nights, transaction);
-    await this.inventoryService.reserve(roomTypeId, stay.nights, count, transaction);
+  private async reserveInventoryAndPickFreeRooms(roomTypeId: number, count: number, stay: Stay, transaction: Transaction): Promise<PickedRoom[]> {
+    await this.inventoryService.createMissingInventoryRows(roomTypeId, stay.nights, transaction);
+    await this.inventoryService.reserveInventoryOrFail(roomTypeId, stay.nights, count, transaction);
 
-    const rooms = await this.inventoryService.findAvailableRooms(roomTypeId, stay.checkIn, stay.checkOut, count, transaction);
+    const rooms = await this.inventoryService.findFreeRooms(roomTypeId, stay.checkIn, stay.checkOut, count, transaction);
     if (rooms.length < count) {
       throw new ConflictException('Not enough rooms available for the selected dates');
     }
     return rooms;
   }
 
-  /** Saves the holds and returns the room number(s) to show on the booking. */
-  private async writeHolds(bookingId: number, rooms: HeldRoom[], stay: Stay, transaction: Transaction): Promise<string> {
+  /** Saves the picked rooms against the booking in booking_rooms and returns the room number(s) to show on the booking. */
+  private async assignRoomsToBooking(bookingId: number, rooms: PickedRoom[], stay: Stay, transaction: Transaction): Promise<string> {
     const rows: any = rooms.map((room) => ({ bookingId, roomId: room.id, checkIn: stay.checkIn, checkOut: stay.checkOut }));
     await BookingRoom.bulkCreate(rows, { transaction });
     return rooms.map((room) => room.roomNumber).join(', ');
   }
 
-  private async createWithInventory(
+  private async createBookingWithRoomType(
     dto: CreateBookingDto,
     hotel: Hotel,
     guestId: number,
     startTime: Date,
     endTime: Date,
   ): Promise<Booking> {
-    const stay = this.stayFor(startTime, endTime);
+    const stay = this.buildStay(startTime, endTime);
     if (stay.nights.length === 0) {
       throw new BadRequestException('Check-out must be after check-in to reserve a room');
     }
@@ -190,7 +190,7 @@ export class BookingsService {
     }
 
     return sequelize.transaction(async (transaction) => {
-      const rooms = await this.reserveAndPickRooms(dto.roomTypeId!, roomsWanted, stay, transaction);
+      const rooms = await this.reserveInventoryAndPickFreeRooms(dto.roomTypeId!, roomsWanted, stay, transaction);
 
       const booking = await this.bookingsRepository.create(
         {
@@ -203,7 +203,7 @@ export class BookingsService {
         { transaction },
       );
 
-      await this.writeHolds(booking.id, rooms, stay, transaction);
+      await this.assignRoomsToBooking(booking.id, rooms, stay, transaction);
 
       return booking;
     });
@@ -259,7 +259,7 @@ export class BookingsService {
         existing.guestId = guest.id;
         if (roomNumber) existing.roomNumber = roomNumber;
         await existing.save();
-        await this.syncExternalInventory(existing);
+        await this.syncPmsBookingRooms(existing);
         return { record: existing, created: false };
       }
 
@@ -271,7 +271,7 @@ export class BookingsService {
         roomNumber: roomNumber || undefined,
         externalId: payload.externalId,
       });
-      await this.syncExternalInventory(record);
+      await this.syncPmsBookingRooms(record);
       return { record, created: true };
     } catch (err) {
       if (!isRetry && err instanceof UniqueConstraintError) {
@@ -651,11 +651,11 @@ export class BookingsService {
     if (dto.endDate !== undefined) {
       booking.endTime = this.parseDateTime(dto.endDate.trim(), checkOutTime);
     }
-    // An inventory booking's room number comes from the rooms it holds, so it cannot be retyped.
-    const holdsInventory = (await BookingRoom.count({ where: { bookingId: booking.id } })) > 0;
+    // An inventory booking's room number comes from its assigned rooms, so it cannot be retyped.
+    const hasAssignedRooms = (await BookingRoom.count({ where: { bookingId: booking.id } })) > 0;
     if (dto.roomNumber !== undefined) {
       const typed = dto.roomNumber.trim();
-      if (!holdsInventory) {
+      if (!hasAssignedRooms) {
         booking.roomNumber = typed;
       } else if (typed !== booking.roomNumber) {
         throw new BadRequestException("This booking's rooms come from inventory, so its room number cannot be typed in; change its dates or cancel it instead");
@@ -682,9 +682,9 @@ export class BookingsService {
 
     if (datesMoved && !isCancelling) {
       if (booking.externalId) {
-        await this.syncExternalInventory(booking);
+        await this.syncPmsBookingRooms(booking);
       } else {
-        await this.moveInventoryHold(booking, sequelize);
+        await this.reassignRoomsForNewDates(booking, sequelize);
       }
     }
 
@@ -694,7 +694,7 @@ export class BookingsService {
     }
 
     await sequelize.transaction(async (transaction) => {
-      await this.releaseHolds(booking.id, transaction);
+      await this.unassignRoomsAndRestoreInventory(booking.id, transaction);
       await booking.save({ transaction });
     });
 
@@ -702,49 +702,49 @@ export class BookingsService {
   }
 
   /**
-   * Holds inventory for a PMS booking, from the room number it sends.
-   * Release-then-hold, so webhook redeliveries do not count the room twice.
-   * Unknown room numbers are kept as bookings but hold nothing.
+   * Assigns the room a PMS booking sends and reserves its inventory.
+   * Unassigns first, so webhook redeliveries do not count the room twice.
+   * Unknown room numbers are kept as bookings but reserve nothing.
    */
-  private async syncExternalInventory(booking: Booking): Promise<void> {
+  private async syncPmsBookingRooms(booking: Booking): Promise<void> {
     const sequelize = this.bookingsRepository.sequelize!;
-    const roomNumber = booking.roomNumber?.trim();
+    const roomNumber = booking.roomNumber;
     const room = roomNumber ? await Room.findOne({ where: { hotelId: booking.hotelId, roomNumber } }) : null;
-    const stay = this.stayFor(booking.startTime, booking.endTime);
-    // A same-day PMS stay has no nights to hold.
-    const holdsRoom = stay.nights.length > 0 && booking.status !== BookingStatus.CANCELLED;
+    const stay = this.buildStay(booking.startTime, booking.endTime);
+    // A same-day PMS stay has no nights to reserve.
+    const needsRoom = stay.nights.length > 0 && booking.status !== BookingStatus.CANCELLED;
 
     await sequelize.transaction(async (transaction) => {
-      await this.releaseHolds(booking.id, transaction);
-      if (!room || !holdsRoom) {
+      await this.unassignRoomsAndRestoreInventory(booking.id, transaction);
+      if (!room || !needsRoom) {
         return;
       }
 
-      await this.inventoryService.ensureNights(room.roomTypeId, stay.nights, transaction);
-      await this.inventoryService.reserveExternal(room.roomTypeId, stay.nights, 1, transaction);
+      await this.inventoryService.createMissingInventoryRows(room.roomTypeId, stay.nights, transaction);
+      await this.inventoryService.reservePmsInventoryUpToCapacity(room.roomTypeId, stay.nights, 1, transaction);
 
-      await this.writeHolds(booking.id, [{ id: room.id, roomNumber: room.roomNumber }], stay, transaction);
+      await this.assignRoomsToBooking(booking.id, [{ id: room.id, roomNumber: room.roomNumber }], stay, transaction);
     });
   }
 
-  private async moveInventoryHold(booking: Booking, sequelize: Sequelize): Promise<void> {
-    const held = await BookingRoom.findAll({
+  private async reassignRoomsForNewDates(booking: Booking, sequelize: Sequelize): Promise<void> {
+    const assignedRooms = await BookingRoom.findAll({
       where: { bookingId: booking.id },
       include: [{ model: Room, as: 'room' }],
     });
-    if (held.length === 0) {
+    if (assignedRooms.length === 0) {
       return;
     }
 
-    const roomTypeId = held[0].room.roomTypeId;
-    const roomsWanted = held.length;
-    const stay = this.stayFor(booking.startTime, booking.endTime);
+    const roomTypeId = assignedRooms[0].room.roomTypeId;
+    const roomsWanted = assignedRooms.length;
+    const stay = this.buildStay(booking.startTime, booking.endTime);
 
     await sequelize.transaction(async (transaction) => {
-      await this.releaseHolds(booking.id, transaction);
+      await this.unassignRoomsAndRestoreInventory(booking.id, transaction);
 
-      const rooms = await this.reserveAndPickRooms(roomTypeId, roomsWanted, stay, transaction);
-      booking.roomNumber = await this.writeHolds(booking.id, rooms, stay, transaction);
+      const rooms = await this.reserveInventoryAndPickFreeRooms(roomTypeId, roomsWanted, stay, transaction);
+      booking.roomNumber = await this.assignRoomsToBooking(booking.id, rooms, stay, transaction);
       await booking.save({ transaction });
     });
   }
@@ -776,8 +776,8 @@ export class BookingsService {
       }
 
       if (bookingIds.length > 0) {
-        // Before the holds are deleted: releaseForBookings reads them.
-        await this.inventoryService.releaseForBookings(bookingIds, effectiveTransaction as Transaction);
+        // Before booking_rooms are deleted: restoreInventoryForBookings reads them.
+        await this.inventoryService.restoreInventoryForBookings(bookingIds, effectiveTransaction as Transaction);
 
         await BookingRoom.destroy({
           where: { bookingId: { [Op.in]: bookingIds } },

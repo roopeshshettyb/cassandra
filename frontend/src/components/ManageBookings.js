@@ -101,10 +101,10 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     await loadRoomTypes(hotelId);
   };
 
-  const previewRoom = async ({ roomTypeId, startDate, endDate, rooms }) => {
+  const previewRoomAssignment = async ({ roomTypeId, startDate, endDate, rooms }) => {
     if (!roomTypeId || !startDate || !endDate) { setRoomPreview(null); return; }
     const res = await request({
-      endpoint: `/rooms/next-room?roomTypeId=${roomTypeId}&startDate=${startDate}&endDate=${endDate}&rooms=${Number(rooms) || 1}`,
+      endpoint: `/rooms/next-room?roomTypeId=${roomTypeId}&startDate=${startDate}&endDate=${endDate}&rooms=${rooms}`,
       method: 'GET',
     });
     setRoomPreview(res?.data || null);
@@ -121,7 +121,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     const value = e.target.value;
     setCreateValues((prev) => ({ ...prev, [field]: value }));
     if (PREVIEW_FIELDS.includes(field)) {
-      previewRoom({ ...createValues, [field]: value });
+      previewRoomAssignment({ ...createValues, [field]: value });
     }
   };
   const handleEditInput = (field) => (e) => setEditValues((prev) => ({ ...prev, [field]: e.target.value }));
@@ -232,7 +232,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
     };
     if (roomTypeId) {
       payload.roomTypeId = Number(roomTypeId);
-      payload.rooms = Number(rooms) || 1;
+      payload.rooms = Number(rooms);
     } else {
       payload.roomNumber = roomNumber?.trim();
     }
@@ -288,11 +288,12 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
           <DialogContent>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 1, alignItems: 'start' }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <HotelPicker hotels={hotels} value={createValues.hotelId} onChange={handleHotelChange} required />
+                <HotelPicker hotels={hotels} value={createValues.hotelId} onChange={handleHotelChange} required sx={inputSx} />
                 {createValues.hotelId && (
                   <TextField
                     fullWidth
                     select
+                    sx={inputSx}
                     label="Room Type"
                     value={createValues.roomTypeId}
                     onChange={handleCreateInput('roomTypeId')}
@@ -413,6 +414,7 @@ function ManageBookings({ loading, setLoading, account, navigate, alertSuccess, 
               <TextField
                 fullWidth
                 select
+                sx={inputSx}
                 label="Status"
                 value={editValues.status}
                 onChange={handleEditInput('status')}
