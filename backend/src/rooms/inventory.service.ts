@@ -27,7 +27,7 @@ export class InventoryService {
     return this.roomInventoryRepository.sequelize!;
   }
 
-  toDateString(value: Date): string {
+  toDateOnly(value: Date): string {
     const year = value.getFullYear();
     const month = `${value.getMonth() + 1}`.padStart(2, '0');
     const day = `${value.getDate()}`.padStart(2, '0');
@@ -40,13 +40,13 @@ export class InventoryService {
     const cursor = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
     const last = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
     while (cursor < last) {
-      nights.push(this.toDateString(cursor));
+      nights.push(this.toDateOnly(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
     return nights;
   }
 
-  nightsBetweenDates(startDate: string, endDate: string): string[] {
+  nightsBetweenDateStrings(startDate: string, endDate: string): string[] {
     return this.nightsBetween(this.parseDate(startDate), this.parseDate(endDate));
   }
 
@@ -55,7 +55,7 @@ export class InventoryService {
     return new Date(year, month - 1, day);
   }
 
-  // Room `r` is in service and not held by any booking between :checkIn and :checkOut.
+  // Room `r` is in service and not assigned to any booking between :checkIn and :checkOut.
   private readonly freeRoomCondition = `r.status = :activeStatus
          AND r.deleted_at IS NULL
          AND NOT EXISTS (
@@ -67,7 +67,7 @@ export class InventoryService {
          )`;
 
   // Nights with no inventory row yet have never been sold, so they count as total_rooms.
-  async findAvailability(
+  async findAvailableRoomTypes(
     hotelId: number,
     nights: string[],
     checkIn: string,
@@ -99,7 +99,7 @@ export class InventoryService {
     );
   }
 
-  async findRange(roomTypeId: number, nights: string[], transaction?: Transaction): Promise<RoomInventoryRow[]> {
+  async getInventoryForNights(roomTypeId: number, nights: string[]): Promise<RoomInventoryRow[]> {
     return this.sequelize.query<RoomInventoryRow>(
       `SELECT night::date::text AS "date",
               COALESCE(ri.total, rt.total_rooms)::int AS "total",
@@ -111,12 +111,12 @@ export class InventoryService {
        LEFT JOIN room_inventory ri ON ri.room_type_id = rt.id AND ri.date = night::date AND ri.deleted_at IS NULL
        WHERE rt.id = :roomTypeId AND rt.deleted_at IS NULL
        ORDER BY night`,
-      { replacements: { roomTypeId, nights }, transaction, type: QueryTypes.SELECT },
+      { replacements: { roomTypeId, nights }, type: QueryTypes.SELECT },
     );
   }
 
   /** Creates the missing inventory rows for these nights from the room type's total_rooms. */
-  async ensureNights(roomTypeId: number, nights: string[], transaction: Transaction): Promise<void> {
+  async createMissingInventoryRows(roomTypeId: number, nights: string[], transaction: Transaction): Promise<void> {
     await this.sequelize.query(
       `INSERT INTO room_inventory (room_type_id, date, total, created_at, updated_at)
        SELECT rt.id, night::date, rt.total_rooms, NOW(), NOW()
@@ -128,8 +128,8 @@ export class InventoryService {
     );
   }
 
-  /** Holds `count` rooms on every night, or throws. The check is in the UPDATE so concurrent bookings cannot oversell. */
-  async reserve(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
+  /** Reserves `count` rooms on every night, or throws. The check is in the UPDATE so concurrent bookings cannot oversell. */
+  async reserveInventoryOrFail(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
     const updated = await this.sequelize.query<{ date: string }>(
       `UPDATE room_inventory
        SET reserved = reserved + :count
@@ -146,10 +146,10 @@ export class InventoryService {
   }
 
   /** PMS bookings are already sold, so they are never refused; an oversold night is capped at full. */
-  async reserveExternal(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
+  async reservePmsInventoryUpToCapacity(roomTypeId: number, nights: string[], count: number, transaction: Transaction): Promise<void> {
     await this.sequelize.query(
       `UPDATE room_inventory
-       SET reserved = GREATEST(reserved, LEAST(reserved + :count, total - blocked)), updated_at = NOW()
+       SET reserved = LEAST(reserved + :count, total - blocked), updated_at = NOW()
        WHERE room_type_id = :roomTypeId
          AND date IN (:nights)
          AND deleted_at IS NULL`,
@@ -157,7 +157,7 @@ export class InventoryService {
     );
   }
 
-  async findAvailableRooms(
+  async findFreeRooms(
     roomTypeId: number,
     checkIn: string,
     checkOut: string,
@@ -179,25 +179,25 @@ export class InventoryService {
     );
   }
 
-  async countFreeRooms(roomTypeId: number, checkIn: string, checkOut: string, transaction?: Transaction): Promise<number> {
+  async countFreeRooms(roomTypeId: number, checkIn: string, checkOut: string): Promise<number> {
     const [row] = await this.sequelize.query<{ free: number }>(
       `SELECT COUNT(*)::int AS "free"
        FROM rooms r
        WHERE r.room_type_id = :roomTypeId
          AND ${this.freeRoomCondition}`,
-      { replacements: { roomTypeId, checkIn, checkOut, activeStatus: RoomStatus.ACTIVE }, transaction, type: QueryTypes.SELECT },
+      { replacements: { roomTypeId, checkIn, checkOut, activeStatus: RoomStatus.ACTIVE }, type: QueryTypes.SELECT },
     );
     return row.free;
   }
 
   /**
-   * Gives back the nights these bookings hold. Reads booking_rooms, so call it before deleting the holds.
-   * Floored at 0 because reserveExternal caps PMS oversells, so releasing them could otherwise go negative.
+   * Gives back the nights these bookings reserved. Reads booking_rooms, so call it before deleting those rows.
+   * Floored at 0 because reservePmsInventoryUpToCapacity caps PMS oversells, so releasing them could otherwise go negative.
    */
-  async releaseForBookings(bookingIds: number[], transaction: Transaction): Promise<void> {
+  async restoreInventoryForBookings(bookingIds: number[], transaction: Transaction): Promise<void> {
     await this.sequelize.query(
       `UPDATE room_inventory ri
-       SET reserved = GREATEST(ri.reserved - held.rooms, 0)
+       SET reserved = GREATEST(ri.reserved - booked.rooms, 0)
        FROM (
          SELECT r.room_type_id AS room_type_id,
                 night::date AS date,
@@ -209,17 +209,17 @@ export class InventoryService {
          WHERE br.booking_id IN (:bookingIds)
            AND br.deleted_at IS NULL
          GROUP BY r.room_type_id, night::date
-       ) held
-       WHERE ri.room_type_id = held.room_type_id
-         AND ri.date = held.date
+       ) booked
+       WHERE ri.room_type_id = booked.room_type_id
+         AND ri.date = booked.date
          AND ri.deleted_at IS NULL`,
       { replacements: { bookingIds }, transaction, type: QueryTypes.UPDATE },
     );
   }
 
   /** Restocks or blocks rooms across a range; refuses if any night would end up oversold. */
-  async setForNights(roomTypeId: number, nights: string[], total: number | undefined, blocked: number | undefined, transaction: Transaction): Promise<void> {
-    await this.ensureNights(roomTypeId, nights, transaction);
+  async updateTotalAndBlockedForNights(roomTypeId: number, nights: string[], total: number | undefined, blocked: number | undefined, transaction: Transaction): Promise<void> {
+    await this.createMissingInventoryRows(roomTypeId, nights, transaction);
     const updated = await this.sequelize.query<{ date: string }>(
       `UPDATE room_inventory
        SET total = COALESCE(:total, total),

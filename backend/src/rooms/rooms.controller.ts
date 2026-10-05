@@ -83,11 +83,11 @@ export class RoomsController {
   }
 
   @Get('next-room')
-  async findNextRoom(
+  async previewRoomAssignment(
     @Query(new ValidationPipe({ transform: true })) query: NextRoomQueryDto,
     @CurrentAccount() account: Account,
   ) {
-    return this.roomsService.findNextRoom(query, account);
+    return this.roomsService.previewRoomAssignment(query, account);
   }
 
   @Get('inventory')
@@ -100,7 +100,7 @@ export class RoomsController {
 
   @Patch('inventory')
   async updateInventory(
-    @Body(ValidationPipe) dto: UpdateInventoryDto,
+    @Body(new ValidationPipe({ stopAtFirstError: true })) dto: UpdateInventoryDto,
     @CurrentAccount() account: Account,
   ) {
     return this.roomsService.updateInventory(dto, account);
