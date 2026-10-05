@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR, TEXT_FAINT_LIGHT } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR, STATUS_CONTRAST, TEXT_FAINT_LIGHT } from '../../theme';
 import { ROW_SX, StatusChip } from './AppCards';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
@@ -100,7 +100,7 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
           </Box>
           {/* Status badge */}
           <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: isCancelled ? STATUS_ERROR : 'rgba(0,0,0,0.22)' }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: isCancelled ? '#fff' : badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: isCancelled ? STATUS_CONTRAST : badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
           </Box>
         </Box>
 
