@@ -5,7 +5,7 @@ import { RestaurantService } from '../restaurant/restaurant.service';
 import { Hotel } from '../hotels/hotels.model';
 import { ConstantsService } from '../common/constants/constants.service';
 import { ChatService } from '../chat/chat.service';
-import { NotesService } from '../notes/notes.service';
+import { MessagesService } from '../messages/messages.service';
 
 /**
  * The subset of a hotel an anonymous member of the public may see. This is an
@@ -54,7 +54,7 @@ export function createReservationTools(
   restaurantService: RestaurantService,
   constantsService: ConstantsService,
   chatService: ChatService,
-  notesService: NotesService,
+  messagesService: MessagesService,
 ): StructuredToolInterface[] {
   const hotelId = ctx.hotelId;
   /** Memoised for this turn only; these tools are rebuilt for the next one. */
@@ -101,7 +101,7 @@ export function createReservationTools(
         content: z.string().describe('The note itself, written so it reads on its own later'),
       }),
       func: async (args) => {
-        const note = await notesService.create({
+        const note = await messagesService.createNote({
           chatId: ctx.chatId,
           accountId: ctx.account ? ctx.account.id : null,
           hotelId: hotelId ?? null,
@@ -124,8 +124,8 @@ export function createReservationTools(
         // information, and it should cost nothing.
         if (!notesThisTurn) {
           const cfg = constantsService.private.RESERVATION;
-          notesThisTurn = notesService
-            .currentByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)
+          notesThisTurn = messagesService
+            .currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)
             .then((notes) => notes.map((note) => ({ subject: note.subject, content: note.content })));
         }
         return JSON.stringify({ success: true, data: await notesThisTurn });
