@@ -364,7 +364,19 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     const onReconnectFailed = () => setBlocked(constants.ERROR_RESERVATION_VOICE_DISCONNECTED);
     socket.io.on('reconnect_failed', onReconnectFailed);
 
+    // Come back when the tab does, the way the concierge already does.
+    // Retries run out while a tab is hidden or a phone is locked — five
+    // attempts take under twenty seconds — and the caller returns to a line
+    // that gave up without them, which reads as the call stopping by itself.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !socket.connected && !endedRef.current) {
+        socket.connect();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
       socket.io.off('reconnect_failed', onReconnectFailed);
       socket.removeAllListeners();
       socket.disconnect();
