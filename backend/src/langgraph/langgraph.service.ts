@@ -12,7 +12,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { RequestsService } from '../requests/requests.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { ChatService } from '../chat/chat.service';
-import { NotesService } from '../notes/notes.service';
+import { MessagesService } from '../messages/messages.service';
 import { HotelsService } from '../hotels/hotels.service';
 import { ConstantsService } from '../common/constants/constants.service';
 
@@ -74,7 +74,7 @@ export class LangGraphService {
     private readonly requestsService: RequestsService,
     private readonly restaurantService: RestaurantService,
     private readonly chatService: ChatService,
-    private readonly notesService: NotesService,
+    private readonly messagesService: MessagesService,
     @Inject(forwardRef(() => HotelsService))
     private readonly hotelsService: HotelsService,
     private readonly constantsService: ConstantsService,
@@ -243,7 +243,7 @@ export class LangGraphService {
     // read-only tool set rather than a role-filtered slice of the staff one.
     const tools = ctx.account
       ? createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService)
-      : createReservationTools(ctx, this.restaurantService, this.constantsService, this.chatService, this.notesService);
+      : createReservationTools(ctx, this.restaurantService, this.constantsService, this.chatService, this.messagesService);
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 

@@ -12,7 +12,7 @@ import { Booking } from '../bookings/bookings.model';
 import { Request } from '../requests/requests.model';
 import { Chat } from '../chat/chat.model';
 import { Message } from '../messages/message.model';
-import { Note } from '../notes/note.model';
+import { Note } from '../messages/note.model';
 import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { ChatSummary } from '../chat-summary/chat-summary.model';

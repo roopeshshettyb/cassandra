@@ -1,5 +1,5 @@
-import { NotesModule } from '../notes/notes.module';
 import { Module, forwardRef } from '@nestjs/common';
+import { MessagesModule } from '../messages/messages.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { RequestsModule } from '../requests/requests.module';
 import { RestaurantModule } from '../restaurant/restaurant.module';
@@ -10,7 +10,7 @@ import { ChatModule } from '../chat/chat.module';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [forwardRef(() => BookingsModule), RequestsModule, RestaurantModule, forwardRef(() => HotelsModule), forwardRef(() => ChatModule), CommonModule, NotesModule],
+  imports: [forwardRef(() => BookingsModule), RequestsModule, RestaurantModule, forwardRef(() => HotelsModule), forwardRef(() => ChatModule), CommonModule, MessagesModule],
   providers: [LangGraphService, RealtimeToolsService],
   exports: [LangGraphService, RealtimeToolsService],
 })
