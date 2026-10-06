@@ -54,9 +54,11 @@ export class MessagesService {
   async currentNotesByChatId(chatId: number, limit: number): Promise<Note[]> {
     const notes = await this.noteRepository.findAll({
       where: { chatId },
-      order: [['createdAt', 'asc'], ['id', 'asc']],
+      // The newest, so a long call drops its oldest notes rather than its latest.
+      order: [['createdAt', 'desc'], ['id', 'desc']],
       limit,
     });
+    notes.reverse();
     const bySubject = new Map<string, Note>();
     const unsubjected: Note[] = [];
     for (const note of notes) {

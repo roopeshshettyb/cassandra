@@ -33,6 +33,8 @@ import { LlmEvalModule } from '../llm-eval/llm-eval.module';
     LlmEvalModule,
   ],
   providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService, DeepgramVoiceAgentService],
-  exports: [ChatRepository, ChatService, ChatLlmService],
+  // VoiceRealtimeService is exported for the public reservation line, which runs
+  // on the concierge's Realtime pipeline rather than a pipeline of its own.
+  exports: [ChatRepository, ChatService, ChatLlmService, VoiceRealtimeService],
 })
 export class ChatModule {}

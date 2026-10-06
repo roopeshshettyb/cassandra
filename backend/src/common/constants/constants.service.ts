@@ -966,6 +966,11 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
             REALTIME_URL: this.configService.get<string>('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime'),
             VISION_MODEL: this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4o'),
+            // A response refused for the per-minute token limit is asked for again
+            // after the wait OpenAI names, at most this many times per caller turn.
+            RATE_LIMIT_RETRIES: 2,
+            RATE_LIMIT_MAX_WAIT_MS: 10000,
+            RATE_LIMIT_CODE: 'rate_limit_exceeded',
           },
         },
         DEEPGRAM_VOICE_AGENT: {

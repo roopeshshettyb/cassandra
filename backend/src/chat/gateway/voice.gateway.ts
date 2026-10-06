@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { ChatService } from '../chat.service';
 import { ChatSession } from './chat-session.interface';
+import { relayRealtimeEvent } from './realtime-relay.helper';
 import { BookingsService } from '../../bookings/bookings.service';
 import { ConstantsService } from '../../common/constants/constants.service';
 import { LoggerService } from '../../common/logger.service';
@@ -570,95 +571,45 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const session = client.session as ChatSession | undefined;
     if (!session) return;
 
-    switch (event.type) {
-      case 'conversation.item.input_audio_transcription.completed': {
-        const ev: any = event;
-        const transcript = ev?.transcript;
-        if (typeof transcript === 'string' && transcript.trim().length) {
-          client.emit('voice_user_message', { text: transcript });
-        }
-        break;
-      }
-      case 'response.output_text.delta':
-      case 'response.output_audio_transcript.delta':
-        client.emit('voice_text_chunk', { delta: event.delta || '' });
-        break;
-      case 'response.done': {
-        if (event._skipVoiceTextEnd) {
-          break;
-        }
-        const realtimeCtx = this.voiceRealtimeService.getContext(client.id);
-        if (realtimeCtx) {
-          session.bookingId = realtimeCtx.bookingId;
-          session.booking = realtimeCtx.booking;
-          session.hotel = realtimeCtx.hotel;
-          session.languageCode = realtimeCtx.languageCode ?? session.languageCode ?? null;
-        }
-        const { userTranscript, assistantText, toolCalls, usage } = this.voiceRealtimeService.consumeTranscriptsAndTools(client.id);
-
-        const ev: any = event;
-        const finalAssistantText =
-          (assistantText && assistantText.trim().length ? assistantText : undefined) ??
-          (typeof ev.output_text === 'string' ? ev.output_text : undefined) ??
-          (typeof ev.output_audio_transcript === 'string' ? ev.output_audio_transcript : undefined) ??
-          '';
-        const cleanUser = userTranscript?.trim();
-        const cleanAssistant = finalAssistantText?.trim();
-
-        let userMessage: Message | null = null;
-        let assistantMessage: Message | null = null;
-        try {
-          if (cleanUser) {
-            userMessage = await this.messagesService.create(session.chatId, MessageRole.USER, cleanUser);
+    await relayRealtimeEvent(
+      client,
+      event,
+      session.chatId,
+      {
+        voiceRealtimeService: this.voiceRealtimeService,
+        messagesService: this.messagesService,
+        chatContextService: this.chatContextService,
+        logError: (message, err) => this.logger.error(message, err),
+      },
+      {
+        beforeTurn: () => {
+          const realtimeCtx = this.voiceRealtimeService.getContext(client.id);
+          if (realtimeCtx) {
+            session.bookingId = realtimeCtx.bookingId;
+            session.booking = realtimeCtx.booking;
+            session.hotel = realtimeCtx.hotel;
+            session.languageCode = realtimeCtx.languageCode ?? session.languageCode ?? null;
           }
+        },
+        afterTurn: ({ cleanUser, cleanAssistant, toolCalls, usage, assistantMessage }) => {
           if (cleanAssistant) {
-            assistantMessage = await this.messagesService.create(
-              session.chatId,
-              MessageRole.ASSISTANT,
-              cleanAssistant,
-              toolCalls.length ? toolCalls : undefined,
-            );
+            this.costsService.recordLlmCost({
+              type: CostType.LLM_VOICE,
+              // Pass the full usage through (including audio/cached token breakdown) —
+              // recordLlmCost's realtime pricing branch needs it to price correctly.
+              usage: usage ?? {},
+              bookingId: session.bookingId,
+              hotelId: session.booking ? session.booking.hotelId : null,
+              accountId: session.account.id,
+              role: session.account.role,
+              chatId: session.chatId,
+              messageId: assistantMessage ? assistantMessage.id : null,
+            });
           }
-          this.chatContextService.rebuildCache(
-            session.chatId,
-            [userMessage, assistantMessage].filter((m): m is Message => m !== null),
-          );
-        } catch (err) {
-          this.logger.error('Failed to persist voice messages', err as Error);
-        }
-
-        if (cleanAssistant) {
-          this.costsService.recordLlmCost({
-            type: CostType.LLM_VOICE,
-            // Pass the full usage through (including audio/cached token breakdown) —
-            // recordLlmCost's realtime pricing branch needs it to price correctly.
-            usage: usage ?? {},
-            bookingId: session.bookingId,
-            hotelId: session.booking ? session.booking.hotelId : null,
-            accountId: session.account.id,
-            role: session.account.role,
-            chatId: session.chatId,
-            messageId: assistantMessage ? assistantMessage.id : null,
-          });
-        }
-
-        this.evaluateVoiceTurn(session, cleanUser, cleanAssistant, assistantMessage, toolCalls);
-
-        client.emit('voice_text_end', { text: finalAssistantText, toolCalls });
-        break;
-      }
-      case 'response.output_audio.delta':
-        client.emit('voice_audio_chunk', { delta: event.delta });
-        break;
-      case 'response.output_audio.done':
-        client.emit('voice_audio_end');
-        break;
-      case 'error':
-        client.emit('error', { message: event?.error?.message || 'Realtime error' });
-        break;
-      default:
-        break;
-    }
+          this.evaluateVoiceTurn(session, cleanUser, cleanAssistant, assistantMessage, toolCalls);
+        },
+      },
+    );
   }
 
   private async handleDeepgramEvent(client: any, event: any) {
