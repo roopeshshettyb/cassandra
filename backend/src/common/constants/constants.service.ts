@@ -834,6 +834,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         STAFF_CHAT_LIST_LIMIT: 50,
         /** Notes handed back to the agent when it reads its scratchpad. */
         SCRATCHPAD_NOTE_LIMIT: 50,
+        /**
+         * The stored language follows the script the agent answered in. A Hindi
+         * caller spelling an email is still answered in Devanagari, so spelling
+         * never moves it; a reply with none of these scripts is English.
+         */
+        REPLY_SCRIPT_LANGUAGES: [
+          { languageCode: 'hi', pattern: '[\u0900-\u097F]' },
+          { languageCode: 'kn', pattern: '[\u0C80-\u0CFF]' },
+          { languageCode: 'ta', pattern: '[\u0B80-\u0BFF]' },
+          { languageCode: 'te', pattern: '[\u0C00-\u0C7F]' },
+        ],
+        REPLY_LATIN_LANGUAGE: 'en',
         /** Messages returned when a staff member opens one conversation to read it. */
         STAFF_CONVERSATION_MESSAGE_LIMIT: 200,
         SESSION_TOKEN_SEPARATOR: '.',
@@ -905,7 +917,7 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * nothing reached TTS until the whole answer was written and the line
          * sat silent the entire time.
          */
-        /** How many tool round trips one turn may take before it is cut off. */
+        /** How many tool round trips one reservation-agent turn may take before it is cut off. */
         AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '12', 10),
         SENTENCE_TERMINATORS_LATIN: '.!?',
         SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
@@ -948,6 +960,14 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
              * longer has to choose one language and lose the other.
              */
             LANGUAGE: this.configService.get<string>('SARVAM_STT_LANGUAGE', 'auto'),
+            /**
+             * Left unset, Sarvam was measured handing back an English translation
+             * of a Hindi caller ("क्या आप मुझसे हिंदी में बात कर सकते हैं?" arrived as
+             * "Can you speak to me in Hindi?"), so the agent never heard Hindi and
+             * never switched. 'codemix' keeps Hindi in Devanagari and English —
+             * a spelled name, an email — in Latin letters, as it was said.
+             */
+            MODE: this.configService.get<string>('SARVAM_STT_MODE', 'codemix'),
             /** Sarvam takes 8000 or 16000 and rejects anything else, so the 24kHz pipeline is converted on the way in. */
             SAMPLE_RATE: parseInt(this.configService.get('SARVAM_STT_SAMPLE_RATE') || '16000', 10),
             /** Just under the 8kHz Nyquist of that rate, so nothing folds back into the speech. */
@@ -966,11 +986,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             VAD_SILENCE_MS: parseInt(this.configService.get('OPENAI_STT_SILENCE_MS') || '800', 10),
             REALTIME_URL: this.configService.get<string>('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime'),
             VISION_MODEL: this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4o'),
-            // A response refused for the per-minute token limit is asked for again
-            // after the wait OpenAI names, at most this many times per caller turn.
-            RATE_LIMIT_RETRIES: 2,
-            RATE_LIMIT_MAX_WAIT_MS: 10000,
-            RATE_LIMIT_CODE: 'rate_limit_exceeded',
           },
         },
         DEEPGRAM_VOICE_AGENT: {

@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import { ChatContextService } from '../chat-context/chat-context.service';
 import { AgentToolContext } from '../langgraph/langgraph-tools.context';
 import { RealtimeToolsService, RealtimeToolDefinition } from '../langgraph/realtime-tools.service';
-import { buildSystemInstructions, buildReservationRealtimeInstructions } from './chat-prompt.builder';
+import { buildSystemInstructions } from './chat-prompt.builder';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { TokenUsage } from '../costs/costs.pricing';
@@ -35,10 +35,6 @@ interface VoiceSessionState {
   transcriptionModel: string;
   isResponding: boolean;
   pendingToolResponse: boolean;
-  /** Tool executions from the response in flight, awaited before its follow-up is requested. */
-  pendingToolCalls: Promise<void>[];
-  /** Rate-limited responses re-requested since the caller last spoke. */
-  rateLimitRetries: number;
   // Real usage from the most recent response.done, consumed alongside the
   // transcripts. Absent only if OpenAI ever omits it (e.g. an error/cancelled
   // response) — countTokens() below is the fallback for that case only.
@@ -87,8 +83,6 @@ export class VoiceRealtimeService {
       transcriptionModel,
       isResponding: false,
       pendingToolResponse: false,
-      pendingToolCalls: [],
-      rateLimitRetries: 0,
     };
 
     this.sessions.set(sessionId, state);
@@ -96,8 +90,12 @@ export class VoiceRealtimeService {
     ws.on('open', async () => {
       state.isOpen = true;
       try {
+        const appName = this.constantsService.public.APP_NAME;
+        const hotel: any = ctx.hotel;
+        const llmInstructions = hotel?.llmInstructions;
+        const account: any = ctx.account;
         const languageCode = ctx.languageCode ?? null;
-        const instructionsWithSpeaker = await this.instructionsFor(ctx, languageCode);
+        const { instructionsWithoutRole: instructionsWithSpeaker } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, llmInstructions, account?.role, languageCode, true);
         const tools: RealtimeToolDefinition[] = this.realtimeToolsService.getToolsMetadata(ctx);
 
         const sessionUpdate = {
@@ -175,24 +173,6 @@ export class VoiceRealtimeService {
       this.sessions.delete(sessionId);
       handlers.onClose?.();
     });
-  }
-
-  /**
-   * Instructions for this session — the concierge's for a signed-in guest, the
-   * reservation agent's for a public caller with no account. Used both at the
-   * start of a session and when the language changes mid-call, so a public call
-   * can never be handed the concierge's prompt halfway through. The concierge
-   * branch is the call that was here before, unchanged.
-   */
-  private async instructionsFor(ctx: AgentToolContext, languageCode: string | null): Promise<string> {
-    const appName = this.constantsService.public.APP_NAME;
-    const hotel: any = ctx.hotel;
-    const account: any = ctx.account;
-    if (!account) {
-      return buildReservationRealtimeInstructions(this.chatContextService, ctx.chatId, appName, ctx.hotel, languageCode);
-    }
-    const { instructionsWithoutRole } = await buildSystemInstructions(this.chatContextService, ctx.chatId, appName, hotel?.llmInstructions, account?.role, languageCode, true);
-    return instructionsWithoutRole;
   }
 
   hasSession(sessionId: string): boolean {
@@ -363,42 +343,9 @@ export class VoiceRealtimeService {
         // consumeTranscriptsAndTools is next called — accumulate rather than
         // overwrite, so the tool-call round's real tokens aren't dropped.
         this.accumulateUsage(state, event.response?.usage);
-        const openai = this.constantsService.private.LLM.STT_CONFIG.OPENAI;
-        const failure = event.response?.status_details?.error;
-        if (failure?.code === openai.RATE_LIMIT_CODE && state.rateLimitRetries < openai.RATE_LIMIT_RETRIES) {
-          // Refused for the per-minute token limit, not for anything the model
-          // did: ask again once the window allows, rather than leaving the
-          // caller in silence. Not the end of the turn, so nothing is relayed.
-          state.rateLimitRetries += 1;
-          event._skipVoiceTextEnd = true;
-          const waitMs = Math.min(parseFloat(/in ([\d.]+)s/.exec(failure.message || '')?.[1] || '1') * 1000, openai.RATE_LIMIT_MAX_WAIT_MS);
-          setTimeout(() => {
-            try {
-              state.ws.send(JSON.stringify({ type: 'response.create' }));
-            } catch {
-              // ignore — session may have closed
-            }
-          }, waitMs);
-          break;
-        }
-        const output: any[] = Array.isArray(event.response?.output) ? event.response.output : [];
-        const hadToolCalls = state.pendingToolResponse || output.some((item) => item?.type === 'function_call');
-        if (hadToolCalls) {
+        if (state.pendingToolResponse) {
           state.pendingToolResponse = false;
           event._skipVoiceTextEnd = true;
-          // One follow-up per tool round, not one per call. Asking again for each
-          // call meant a second response.create while the first was still
-          // running, which the API rejects — and with several calls in one
-          // response that left the turn half-answered. So every output goes in
-          // first, then the follow-up is requested once.
-          const pending = state.pendingToolCalls;
-          state.pendingToolCalls = [];
-          await Promise.allSettled(pending);
-          try {
-            state.ws.send(JSON.stringify({ type: 'response.create' }));
-          } catch {
-            // ignore — session may have closed
-          }
         } else {
           try {
             state.ws.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
@@ -409,7 +356,6 @@ export class VoiceRealtimeService {
         break;
       }
       case 'input_audio_buffer.committed': {
-        state.rateLimitRetries = 0;
         if (state.isResponding) {
           const itemId = event.item_id ?? null;
           if (itemId) {
@@ -446,14 +392,9 @@ export class VoiceRealtimeService {
       case 'conversation.item.input_audio_transcription.completed':
         state.userTranscript = event.transcript ?? state.userTranscript;
         break;
-      case 'response.function_call_arguments.done': {
-        // Registered before awaiting, so a response.done processed alongside it
-        // still knows to wait for this call.
-        const call = this.handleFunctionCall(state, event);
-        state.pendingToolCalls.push(call);
-        await call;
+      case 'response.function_call_arguments.done':
+        await this.handleFunctionCall(state, event);
         break;
-      }
       case 'error':
         this.logger.warn(`Realtime error for session ${sessionId}`, event?.error ?? event);
         break;
@@ -500,7 +441,11 @@ export class VoiceRealtimeService {
       if (newLanguageCode) {
         try {
           state.ctx.languageCode = newLanguageCode;
-          const updatedInstructions = await this.instructionsFor(state.ctx, newLanguageCode);
+          const appName = this.constantsService.public.APP_NAME;
+          const hotel: any = state.ctx.hotel;
+          const llmInstructions = hotel?.llmInstructions;
+          const account: any = state.ctx.account;
+          const { instructionsWithoutRole: updatedInstructions } = await buildSystemInstructions(this.chatContextService, state.ctx.chatId, appName, llmInstructions, account?.role, newLanguageCode, true);
 
           const sessionUpdateEvent = {
             type: 'session.update',
@@ -546,5 +491,6 @@ export class VoiceRealtimeService {
     };
 
     state.ws.send(JSON.stringify(toolOutputEvent));
+    state.ws.send(JSON.stringify({ type: 'response.create' }));
   }
 }

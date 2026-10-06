@@ -149,36 +149,6 @@ export async function buildChatPrompt(
  * asking the model to stay quiet as the only thing protecting them. `hotel` is
  * the public projection, so there is nothing here a stranger may not read.
  */
-/**
- * Bracketed delivery cues are an ElevenLabs feature: its voice reads "[warm]" as
- * an instruction and never says it. A speech-to-speech model generates its own
- * audio and would read the bracket aloud, so it gets the same intent in plain
- * words instead.
- */
-const VOICE_DELIVERY_CUES = `Delivery cues. Put one in square brackets at the start of a sentence to shape your tone. They are never spoken aloud:
-- Tone: [warm], [thoughtful], [reassuring], [curious], [apologetic], [excited]
-- Breath and thinking: [sighs], [exhales], [inhales deeply], [clears throat]
-- Light warmth: [chuckles], [laughs softly]
-Use at most one or two per reply, and only where a real person would shift. A cue on every sentence sounds like a performance, not a person. Reach for [thoughtful] or [exhales] when you are checking something, and [warm] when you are welcoming or confirming.
-
-Thinking out loud. When you are working something out, do it audibly the way a person does, then answer:
-- "Mmm… let me see." / "Right, so…" / "Okay — two nights, twentieth to the twenty-second."
-- "Mm-hmm." / "Yeah, I've got that." / "Ah, got it."
-- A breath does the same work: "[inhales] So, for those dates…"
-Keep it to a couple of words. This is a small noise while you think, not a preamble — never stack two of them, and never use one when you already know the answer. And do not repeat a filler you have just used.
-
-Put these together the way a person actually sounds:
-- "[thoughtful] Let me see… the twentieth to the twenty-second. Yes, that works."
-- "[warm] Lovely — and how many of you will be staying?"
-- "[apologetic] Ah… I can't confirm the rate myself, but the team will call you back with it."`;
-
-const VOICE_PLAIN_DELIVERY = `Never write anything in square brackets, and never describe your tone — say things the way you mean them and let the voice carry it.
-
-Thinking out loud. When you are working something out, do it audibly the way a person does, then answer:
-- "Mmm… let me see." / "Right, so…" / "Okay — two nights, twentieth to the twenty-second."
-- "Mm-hmm." / "Yeah, I've got that." / "Ah, got it."
-Keep it to a couple of words. This is a small noise while you think, not a preamble — never stack two of them, and never use one when you already know the answer. And do not repeat a filler you have just used.`;
-
 export async function buildReservationPrompt(
   chatContextService: ChatContextService,
   chatId: number,
@@ -187,7 +157,6 @@ export async function buildReservationPrompt(
   hotel: Record<string, unknown> | null,
   isVoice?: boolean,
   languageCode?: string | null,
-  deliveryCues = true,
 ): Promise<ChatPromptResult> {
   const contextData = await chatContextService.buildChatContext(chatId);
   const hotelName = hotel && typeof hotel.name === 'string' ? hotel.name : 'this property';
@@ -245,7 +214,22 @@ Pauses and breath. Real speech is not evenly paced, and punctuation is how you c
 - Write CAPS on a single word to stress it, rarely: "That one is our LAST room at that rate."
 - Never write break tags or any angle-bracket markup. They are not supported and come out as noise.
 
-${deliveryCues ? VOICE_DELIVERY_CUES : VOICE_PLAIN_DELIVERY}`
+Delivery cues. Put one in square brackets at the start of a sentence to shape your tone. They are never spoken aloud:
+- Tone: [warm], [thoughtful], [reassuring], [curious], [apologetic], [excited]
+- Breath and thinking: [sighs], [exhales], [inhales deeply], [clears throat]
+- Light warmth: [chuckles], [laughs softly]
+Use at most one or two per reply, and only where a real person would shift. A cue on every sentence sounds like a performance, not a person. Reach for [thoughtful] or [exhales] when you are checking something, and [warm] when you are welcoming or confirming.
+
+Thinking out loud. When you are working something out, do it audibly the way a person does, then answer:
+- "Mmm… let me see." / "Right, so…" / "Okay — two nights, twentieth to the twenty-second."
+- "Mm-hmm." / "Yeah, I've got that." / "Ah, got it."
+- A breath does the same work: "[inhales] So, for those dates…"
+Keep it to a couple of words. This is a small noise while you think, not a preamble — never stack two of them, and never use one when you already know the answer. And do not repeat a filler you have just used.
+
+Put these together the way a person actually sounds:
+- "[thoughtful] Let me see… the twentieth to the twenty-second. Yes, that works."
+- "[warm] Lovely — and how many of you will be staying?"
+- "[apologetic] Ah… I can't confirm the rate myself, but the team will call you back with it."`
   : 'Keep replies to a few short sentences. Always respond in Markdown.'}`,
   ];
 
@@ -281,39 +265,19 @@ Call the tool first, then tell them it is done. Never the other way round, and n
   // A scratchpad it can write to, rather than a conversation it has to re-read.
   // What it wrote down beats what it is reconstructing, which is the whole
   // reason the notes exist.
-  parts.push(`Two ways to write things down, and they are not interchangeable.
+  parts.push(`You have a notebook for this call. Use add_note the moment the enquirer tells you something worth keeping — their dates, how many are staying, a name, a number, why they are travelling, anything they ask you to remember — with a subject, so a later note on the same thing replaces the earlier one.
 
-The booking itself — the dates, how many are staying, the name, the phone number, the email — goes in note_reservation_dates: one call carrying everything you have so far, each time you learn something new. That is the only place those belong. Do not also put them in add_note; one record of a booking, not two.
+Use get_notes before you summarise, before you record the enquiry, and whenever you are about to ask for something, in case they have already told you. Asking twice for something they have given you is the plainest sign you are not listening.
 
-add_note is for what is worth keeping but is not part of the booking — an anniversary, a first visit, a preference, something they want the team to know. Give it a subject, so a later note on the same thing replaces the earlier one.
-
-Read your notes with get_notes once, right before you summarise and record the enquiry. Not before every question: you are holding this conversation already, and reading back on every turn only slows the call down.
-
-Never announce what you are about to do — do it. Not "let me note that", "let me read that back", "let me check", "I'll pull up what I have": each of those ends your turn with nothing done, and the caller is left waiting in silence for something you only said you would do. If you are reading the details back, read them now, in this reply. If you are writing something down, write it and ask the next thing in the same breath.`);
+Your notes are what they actually said. Anything you are recalling without one is a guess, and it will be wrong about a date or a number sooner or later.`);
   parts.push(languageInstruction(languageCode));
+  // Measured: a caller went from Hindi back to English, was answered in English,
+  // and the stored language stayed Hindi — so a reconnect came back in Hindi.
+  parts.push('The stored language and the language you answer in must never differ. In the same turn you first answer in a different language, call set_chat_language with it — switching your words without switching the store sends the next turn, and the voice, back to the old language.');
   parts.push(`This is the context of the conversation so far : ${contextData.context}`);
 
   const messages: ChatMessageInput[] = parts.map((content) => ({ role: 'system', content }));
   messages.push({ role: 'user', content: userMessage });
 
   return { contextData, messages };
-}
-
-/**
- * The reservation prompt as a single instruction string, for a speech-to-speech
- * session that takes instructions once rather than a message list per turn.
- * Delivery cues are off: the model speaks its own words, brackets and all.
- */
-export async function buildReservationRealtimeInstructions(
-  chatContextService: ChatContextService,
-  chatId: number,
-  appName: string,
-  hotel: Record<string, unknown> | null,
-  languageCode?: string | null,
-): Promise<string> {
-  const { messages } = await buildReservationPrompt(chatContextService, chatId, '', appName, hotel, true, languageCode, false);
-  return messages
-    .filter((message) => message.role === 'system')
-    .map((message) => message.content)
-    .join('\n\n');
 }

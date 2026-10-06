@@ -1,46 +1,155 @@
 import { WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
+import { ChatLlmService } from '../chat/chat-llm.service';
+import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
-import { getClientIp, parseHotelId, buildReservationSession } from './reservation-session.helper';
+import { getClientIp, parseHotelId, buildReservationSession, buildSttKeyterms } from './reservation-session.helper';
+import { splitSentences, stripAudioTags } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
-import { VoiceRealtimeService } from '../chat/voice-realtime.service';
-import { MessagesService } from '../messages/messages.service';
-import { ChatContextService } from '../chat-context/chat-context.service';
-import { CostsService } from '../costs/costs.service';
-import { CostType } from '../costs/costs.model';
-import { AgentToolContext } from '../langgraph/langgraph-tools.context';
-import { relayRealtimeEvent } from '../chat/gateway/realtime-relay.helper';
+import { CacheService } from '../common/cache/cache.service';
+import { SttFactoryService } from '../stt/stt-factory.service';
+import { TtsFactoryService } from '../tts/tts-factory.service';
+import type { ISttSession } from '../stt/stt-session.interface';
+
+interface TtsProvider {
+  streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null }) => Promise<void>;
+}
+
+interface TurnState {
+  sentenceBuffer: string;
+  ttsQueue: Promise<void>;
+}
 
 /**
- * The public reservation line, by voice.
+ * Delivery cues the prompt lets the model emit, e.g. "[warm] Sure, one moment."
+ * ElevenLabs v3 consumes them as tone direction; every other provider would read
+ * them out, and no caller should see them on screen either.
+ */
+
+/**
+ * Public, unauthenticated voice reservation: the caller speaks, STT transcribes,
+ * the accountless reservation agent answers, TTS speaks back.
  *
- * Runs on the concierge's Realtime pipeline rather than one of its own. OpenAI
- * Realtime does the listening, the turn-taking and the speaking; this gateway
- * only does what is particular to an anonymous public caller — finding the
- * property, resuming their session, and keeping one person from running up an
- * open-ended bill on a line that needs no login.
- *
- * The audio, the events and the persistence are the concierge's, through
- * VoiceRealtimeService and the shared relay. With no account on the context,
- * that pipeline gives the caller the reservation agent's prompt and tools.
+ * Always runs the STT -> LLM -> TTS pipeline regardless of VOICE_PIPELINE. The
+ * speech-to-speech path is built around an authenticated session and gives no
+ * per-turn seam to meter, and metering is the whole reason this can be public.
  */
 @WebSocketGateway({ cors: true, namespace: '/reservation-voice' })
 @Injectable()
-export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   constructor(
     private readonly reservationService: ReservationService,
+    private readonly chatLlmService: ChatLlmService,
     private readonly constantsService: ConstantsService,
     private readonly logger: LoggerService,
-    private readonly voiceRealtimeService: VoiceRealtimeService,
-    private readonly messagesService: MessagesService,
-    private readonly chatContextService: ChatContextService,
-    private readonly costsService: CostsService,
+    private readonly cacheService: CacheService,
+    private readonly sttFactory: SttFactoryService,
+    private readonly ttsFactory: TtsFactoryService,
   ) {}
+
+
+
+  /** Speak each finished sentence as it lands so the caller hears a reply sooner. */
+  /** Only ElevenLabs v3 understands the cues; everyone else gets them removed. */
+  private ttsUnderstandsTags(): boolean {
+    const rv = this.constantsService.private.RESERVATION_VOICE;
+    const resolved = rv.TTS_PROVIDER && rv.TTS_PROVIDER.length > 0
+      ? rv.TTS_PROVIDER
+      : this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
+    return resolved.toLowerCase() === 'elevenlabs';
+  }
+
+  private flushSentences(state: TurnState, client: any, provider: TtsProvider, languageCode: string | null): void {
+    const llm = this.constantsService.private.LLM;
+    const { parts, rest } = splitSentences(
+      state.sentenceBuffer,
+      llm.SENTENCE_TERMINATORS_LATIN,
+      llm.SENTENCE_TERMINATORS_OTHER,
+    );
+    if (parts.length === 0) {
+      return;
+    }
+    state.sentenceBuffer = rest;
+    const keepTags = this.ttsUnderstandsTags();
+    for (const sentence of parts) {
+      const spoken = keepTags ? sentence : stripAudioTags(sentence);
+      const shown = stripAudioTags(sentence);
+      if (spoken.length > 0) {
+        // Caught per sentence on purpose. The queue is one promise chain, so a
+        // single rejected request would poison every .then() after it and the
+        // caller would hear the reply stop mid-thought with no error anywhere.
+        // One bad fragment should cost that fragment, not the rest of the answer.
+        state.ttsQueue = state.ttsQueue
+          .then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }))
+          .catch((err: any) => {
+            this.logger.warn({
+              message: err?.message ?? String(err),
+              serviceName: 'ReservationVoiceGateway',
+              actionName: 'flushSentences',
+              traces: [{ stage: 'tts' }],
+            });
+          });
+      }
+      if (shown.length > 0) {
+        client.emit('voice_text_chunk', { delta: shown });
+      }
+    }
+  }
+
+  private clearTurnFallback(client: any): void {
+    if (client.turnFallback) {
+      clearTimeout(client.turnFallback);
+      client.turnFallback = null;
+    }
+  }
+
+  /**
+   * Deepgram occasionally does not emit UtteranceEnd — a dropped frame, a noisy
+   * line — and the caller is then left speaking to a microphone that never
+   * answers. Every chunk pushes this timer out; if audio simply stops and
+   * nothing ended the turn, we end it ourselves with whatever was heard.
+   */
+  private armTurnFallback(client: any): void {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    this.clearTurnFallback(client);
+    client.turnFallback = setTimeout(() => {
+      const state = client.sttState;
+      if (!client.sttSession || !state || state.done) {
+        return;
+      }
+      if (state.finalParts.length === 0 && !state.interim) {
+        return;
+      }
+      this.logger.warn({
+        message: 'Forcing voice turn: no end-of-speech from STT',
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'armTurnFallback',
+      });
+      client.runTurn?.();
+    }, cfg.UTTERANCE_END_MS + cfg.TURN_FALLBACK_GRACE_MS);
+  }
+
+  private endCall(client: any, message: string): void {
+    client.emit('error', { message });
+    client.emit('voice_call_ended');
+    client.disconnect(true);
+  }
+
+  private destroySttSession(client: any): void {
+    if (client.sttSession) {
+      try {
+        client.sttSession.destroy();
+      } catch {
+        // a session torn down mid-turn is expected on disconnect
+      }
+      client.sttSession = null;
+    }
+  }
 
   async handleConnection(client: any) {
     const strings = this.constantsService.public;
@@ -72,13 +181,17 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
       client.reservationContext = { hotelId, publicHotel: result.publicHotel };
       client.turnsUsed = 0;
       client.audioBytes = 0;
+      // A call coming back after a dropped line carries on where it was, as the
+      // concierge does: answering the phone again would sound like a new call
+      // that has forgotten the old one.
+      client.greeted = Array.isArray(result.messages) && result.messages.length > 0;
       if (result.chat) {
         client.session = buildReservationSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
       }
 
       const cfg = this.constantsService.private.RESERVATION_VOICE;
       // Hard stop on wall clock, when one is configured: an abandoned tab must
-      // not hold a Realtime session open forever. Zero means no cap.
+      // not hold STT open forever. Zero means no cap.
       if (cfg.MAX_SESSION_SECONDS > 0) {
         client.sessionTimer = setTimeout(() => {
           this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
@@ -111,97 +224,317 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     }
   }
 
-  handleDisconnect(client: any) {
-    this.clearPlaybackWait(client);
-    if (client.sessionTimer) {
-      clearTimeout(client.sessionTimer);
-      client.sessionTimer = null;
-    }
-    this.voiceRealtimeService.closeSession(client.id);
-    if (client.voiceIp) {
-      this.reservationService.releaseVoiceSession(client.voiceIp);
-      client.voiceIp = null;
-    }
-    delete client.session;
-    delete client.reservationContext;
-  }
 
-  private endCall(client: any, message: string): void {
-    client.emit('error', { message });
-    client.emit('voice_call_ended');
-    client.disconnect(true);
+  private createSttSession(client: any): ISttSession | null {
+    this.destroySttSession(client);
+    try {
+      const cfg = this.constantsService.private.RESERVATION_VOICE;
+      // Own provider and own turn-taking: tuning the public call must never
+      // move the signed-in concierge.
+      const sttSession = this.sttFactory
+        .getFactory(cfg.STT_PROVIDER)
+        .createSession({
+          utteranceEndMs: cfg.UTTERANCE_END_MS,
+          language: cfg.STT_LANGUAGE,
+          keyterms: buildSttKeyterms(client.reservationContext ?? {}, cfg.STT_KEYTERMS),
+        });
+      client.sttSession = sttSession;
+      // Deepgram finalises in several pieces within one utterance — "hello" can
+      // land as final before the rest of the sentence does. Keeping only the
+      // most recent final would throw away everything the caller said before
+      // the last pause, so the pieces are collected and joined.
+      const state = {
+        finalParts: [] as string[],
+        interim: '',
+        done: false,
+        /** Set once speech has ended and the corrected transcript is still owed. */
+        awaitingFinal: null as ReturnType<typeof setTimeout> | null,
+      };
+      client.sttState = state;
+
+      const runTurn = () => {
+        if (state.done) {
+          return;
+        }
+        state.done = true;
+        if (state.awaitingFinal) {
+          clearTimeout(state.awaitingFinal);
+          state.awaitingFinal = null;
+        }
+        this.clearTurnFallback(client);
+        try {
+          sttSession.endInput();
+        } catch {
+          // already closed
+        }
+        if (client.sttSession === sttSession) {
+          client.sttSession = null;
+        }
+        sttSession.destroy();
+        client.emit('voice_turn_end');
+        // Interim text is the fallback: better to answer what we heard than to
+        // leave the caller talking to silence.
+        const heard = state.finalParts.length > 0 ? state.finalParts.join(' ') : state.interim;
+        void this.handleTurn(client, heard);
+      };
+      client.runTurn = runTurn;
+
+      sttSession.onTranscript((text: string, isFinal?: boolean) => {
+        const trimmed = text.trim();
+        if (isFinal && trimmed.length > 0) {
+          state.finalParts.push(trimmed);
+        } else if (trimmed.length > 0) {
+          state.interim = trimmed;
+        }
+        client.emit('voice_user_chunk', { delta: text, isFinal: !!isFinal });
+        // The corrected transcript we were waiting for. Answer it, not the
+        // half-sentence that preceded it.
+        if (isFinal && state.awaitingFinal) {
+          runTurn();
+        }
+      });
+
+      /**
+       * End of speech is not end of transcript.
+       *
+       * Sarvam signals the silence first and sends the corrected text after it,
+       * so running the turn on the signal destroyed the session before the real
+       * transcript arrived and the agent answered the last partial instead. A
+       * caller reading out a phone number was heard as "my number is".
+       *
+       * So the turn waits for the final, and the timer is only there for a
+       * provider that never sends one — a caller must not be left talking to
+       * silence because a transcript went missing.
+       */
+      sttSession.onEndOfSpeech(() => {
+        if (state.done || state.awaitingFinal) {
+          return;
+        }
+        state.awaitingFinal = setTimeout(runTurn, cfg.FINAL_TRANSCRIPT_GRACE_MS);
+      });
+
+      return sttSession;
+    } catch (err: any) {
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'createSttSession',
+      });
+      client.emit('error', { message: this.constantsService.public.ERROR_RESERVATION_VOICE_FAILED });
+      return null;
+    }
   }
 
   /**
-   * The chat is created when the caller first opens the line, not before, so a
-   * visitor who only looks at the page never writes anything. Realtime needs a
-   * chat to attach its turns to from the first word.
+   * Synthesise every filler once at boot, so no caller is the one who warms it.
+   * Warming on demand leaves most calls without one, since a phrase picked from
+   * two dozen is rarely reused before the next deploy empties the cache.
+   *
+   * Never awaited: a TTS outage must not stop the gateway coming up.
    */
-  private async ensureChat(client: any): Promise<void> {
-    if (client.session) {
+  onModuleInit(): void {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const phrases = cfg.THINKING_FILLERS ?? [];
+    if (phrases.length === 0) {
       return;
     }
-    const context = client.reservationContext;
-    const created = await this.reservationService.createChat(context.hotelId);
-    client.session = buildReservationSession(context, created.chat.id, created.chat.languageCode ?? null);
-    client.emit('session', { chatId: created.chat.id, sessionToken: created.sessionToken });
+    void (async () => {
+      try {
+        const provider = this.ttsFactory.getProvider(cfg.TTS_PROVIDER) as TtsProvider;
+        const keepTags = this.ttsUnderstandsTags();
+        for (const phrase of phrases) {
+          const spoken = keepTags ? phrase : stripAudioTags(phrase);
+          if (spoken) {
+            // One at a time: this is warming a cache, not racing anybody.
+            await this.getFillerChunks(spoken, null, provider);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn({
+          message: err?.message ?? String(err),
+          serviceName: 'ReservationVoiceGateway',
+          actionName: 'warmFillers',
+        });
+      }
+    })();
   }
 
-  /** No account: the shared pipeline reads that as "the public reservation agent". */
-  private toolContext(client: any): AgentToolContext {
-    return {
-      account: null,
-      hotelId: client.reservationContext.hotelId,
-      bookingId: null,
-      chatId: client.session.chatId,
-      hotel: client.reservationContext.publicHotel,
-      booking: null,
-      languageCode: client.session.languageCode ?? null,
+  /**
+   * PCM for one phrase, synthesised once and replayed from memory — a filler that
+   * waited for a TTS round trip would add the delay it exists to hide.
+   *
+   * The provider writes to a collector rather than the socket, which captures the
+   * audio without changing the TTS interface.
+   */
+  private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
+    const cached = this.cacheService.get<string[]>(key);
+    if (cached) {
+      return cached;
+    }
+
+    const chunks: string[] = [];
+    const collector = {
+      emit: (event: string, payload?: any) => {
+        if (event === 'voice_audio_chunk' && payload?.delta) {
+          chunks.push(payload.delta);
+        }
+      },
     };
+    await provider.streamToClient(collector, phrase, { emitEnd: false, languageCode });
+    if (chunks.length > 0) {
+      this.cacheService.set(key, chunks, cfg.FILLER_CACHE_MINUTES);
+    }
+    return chunks;
   }
 
-  @SubscribeMessage('voice_start')
-  async onVoiceStart(client: any) {
-    if (!client.reservationContext) {
+  /**
+   * Fill the gap between the caller finishing and the answer beginning.
+   *
+   * Never the same one twice running: picking at random from a long list still
+   * repeats, and a repeat back-to-back is more noticeable than any single
+   * phrase, because it is the one thing a person would never do.
+   */
+  private async playThinkingFiller(client: any, provider: TtsProvider, languageCode: string | null): Promise<void> {
+    const phrases = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
+    if (!phrases || phrases.length === 0) {
       return;
     }
-    // Already on the line. Re-announcing readiness here would loop with a client
-    // that reopens its microphone on every voice_ready.
-    if (this.voiceRealtimeService.hasSession(client.id)) {
+    let index = Math.floor(Math.random() * phrases.length);
+    if (phrases.length > 1 && index === client.lastFiller) {
+      index = (index + 1) % phrases.length;
+    }
+    client.lastFiller = index;
+
+    const spoken = this.ttsUnderstandsTags() ? phrases[index] : stripAudioTags(phrases[index]);
+    if (!spoken) {
+      return;
+    }
+    // Only play one already in memory: the answer queues behind whatever this
+    // returns, so synthesising here would add the delay it exists to hide. A cold
+    // phrase is warmed in the background and this turn goes without.
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${spoken}`;
+    if (!this.cacheService.get<string[]>(key)) {
+      void this.getFillerChunks(spoken, languageCode, provider).catch(() => {});
       return;
     }
     try {
-      await this.ensureChat(client);
-      await this.voiceRealtimeService.createSession(client.id, this.toolContext(client), {
-        onServerEvent: (event) => this.relay(client, event),
-        onError: (error) => {
-          this.logger.error({ error, serviceName: 'ReservationVoiceGateway', actionName: 'realtime' });
-          client.emit('error', { message: this.constantsService.public.ERROR_RESERVATION_VOICE_FAILED });
-        },
-        onClose: () => client.emit('voice_closed'),
-      });
-      // The agent speaks first, the way someone picking up a phone does. Its own
-      // instructions for this one response: left to the session prompt, the
-      // opener came out as a request to choose a language, because nothing had
-      // been said yet to detect one from. Queued by the service until the
-      // session is configured, so it is never early.
-      const cfg = this.constantsService.private.RESERVATION_VOICE;
-      const hotelName = client.reservationContext?.publicHotel?.name ?? '';
-      const greeting = cfg.GREETING.split(cfg.GREETING_HOTEL_TOKEN).join(hotelName).replace(/\[[^\]]*\]\s*/g, '').trim();
-      this.voiceRealtimeService.sendClientEvent(client.id, {
-        type: 'response.create',
-        response: { instructions: `Open the call by saying, warmly and naturally, in English: "${greeting}" Say only that, then stop and listen.` },
-      });
-      this.armPlaybackWait(client);
+      const chunks = await this.getFillerChunks(spoken, languageCode, provider);
+      for (const delta of chunks) {
+        client.emit('voice_audio_chunk', { delta });
+      }
     } catch (err: any) {
-      this.logger.error({ error: err, serviceName: 'ReservationVoiceGateway', actionName: 'onVoiceStart' });
-      client.emit('error', { message: this.constantsService.public.ERROR_RESERVATION_VOICE_FAILED });
+      // A filler is a nicety; never let it stop the real answer.
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'playThinkingFiller',
+      });
     }
+  }
+
+  /** One spoken turn: transcript in, budgets checked, spoken answer out. */
+  private async handleTurn(client: any, transcript: string): Promise<void> {
+    const strings = this.constantsService.public;
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const context = client.reservationContext;
+
+    const text = typeof transcript === 'string' ? transcript.trim() : '';
+    if (!context || !text) {
+      client.emit('voice_ready');
+      return;
+    }
+
+    if (cfg.MAX_TURNS_PER_SESSION > 0 && (client.turnsUsed ?? 0) >= cfg.MAX_TURNS_PER_SESSION) {
+      this.endCall(client, strings.ERROR_RESERVATION_VOICE_TURN_LIMIT);
+      return;
+    }
+    if (!this.reservationService.isWithinVoiceTurnLimit(client.voiceIp)) {
+      this.endCall(client, strings.ERROR_RESERVATION_VOICE_RATE_LIMITED);
+      return;
+    }
+    client.turnsUsed = (client.turnsUsed ?? 0) + 1;
+
+    client.voiceBusy = true;
+    client.emit('voice_user_message', { text });
+
+    try {
+      // The chat row is created on the first thing actually said, so a visitor
+      // who opens the page and stays silent never writes anything.
+      if (!client.session) {
+        const created = await this.reservationService.createChat(context.hotelId);
+        client.session = buildReservationSession(context, created.chat.id, created.chat.languageCode ?? null);
+        client.emit('session', { chatId: created.chat.id, sessionToken: created.sessionToken });
+      }
+
+      const session: ChatSession = client.session;
+      const provider = this.ttsFactory.getProvider(
+        this.constantsService.private.RESERVATION_VOICE.TTS_PROVIDER,
+      ) as TtsProvider;
+      const languageCode = session.languageCode ?? null;
+      // Speak a thinking noise now, while the model is still working. The client
+      // queues audio in order, so this plays first and the answer follows on.
+      // It goes out on every turn: these say only "I heard you", which is always
+      // true, so there is no judgement call about whether one is warranted.
+      const state: TurnState = { sentenceBuffer: '', ttsQueue: this.playThinkingFiller(client, provider, languageCode) };
+
+      await this.chatLlmService.streamUserMessage(session, text, {
+        mode: 'voice',
+        onChunk: (chunk: string) => {
+          if (!chunk) return;
+          state.sentenceBuffer += chunk;
+          this.flushSentences(state, client, provider, languageCode);
+        },
+        onEnd: async (result) => {
+          const tail = state.sentenceBuffer.trim();
+          const spokenTail = this.ttsUnderstandsTags() ? tail : stripAudioTags(tail);
+          if (spokenTail.length > 0) {
+            await state.ttsQueue;
+            await provider.streamToClient(client, spokenTail, { emitEnd: true, languageCode });
+          } else {
+            await state.ttsQueue;
+            client.emit('voice_audio_end');
+          }
+          client.emit('voice_text_end', { text: stripAudioTags(result.fullContent) });
+          await this.reservationService.followReplyLanguage(session, stripAudioTags(result.fullContent));
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'handleTurn',
+      });
+      client.emit('error', { message: strings.ERROR_RESERVATION_VOICE_FAILED });
+      client.emit('voice_audio_end');
+    } finally {
+      // The turn ends when the caller has heard the reply, not when the last
+      // audio left here — chunks are scheduled ahead, so only the browser
+      // knows. It reports back, exactly as the concierge's client does.
+      this.armPlaybackWait(client);
+    }
+  }
+
+  /**
+   * Hold the turn until the browser says the reply has finished playing.
+   *
+   * The timer is the safety net: a tab that is closed, backgrounded or
+   * disconnected never reports, and the line must not stay busy for the rest of
+   * the session because of it.
+   */
+  private armPlaybackWait(client: any): void {
+    this.clearPlaybackWait(client);
+    client.playbackWait = setTimeout(
+      () => this.releaseTurn(client),
+      this.constantsService.private.RESERVATION_VOICE.PLAYBACK_DONE_TIMEOUT_MS,
+    );
   }
 
   @SubscribeMessage('voice_client_chunk')
   onVoiceClientChunk(client: any, payload: { audio?: string }) {
-    if (!client.reservationContext || !this.voiceRealtimeService.hasSession(client.id)) {
+    if (!client.reservationContext || client.voiceBusy) {
       return;
     }
     const audio = payload?.audio;
@@ -210,144 +543,130 @@ export class ReservationVoiceGateway implements OnGatewayConnection, OnGatewayDi
     }
 
     const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const buffer = Buffer.from(audio, 'base64');
+
     // Metered on audio actually streamed rather than time connected — streamed
-    // audio is what Realtime bills for, and nobody needs to log in to send it.
-    client.audioBytes = (client.audioBytes ?? 0) + Buffer.byteLength(audio, 'base64');
+    // audio is what STT bills for.
+    client.audioBytes = (client.audioBytes ?? 0) + buffer.length;
     if (cfg.MAX_AUDIO_SECONDS_PER_SESSION > 0
         && client.audioBytes > cfg.MAX_AUDIO_SECONDS_PER_SESSION * cfg.AUDIO_BYTES_PER_SECOND) {
       this.endCall(client, this.constantsService.public.ERROR_RESERVATION_VOICE_TURN_LIMIT);
       return;
     }
 
-    this.voiceRealtimeService.sendClientEvent(client.id, { type: 'input_audio_buffer.append', audio });
+    let sttSession: ISttSession | undefined = client.sttSession;
+    if (!sttSession) {
+      sttSession = this.createSttSession(client) ?? undefined;
+      if (!sttSession) return;
+    }
+    sttSession.writeAudio(buffer);
+    this.armTurnFallback(client);
   }
 
   /**
-   * The browser has finished playing one piece of audio.
-   *
-   * That is not the same as the turn being over. A turn that calls a tool is
-   * two responses — speech and a tool call, then a follow-up — and the first
-   * finishes playing before the second has even started. Handing the line back
-   * at that point opened it in the gap: the caller's next sentence arrived
-   * while a response was in flight, and the service drops anything said while
-   * it is responding, so a whole answer went missing. So the line goes back
-   * only when the final response is done and every piece of audio has played.
+   * Sent when the caller taps the mic, before any audio. Opening the STT socket
+   * here rather than on the first chunk gives it the getUserMedia window to
+   * connect — otherwise the caller's opening words arrive before the socket is
+   * ready and are dropped. Costs nothing for a visitor who never speaks.
    */
-  @SubscribeMessage('voice_playback_done')
-  onPlaybackDone(client: any) {
-    if (!this.voiceRealtimeService.hasSession(client.id)) {
+  @SubscribeMessage('voice_start')
+  onVoiceStart(client: any) {
+    if (!client.reservationContext || client.voiceBusy || client.sttSession) {
       return;
     }
-    client.awaitingPlayback = false;
-    this.releaseIfDone(client);
-  }
-
-  private releaseIfDone(client: any): void {
-    if (!client.turnComplete || client.awaitingPlayback) {
+    // Turn zero, through the same handshake a reply uses: busy while it plays so
+    // the open mic cannot hear it, and the browser reports when it has finished.
+    // Greeting on connect would be too early — the page only gets permission to
+    // make sound inside the tap.
+    if (!client.greeted) {
+      client.greeted = true;
+      void this.playGreeting(client);
       return;
     }
-    client.turnComplete = false;
-    this.clearPlaybackWait(client);
-    this.voiceRealtimeService.onPlaybackDone(client.id);
-    client.emit('voice_ready');
+    this.createSttSession(client);
   }
 
-  @SubscribeMessage('voice_stop')
-  onVoiceStop(client: any) {
-    this.clearPlaybackWait(client);
-    this.voiceRealtimeService.closeSession(client.id);
-  }
-
-  private relay(client: any, event: any): Promise<void> {
-    const session = client.session;
-    if (!session) {
-      return Promise.resolve();
-    }
-    if (event.type === 'response.created') {
-      client.turnComplete = false;
-    } else if (event.type === 'response.output_audio.done') {
-      // A flag, not a count: the browser restarts its playback watch on every
-      // segment and reports once, when everything queued has played.
-      client.awaitingPlayback = true;
-    } else if (event.type === 'response.done' && !event._skipVoiceTextEnd) {
-      // The service has already marked a tool-call round with _skipVoiceTextEnd,
-      // so this is the response that actually ends the turn.
-      client.turnComplete = true;
-      this.releaseIfDone(client);
-    }
-    return relayRealtimeEvent(
-      client,
-      event,
-      session.chatId,
-      {
-        voiceRealtimeService: this.voiceRealtimeService,
-        messagesService: this.messagesService,
-        chatContextService: this.chatContextService,
-        logError: (message, err) => this.logger.error({ error: err, serviceName: 'ReservationVoiceGateway', actionName: message }),
-      },
-      {
-        beforeTurn: () => {
-          // A language the agent stored mid-call is on the realtime context; keep
-          // the session in step so a reconnect resumes in the same language.
-          const realtimeCtx = this.voiceRealtimeService.getContext(client.id);
-          if (realtimeCtx) {
-            session.languageCode = realtimeCtx.languageCode ?? session.languageCode ?? null;
-          }
-        },
-        afterTurn: ({ cleanUser, cleanAssistant, usage, assistantMessage }) => {
-          if (cleanAssistant) {
-            this.costsService.recordLlmCost({
-              type: CostType.LLM_VOICE,
-              // Full usage, audio tokens included: the realtime pricing needs it.
-              usage: usage ?? {},
-              bookingId: null,
-              hotelId: client.reservationContext?.hotelId ?? null,
-              accountId: null,
-              role: null,
-              chatId: session.chatId,
-              messageId: assistantMessage ? assistantMessage.id : null,
-            });
-          }
-          // Only something the caller said counts as a turn — the greeting does not.
-          if (cleanUser) {
-            this.countTurn(client);
-          }
-        },
-      },
-    );
-  }
-
-  /** A public line nobody logs into still needs a ceiling on how long one caller can run it. */
-  private countTurn(client: any): void {
-    const strings = this.constantsService.public;
+  /** The agent's opening line, spoken before the caller has said anything. */
+  private async playGreeting(client: any): Promise<void> {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    client.turnsUsed = (client.turnsUsed ?? 0) + 1;
-    if (cfg.MAX_TURNS_PER_SESSION > 0 && client.turnsUsed >= cfg.MAX_TURNS_PER_SESSION) {
-      this.endCall(client, strings.ERROR_RESERVATION_VOICE_TURN_LIMIT);
+    const hotel = client.reservationContext?.publicHotel;
+    const name = hotel && typeof hotel.name === 'string' ? hotel.name : '';
+    const phrase = (cfg.GREETING ?? '').split(cfg.GREETING_HOTEL_TOKEN).join(name).replace(/\s+/g, ' ').trim();
+    if (!phrase) {
+      this.createSttSession(client);
       return;
     }
-    if (!this.reservationService.isWithinVoiceTurnLimit(client.voiceIp)) {
-      this.endCall(client, strings.ERROR_RESERVATION_VOICE_RATE_LIMITED);
+
+    client.voiceBusy = true;
+    try {
+      const provider = this.ttsFactory.getProvider(cfg.TTS_PROVIDER) as TtsProvider;
+      const spoken = this.ttsUnderstandsTags() ? phrase : stripAudioTags(phrase);
+      // Cached per property, so only the first caller at a property waits for it.
+      const chunks = await this.getFillerChunks(spoken, null, provider);
+      for (const delta of chunks) {
+        client.emit('voice_audio_chunk', { delta });
+      }
+      client.emit('voice_audio_end');
+      client.emit('voice_text_end', { text: stripAudioTags(phrase) });
+      this.armPlaybackWait(client);
+    } catch (err: any) {
+      // Never let the opening line cost the caller the call.
+      this.logger.warn({
+        message: err?.message ?? String(err),
+        serviceName: 'ReservationVoiceGateway',
+        actionName: 'playGreeting',
+      });
+      this.releaseTurn(client);
     }
   }
 
-  /**
-   * Reopen the line if the browser never reports that the greeting finished — a
-   * closed or backgrounded tab does not, and the caller must not be left unable
-   * to speak because of it.
-   */
-  private armPlaybackWait(client: any): void {
-    this.clearPlaybackWait(client);
-    client.playbackWait = setTimeout(() => {
-      client.playbackWait = null;
-      client.emit('voice_ready');
-    }, this.constantsService.private.RESERVATION_VOICE.PLAYBACK_DONE_TIMEOUT_MS);
-  }
-
+  /** Cancel the safety net that would otherwise release the turn on its own. */
   private clearPlaybackWait(client: any): void {
     if (client.playbackWait) {
       clearTimeout(client.playbackWait);
       client.playbackWait = null;
     }
+  }
+
+  /** Hand the line back to the caller, once. */
+  private releaseTurn(client: any): void {
+    this.clearPlaybackWait(client);
+    if (!client.voiceBusy) {
+      return;
+    }
+    client.voiceBusy = false;
+    client.emit('voice_ready');
+  }
+
+  /**
+   * The browser has finished playing the reply. Same message the concierge
+   * sends, for the same reason: only the client can see when the sound stopped.
+   */
+  @SubscribeMessage('voice_playback_done')
+  onPlaybackDone(client: any) {
+    this.releaseTurn(client);
+  }
+
+  @SubscribeMessage('voice_stop')
+  onVoiceStop(client: any) {
+    this.clearTurnFallback(client);
+    this.destroySttSession(client);
+    client.emit('voice_ready');
+  }
+
+  handleDisconnect(client: any) {
+    this.clearPlaybackWait(client);
+    this.clearTurnFallback(client);
+    if (client.sessionTimer) {
+      clearTimeout(client.sessionTimer);
+      client.sessionTimer = null;
+    }
+    this.destroySttSession(client);
+    if (client.voiceIp) {
+      this.reservationService.releaseVoiceSession(client.voiceIp);
+      client.voiceIp = null;
+    }
+    delete client.session;
+    delete client.reservationContext;
   }
 }
