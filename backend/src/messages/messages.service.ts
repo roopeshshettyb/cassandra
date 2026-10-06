@@ -1,7 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Op } from 'sequelize';
-import { MESSAGES_REPOSITORY } from './messages.repository';
+import { MESSAGES_REPOSITORY, NOTES_REPOSITORY } from './messages.repository';
 import { Message, MessageRole, ToolCallRecord } from './message.model';
+import { Note } from './note.model';
+
+export interface NoteInput {
+  chatId: number;
+  accountId?: number | null;
+  hotelId?: number | null;
+  sourceMessageId?: number | null;
+  subject?: string | null;
+  content: string;
+}
 
 @Injectable()
 export class MessagesService {
@@ -17,7 +27,47 @@ export class MessagesService {
    */
   private rawContentColumn: Promise<boolean> | null = null;
 
-  constructor(@Inject(MESSAGES_REPOSITORY) private readonly messageRepository: typeof Message) {}
+  constructor(
+    @Inject(MESSAGES_REPOSITORY) private readonly messageRepository: typeof Message,
+    @Inject(NOTES_REPOSITORY) private readonly noteRepository: typeof Note,
+  ) {}
+
+  createNote(input: NoteInput): Promise<Note> {
+    return this.noteRepository.create({
+      chatId: input.chatId,
+      accountId: input.accountId ?? null,
+      hotelId: input.hotelId ?? null,
+      sourceMessageId: input.sourceMessageId ?? null,
+      subject: input.subject ?? null,
+      content: input.content,
+    } as any);
+  }
+
+  /**
+   * One note per subject, newest winning, oldest first.
+   *
+   * What the agent reads back is what it last knew about each thing, not every
+   * revision — a caller who moves their dates should leave one answer behind,
+   * not two that contradict. id breaks the createdAt tie, because two notes are
+   * written in the same second when someone gives two things at once.
+   */
+  async currentNotesByChatId(chatId: number, limit: number): Promise<Note[]> {
+    const notes = await this.noteRepository.findAll({
+      where: { chatId },
+      order: [['createdAt', 'asc'], ['id', 'asc']],
+      limit,
+    });
+    const bySubject = new Map<string, Note>();
+    const unsubjected: Note[] = [];
+    for (const note of notes) {
+      if (note.subject) {
+        bySubject.set(note.subject, note);
+      } else {
+        unsubjected.push(note);
+      }
+    }
+    return [...bySubject.values(), ...unsubjected];
+  }
 
   private hasRawContentColumn(): Promise<boolean> {
     if (!this.rawContentColumn) {
