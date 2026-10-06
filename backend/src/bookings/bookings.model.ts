@@ -2,6 +2,7 @@ import { Table, Model, Column, DataType, ForeignKey, BelongsTo, HasMany } from '
 import { Hotel } from '../hotels/hotels.model';
 import { Account } from '../accounts/accounts.model';
 import { Request } from '../requests/requests.model';
+import { BookingStatus, DEFAULT_BOOKING_STATUS } from '../common/constants/constants.service';
 import { Op } from 'sequelize';
 
 @Table({ tableName: 'bookings' })
@@ -70,6 +71,13 @@ export class Booking extends Model<Booking> {
     searchable: true,
   })
   roomNumber: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    defaultValue: DEFAULT_BOOKING_STATUS,
+  })
+  status: BookingStatus;
 
   @Column({
     type: DataType.DATE,

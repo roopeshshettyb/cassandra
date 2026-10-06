@@ -39,6 +39,46 @@
       "label": "Disabled"
     }
   },
+  "BOOKING_STATUSES": [
+    {
+      "value": "pending",
+      "label": "Pending"
+    },
+    {
+      "value": "confirmed",
+      "label": "Confirmed"
+    },
+    {
+      "value": "checked_in",
+      "label": "Checked in"
+    },
+    {
+      "value": "checked_out",
+      "label": "Checked out"
+    },
+    {
+      "value": "cancelled",
+      "label": "Cancelled"
+    }
+  ],
+  "BOOKING_STATUS_CANCELLED": "cancelled",
+  "BOOKING_STATUS_DEFAULT": "confirmed",
+  "ROOM_STATUSES": [
+    {
+      "value": "active",
+      "label": "Active"
+    },
+    {
+      "value": "maintenance",
+      "label": "Maintenance"
+    },
+    {
+      "value": "out_of_service",
+      "label": "Out of service"
+    }
+  ],
+  "ROOM_STATUS_DEFAULT": "active",
+  "ROOM_TYPE_IMAGES_MAX_COUNT": 8,
   "PERMISSIONS": {
     "CAN_CREATE_BOOKING": {
       "admin": true,
@@ -82,6 +122,11 @@
       "hotel_staff": true
     },
     "CAN_MANAGE_RESTAURANT_MENU": {
+      "admin": true,
+      "hotel_owner": true,
+      "hotel_staff": true
+    },
+    "CAN_MANAGE_ROOMS": {
       "admin": true,
       "hotel_owner": true,
       "hotel_staff": true

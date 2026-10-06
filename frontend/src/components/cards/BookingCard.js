@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR, TEXT_FAINT_LIGHT } from '../../theme';
+import { NAVY, NAVY_GRADIENT, MUTED, BORDER, BG, SHADOW, SHADOW_HOVER, TEXT_MUTED_DARK, STATUS_ERROR, STATUS_CONTRAST, TEXT_FAINT_LIGHT } from '../../theme';
 import { ROW_SX, StatusChip } from './AppCards';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';
@@ -43,7 +43,11 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
   const now = new Date();
   const isActive = start && end && now >= start && now <= end;
   const isPast = end && now > end;
-  const status = isActive ? 'Active' : isPast ? 'Past' : 'Upcoming';
+  // Confirmed bookings show Active/Past/Upcoming; any other status is shown as is.
+  const isCancelled = booking.status === constants.BOOKING_STATUS_CANCELLED;
+  const status = booking.status !== constants.BOOKING_STATUS_DEFAULT
+    ? constants.BOOKING_STATUSES.find((s) => s.value === booking.status).label
+    : (isActive ? 'Active' : isPast ? 'Past' : 'Upcoming');
   const guestName = booking.guest?.name || booking.guest?.email || null;
   const hasDoc = !!booking.reservationDocumentS3Key;
 
@@ -95,8 +99,8 @@ const BookingCard = ({ data, navigate, onEdit, onDelete }) => {
             </Typography>
           </Box>
           {/* Status badge */}
-          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: 'rgba(0,0,0,0.22)' }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
+          <Box sx={{ position: 'absolute', top: 14, right: 14, px: 1.5, py: 0.4, borderRadius: 99, bgcolor: isCancelled ? STATUS_ERROR : 'rgba(0,0,0,0.22)' }}>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: isCancelled ? STATUS_CONTRAST : badgeTextColor, whiteSpace: 'nowrap' }}>{status}</Typography>
           </Box>
         </Box>
 

@@ -1,6 +1,10 @@
-import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, ForbiddenException, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { BOOKINGS_REPOSITORY } from './bookings.repository';
 import { Booking } from './bookings.model';
+import { BookingRoom } from './booking-rooms.model';
+import { InventoryService } from '../rooms/inventory.service';
+import { RoomType } from '../rooms/room-types.model';
+import { Room } from '../rooms/rooms.model';
 import { CreateBookingDto, UpdateBookingDto, BookingExternalUpsertPayload } from './bookings.dto';
 import { BookingQueryOptions } from './bookings.query';
 import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
@@ -11,11 +15,11 @@ import { HotelsService } from '../hotels/hotels.service';
 import { Hotel } from '../hotels/hotels.model';
 import { HotelBrand } from '../hotels/brands.model';
 import { MailerService } from '../mailer/mailer.service';
-import { ConstantsService, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from '../common/constants/constants.service';
+import { BookingStatus, ConstantsService, DEFAULT_AVAILABILITY_ROOMS, DEFAULT_CHECK_IN_TIME, DEFAULT_CHECK_OUT_TIME } from '../common/constants/constants.service';
 import { AwsService } from '../common/aws/aws.service';
 import { DocumentExtractionService } from './document-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Op, literal, Transaction, UniqueConstraintError } from 'sequelize';
+import { Op, literal, Sequelize, Transaction, UniqueConstraintError } from 'sequelize';
 import { Chat } from '../chat/chat.model';
 import { Request } from '../requests/requests.model';
 import { Message } from '../messages/message.model';
@@ -24,6 +28,16 @@ import { forwardRef } from '@nestjs/common';
 import { CostsService } from '../costs/costs.service';
 import { randomUUID } from 'crypto';
 
+interface PickedRoom {
+  id: number;
+  roomNumber: string;
+}
+
+interface Stay {
+  nights: string[];
+  checkIn: string;
+  checkOut: string;
+}
 @Injectable()
 export class BookingsService {
   constructor(
@@ -37,6 +51,7 @@ export class BookingsService {
     private readonly documentExtractionService: DocumentExtractionService,
     @Inject(forwardRef(() => CostsService)) private readonly costsService: CostsService,
     private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => InventoryService)) private readonly inventoryService: InventoryService,
   ) {}
 
   private isWithinStayAttr(): [any, string] {
@@ -83,13 +98,15 @@ export class BookingsService {
     const startTime = this.parseDateTime(startDate, checkInTime);
     const endTime = this.parseDateTime(endDate, checkOutTime);
 
-    const booking = await this.bookingsRepository.create({
-      guestId: guest.id,
-      hotelId: hotel.id,
-      startTime,
-      endTime,
-      roomNumber: dto.roomNumber?.trim() || undefined,
-    });
+    const booking = dto.roomTypeId
+      ? await this.createBookingWithRoomType(dto, hotel, guest.id, startTime, endTime)
+      : await this.bookingsRepository.create({
+          guestId: guest.id,
+          hotelId: hotel.id,
+          startTime,
+          endTime,
+          roomNumber: dto.roomNumber?.trim() || undefined,
+        });
 
     if (dto.sendInviteImmediately === true) {
       await this.sendInviteEmailForBooking(booking, guest, hotel, endTime);
@@ -119,6 +136,77 @@ export class BookingsService {
       message: 'Booking created',
       data: booking,
     };
+  }
+
+  private buildStay(startTime: Date, endTime: Date): Stay {
+    return {
+      nights: this.inventoryService.nightsBetween(startTime, endTime),
+      checkIn: this.inventoryService.toDateOnly(startTime),
+      checkOut: this.inventoryService.toDateOnly(endTime),
+    };
+  }
+
+  /** Gives the booking's nights back to inventory, then unassigns its rooms. Inventory first, as it reads booking_rooms. */
+  private async unassignRoomsAndRestoreInventory(bookingId: number, transaction: Transaction): Promise<void> {
+    await this.inventoryService.restoreInventoryForBookings([bookingId], transaction);
+    await BookingRoom.destroy({ where: { bookingId }, transaction, force: true });
+  }
+
+  private async reserveInventoryAndPickFreeRooms(roomTypeId: number, count: number, stay: Stay, transaction: Transaction): Promise<PickedRoom[]> {
+    await this.inventoryService.createMissingInventoryRows(roomTypeId, stay.nights, transaction);
+    await this.inventoryService.reserveInventoryOrFail(roomTypeId, stay.nights, count, transaction);
+
+    const rooms = await this.inventoryService.findFreeRooms(roomTypeId, stay.checkIn, stay.checkOut, count, transaction);
+    if (rooms.length < count) {
+      throw new ConflictException('Not enough rooms available for the selected dates');
+    }
+    return rooms;
+  }
+
+  /** Saves the picked rooms against the booking in booking_rooms and returns the room number(s) to show on the booking. */
+  private async assignRoomsToBooking(bookingId: number, rooms: PickedRoom[], stay: Stay, transaction: Transaction): Promise<string> {
+    const rows: any = rooms.map((room) => ({ bookingId, roomId: room.id, checkIn: stay.checkIn, checkOut: stay.checkOut }));
+    await BookingRoom.bulkCreate(rows, { transaction });
+    return rooms.map((room) => room.roomNumber).join(', ');
+  }
+
+  private async createBookingWithRoomType(
+    dto: CreateBookingDto,
+    hotel: Hotel,
+    guestId: number,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<Booking> {
+    const stay = this.buildStay(startTime, endTime);
+    if (stay.nights.length === 0) {
+      throw new BadRequestException('Check-out must be after check-in to reserve a room');
+    }
+    const roomsWanted = dto.rooms ?? DEFAULT_AVAILABILITY_ROOMS;
+    const sequelize = this.bookingsRepository.sequelize!;
+
+    const roomType = await RoomType.findByPk(dto.roomTypeId!);
+    if (!roomType || roomType.hotelId !== hotel.id) {
+      throw new NotFoundException();
+    }
+
+    return sequelize.transaction(async (transaction) => {
+      const rooms = await this.reserveInventoryAndPickFreeRooms(dto.roomTypeId!, roomsWanted, stay, transaction);
+
+      const booking = await this.bookingsRepository.create(
+        {
+          guestId,
+          hotelId: hotel.id,
+          startTime,
+          endTime,
+          roomNumber: rooms.map((room) => room.roomNumber).join(', '),
+        },
+        { transaction },
+      );
+
+      await this.assignRoomsToBooking(booking.id, rooms, stay, transaction);
+
+      return booking;
+    });
   }
 
   async findByExternalId(hotelId: number, externalId: string): Promise<Booking | null> {
@@ -171,6 +259,7 @@ export class BookingsService {
         existing.guestId = guest.id;
         if (roomNumber) existing.roomNumber = roomNumber;
         await existing.save();
+        await this.syncPmsBookingRooms(existing);
         return { record: existing, created: false };
       }
 
@@ -182,6 +271,7 @@ export class BookingsService {
         roomNumber: roomNumber || undefined,
         externalId: payload.externalId,
       });
+      await this.syncPmsBookingRooms(record);
       return { record, created: true };
     } catch (err) {
       if (!isRetry && err instanceof UniqueConstraintError) {
@@ -561,16 +651,102 @@ export class BookingsService {
     if (dto.endDate !== undefined) {
       booking.endTime = this.parseDateTime(dto.endDate.trim(), checkOutTime);
     }
+    // An inventory booking's room number comes from its assigned rooms, so it cannot be retyped.
+    const hasAssignedRooms = (await BookingRoom.count({ where: { bookingId: booking.id } })) > 0;
     if (dto.roomNumber !== undefined) {
-      booking.roomNumber = dto.roomNumber.trim();
+      const typed = dto.roomNumber.trim();
+      if (!hasAssignedRooms) {
+        booking.roomNumber = typed;
+      } else if (typed !== booking.roomNumber) {
+        throw new BadRequestException("This booking's rooms come from inventory, so its room number cannot be typed in; change its dates or cancel it instead");
+      }
+    }
+
+    const wasCancelled = booking.status === BookingStatus.CANCELLED;
+    if (dto.status !== undefined && dto.status !== booking.status) {
+      // Its nights have been released and may already be sold again.
+      if (wasCancelled) {
+        throw new BadRequestException('A cancelled booking cannot be reinstated; create a new booking instead');
+      }
+      booking.status = dto.status;
     }
 
     if (booking.startTime >= booking.endTime) {
-      throw new BadRequestException('endDate must be after startDate');
+      throw new BadRequestException('Check-out must be after check-in');
     }
 
-    await booking.save();
+    const sequelize = this.bookingsRepository.sequelize!;
+
+    const isCancelling = booking.status === BookingStatus.CANCELLED && !wasCancelled;
+    const datesMoved = booking.changed('startTime') || booking.changed('endTime');
+
+    if (datesMoved && !isCancelling) {
+      if (booking.externalId) {
+        await this.syncPmsBookingRooms(booking);
+      } else {
+        await this.reassignRoomsForNewDates(booking, sequelize);
+      }
+    }
+
+    if (!isCancelling) {
+      await booking.save();
+      return { success: true, message: 'Booking updated', data: booking };
+    }
+
+    await sequelize.transaction(async (transaction) => {
+      await this.unassignRoomsAndRestoreInventory(booking.id, transaction);
+      await booking.save({ transaction });
+    });
+
     return { success: true, message: 'Booking updated', data: booking };
+  }
+
+  /**
+   * Assigns the room a PMS booking sends and reserves its inventory.
+   * Unassigns first, so webhook redeliveries do not count the room twice.
+   * Unknown room numbers are kept as bookings but reserve nothing.
+   */
+  private async syncPmsBookingRooms(booking: Booking): Promise<void> {
+    const sequelize = this.bookingsRepository.sequelize!;
+    const roomNumber = booking.roomNumber;
+    const room = roomNumber ? await Room.findOne({ where: { hotelId: booking.hotelId, roomNumber } }) : null;
+    const stay = this.buildStay(booking.startTime, booking.endTime);
+    // A same-day PMS stay has no nights to reserve.
+    const needsRoom = stay.nights.length > 0 && booking.status !== BookingStatus.CANCELLED;
+
+    await sequelize.transaction(async (transaction) => {
+      await this.unassignRoomsAndRestoreInventory(booking.id, transaction);
+      if (!room || !needsRoom) {
+        return;
+      }
+
+      await this.inventoryService.createMissingInventoryRows(room.roomTypeId, stay.nights, transaction);
+      await this.inventoryService.reservePmsInventoryUpToCapacity(room.roomTypeId, stay.nights, 1, transaction);
+
+      await this.assignRoomsToBooking(booking.id, [{ id: room.id, roomNumber: room.roomNumber }], stay, transaction);
+    });
+  }
+
+  private async reassignRoomsForNewDates(booking: Booking, sequelize: Sequelize): Promise<void> {
+    const assignedRooms = await BookingRoom.findAll({
+      where: { bookingId: booking.id },
+      include: [{ model: Room, as: 'room' }],
+    });
+    if (assignedRooms.length === 0) {
+      return;
+    }
+
+    const roomTypeId = assignedRooms[0].room.roomTypeId;
+    const roomsWanted = assignedRooms.length;
+    const stay = this.buildStay(booking.startTime, booking.endTime);
+
+    await sequelize.transaction(async (transaction) => {
+      await this.unassignRoomsAndRestoreInventory(booking.id, transaction);
+
+      const rooms = await this.reserveInventoryAndPickFreeRooms(roomTypeId, roomsWanted, stay, transaction);
+      booking.roomNumber = await this.assignRoomsToBooking(booking.id, rooms, stay, transaction);
+      await booking.save({ transaction });
+    });
   }
 
   async deleteBooking(where: any, transaction?: Transaction, force = false): Promise<void> {
@@ -600,6 +776,15 @@ export class BookingsService {
       }
 
       if (bookingIds.length > 0) {
+        // Before booking_rooms are deleted: restoreInventoryForBookings reads them.
+        await this.inventoryService.restoreInventoryForBookings(bookingIds, effectiveTransaction as Transaction);
+
+        await BookingRoom.destroy({
+          where: { bookingId: { [Op.in]: bookingIds } },
+          force,
+          transaction: effectiveTransaction,
+        });
+
         await Request.destroy({
           where: { bookingId: { [Op.in]: bookingIds } },
           force,

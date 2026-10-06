@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
+import { BookingStatus } from '../common/constants/constants.service';
 
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -49,10 +50,22 @@ export class CreateBookingDto {
   @ApiProperty({ required: false })
   readonly guestPhone?: string;
 
+  @ValidateIf((dto) => !dto.roomTypeId)
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  readonly roomNumber: string;
+  @IsNotEmpty({ message: 'roomNumber is required when no roomTypeId is given' })
+  @ApiProperty({ required: false, description: 'Required when roomTypeId is not given' })
+  readonly roomNumber?: string;
+
+  @IsOptional()
+  @IsInt()
+  @ApiProperty({ required: false, description: 'Reserve against dated inventory for this room type instead of a free-text room number' })
+  readonly roomTypeId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @ApiProperty({ required: false, description: 'Rooms to reserve of roomTypeId' })
+  readonly rooms?: number;
 
   @IsOptional()
   @IsBoolean()
@@ -83,6 +96,11 @@ export class UpdateBookingDto {
   @IsNotEmpty()
   @ApiProperty()
   readonly roomNumber: string;
+
+  @IsOptional()
+  @IsEnum(BookingStatus)
+  @ApiProperty({ required: false, enum: BookingStatus })
+  readonly status?: BookingStatus;
 }
 
 export class ReservationDocumentUploadUrlDto {
