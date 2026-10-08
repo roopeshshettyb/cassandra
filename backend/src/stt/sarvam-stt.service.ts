@@ -113,6 +113,7 @@ export class SarvamSttService implements SttSessionFactory {
       // Deepgram asks for plain 'en', and passing that through would both be
       // rejected and throw away the detection that is the reason for being here.
       language_code: isSarvamLanguage(options?.language) ? String(options?.language) : cfg.LANGUAGE,
+      mode: cfg.MODE,
       encoding: common.ENCODING,
       sample_rate: String(cfg.SAMPLE_RATE),
       /**

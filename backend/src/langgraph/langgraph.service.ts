@@ -253,13 +253,14 @@ export class LangGraphService {
     let totalCompletionTokens = 0;
 
     const state: any = { messages };
-    // Capped: a tool the model keeps re-reading because the answer did not
-    // change otherwise loops until the turn dies. Measured, get_notes was called
-    // ten times in a row on one turn.
+    // The reservation agent is capped: a tool the model keeps re-reading because
+    // the answer did not change otherwise loops until the turn dies. Measured,
+    // get_notes was called ten times in a row on one turn. The concierge keeps
+    // the library default — its menu lookups legitimately take more rounds.
     const eventStream = agent.streamEvents(state, {
       version: 'v2',
       configurable: { thread_id: threadId },
-      recursionLimit: this.constantsService.private.LLM.AGENT_RECURSION_LIMIT,
+      ...(ctx.account ? {} : { recursionLimit: this.constantsService.private.LLM.AGENT_RECURSION_LIMIT }),
     });
 
     for await (const event of eventStream) {

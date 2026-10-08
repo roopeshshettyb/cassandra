@@ -181,6 +181,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       client.reservationContext = { hotelId, publicHotel: result.publicHotel };
       client.turnsUsed = 0;
       client.audioBytes = 0;
+      // A call coming back after a dropped line carries on where it was, as the
+      // concierge does: answering the phone again would sound like a new call
+      // that has forgotten the old one.
+      client.greeted = Array.isArray(result.messages) && result.messages.length > 0;
       if (result.chat) {
         client.session = buildReservationSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
       }
@@ -494,6 +498,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
             client.emit('voice_audio_end');
           }
           client.emit('voice_text_end', { text: stripAudioTags(result.fullContent) });
+          await this.reservationService.followReplyLanguage(session, stripAudioTags(result.fullContent));
         },
       });
     } catch (err: any) {

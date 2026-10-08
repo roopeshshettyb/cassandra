@@ -246,7 +246,7 @@ If a month is not stated, take the next time that date occurs, and say which mon
 
 One date is not two. If they give you an arrival and no departure, ask how many nights — never pick a checkout for them. "The tenth" answered with "the tenth to the eleventh" is a night they never asked for, and they will agree to it without noticing because it sounds like you were listening.
 
-The moment you have resolved them, call note_reservation_dates with the two ISO dates, before you ask anything else. Then call it again after every further detail — the party size, the name, the phone number, the email — each time carrying everything you know so far. Write it down when you hear it; do not save it up for the end. What the hotel receives is built from those notes, so a detail you never noted is a detail recalled from memory, and measured, that is where it goes wrong: a caller who said the fourth of December had the tenth of October recorded one turn later, and callers who gave a phone number had 9876543210 recorded instead. That writes them down where they cannot drift, and they will be in front of you for the rest of the call as [Tool: note_reservation_dates].
+The moment you have resolved them, call note_reservation_dates with the two ISO dates, before you ask anything else. Then call it again after every further detail — the party size, the name, the phone number, the email — each time carrying everything you know so far. Write it down when you hear it; do not save it up for the end. What the hotel receives is built from those notes, so a detail you never noted is a detail recalled from memory, and that is where dates drift and numbers get replaced with ones the caller never said. Noting them writes them down where they cannot drift; get_notes reads them back. Never fill a gap with a value nobody gave you — if a detail is missing from your notes, ask for it.
 
 When you read the details back, and again when you record the enquiry, copy the dates from that tool call. Do not work them out a second time from the enquirer's original words. You resolved them once, out loud, and that answer is in this conversation — copy it. Re-deriving is how "the twenty-sixth to the twenty-eighth of November" becomes the tenth to the twelfth of October four turns later, and the guest confirms it without noticing because they are listening for their own name, not re-checking your arithmetic.
 
@@ -271,6 +271,9 @@ Use get_notes before you summarise, before you record the enquiry, and whenever 
 
 Your notes are what they actually said. Anything you are recalling without one is a guess, and it will be wrong about a date or a number sooner or later.`);
   parts.push(languageInstruction(languageCode));
+  // Measured: a caller went from Hindi back to English, was answered in English,
+  // and the stored language stayed Hindi — so a reconnect came back in Hindi.
+  parts.push('The stored language and the language you answer in must never differ. In the same turn you first answer in a different language, call set_chat_language with it — switching your words without switching the store sends the next turn, and the voice, back to the old language.');
   parts.push(`This is the context of the conversation so far : ${contextData.context}`);
 
   const messages: ChatMessageInput[] = parts.map((content) => ({ role: 'system', content }));

@@ -93,11 +93,11 @@ export function createReservationTools(
     new DynamicStructuredTool({
       name: 'add_note',
       description:
-        'Write something down about this enquirer the moment they tell you, so you do not have to hold it in your head for the rest of the call. Use it for anything you will need later: their dates, how many are staying, a name, a number, a preference, a reason for the trip, anything they ask you to remember. Give a subject so a later note about the same thing replaces the earlier one rather than contradicting it.',
+        'Write down something worth keeping that is not part of the booking itself — an occasion, a first visit, a preference, anything they want the hotel team to know. The dates, party size, name, phone and email go in note_reservation_dates instead. Give a subject so a later note about the same thing replaces the earlier one rather than contradicting it.',
       schema: z.object({
         subject: z
           .string()
-          .describe('What this note is about, lowercase and consistent: dates, party size, name, phone, email, preference, occasion'),
+          .describe('What this note is about, lowercase and consistent: preference, occasion, request'),
         content: z.string().describe('The note itself, written so it reads on its own later'),
       }),
       func: async (args) => {
@@ -161,9 +161,23 @@ export function createReservationTools(
         guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
       }),
       func: async (args) => {
-        // Nothing is stored here: the call itself is persisted on the assistant
-        // message, and context is built with tool inputs inline, so the details
-        // return to every later prompt as data rather than as words to re-read.
+        // One note per field, so get_notes reads back the booking as it stands —
+        // a call carrying only the newest detail leaves the earlier ones in place.
+        await Promise.all(
+          Object.entries(args)
+            .filter(([, value]) => value !== undefined && value !== '')
+            .map(([subject, value]) =>
+              messagesService.createNote({
+                chatId: ctx.chatId,
+                accountId: ctx.account ? ctx.account.id : null,
+                hotelId: hotelId ?? null,
+                sourceMessageId: ctx.sourceMessageId ?? null,
+                subject,
+                content: String(value),
+              }),
+            ),
+        );
+        notesThisTurn = null;
         return JSON.stringify({
           success: true,
           message: constantsService.public.RESERVATION_DATES_NOTED,
