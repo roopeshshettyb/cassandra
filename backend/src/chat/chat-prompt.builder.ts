@@ -31,20 +31,16 @@ const LANGUAGE_DISPLAY: Record<string, string> = {
   te: 'Telugu',
 };
 
-/**
- * What to tell the agent about which language to speak.
- *
- * Shared by the concierge and the public reservation agent. The reservation
- * agent used to be told only "respond in the language the enquirer uses", which
- * is a decision it then remakes every single turn — so a caller speaking Hindi
- * who spells their email in English letters gets answered in English.
- */
+/** What to tell the agent about which language to speak — shared by the concierge and the reservation agent. */
 function languageInstruction(languageCode?: string | null): string {
   const display = languageCode ? LANGUAGE_DISPLAY[languageCode] : null;
   if (display) {
-    return `For this session, the primary language is ${display}. You must respond only in ${display}, for the whole call, including when the enquirer spells something out in English letters — letters are not a language, and spelling a name or an email address is never a request to switch. Only change if they actually speak another language to you, and then update the stored language using the set_chat_language tool.`;
+    return `For this session, the primary language is ${display}. You must respond only in ${display}. If the user speaks in another language, switch immediately to that language and update the stored language using the set_chat_language tool.`;
   }
-  return 'Currently a language for this chat is not set. Only use and respond in one of these languages: English, Hindi, Kannada, Tamil, Telugu. If the user speaks in any other language, politely ask them to use one of these five. After the first message, once you have deduced the language, use the set_chat_language tool to store it — until you do, every turn starts this decision again.';
+  if (!languageCode) {
+    return 'Currently a language for this chat is not set. Only use and respond in one of these languages: English, Hindi, Kannada, Tamil, Telugu. If the user speaks in any other language, politely ask them to use one of these five. After the users first message once you have deduced the language use the set_chat_language tool and update it.';
+  }
+  return '';
 }
 
 export async function buildSystemInstructions(
@@ -88,7 +84,10 @@ ${isVoice ? `This interaction is happening over voice. Respond in 1-2 very short
   //   parts.push(ROLE_INSTRUCTIONS[speakerRole]);
   // }
 
-  parts.push(languageInstruction(languageCode));
+  const language = languageInstruction(languageCode);
+  if (language) {
+    parts.push(language);
+  }
 
   parts.push(`This is the context of the coversation so far : ${contextData.context}`);
 
@@ -271,6 +270,9 @@ Use get_notes before you summarise, before you record the enquiry, and whenever 
 
 Your notes are what they actually said. Anything you are recalling without one is a guess, and it will be wrong about a date or a number sooner or later.`);
   parts.push(languageInstruction(languageCode));
+  // A caller speaking Hindi who spells their email in English letters was
+  // answered in English: spelling read as a switch.
+  parts.push('Spelling something out in English letters — a name, an email address — is never a request to switch language. Letters are not a language.');
   // Measured: a caller went from Hindi back to English, was answered in English,
   // and the stored language stayed Hindi — so a reconnect came back in Hindi.
   parts.push('The stored language and the language you answer in must never differ. In the same turn you first answer in a different language, call set_chat_language with it — switching your words without switching the store sends the next turn, and the voice, back to the old language.');

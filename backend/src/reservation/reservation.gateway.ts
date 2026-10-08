@@ -3,9 +3,7 @@ import { Server } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
-import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
-import { getClientIp, parseHotelId, buildReservationSession } from './reservation-session.helper';
 import { ToolCallRecord } from '../langgraph/langgraph.service';
 
 /**
@@ -27,48 +25,9 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
     private readonly constantsService: ConstantsService,
   ) {}
 
-
-
-
   async handleConnection(client: any) {
-    const strings = this.constantsService.public;
-    const query: any = client.handshake?.query ?? {};
-    const auth: any = client.handshake?.auth ?? {};
-
-    const hotelId = parseHotelId(query.hotelId ?? auth.hotelId);
-    if (hotelId === null) {
-      client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
-      client.disconnect(true);
-      return;
-    }
-
-    const sessionToken = query.sessionToken ?? auth.sessionToken ?? null;
-
-    try {
-      const result = await this.reservationService.startSession(hotelId, sessionToken ? String(sessionToken) : null);
-      // Held until there is a chat to attach it to. A visitor who only looks at
-      // the page never causes a write.
-      client.reservationContext = {
-        hotelId,
-        publicHotel: result.publicHotel,
-      };
+    if (await this.reservationService.connect(client)) {
       client.messagesSent = 0;
-      if (result.chat) {
-        client.session = buildReservationSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
-      }
-      client.emit('ready', {
-        chatId: result.chat ? result.chat.id : null,
-        sessionToken: result.sessionToken,
-        hotel: result.publicHotel,
-        messages: result.messages,
-      });
-    } catch (err: any) {
-      this.logger.error(err);
-      const notFound = err?.status === 404 || err?.statusCode === 404;
-      client.emit('error', {
-        message: notFound ? strings.ERROR_RESERVATION_HOTEL_NOT_FOUND : strings.ERROR_RESERVATION_SETUP_FAILED,
-      });
-      client.disconnect(true);
     }
   }
 
@@ -76,8 +35,7 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
   async onMessage(client: any, payload: { content: string }) {
     const strings = this.constantsService.public;
     const limits = this.constantsService.private.RESERVATION;
-    const context = client.reservationContext;
-    if (!context) {
+    if (!client.reservationContext) {
       client.emit('error', { message: strings.ERROR_RESERVATION_SETUP_FAILED });
       return;
     }
@@ -104,21 +62,14 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
 
     // Checked last, and only for a message we would otherwise answer, so a
     // rejected one does not spend the visitor's hourly budget.
-    if (!this.reservationService.isWithinIpRateLimit(getClientIp(client))) {
+    if (!this.reservationService.isWithinIpRateLimit(this.reservationService.clientIp(client))) {
       client.emit('error', { message: strings.ERROR_RESERVATION_RATE_LIMITED });
       return;
     }
     client.messagesSent = sent + 1;
 
     try {
-      // First message of a new conversation: this is where the chat row starts
-      // existing, and the client gets the handle to resume it after a refresh.
-      if (!client.session) {
-        const created = await this.reservationService.createChat(context.hotelId);
-        client.session = buildReservationSession(context, created.chat.id, created.chat.languageCode ?? null);
-        client.emit('session', { chatId: created.chat.id, sessionToken: created.sessionToken });
-      }
-      const session: ChatSession = client.session;
+      const session = await this.reservationService.ensureSession(client);
 
       await this.chatLlmService.streamUserMessage(session, content, {
         mode: 'text',

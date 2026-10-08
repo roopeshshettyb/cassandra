@@ -10,6 +10,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import CloseIcon from '@mui/icons-material/Close';
 import request from '../../helper/api';
+import MapComponent from '../MapComponent';
 import { BRAND_GRADIENT, NAVY, MUTED, BORDER, SHADOW, SHADOW_HOVER, PRIMARY_CONTRAST, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../../theme';
 import constants from '../../constants.json';
 
@@ -43,9 +44,17 @@ function Detail({ icon: Icon, children }) {
   );
 }
 
-
-/** One captured enquiry. A conversation can hold several — see AiBookingCard. */
-function Enquiry({ enquiry, label }) {
+/**
+ * One captured enquiry. A conversation can hold several, newest first. Unlabelled
+ * when there is only one, because "Latest enquiry" over a single enquiry implies
+ * an older one that is not there.
+ */
+function Enquiry({ data: enquiry, index, total }) {
+  const label = total < 2
+    ? null
+    : index === 0
+      ? constants.AI_BOOKINGS_ENQUIRY_LATEST
+      : `${constants.AI_BOOKINGS_ENQUIRY_NTH} ${total - index}`;
   const nights =
     enquiry.checkInDate && enquiry.checkOutDate
       ? dayjs(enquiry.checkOutDate).diff(dayjs(enquiry.checkInDate), 'day')
@@ -92,6 +101,20 @@ function Enquiry({ enquiry, label }) {
  * captured details get the guest's name and dates, the rest show what the
  * visitor was last told.
  */
+/** One message of the conversation, as staff read it. */
+function ConversationLine({ data: message }) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+      <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: MUTED }}>
+        {message.role === 'user' ? constants.AI_BOOKINGS_ROLE_GUEST : constants.AI_BOOKINGS_ROLE_AGENT}
+      </Typography>
+      <Typography sx={{ fontSize: 13, color: NAVY, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+        {message.content}
+      </Typography>
+    </Box>
+  );
+}
+
 const AiBookingCard = ({ data }) => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(null);
@@ -159,21 +182,7 @@ const AiBookingCard = ({ data }) => {
 
         {enquiries.length > 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {enquiries.map((row, index) => (
-              <Enquiry
-                key={row.recordedAt ?? index}
-                enquiry={row}
-                // Unlabelled when there is only one, because "Latest enquiry"
-                // over a single enquiry implies an older one that is not there.
-                label={
-                  enquiries.length < 2
-                    ? null
-                    : index === 0
-                      ? constants.AI_BOOKINGS_ENQUIRY_LATEST
-                      : `${constants.AI_BOOKINGS_ENQUIRY_NTH} ${enquiries.length - index}`
-                }
-              />
-            ))}
+            <MapComponent Component={Enquiry} data={enquiries} total={enquiries.length} />
           </Box>
         ) : (
           <Typography
@@ -211,16 +220,7 @@ const AiBookingCard = ({ data }) => {
         </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {(messages ?? []).map((message) => (
-              <Box key={message.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: MUTED }}>
-                  {message.role === 'user' ? constants.AI_BOOKINGS_ROLE_GUEST : constants.AI_BOOKINGS_ROLE_AGENT}
-                </Typography>
-                <Typography sx={{ fontSize: 13, color: NAVY, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                  {message.content}
-                </Typography>
-              </Box>
-            ))}
+            <MapComponent Component={ConversationLine} data={messages ?? []} showNoDataAvailable={false} />
             {!loading && messages !== null && messages.length === 0 && (
               <Typography sx={{ fontSize: 13, color: MUTED }}>{constants.AI_BOOKINGS_NO_MESSAGES}</Typography>
             )}

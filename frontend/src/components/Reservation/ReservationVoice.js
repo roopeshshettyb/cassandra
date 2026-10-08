@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Typography } from '@mui/material';
-import { motion } from 'framer-motion';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import { io } from 'socket.io-client';
 // Shared with the concierge's voice hook: PCM encoding and chunk scheduling are
@@ -10,10 +9,10 @@ import { NAVY, MUTED } from '../../theme';
 // The same control the in-stay concierge uses. Different socket, different
 // rules, but to whoever is talking it is the same assistant.
 import { VoiceMicButton } from '../AvatarChatbot/ui/VoiceMic';
+import { getBackendUrl } from '../GuestPortal/GuestConcierge';
 import constants from '../../constants.json';
 import { sessionStorageKey, sessionAuth } from './reservationSession';
 
-const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
 /** Browser mic and the server both work in 24kHz mono 16-bit PCM. */
 const SAMPLE_RATE = 24000;
@@ -297,7 +296,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       micGateRef.current = false;
       setStatus('thinking');
     });
-    socket.on('voice_user_message', (p) => {
+    socket.on('voice_user_message', () => {
       setStatus('thinking');
     });
     socket.on('voice_audio_chunk', (p) => {
@@ -380,17 +379,14 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       socket.io.off('reconnect_failed', onReconnectFailed);
       socket.removeAllListeners();
       socket.disconnect();
+      cancelPlaybackWatch();
+      stopMicRef.current?.();
+      stopAmbience(ambienceRef.current, playbackContextRef.current);
+      ambienceRef.current = null;
     };
   }, []);
 
   stopMicRef.current = stopMic;
-
-  useEffect(() => () => {
-    cancelPlaybackWatch();
-    stopMic();
-    stopAmbience(ambienceRef.current, playbackContextRef.current);
-    ambienceRef.current = null;
-  }, [stopMic]);
 
   /** `auto` marks a turn the page opened itself rather than one the caller tapped. */
   const startListening = async (auto = false) => {

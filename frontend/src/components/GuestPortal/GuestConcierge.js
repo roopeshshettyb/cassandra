@@ -34,7 +34,7 @@ const randomPick = (arr, count) => {
 
 dayjs.extend(relativeTime);
 
-const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+export const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
 const formatHistoryTimestamp = (value) => {
   try {
@@ -49,7 +49,7 @@ const formatHistoryTimestamp = (value) => {
 };
 
 // ── Waveform bars for listening state ──────────────────────────────────────
-function SuggestionStrip({ items, onSelect }) {
+export function SuggestionStrip({ items, onSelect, disabled }) {
   const chipsScrollRef = useRef(null);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -60,7 +60,6 @@ function SuggestionStrip({ items, onSelect }) {
       >
         <ChevronLeftIcon fontSize="small" />
       </IconButton>
-
       <Box
         ref={chipsScrollRef}
         sx={{
@@ -80,6 +79,7 @@ function SuggestionStrip({ items, onSelect }) {
             key={item}
             component={motion.button}
             whileTap={{ scale: 0.95 }}
+            disabled={disabled}
             onClick={() => onSelect(item)}
             sx={{
               flexShrink: 0,
@@ -87,7 +87,8 @@ function SuggestionStrip({ items, onSelect }) {
               borderRadius: 5,
               px: 1.5,
               py: 0.75,
-              cursor: 'pointer',
+              cursor: disabled ? 'default' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
               fontSize: 12,
               fontWeight: 500,
               color: NAVY,
@@ -100,7 +101,6 @@ function SuggestionStrip({ items, onSelect }) {
           </Box>
         ))}
       </Box>
-
       <IconButton
         size="small"
         onClick={() => chipsScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}

@@ -38,25 +38,6 @@ export class ChatLlmService {
     return session.hotelId ?? null;
   }
 
-  /**
-   * Follow a language change on the live session, not just in the database.
-   *
-   * The row is what a later connection reads, but the voice speaking the rest of
-   * this call reads session.languageCode — so without this a caller who switches
-   * to Hindi keeps hearing English until they hang up and call back.
-   */
-  private syncSessionLanguageFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
-    for (const call of toolCalls) {
-      if (call.toolName !== 'set_chat_language') {
-        continue;
-      }
-      const code = (call.input as any)?.languageCode;
-      if (typeof code === 'string' && code) {
-        session.languageCode = code;
-      }
-    }
-  }
-
   private syncSessionBookingFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
     for (let i = 0; i < toolCalls.length; i += 1) {
       const call = toolCalls[i];
@@ -140,23 +121,20 @@ export class ChatLlmService {
       }
     }
 
-    // Delivery cues are instructions to a voice, not words. They are stripped
-    // from what anyone reads — a guest should hear the warmth and never see
-    // "[warm]" in their transcript — and kept verbatim alongside, so a reply
-    // that sounded wrong can still be explained afterwards.
-    const readable = stripAudioTags(fullContent);
+    // Delivery cues are instructions to a voice, not words: a guest should hear
+    // the warmth and never see "[warm]" in their transcript. Only the reservation
+    // voice prompt asks for them, and stripping anywhere else would eat Markdown
+    // link text.
     const assistantMessage: Message = await this.messagesService.create(
       chatId,
       MessageRole.ASSISTANT,
-      readable,
+      isReservation && isVoice ? stripAudioTags(fullContent) : fullContent,
       toolCalls.length ? toolCalls : undefined,
-      fullContent,
     );
 
     this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
-    this.syncSessionLanguageFromToolCalls(session, toolCalls);
 
     this.costsService.recordLlmCost({
       // This same LangGraph call path serves both text chat and the "custom"

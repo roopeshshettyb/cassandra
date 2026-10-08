@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 import { OpenAIRealtimeWebSocket } from 'openai/beta/realtime/websocket';
 import WebSocket from 'ws';
-import type { ISttSession, SttSessionFactory, SttSessionOptions } from './stt-session.interface';
+import type { ISttSession, SttSessionFactory } from './stt-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
 import { LoggerService } from '../common/logger.service';
 
@@ -18,9 +18,7 @@ export class OpenaiSttService implements SttSessionFactory {
     private readonly logger: LoggerService,
   ) {}
 
-  // Accepts the same options for interface parity; OpenAI turn-taking is
-  // governed by its own VAD_SILENCE_MS rather than an utterance-end gap.
-  createSession(_options?: SttSessionOptions): ISttSession {
+  createSession(): ISttSession {
     const sttConfig = this.constantsService.private.LLM.STT_CONFIG;
     const openaiConfig = sttConfig.OPENAI;
     const apiKey = openaiConfig.API_KEY;
