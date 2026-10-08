@@ -234,6 +234,24 @@ export class ReservationService {
   }
 
   /**
+   * Keep the stored language on the one the agent actually answered in.
+   *
+   * Measured: a caller went from Hindi back to English, was answered in
+   * English, and the agent never called set_chat_language — so the chat stayed
+   * Hindi and a reconnect came back in it. Read off the reply, it cannot drift.
+   */
+  async followReplyLanguage(session: { chatId: number; languageCode?: string | null }, reply: string): Promise<void> {
+    const cfg = this.constantsService.private.RESERVATION;
+    const script = cfg.REPLY_SCRIPT_LANGUAGES.find((entry) => new RegExp(entry.pattern).test(reply));
+    const languageCode = script ? script.languageCode : /[A-Za-z]/.test(reply) ? cfg.REPLY_LATIN_LANGUAGE : null;
+    if (!languageCode || languageCode === session.languageCode) {
+      return;
+    }
+    session.languageCode = languageCode;
+    await this.chatService.updateLanguageCode(session.chatId, languageCode);
+  }
+
+  /**
    * Per-IP voice turn budget. Held apart from the text budget because a voice
    * turn costs STT seconds plus LLM tokens plus TTS characters, so the two
    * surfaces cannot share one allowance.

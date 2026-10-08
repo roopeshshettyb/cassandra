@@ -127,6 +127,7 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
         },
         onEnd: async (result: { fullContent: string; toolCalls: ToolCallRecord[] }) => {
           client.emit('stream_end', { content: result.fullContent, toolCalls: result.toolCalls });
+          await this.reservationService.followReplyLanguage(session, result.fullContent);
         },
       });
     } catch (err: any) {
