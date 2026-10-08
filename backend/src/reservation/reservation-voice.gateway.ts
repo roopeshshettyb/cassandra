@@ -3,9 +3,7 @@ import { Server } from 'socket.io';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
-import { ChatSession } from '../chat/gateway/chat-session.interface';
 import { ConstantsService } from '../common/constants/constants.service';
-import { getClientIp, parseHotelId, buildReservationSession, buildSttKeyterms } from './reservation-session.helper';
 import { splitSentences, stripAudioTags } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
@@ -21,12 +19,6 @@ interface TurnState {
   sentenceBuffer: string;
   ttsQueue: Promise<void>;
 }
-
-/**
- * Delivery cues the prompt lets the model emit, e.g. "[warm] Sure, one moment."
- * ElevenLabs v3 consumes them as tone direction; every other provider would read
- * them out, and no caller should see them on screen either.
- */
 
 /**
  * Public, unauthenticated voice reservation: the caller speaks, STT transcribes,
@@ -52,18 +44,28 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     private readonly ttsFactory: TtsFactoryService,
   ) {}
 
+  private ttsProvider(): TtsProvider {
+    return this.ttsFactory.getProvider(this.constantsService.private.RESERVATION_VOICE.TTS_PROVIDER) as TtsProvider;
+  }
 
-
-  /** Speak each finished sentence as it lands so the caller hears a reply sooner. */
-  /** Only ElevenLabs v3 understands the cues; everyone else gets them removed. */
-  private ttsUnderstandsTags(): boolean {
+  /**
+   * What the voice is given to say. Delivery cues like "[warm]" are tone
+   * direction only ElevenLabs v3 understands; every other provider would read
+   * them out, so they are removed for it.
+   */
+  private spoken(text: string): string {
     const rv = this.constantsService.private.RESERVATION_VOICE;
     const resolved = rv.TTS_PROVIDER && rv.TTS_PROVIDER.length > 0
       ? rv.TTS_PROVIDER
       : this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
-    return resolved.toLowerCase() === 'elevenlabs';
+    return resolved.toLowerCase() === 'elevenlabs' ? text : stripAudioTags(text);
   }
 
+  private fillerKey(phrase: string, languageCode: string | null): string {
+    return `${this.constantsService.private.RESERVATION_VOICE.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
+  }
+
+  /** Speak each finished sentence as it lands so the caller hears a reply sooner. */
   private flushSentences(state: TurnState, client: any, provider: TtsProvider, languageCode: string | null): void {
     const llm = this.constantsService.private.LLM;
     const { parts, rest } = splitSentences(
@@ -75,9 +77,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       return;
     }
     state.sentenceBuffer = rest;
-    const keepTags = this.ttsUnderstandsTags();
     for (const sentence of parts) {
-      const spoken = keepTags ? sentence : stripAudioTags(sentence);
+      const spoken = this.spoken(sentence);
       const shown = stripAudioTags(sentence);
       if (spoken.length > 0) {
         // Caught per sentence on purpose. The queue is one promise chain, so a
@@ -153,19 +154,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
 
   async handleConnection(client: any) {
     const strings = this.constantsService.public;
-    const query: any = client.handshake?.query ?? {};
-    // auth as well as query, as the text gateway does: a query is fixed when the
-    // socket is built, before any chat exists, so only auth survives a reconnect.
-    const auth: any = client.handshake?.auth ?? {};
-
-    const hotelId = parseHotelId(query.hotelId ?? auth.hotelId);
-    if (hotelId === null) {
-      client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
-      client.disconnect(true);
-      return;
-    }
-
-    const ip = getClientIp(client);
+    const ip = this.reservationService.clientIp(client);
     if (!this.reservationService.claimVoiceSession(ip)) {
       client.emit('error', { message: strings.ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS });
       client.disconnect(true);
@@ -173,62 +162,33 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     client.voiceIp = ip;
 
-    try {
-      const handed = query.sessionToken ?? auth.sessionToken ?? null;
-      const sessionToken = handed ? String(handed) : null;
-      const result = await this.reservationService.startSession(hotelId, sessionToken);
-
-      client.reservationContext = { hotelId, publicHotel: result.publicHotel };
-      client.turnsUsed = 0;
-      client.audioBytes = 0;
-      // A call coming back after a dropped line carries on where it was, as the
-      // concierge does: answering the phone again would sound like a new call
-      // that has forgotten the old one.
-      client.greeted = Array.isArray(result.messages) && result.messages.length > 0;
-      if (result.chat) {
-        client.session = buildReservationSession(client.reservationContext, result.chat.id, result.chat.languageCode ?? null);
-      }
-
-      const cfg = this.constantsService.private.RESERVATION_VOICE;
-      // Hard stop on wall clock, when one is configured: an abandoned tab must
-      // not hold STT open forever. Zero means no cap.
-      if (cfg.MAX_SESSION_SECONDS > 0) {
-        client.sessionTimer = setTimeout(() => {
-          this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
-        }, cfg.MAX_SESSION_SECONDS * 1000);
-      }
-
-      client.emit('ready', {
-        chatId: result.chat ? result.chat.id : null,
-        sessionToken: result.sessionToken,
-        hotel: result.publicHotel,
-        messages: result.messages,
-      });
-      client.emit('voice_ready');
-    } catch (err: any) {
-      const notFound = err?.status === 404 || err?.statusCode === 404;
-      // Logged, because the caller only ever sees "we could not start the chat";
-      // without this the reason for a dead line is recorded nowhere at all.
-      if (!notFound) {
-        this.logger.error({
-          error: err,
-          serviceName: 'ReservationVoiceGateway',
-          actionName: 'handleConnection',
-          traces: [{ stage: 'startSession' }],
-        });
-      }
-      client.emit('error', {
-        message: notFound ? strings.ERROR_RESERVATION_HOTEL_NOT_FOUND : strings.ERROR_RESERVATION_SETUP_FAILED,
-      });
-      client.disconnect(true);
+    const result = await this.reservationService.connect(client);
+    if (!result) {
+      return;
     }
-  }
+    client.turnsUsed = 0;
+    client.audioBytes = 0;
+    // A call coming back after a dropped line carries on where it was, as the
+    // concierge does: answering the phone again would sound like a new call
+    // that has forgotten the old one.
+    client.greeted = result.messages.length > 0;
 
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    // Hard stop on wall clock, when one is configured: an abandoned tab must
+    // not hold STT open forever. Zero means no cap.
+    if (cfg.MAX_SESSION_SECONDS > 0) {
+      client.sessionTimer = setTimeout(() => {
+        this.endCall(client, strings.ERROR_RESERVATION_VOICE_SESSION_EXPIRED);
+      }, cfg.MAX_SESSION_SECONDS * 1000);
+    }
+    client.emit('voice_ready');
+  }
 
   private createSttSession(client: any): ISttSession | null {
     this.destroySttSession(client);
     try {
       const cfg = this.constantsService.private.RESERVATION_VOICE;
+      const hotel: any = client.reservationContext?.publicHotel ?? {};
       // Own provider and own turn-taking: tuning the public call must never
       // move the signed-in concierge.
       const sttSession = this.sttFactory
@@ -236,7 +196,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         .createSession({
           utteranceEndMs: cfg.UTTERANCE_END_MS,
           language: cfg.STT_LANGUAGE,
-          keyterms: buildSttKeyterms(client.reservationContext ?? {}, cfg.STT_KEYTERMS),
+          // The property's own name is the one word a speech model has certainly
+          // never seen, and it tends to arrive in the first sentence.
+          keyterms: [...new Set([hotel.name, hotel.brandName, ...cfg.STT_KEYTERMS].filter((term) => typeof term === 'string' && term.trim()))],
         });
       client.sttSession = sttSession;
       // Deepgram finalises in several pieces within one utterance — "hello" can
@@ -340,10 +302,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     void (async () => {
       try {
-        const provider = this.ttsFactory.getProvider(cfg.TTS_PROVIDER) as TtsProvider;
-        const keepTags = this.ttsUnderstandsTags();
+        const provider = this.ttsProvider();
         for (const phrase of phrases) {
-          const spoken = keepTags ? phrase : stripAudioTags(phrase);
+          const spoken = this.spoken(phrase);
           if (spoken) {
             // One at a time: this is warming a cache, not racing anybody.
             await this.getFillerChunks(spoken, null, provider);
@@ -368,7 +329,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
    */
   private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
+    const key = this.fillerKey(phrase, languageCode);
     const cached = this.cacheService.get<string[]>(key);
     if (cached) {
       return cached;
@@ -407,16 +368,14 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     client.lastFiller = index;
 
-    const spoken = this.ttsUnderstandsTags() ? phrases[index] : stripAudioTags(phrases[index]);
+    const spoken = this.spoken(phrases[index]);
     if (!spoken) {
       return;
     }
     // Only play one already in memory: the answer queues behind whatever this
     // returns, so synthesising here would add the delay it exists to hide. A cold
     // phrase is warmed in the background and this turn goes without.
-    const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const key = `${cfg.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${spoken}`;
-    if (!this.cacheService.get<string[]>(key)) {
+    if (!this.cacheService.get<string[]>(this.fillerKey(spoken, languageCode))) {
       void this.getFillerChunks(spoken, languageCode, provider).catch(() => {});
       return;
     }
@@ -439,10 +398,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
   private async handleTurn(client: any, transcript: string): Promise<void> {
     const strings = this.constantsService.public;
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const context = client.reservationContext;
 
     const text = typeof transcript === 'string' ? transcript.trim() : '';
-    if (!context || !text) {
+    if (!client.reservationContext || !text) {
       client.emit('voice_ready');
       return;
     }
@@ -461,18 +419,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     client.emit('voice_user_message', { text });
 
     try {
-      // The chat row is created on the first thing actually said, so a visitor
-      // who opens the page and stays silent never writes anything.
-      if (!client.session) {
-        const created = await this.reservationService.createChat(context.hotelId);
-        client.session = buildReservationSession(context, created.chat.id, created.chat.languageCode ?? null);
-        client.emit('session', { chatId: created.chat.id, sessionToken: created.sessionToken });
-      }
-
-      const session: ChatSession = client.session;
-      const provider = this.ttsFactory.getProvider(
-        this.constantsService.private.RESERVATION_VOICE.TTS_PROVIDER,
-      ) as TtsProvider;
+      const session = await this.reservationService.ensureSession(client);
+      const provider = this.ttsProvider();
       const languageCode = session.languageCode ?? null;
       // Speak a thinking noise now, while the model is still working. The client
       // queues audio in order, so this plays first and the answer follows on.
@@ -488,8 +436,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           this.flushSentences(state, client, provider, languageCode);
         },
         onEnd: async (result) => {
-          const tail = state.sentenceBuffer.trim();
-          const spokenTail = this.ttsUnderstandsTags() ? tail : stripAudioTags(tail);
+          const spokenTail = this.spoken(state.sentenceBuffer.trim());
           if (spokenTail.length > 0) {
             await state.ttsQueue;
             await provider.streamToClient(client, spokenTail, { emitEnd: true, languageCode });
@@ -497,8 +444,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
             await state.ttsQueue;
             client.emit('voice_audio_end');
           }
-          client.emit('voice_text_end', { text: stripAudioTags(result.fullContent) });
-          await this.reservationService.followReplyLanguage(session, stripAudioTags(result.fullContent));
+          const reply = stripAudioTags(result.fullContent);
+          client.emit('voice_text_end', { text: reply });
+          await this.reservationService.followReplyLanguage(session, reply);
         },
       });
     } catch (err: any) {
@@ -599,10 +547,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
 
     client.voiceBusy = true;
     try {
-      const provider = this.ttsFactory.getProvider(cfg.TTS_PROVIDER) as TtsProvider;
-      const spoken = this.ttsUnderstandsTags() ? phrase : stripAudioTags(phrase);
       // Cached per property, so only the first caller at a property waits for it.
-      const chunks = await this.getFillerChunks(spoken, null, provider);
+      const chunks = await this.getFillerChunks(this.spoken(phrase), null, this.ttsProvider());
       for (const delta of chunks) {
         client.emit('voice_audio_chunk', { delta });
       }

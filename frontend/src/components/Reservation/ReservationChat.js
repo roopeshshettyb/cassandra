@@ -3,88 +3,19 @@ import { Box, Typography, TextField, IconButton, InputAdornment, CircularProgres
 import { motion } from 'framer-motion';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { io } from 'socket.io-client';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import dayjs from 'dayjs';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER, SHADOW, HOVER_BG } from '../../theme';
+import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER } from '../../theme';
 import constants from '../../constants.json';
 import { sessionStorageKey, sessionAuth } from './reservationSession';
-// The bubble the concierge draws, so a message looks the same wherever it is read.
-import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
+import { getBackendUrl, ChatBubble, SuggestionStrip } from '../GuestPortal/GuestConcierge';
+import MapComponent from '../MapComponent';
 
-const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
-
-
-function SuggestionStrip({ items, onSelect, disabled }) {
-  const scrollRef = useRef(null);
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <IconButton
-        size="small"
-        onClick={() => scrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
-        sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
-      >
-        <ChevronLeftIcon fontSize="small" />
-      </IconButton>
-      <Box
-        ref={scrollRef}
-        sx={{
-          display: 'flex',
-          gap: 1,
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          pb: 1,
-          px: 0.5,
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none',
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}
-      >
-        {items.map((item) => (
-          <Box
-            key={item}
-            component={motion.button}
-            whileTap={{ scale: 0.95 }}
-            disabled={disabled}
-            onClick={() => onSelect(item)}
-            sx={{
-              flexShrink: 0,
-              border: `1px solid ${BORDER}`,
-              borderRadius: 5,
-              px: 1.5,
-              py: 0.75,
-              cursor: disabled ? 'default' : 'pointer',
-              opacity: disabled ? 0.5 : 1,
-              fontSize: 12,
-              fontWeight: 500,
-              color: NAVY,
-              bgcolor: 'background.paper',
-              boxShadow: SHADOW,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {item}
-          </Box>
-        ))}
-      </Box>
-      <IconButton
-        size="small"
-        onClick={() => scrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
-        sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, color: MUTED, '&:hover': { color: NAVY, bgcolor: HOVER_BG } }}
-      >
-        <ChevronRightIcon fontSize="small" />
-      </IconButton>
-    </Box>
-  );
-}
+const MessageBubble = ({ data }) => <ChatBubble message={data} />;
 
 /**
- * Chat for the public reservation agent. Self-contained on purpose: it talks to
- * the unauthenticated /reservation namespace and shares no code with the
- * signed-in concierge, so changes here can never reach a guest's chat.
+ * Chat for the public reservation agent, on the unauthenticated /reservation
+ * namespace. It draws with the concierge's own pieces, so a message looks the
+ * same wherever it is read.
  */
 export default function ReservationChat({ hotelId, onHotelResolved, onFatalError, alertError }) {
   const [messages, setMessages] = useState([]);
@@ -141,6 +72,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
       }
       const history = Array.isArray(payload?.messages) ? payload.messages : [];
       setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })));
+      requestAnimationFrame(scrollToBottom);
       setTimeout(() => inputRef.current?.focus?.(), 100);
     });
 
@@ -151,11 +83,15 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
       }
     });
 
-    socket.on('stream_chunk', (p) => setStreamingContent((prev) => prev + (p.content || '')));
+    socket.on('stream_chunk', (p) => {
+      setStreamingContent((prev) => prev + (p.content || ''));
+      requestAnimationFrame(scrollToBottom);
+    });
 
     socket.on('stream_end', (p) => {
       if (p.content) {
         setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
+        requestAnimationFrame(scrollToBottom);
       }
       setStreamingContent('');
       setSending(false);
@@ -175,15 +111,12 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
     };
   }, []);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingContent, scrollToBottom]);
-
   const submit = useCallback((text) => {
     const content = text.trim();
     if (!content || sending || !socketRef.current?.connected) return;
     setInput('');
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content, createdAt: new Date().toISOString() }]);
+    requestAnimationFrame(scrollToBottom);
     setSending(true);
     setStreamingContent('');
     socketRef.current.emit('message', { content });
@@ -231,9 +164,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
           </motion.div>
         )}
 
-        {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} />
-        ))}
+        <MapComponent Component={MessageBubble} data={messages} showNoDataAvailable={false} />
         {sending && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
         {sending && !streamingContent && (
           <Box sx={{ alignSelf: 'flex-start', px: 2, py: 1.25, borderRadius: '18px 18px 18px 4px', bgcolor: 'background.paper', display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -10,6 +10,8 @@ import { Chat } from '../chat/chat.model';
 import { Hotel } from '../hotels/hotels.model';
 import { Message } from '../messages/message.model';
 import { Account } from '../accounts/accounts.model';
+import { ChatSession } from '../chat/gateway/chat-session.interface';
+import { LoggerService } from '../common/logger.service';
 
 export interface ReservationSessionResult {
   /** Null until the visitor actually says something — see startSession. */
@@ -64,6 +66,7 @@ export class ReservationService {
     private readonly messagesService: MessagesService,
     private readonly cacheService: CacheService,
     private readonly constantsService: ConstantsService,
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -107,6 +110,115 @@ export class ReservationService {
       return null;
     }
     return chatId;
+  }
+
+  /** Caller's address, preferring the proxy header the load balancer sets. */
+  clientIp(client: any): string {
+    const forwarded = client.handshake?.headers?.['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    return client.handshake?.address ?? '';
+  }
+
+  /**
+   * Hotel id from the handshake, or null. Deliberately strict: a repeated query
+   * param arrives as an array, and parseInt would read "1 OR 1=1" or "1abc" as
+   * hotel 1. Nothing good comes of guessing which hotel a malformed id meant.
+   */
+  private parseHotelId(raw: unknown): number | null {
+    if (typeof raw !== 'string' && typeof raw !== 'number') {
+      return null;
+    }
+    const value = String(raw).trim();
+    if (!/^[0-9]+$/.test(value)) {
+      return null;
+    }
+    const hotelId = Number(value);
+    return hotelId > 0 ? hotelId : null;
+  }
+
+  /**
+   * A reservation session: no account by design, scoped to a hotel rather than a
+   * booking. The absent account is what routes the turn to the reservation prompt
+   * and its read-only tools.
+   */
+  private buildSession(client: any, chat: Chat): ChatSession {
+    const context = client.reservationContext;
+    return {
+      account: null,
+      bookingId: null,
+      hotelId: context.hotelId,
+      chatId: chat.id,
+      hotel: context.publicHotel,
+      booking: null,
+      languageCode: chat.languageCode ?? null,
+    };
+  }
+
+  /**
+   * Open a reservation socket, text or voice alike: resolve the hotel, resume the
+   * conversation the handshake's token points at, and tell the client. Returns
+   * null when the connection was refused — the client has already been told why.
+   *
+   * The token is read from auth as well as query: a query is fixed when the
+   * socket is built, before any chat exists, so only auth survives a reconnect.
+   */
+  async connect(client: any): Promise<ReservationSessionResult | null> {
+    const strings = this.constantsService.public;
+    const query: any = client.handshake?.query ?? {};
+    const auth: any = client.handshake?.auth ?? {};
+
+    const hotelId = this.parseHotelId(query.hotelId ?? auth.hotelId);
+    if (hotelId === null) {
+      client.emit('error', { message: strings.ERROR_RESERVATION_HOTEL_REQUIRED });
+      client.disconnect(true);
+      return null;
+    }
+
+    try {
+      const token = query.sessionToken ?? auth.sessionToken ?? null;
+      const result = await this.startSession(hotelId, token ? String(token) : null);
+      // Held until there is a chat to attach it to. A visitor who only looks at
+      // the page never causes a write.
+      client.reservationContext = { hotelId, publicHotel: result.publicHotel };
+      if (result.chat) {
+        client.session = this.buildSession(client, result.chat);
+      }
+      client.emit('ready', {
+        chatId: result.chat ? result.chat.id : null,
+        sessionToken: result.sessionToken,
+        hotel: result.publicHotel,
+        messages: result.messages,
+      });
+      return result;
+    } catch (err: any) {
+      const notFound = err?.status === 404 || err?.statusCode === 404;
+      // Logged, because the caller only ever sees "we could not start the chat";
+      // without this the reason for a dead line is recorded nowhere at all.
+      if (!notFound) {
+        this.logger.error({ error: err, serviceName: 'ReservationService', actionName: 'connect' });
+      }
+      client.emit('error', {
+        message: notFound ? strings.ERROR_RESERVATION_HOTEL_NOT_FOUND : strings.ERROR_RESERVATION_SETUP_FAILED,
+      });
+      client.disconnect(true);
+      return null;
+    }
+  }
+
+  /**
+   * The client's session, creating its chat on the first thing actually said, so
+   * a visitor who opens the page and stays silent never writes anything. The
+   * client gets the handle to resume it after a refresh.
+   */
+  async ensureSession(client: any): Promise<ChatSession> {
+    if (!client.session) {
+      const { chat, sessionToken } = await this.createChat(client.reservationContext.hotelId);
+      client.session = this.buildSession(client, chat);
+      client.emit('session', { chatId: chat.id, sessionToken });
+    }
+    return client.session;
   }
 
   /**
@@ -252,22 +364,29 @@ export class ReservationService {
   }
 
   /**
+   * Take one from a per-IP allowance held in the cache for the window. Returns
+   * false once it is spent; a max of zero or less means no limit.
+   */
+  private takeFromAllowance(key: string, max: number): boolean {
+    if (max <= 0) {
+      return true;
+    }
+    const used = this.cacheService.get<number>(key) ?? 0;
+    if (used >= max) {
+      return false;
+    }
+    this.cacheService.set(key, used + 1, this.constantsService.private.RESERVATION.IP_WINDOW_MINUTES);
+    return true;
+  }
+
+  /**
    * Per-IP voice turn budget. Held apart from the text budget because a voice
    * turn costs STT seconds plus LLM tokens plus TTS characters, so the two
    * surfaces cannot share one allowance.
    */
   isWithinVoiceTurnLimit(ip: string): boolean {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    if (cfg.MAX_TURNS_PER_IP_PER_WINDOW <= 0) {
-      return true;
-    }
-    const key = cfg.IP_TURN_CACHE_KEY_PREFIX + ip;
-    const used = this.cacheService.get<number>(key) ?? 0;
-    if (used >= cfg.MAX_TURNS_PER_IP_PER_WINDOW) {
-      return false;
-    }
-    this.cacheService.set(key, used + 1, cfg.IP_WINDOW_MINUTES);
-    return true;
+    return this.takeFromAllowance(cfg.IP_TURN_CACHE_KEY_PREFIX + ip, cfg.MAX_TURNS_PER_IP_PER_WINDOW);
   }
 
   /**
@@ -277,26 +396,16 @@ export class ReservationService {
    */
   claimVoiceSession(ip: string): boolean {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    if (cfg.MAX_CONCURRENT_SESSIONS_PER_IP <= 0) {
-      return true;
-    }
-    const key = cfg.IP_SESSION_CACHE_KEY_PREFIX + ip;
-    const open = this.cacheService.get<number>(key) ?? 0;
-    if (open >= cfg.MAX_CONCURRENT_SESSIONS_PER_IP) {
-      return false;
-    }
-    this.cacheService.set(key, open + 1, cfg.IP_WINDOW_MINUTES);
-    return true;
+    return this.takeFromAllowance(cfg.IP_SESSION_CACHE_KEY_PREFIX + ip, cfg.MAX_CONCURRENT_SESSIONS_PER_IP);
   }
 
   /** Give a concurrent voice slot back on disconnect. */
   releaseVoiceSession(ip: string): void {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
     const key = cfg.IP_SESSION_CACHE_KEY_PREFIX + ip;
-    const open = this.cacheService.get<number>(key) ?? 0;
-    const next = open - 1;
+    const next = (this.cacheService.get<number>(key) ?? 0) - 1;
     if (next > 0) {
-      this.cacheService.set(key, next, cfg.IP_WINDOW_MINUTES);
+      this.cacheService.set(key, next, this.constantsService.private.RESERVATION.IP_WINDOW_MINUTES);
     } else {
       this.cacheService.delete(key);
     }
@@ -308,15 +417,6 @@ export class ReservationService {
    */
   isWithinIpRateLimit(ip: string): boolean {
     const cfg = this.constantsService.private.RESERVATION;
-    if (cfg.MAX_MESSAGES_PER_IP_PER_WINDOW <= 0) {
-      return true;
-    }
-    const key = cfg.IP_RATE_LIMIT_CACHE_KEY_PREFIX + ip;
-    const used = this.cacheService.get<number>(key) ?? 0;
-    if (used >= cfg.MAX_MESSAGES_PER_IP_PER_WINDOW) {
-      return false;
-    }
-    this.cacheService.set(key, used + 1, cfg.IP_WINDOW_MINUTES);
-    return true;
+    return this.takeFromAllowance(cfg.IP_RATE_LIMIT_CACHE_KEY_PREFIX + ip, cfg.MAX_MESSAGES_PER_IP_PER_WINDOW);
   }
 }

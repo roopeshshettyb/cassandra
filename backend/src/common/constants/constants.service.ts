@@ -420,7 +420,6 @@ export class ConstantsService {
       AI_BOOKINGS_STATUS_CAPTURED: 'ENQUIRY',
       AI_BOOKINGS_STATUS_BROWSING: 'BROWSING',
       AI_BOOKINGS_SHOW_CONVERSATION: 'Read the conversation',
-      AI_BOOKINGS_HIDE_CONVERSATION: 'Hide the conversation',
       AI_BOOKINGS_CONVERSATION_TITLE: 'Conversation',
       AI_BOOKINGS_CONVERSATION_CLOSE: 'Close',
       AI_BOOKINGS_ROLE_GUEST: 'Guest',
@@ -802,7 +801,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         FILLER_CACHE_MINUTES: 720,
         MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
         MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
-        IP_WINDOW_MINUTES: 60,
         IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
         /**
          * Stops one visitor holding many microphones open, without punishing
