@@ -86,6 +86,7 @@ export class LangGraphService {
       modelName: modelName ?? llmConfig.TEXT_MODEL,
       apiKey: llmConfig.OPENROUTER.API_KEY,
       temperature,
+      modelKwargs: { provider: llmConfig.OPENROUTER.PROVIDER },
       configuration: { baseURL: llmConfig.OPENROUTER.BASE_URL },
     });
   }
@@ -253,6 +254,22 @@ export class LangGraphService {
     let totalCompletionTokens = 0;
 
     const state: any = { messages };
+    // The reservation turn can be ended where it stands. Measured: the model
+    // speaks its reply and calls a tool in the same breath, then has nothing
+    // left to say and calls tools again and again until the step cap — a minute
+    // of silence when each call is slow. So once a reply has been spoken and the
+    // tools asked for alongside it are done, the turn is over; and a tool can
+    // end it too. Tool calls are recorded as they finish, so a turn ended early
+    // still knows what it did.
+    const ender = new AbortController();
+    ctx.endTurn = () => ender.abort();
+    ctx.signal?.addEventListener('abort', () => ender.abort(), { once: true });
+    if (ctx.signal?.aborted) {
+      ender.abort();
+    }
+    const finished: ToolCallRecord[] = [];
+    let endedEarly = false;
+    let repliedWithTools = false;
     // The reservation agent is capped: a tool the model keeps re-reading because
     // the answer did not change otherwise loops until the turn dies. Measured,
     // get_notes was called ten times in a row on one turn. The concierge keeps
@@ -260,6 +277,7 @@ export class LangGraphService {
     const eventStream = agent.streamEvents(state, {
       version: 'v2',
       configurable: { thread_id: threadId },
+      signal: ender.signal,
       ...(ctx.account ? {} : { recursionLimit: this.constantsService.private.LLM.AGENT_RECURSION_LIMIT }),
     });
 
@@ -269,8 +287,13 @@ export class LangGraphService {
           const parsed = await this.outputParser.invoke(event.data.chunk);
           if (parsed) yield parsed;
         }
+        if (event.event === 'on_chat_model_start' && repliedWithTools) {
+          ender.abort();
+        }
         if (event.event === 'on_chat_model_end' && event.data?.output) {
           const output = event.data.output;
+          const text = typeof output.content === 'string' ? output.content.trim() : '';
+          repliedWithTools = !ctx.account && text.length > 0 && (output.tool_calls?.length ?? 0) > 0;
           const maybeUsage = output.usage_metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
           if (maybeUsage) {
             totalPromptTokens += maybeUsage.input_tokens ?? 0;
@@ -280,17 +303,30 @@ export class LangGraphService {
         if (event.event === 'on_chain_end' && event.data?.output) {
           lastResult = event.data.output as { messages?: BaseMessage[] };
         }
+        if (event.event === 'on_tool_end') {
+          const raw: any = event.data?.input?.input ?? event.data?.input;
+          let input: Record<string, unknown> = {};
+          try {
+            input = typeof raw === 'string' ? JSON.parse(raw) : raw ?? {};
+          } catch {
+            // an input that is not JSON is recorded as empty rather than lost
+          }
+          const output: any = event.data?.output;
+          finished.push({ toolName: event.name, toolCallId: event.run_id, input, output: output?.content ?? output });
+        }
       }
     } catch (err: any) {
-      // The reservation agent's step cap ends a tool loop; it must not also throw
-      // away the reply the caller has already heard. Anything else still fails.
-      if (ctx.account || err?.name !== 'GraphRecursionError') {
+      // A reservation turn ended on purpose — by a tool, or by the step cap —
+      // must not throw away the reply the caller has already heard. Anything
+      // else still fails.
+      if (ctx.account || !(ender.signal.aborted || err?.name === 'GraphRecursionError')) {
         throw err;
       }
+      endedEarly = true;
     }
 
-    if (lastResult?.messages?.length) {
-      const toolCalls = this.extractToolCalls(lastResult.messages);
+    if (endedEarly || lastResult?.messages?.length) {
+      const toolCalls = endedEarly ? finished : this.extractToolCalls(lastResult.messages);
       const usage: { promptTokens: number; completionTokens: number; totalTokens: number } = {
         promptTokens: totalPromptTokens,
         completionTokens: totalCompletionTokens,
