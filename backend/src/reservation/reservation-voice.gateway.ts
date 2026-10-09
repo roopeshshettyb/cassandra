@@ -431,6 +431,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     };
     // An interrupted reply is still being written and saved. The next turn
     // waits for it, so the conversation is stored in the order it happened.
+    // Talked over, the reply is cancelled rather than left to finish unheard.
+    const stop = new AbortController();
+    client.stopReply = () => stop.abort();
     const previous: Promise<void> | undefined = client.replyInFlight;
     let done: () => void = () => {};
     client.replyInFlight = new Promise<void>((resolve) => { done = resolve; });
@@ -448,6 +451,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
 
       await this.chatLlmService.streamUserMessage(session, text, {
         mode: 'voice',
+        signal: stop.signal,
         onChunk: (chunk: string) => {
           if (!chunk) return;
           state.sentenceBuffer += chunk;
@@ -627,6 +631,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       return;
     }
     client.turnId = (client.turnId ?? 0) + 1;
+    client.stopReply?.();
     this.clearPlaybackWait(client);
     client.voiceBusy = false;
     // Always acknowledged, even if the reply had just finished: the browser is

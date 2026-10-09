@@ -59,8 +59,10 @@ export function createReservationTools(
   const hotelId = ctx.hotelId;
   /** True once the notes have been read this turn; these tools are rebuilt for the next one. */
   let notesRead = false;
+  /** The last booking note written this turn, so the same one is not written twice. */
+  let lastNote = '';
 
-  return [
+  const tools = [
     new DynamicStructuredTool({
       name: 'get_hotel_details',
       description:
@@ -121,11 +123,12 @@ export function createReservationTools(
       func: async () => {
         // Once per turn. Nothing changes the notes between two reads inside one
         // turn, yet measured, the model re-read them until the turn hit its step
-        // limit and died — after it had already spoken its reply. A second read
-        // gets told to answer instead of the same data to read again.
+        // limit and died — after it had already spoken its reply. Telling it to
+        // answer instead did not stop it, so a second read ends the turn.
         const cfg = constantsService.private.RESERVATION;
         if (notesRead) {
-          return JSON.stringify({ success: true, message: constantsService.public.RESERVATION_NOTES_ALREADY_READ });
+          ctx.endTurn?.();
+          return JSON.stringify({ success: true, message: constantsService.public.RESERVATION_TOOL_BUDGET_SPENT });
         }
         notesRead = true;
         const notes = await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT);
@@ -162,6 +165,13 @@ export function createReservationTools(
         guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
       }),
       func: async (args) => {
+        // Measured: having noted a correction, the model wrote the same note three
+        // more times in a row. Once is enough.
+        if (JSON.stringify(args) === lastNote) {
+          ctx.endTurn?.();
+          return JSON.stringify({ success: true, message: constantsService.public.RESERVATION_TOOL_BUDGET_SPENT });
+        }
+        lastNote = JSON.stringify(args);
         // One note per field, so get_notes reads back the booking as it stands —
         // a call carrying only the newest detail leaves the earlier ones in place.
         await Promise.all(
@@ -178,7 +188,6 @@ export function createReservationTools(
               }),
             ),
         );
-        notesRead = false;
         return JSON.stringify({
           success: true,
           message: constantsService.public.RESERVATION_DATES_NOTED,
@@ -211,4 +220,24 @@ export function createReservationTools(
       },
     }),
   ];
+
+  // A budget for the turn. Measured, the model can circle between its tools —
+  // re-reading, re-noting — until the step cap kills the turn tens of seconds
+  // later, with the caller waiting in silence. Asking it to stop was measured
+  // not to work, so past the budget the turn is ended.
+  let calls = 0;
+  for (const tool of tools) {
+    // Each tool has its own input type; the guard does not care which.
+    const guarded: any = tool;
+    const run = guarded.func;
+    guarded.func = async (...args: any[]) => {
+      calls += 1;
+      if (calls > constantsService.private.RESERVATION.MAX_TOOL_CALLS_PER_TURN) {
+        ctx.endTurn?.();
+        return JSON.stringify({ success: false, message: constantsService.public.RESERVATION_TOOL_BUDGET_SPENT });
+      }
+      return run(...args);
+    };
+  }
+  return tools;
 }

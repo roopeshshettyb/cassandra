@@ -445,8 +445,8 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
-      RESERVATION_DATES_NOTED: 'Dates noted',
-      RESERVATION_NOTES_ALREADY_READ: 'You have already read your notes this turn and nothing has changed. Do not read them again — reply to the caller now.',
+      RESERVATION_DATES_NOTED: 'Noted. Nothing more to write down — if you have already answered the caller, end your turn now.',
+      RESERVATION_TOOL_BUDGET_SPENT: 'You have used your tools enough for this turn. Do not call any more — reply to the caller now.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
       // A deploy reloads the API and drops every open socket, so a live call can
       // lose its line through no fault of the caller's. Said out loud, because a
@@ -889,6 +889,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         STAFF_CHAT_LIST_LIMIT: 50,
         /** Notes handed back to the agent when it reads its scratchpad. */
         SCRATCHPAD_NOTE_LIMIT: 50,
+        /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */
+        MAX_TOOL_CALLS_PER_TURN: 6,
         /**
          * The stored language follows the script the agent answered in. A Hindi
          * caller spelling an email is still answered in Devanagari, so spelling
@@ -998,7 +1000,7 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * sat silent the entire time.
          */
         /** How many tool round trips one reservation-agent turn may take before it is cut off. */
-        AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '12', 10),
+        AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '16', 10),
         SENTENCE_TERMINATORS_LATIN: '.!?',
         SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
         STT_CONFIG: {
@@ -1085,6 +1087,14 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         OPENROUTER: {
           API_KEY: this.configService.get<string>('OPENROUTER_API_KEY'),
           BASE_URL: this.configService.get<string>('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+          /**
+           * Which upstream serves the model. Left to OpenRouter's default, the same
+           * tool-calling request was measured at 3–15s through one Google endpoint
+           * and about 1s through another — on a voice call, that is the silence
+           * after the caller stops talking. Sorting by latency picks the fast one
+           * and still falls back to the others if it is unavailable.
+           */
+          PROVIDER: { sort: 'latency' },
         },
         TTS_CONFIG: {
           PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
