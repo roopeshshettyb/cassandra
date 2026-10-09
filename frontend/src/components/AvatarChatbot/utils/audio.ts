@@ -32,7 +32,7 @@ export const playPcmChunk = (
   base64: string,
   audioContextRef: { current: AudioContext | null },
   playbackTimeRef: { current: number },
-): void => {
+): AudioBufferSourceNode | null => {
   const bytes = base64ToUint8Array(base64);
   const win: any = window;
   const AudioContextImpl = win.AudioContext || win.webkitAudioContext;
@@ -40,7 +40,7 @@ export const playPcmChunk = (
     audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
   }
   const audioContext = audioContextRef.current;
-  if (!audioContext) return;
+  if (!audioContext) return null;
   // Chrome's autoplay policy suspends a context not created during a user
   // gesture — this one is built inside a socket handler, so without resuming it
   // the audio is scheduled and never heard.
@@ -48,7 +48,7 @@ export const playPcmChunk = (
     audioContext.resume().catch(() => {});
   }
   const bufferLength = Math.floor(bytes.byteLength / 2);
-  if (bufferLength === 0) return;
+  if (bufferLength === 0) return null;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
   const channelData = audioBuffer.getChannelData(0);
   const dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -63,6 +63,8 @@ export const playPcmChunk = (
   const startAt = Math.max(playbackTimeRef.current || now, now);
   source.start(startAt);
   playbackTimeRef.current = startAt + audioBuffer.duration;
+  // Returned so a caller that lets people talk over the reply can stop it.
+  return source;
 };
 
 /**

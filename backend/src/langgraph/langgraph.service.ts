@@ -263,21 +263,29 @@ export class LangGraphService {
       ...(ctx.account ? {} : { recursionLimit: this.constantsService.private.LLM.AGENT_RECURSION_LIMIT }),
     });
 
-    for await (const event of eventStream) {
-      if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
-        const parsed = await this.outputParser.invoke(event.data.chunk);
-        if (parsed) yield parsed;
-      }
-      if (event.event === 'on_chat_model_end' && event.data?.output) {
-        const output = event.data.output;
-        const maybeUsage = output.usage_metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
-        if (maybeUsage) {
-          totalPromptTokens += maybeUsage.input_tokens ?? 0;
-          totalCompletionTokens += maybeUsage.output_tokens ?? 0;
+    try {
+      for await (const event of eventStream) {
+        if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
+          const parsed = await this.outputParser.invoke(event.data.chunk);
+          if (parsed) yield parsed;
+        }
+        if (event.event === 'on_chat_model_end' && event.data?.output) {
+          const output = event.data.output;
+          const maybeUsage = output.usage_metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
+          if (maybeUsage) {
+            totalPromptTokens += maybeUsage.input_tokens ?? 0;
+            totalCompletionTokens += maybeUsage.output_tokens ?? 0;
+          }
+        }
+        if (event.event === 'on_chain_end' && event.data?.output) {
+          lastResult = event.data.output as { messages?: BaseMessage[] };
         }
       }
-      if (event.event === 'on_chain_end' && event.data?.output) {
-        lastResult = event.data.output as { messages?: BaseMessage[] };
+    } catch (err: any) {
+      // The reservation agent's step cap ends a tool loop; it must not also throw
+      // away the reply the caller has already heard. Anything else still fails.
+      if (ctx.account || err?.name !== 'GraphRecursionError') {
+        throw err;
       }
     }
 
