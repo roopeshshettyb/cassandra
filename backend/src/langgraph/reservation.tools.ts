@@ -57,8 +57,8 @@ export function createReservationTools(
   messagesService: MessagesService,
 ): StructuredToolInterface[] {
   const hotelId = ctx.hotelId;
-  /** Memoised for this turn only; these tools are rebuilt for the next one. */
-  let notesThisTurn: Promise<{ subject: string | null; content: string }[]> | null = null;
+  /** True once the notes have been read this turn; these tools are rebuilt for the next one. */
+  let notesRead = false;
 
   return [
     new DynamicStructuredTool({
@@ -119,16 +119,17 @@ export function createReservationTools(
         'Read back everything you have written down on this call. Use it before you summarise, before you record the enquiry, and any time you are about to ask for something in case you already have it. What comes back is what you were told; it beats anything you are reconstructing from memory.',
       schema: z.object({}),
       func: async () => {
-        // Once per turn. Nothing can change the notes between two reads inside
-        // one turn, so a second call is the model re-reading rather than new
-        // information, and it should cost nothing.
-        if (!notesThisTurn) {
-          const cfg = constantsService.private.RESERVATION;
-          notesThisTurn = messagesService
-            .currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)
-            .then((notes) => notes.map((note) => ({ subject: note.subject, content: note.content })));
+        // Once per turn. Nothing changes the notes between two reads inside one
+        // turn, yet measured, the model re-read them until the turn hit its step
+        // limit and died — after it had already spoken its reply. A second read
+        // gets told to answer instead of the same data to read again.
+        const cfg = constantsService.private.RESERVATION;
+        if (notesRead) {
+          return JSON.stringify({ success: true, message: constantsService.public.RESERVATION_NOTES_ALREADY_READ });
         }
-        return JSON.stringify({ success: true, data: await notesThisTurn });
+        notesRead = true;
+        const notes = await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT);
+        return JSON.stringify({ success: true, data: notes.map((note) => ({ subject: note.subject, content: note.content })) });
       },
     }),
     new DynamicStructuredTool({
@@ -177,7 +178,7 @@ export function createReservationTools(
               }),
             ),
         );
-        notesThisTurn = null;
+        notesRead = false;
         return JSON.stringify({
           success: true,
           message: constantsService.public.RESERVATION_DATES_NOTED,

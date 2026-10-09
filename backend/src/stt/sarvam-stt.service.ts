@@ -122,7 +122,7 @@ export class SarvamSttService implements SttSessionFactory {
        * thinking pause: "I'd like a room for… the twenty sixth" came back as
        * two separate turns, and the agent answered the first half.
        */
-      silence_duration_ms: String(cfg.SILENCE_DURATION_MS),
+      silence_duration_ms: String(options?.utteranceEndMs ?? cfg.SILENCE_DURATION_MS),
     });
     if (keyterms.length > 0) {
       // A JSON array, not a comma-joined string — the endpoint is strict.
