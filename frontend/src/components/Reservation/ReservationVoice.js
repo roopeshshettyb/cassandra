@@ -137,6 +137,13 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   // where a person starts their next sentence, and getUserMedia is slow enough
   // that several attempts in a row could be swallowed.
   const micGateRef = useRef(false);
+  // Talking over the agent: true while it holds the turn, the audio it has
+  // queued, and the caller's last few frames so the word that cut in is kept.
+  const agentTurnRef = useRef(false);
+  const sourcesRef = useRef([]);
+  const dropAudioRef = useRef(false);
+  const loudFramesRef = useRef(0);
+  const prerollRef = useRef([]);
   // Invalidates a start that is still awaiting getUserMedia, so a second tap
   // cannot leave two capture chains attached to one session.
   const startGenRef = useRef(0);
@@ -273,6 +280,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       }
     });
     socket.on('voice_ready', () => {
+      agentTurnRef.current = false;
       readyRef.current = true;
       setBlocked('');
       setStatus((prev) => (prev === 'listening' ? prev : 'idle'));
@@ -293,15 +301,31 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     // ours, so the next turn starts instantly instead of re-prompting.
     socket.on('voice_turn_end', () => {
       micGateRef.current = false;
+      agentTurnRef.current = true;
       setStatus('thinking');
+    });
+    // The server has dropped the reply we talked over; audio from here on is
+    // the answer to what was just said.
+    socket.on('voice_interrupted', () => {
+      dropAudioRef.current = false;
     });
     socket.on('voice_user_message', () => {
       setStatus('thinking');
     });
     socket.on('voice_audio_chunk', (p) => {
-      if (!p?.delta) return;
+      if (!p?.delta || dropAudioRef.current) return;
+      // Its turn, greeting included: the gate shuts so it is not sent its own
+      // voice, and the microphone goes on listening for the caller cutting in.
+      micGateRef.current = false;
+      agentTurnRef.current = true;
       setStatus('speaking');
-      playPcmChunk(p.delta, playbackContextRef, playbackTimeRef);
+      const source = playPcmChunk(p.delta, playbackContextRef, playbackTimeRef);
+      if (source) {
+        sourcesRef.current.push(source);
+        source.onended = () => {
+          sourcesRef.current = sourcesRef.current.filter((s) => s !== source);
+        };
+      }
     });
     // Only the browser knows when sound stopped coming out of the speaker:
     // chunks are scheduled ahead, so the socket going quiet says nothing about
@@ -436,8 +460,38 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       const processor = ctx.createScriptProcessor(2048, 1, 1);
       let heardSound = false;
       processor.onaudioprocess = (e) => {
-        if (!micGateRef.current || !socketRef.current?.connected) return;
+        if (!socketRef.current?.connected) return;
         const input = e.inputBuffer.getChannelData(0);
+        if (!micGateRef.current) {
+          if (!agentTurnRef.current) return;
+          // The agent is talking. Listen for the caller talking over it: a few
+          // frames in a row above the threshold, so a cough or the agent's own
+          // echo does not cut it off.
+          prerollRef.current.push(arrayBufferToBase64(floatTo16BitPCM(input).buffer));
+          if (prerollRef.current.length > constants.RESERVATION_VOICE_BARGE_IN_PREROLL_FRAMES) {
+            prerollRef.current.shift();
+          }
+          let sum = 0;
+          for (let i = 0; i < input.length; i += 1) sum += input[i] * input[i];
+          const loud = Math.sqrt(sum / input.length) > constants.RESERVATION_VOICE_BARGE_IN_RMS;
+          loudFramesRef.current = loud ? loudFramesRef.current + 1 : 0;
+          if (loudFramesRef.current < constants.RESERVATION_VOICE_BARGE_IN_FRAMES) return;
+          // Stop what it was saying, tell the server, and hand over the words
+          // that interrupted — a person stops talking when you say "no, no".
+          agentTurnRef.current = false;
+          loudFramesRef.current = 0;
+          sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* already ended */ } });
+          sourcesRef.current = [];
+          playbackTimeRef.current = 0;
+          cancelPlaybackWatch();
+          dropAudioRef.current = true;
+          socketRef.current.emit('voice_interrupt');
+          prerollRef.current.forEach((audio) => socketRef.current.emit('voice_client_chunk', { audio }));
+          prerollRef.current = [];
+          micGateRef.current = true;
+          setStatus('listening');
+          return;
+        }
         if (!heardSound) {
           for (let i = 0; i < input.length; i += 1) {
             if (Math.abs(input[i]) > 0.01) { heardSound = true; break; }

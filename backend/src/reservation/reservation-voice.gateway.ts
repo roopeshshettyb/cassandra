@@ -4,7 +4,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ConstantsService } from '../common/constants/constants.service';
-import { splitSentences, stripAudioTags } from '../common/sentence.util';
+import { splitSentences, stripAudioTags, stripToolEcho } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -58,7 +58,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     const resolved = rv.TTS_PROVIDER && rv.TTS_PROVIDER.length > 0
       ? rv.TTS_PROVIDER
       : this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
-    return resolved.toLowerCase() === 'elevenlabs' ? text : stripAudioTags(text);
+    return resolved.toLowerCase() === 'elevenlabs' ? stripToolEcho(text).trim() : stripAudioTags(text);
   }
 
   private fillerKey(phrase: string, languageCode: string | null): string {
@@ -357,7 +357,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
    * repeats, and a repeat back-to-back is more noticeable than any single
    * phrase, because it is the one thing a person would never do.
    */
-  private async playThinkingFiller(client: any, provider: TtsProvider, languageCode: string | null): Promise<void> {
+  private async playThinkingFiller(client: any, out: { emit: (event: string, payload?: any) => void }, provider: TtsProvider, languageCode: string | null): Promise<void> {
     const phrases = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
     if (!phrases || phrases.length === 0) {
       return;
@@ -382,7 +382,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     try {
       const chunks = await this.getFillerChunks(spoken, languageCode, provider);
       for (const delta of chunks) {
-        client.emit('voice_audio_chunk', { delta });
+        out.emit('voice_audio_chunk', { delta });
       }
     } catch (err: any) {
       // A filler is a nicety; never let it stop the real answer.
@@ -418,7 +418,25 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     client.voiceBusy = true;
     client.emit('voice_user_message', { text });
 
+    // Everything this turn says goes through `out`, which falls silent the
+    // moment the caller talks over it: an interrupted reply must not keep
+    // arriving behind the caller's own words.
+    const turnId = (client.turnId = (client.turnId ?? 0) + 1);
+    const out = {
+      emit: (event: string, payload?: any) => {
+        if (client.turnId === turnId) {
+          client.emit(event, payload);
+        }
+      },
+    };
+    // An interrupted reply is still being written and saved. The next turn
+    // waits for it, so the conversation is stored in the order it happened.
+    const previous: Promise<void> | undefined = client.replyInFlight;
+    let done: () => void = () => {};
+    client.replyInFlight = new Promise<void>((resolve) => { done = resolve; });
+
     try {
+      await previous;
       const session = await this.reservationService.ensureSession(client);
       const provider = this.ttsProvider();
       const languageCode = session.languageCode ?? null;
@@ -426,26 +444,26 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       // queues audio in order, so this plays first and the answer follows on.
       // It goes out on every turn: these say only "I heard you", which is always
       // true, so there is no judgement call about whether one is warranted.
-      const state: TurnState = { sentenceBuffer: '', ttsQueue: this.playThinkingFiller(client, provider, languageCode) };
+      const state: TurnState = { sentenceBuffer: '', ttsQueue: this.playThinkingFiller(client, out, provider, languageCode) };
 
       await this.chatLlmService.streamUserMessage(session, text, {
         mode: 'voice',
         onChunk: (chunk: string) => {
           if (!chunk) return;
           state.sentenceBuffer += chunk;
-          this.flushSentences(state, client, provider, languageCode);
+          this.flushSentences(state, out, provider, languageCode);
         },
         onEnd: async (result) => {
           const spokenTail = this.spoken(state.sentenceBuffer.trim());
           if (spokenTail.length > 0) {
             await state.ttsQueue;
-            await provider.streamToClient(client, spokenTail, { emitEnd: true, languageCode });
+            await provider.streamToClient(out, spokenTail, { emitEnd: true, languageCode });
           } else {
             await state.ttsQueue;
-            client.emit('voice_audio_end');
+            out.emit('voice_audio_end');
           }
           const reply = stripAudioTags(result.fullContent);
-          client.emit('voice_text_end', { text: reply });
+          out.emit('voice_text_end', { text: reply });
           await this.reservationService.followReplyLanguage(session, reply);
         },
       });
@@ -455,13 +473,17 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         serviceName: 'ReservationVoiceGateway',
         actionName: 'handleTurn',
       });
-      client.emit('error', { message: strings.ERROR_RESERVATION_VOICE_FAILED });
-      client.emit('voice_audio_end');
+      out.emit('error', { message: strings.ERROR_RESERVATION_VOICE_FAILED });
+      out.emit('voice_audio_end');
     } finally {
+      done();
       // The turn ends when the caller has heard the reply, not when the last
       // audio left here — chunks are scheduled ahead, so only the browser
-      // knows. It reports back, exactly as the concierge's client does.
-      this.armPlaybackWait(client);
+      // knows. It reports back, exactly as the concierge's client does. An
+      // interrupted turn has already handed the line over.
+      if (client.turnId === turnId) {
+        this.armPlaybackWait(client);
+      }
     }
   }
 
@@ -591,6 +613,28 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
   @SubscribeMessage('voice_playback_done')
   onPlaybackDone(client: any) {
     this.releaseTurn(client);
+  }
+
+  /**
+   * The caller has started talking over the reply — "no, no, the sixth". Stop
+   * saying it and listen, the way a person would. Whatever the interrupted turn
+   * still has to send is dropped by its own output; `voice_interrupted` marks
+   * the point after which the browser may trust incoming audio again.
+   */
+  @SubscribeMessage('voice_interrupt')
+  onVoiceInterrupt(client: any) {
+    if (!client.reservationContext) {
+      return;
+    }
+    client.turnId = (client.turnId ?? 0) + 1;
+    this.clearPlaybackWait(client);
+    client.voiceBusy = false;
+    // Always acknowledged, even if the reply had just finished: the browser is
+    // discarding audio until it hears this.
+    client.emit('voice_interrupted');
+    if (!client.sttSession) {
+      this.createSttSession(client);
+    }
   }
 
   @SubscribeMessage('voice_stop')

@@ -53,5 +53,16 @@ export function splitSentences(
  * and never see the stage direction in their transcript.
  */
 export function stripAudioTags(text: string): string {
-  return text.replace(/\[[a-z][a-z ]{0,24}\]\s*/gi, '').trim();
+  return stripToolEcho(text).replace(/\[[a-z][a-z ]{0,24}\]\s*/gi, '').trim();
+}
+
+/**
+ * Remove a tool call the model wrote out as words instead of making.
+ *
+ * Rare, but measured: a reply ended `noted. [note_reservation_dates] {"checkIn…`
+ * and on a call that JSON is read aloud to the caller. Everything from the
+ * marker on is dropped; a tool name is snake_case, which no sentence is.
+ */
+export function stripToolEcho(text: string): string {
+  return text.replace(/\s*\[[a-z]+(?:_[a-z]+)+\]\s*\{[\s\S]*$/, '');
 }

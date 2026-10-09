@@ -363,6 +363,16 @@ export class ConstantsService {
       RESERVATION_VOICE_TAP_TO_SPEAK: 'Tap to speak',
       /** The only other thing a caller needs to know mid-call: tapping ends it. */
       RESERVATION_VOICE_TAP_TO_STOP: 'Tap to stop',
+      /**
+       * Talking over the agent. The microphone stays open while it speaks, and a
+       * caller counts as interrupting once their level has stayed above BARGE_IN_RMS
+       * for BARGE_IN_FRAMES frames in a row (about 85ms each) — long enough that a
+       * cough or the agent's own echo does not cut it off. The frames just before
+       * that are kept and sent, so the "no" that interrupted is still heard.
+       */
+      RESERVATION_VOICE_BARGE_IN_RMS: 0.03,
+      RESERVATION_VOICE_BARGE_IN_FRAMES: 3,
+      RESERVATION_VOICE_BARGE_IN_PREROLL_FRAMES: 6,
       RESERVATION_VOICE_CONNECTING: 'Connecting…',
       RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
       RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
@@ -395,6 +405,7 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
       RESERVATION_DATES_NOTED: 'Dates noted',
+      RESERVATION_NOTES_ALREADY_READ: 'You have already read your notes this turn and nothing has changed. Do not read them again — reply to the caller now.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
       // A deploy reloads the API and drops every open socket, so a live call can
       // lose its line through no fault of the caller's. Said out loud, because a
