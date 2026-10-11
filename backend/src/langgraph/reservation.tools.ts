@@ -207,7 +207,7 @@ export function createReservationTools(
         checkOutDate: z.string().describe('Requested check-out date as YYYY-MM-DD'),
         partySize: z.number().describe('Number of guests staying'),
         roomPreference: z.string().optional().describe('Room type or preference mentioned, if any'),
-        specialRequests: z.string().optional().describe('Anything else the enquirer asked for'),
+        specialRequests: z.string().optional().describe('Anything the hotel team should know beyond the booking itself: an occasion such as an anniversary or birthday, a first visit, a preference, a request. Include everything you wrote down with add_note'),
       }),
       func: async (args) => {
         // No table by design: the enquiry is the tool call, persisted on the
