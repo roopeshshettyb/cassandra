@@ -64,5 +64,9 @@ export function stripAudioTags(text: string): string {
  * marker on is dropped; a tool name is snake_case, which no sentence is.
  */
 export function stripToolEcho(text: string): string {
-  return text.replace(/\s*\[[a-z]+(?:_[a-z]+)+\]\s*\{[\s\S]*$/, '');
+  return text
+    .replace(/\s*\[[a-z]+(?:_[a-z]+)+\]\s*\{[\s\S]*$/, '')
+    // "(2026-11-05 to 2026-11-07)" — the tool's form of a date the reply has
+    // already said in words. Read aloud it is a string of digits.
+    .replace(/\s*\([^()]*\d{4}-\d{2}-\d{2}[^()]*\)/g, '');
 }
