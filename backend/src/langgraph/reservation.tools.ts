@@ -163,6 +163,7 @@ export function createReservationTools(
         guestName: z.string().optional().describe('The name itself, assembled from the letters they spelled: "Ram", never "R A M" and never "Ram, R A M"'),
         guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
         guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
+        occasion: z.string().optional().describe('Anything they are celebrating or want the hotel team to know — an anniversary, a birthday, a honeymoon, a first visit, a request. Fill it the moment they mention it, even if it is the only thing you know so far'),
       }),
       func: async (args) => {
         // Measured: having noted a correction, the model wrote the same note three

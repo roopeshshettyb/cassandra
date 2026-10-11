@@ -288,10 +288,15 @@ export class ReservationService {
       // arrive through the call carrying whatever was just learned, so a name
       // noted early must survive a later note about the phone number.
       const noted: Record<string, unknown> = {};
+      // What it wrote in its notebook beyond the booking — an occasion, a request.
+      const asides: string[] = [];
       for (const message of chatMessages) {
         // createdAt comes from Sequelize timestamps, which the model does not declare.
         const messageRow: any = message;
         for (const call of message.toolCalls ?? []) {
+          if (call.toolName === 'add_note' && typeof call.input?.content === 'string') {
+            asides.push(call.input.content);
+          }
           if (call.toolName === 'note_reservation_dates' && call.input) {
             for (const [field, value] of Object.entries(call.input)) {
               if (value !== undefined && value !== null && value !== '') {
@@ -303,6 +308,9 @@ export class ReservationService {
             const enquiry: Record<string, unknown> = { ...call.input, ...noted };
             enquiry.guestName = unspell(enquiry.guestName, false);
             enquiry.guestEmail = unspell(enquiry.guestEmail, true);
+            // An occasion is noted when it is mentioned, and often left out of the
+            // final record; the staff card shows specialRequests, so it falls back.
+            enquiry.specialRequests = enquiry.specialRequests || enquiry.occasion || asides.join(' ') || undefined;
             enquiries.push({ ...enquiry, recordedAt: messageRow.createdAt });
           }
         }
