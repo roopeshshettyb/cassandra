@@ -173,10 +173,26 @@ export function createReservationTools(
           return JSON.stringify({ success: true, message: constantsService.public.RESERVATION_TOOL_BUDGET_SPENT });
         }
         lastNote = JSON.stringify(args);
+        const cfg = constantsService.private.RESERVATION;
+        const current: Record<string, string> = {};
+        (await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)).forEach((note) => {
+          if (note.subject) current[note.subject] = note.content;
+        });
+        // Measured: dates noted as 5–7 November were overwritten turns later by a
+        // note carrying only a check-in date — today's, re-derived from nothing —
+        // and the enquiry went to the hotel for the wrong week. A real change of
+        // dates comes with both; one date that contradicts what is already noted
+        // is a slip, and is not written.
+        const accepted: Record<string, unknown> = { ...args };
+        const changesADate = (['checkInDate', 'checkOutDate'] as const).some((field) => args[field] && current[field] && args[field] !== current[field]);
+        if (current.checkInDate && current.checkOutDate && changesADate && !(args.checkInDate && args.checkOutDate)) {
+          delete accepted.checkInDate;
+          delete accepted.checkOutDate;
+        }
         // One note per field, so get_notes reads back the booking as it stands —
         // a call carrying only the newest detail leaves the earlier ones in place.
         await Promise.all(
-          Object.entries(args)
+          Object.entries(accepted)
             .filter(([, value]) => value !== undefined && value !== '')
             .map(([subject, value]) =>
               messagesService.createNote({
@@ -192,7 +208,9 @@ export function createReservationTools(
         return JSON.stringify({
           success: true,
           message: constantsService.public.RESERVATION_DATES_NOTED,
-          data: { ...args },
+          // The whole booking as it now stands, so the right dates are in front
+          // of the agent every time it notes anything.
+          data: { ...current, ...accepted },
         });
       },
     }),
@@ -211,6 +229,20 @@ export function createReservationTools(
         specialRequests: z.string().optional().describe('Anything the hotel team should know beyond the booking itself: an occasion such as an anniversary or birthday, a first visit, a preference, a request. Include everything you wrote down with add_note'),
       }),
       func: async (args) => {
+        // Only what the caller actually gave. Measured: asked for an email, a caller
+        // went off on a question about breakfast, and the agent recorded the enquiry
+        // with an address it made up from the name — the schema requires one. Every
+        // required detail must have been noted during the call, or nothing is recorded.
+        const cfg = constantsService.private.RESERVATION;
+        const notes = await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT);
+        const noted = new Set(notes.map((note) => note.subject));
+        const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !noted.has(field));
+        if (missing.length > 0) {
+          return JSON.stringify({
+            success: false,
+            message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}`,
+          });
+        }
         // No table by design: the enquiry is the tool call, persisted on the
         // assistant message and read back from the chat by hotel staff.
         return JSON.stringify({
