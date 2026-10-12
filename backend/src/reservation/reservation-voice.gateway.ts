@@ -9,6 +9,7 @@ import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
 import { TtsFactoryService } from '../tts/tts-factory.service';
+import { EchoTtsCacheService } from '../tts/echo-tts-cache.service';
 import type { ISttSession } from '../stt/stt-session.interface';
 
 interface TtsProvider {
@@ -42,6 +43,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     private readonly cacheService: CacheService,
     private readonly sttFactory: SttFactoryService,
     private readonly ttsFactory: TtsFactoryService,
+    private readonly echo: EchoTtsCacheService,
   ) {}
 
   private ttsProvider(): TtsProvider {
@@ -59,6 +61,13 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       ? rv.TTS_PROVIDER
       : this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
     return resolved.toLowerCase() === 'elevenlabs' ? stripToolEcho(text).trim() : stripAudioTags(text);
+  }
+
+  /** One sentence of a reply, through the Echo cache when it is enabled. */
+  private say(client: any, text: string, options: { emitEnd: boolean; languageCode: string | null }, provider: TtsProvider): Promise<void> {
+    const rv = this.constantsService.private.RESERVATION_VOICE;
+    const providerName = rv.TTS_PROVIDER || this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
+    return this.echo.speak(client, text, options, provider, providerName.toLowerCase());
   }
 
   private fillerKey(phrase: string, languageCode: string | null): string {
@@ -86,7 +95,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         // caller would hear the reply stop mid-thought with no error anywhere.
         // One bad fragment should cost that fragment, not the rest of the answer.
         state.ttsQueue = state.ttsQueue
-          .then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }))
+          .then(() => this.say(client, spoken, { emitEnd: false, languageCode }, provider))
           .catch((err: any) => {
             this.logger.warn({
               message: err?.message ?? String(err),
@@ -461,7 +470,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           const spokenTail = this.spoken(state.sentenceBuffer.trim());
           if (spokenTail.length > 0) {
             await state.ttsQueue;
-            await provider.streamToClient(out, spokenTail, { emitEnd: true, languageCode });
+            await this.say(out, spokenTail, { emitEnd: true, languageCode }, provider);
           } else {
             await state.ttsQueue;
             out.emit('voice_audio_end');

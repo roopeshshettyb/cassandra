@@ -693,6 +693,32 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
        * TTS characters, so every budget here is tighter than the text agent's —
        * an unauthenticated microphone is the most expensive thing we expose.
        */
+      /**
+       * Echo (echospeaks.ai) sentence cache in front of the voice line's TTS.
+       * Off unless ECHO_API_KEY is set. Lookups are on the reply's critical path,
+       * so a slow cache is abandoned after LOOKUP_TIMEOUT_MS and treated as a miss.
+       */
+      ECHO_TTS_CACHE: {
+        API_KEY: this.configService.get<string>('ECHO_API_KEY', ''),
+        URL: this.configService.get<string>('ECHO_URL', 'https://cache.echospeaks.ai'),
+        TRANSPORT: 'ws',
+        LOOKUP_TIMEOUT_MS: parseInt(this.configService.get('ECHO_LOOKUP_TIMEOUT_MS') || '500', 10),
+        WRITE_TIMEOUT_MS: 5000,
+        ENVELOPE_VERSION: 1,
+        ENCODING: 'pcm_s16le',
+        SAMPLE_RATE: 24000,
+        CHANNELS: 1,
+        /** 100ms of 24kHz mono PCM: the size the voice line's own TTS chunks arrive in. */
+        CHUNK_BYTES: 4800,
+        TAG: 'reservation-voice',
+        /**
+         * Sentences never sent to the cache: a run of five or more digits, an @, or
+         * letters spelled out one by one — read-backs of a guest's number, email or
+         * name. They never repeat for anyone else, so they could only ever miss.
+         * Times and dates ("06:30", "the 5th") stay cacheable; they repeat a lot.
+         */
+        PERSONAL_PATTERN: '\\d(?:[\\s,.-]*\\d){4,}|@|\\b\\p{L}(?:[\\s,.-]+\\p{L}\\b){2,}',
+      },
       RESERVATION_VOICE: {
         /**
          * Provider and turn-taking for the public call only. Empty means "use
