@@ -18,6 +18,8 @@ interface TtsProvider {
 interface TurnState {
   sentenceBuffer: string;
   ttsQueue: Promise<void>;
+  /** False once the caller has talked over this reply: nothing more of it is synthesised. */
+  live: () => boolean;
 }
 
 /**
@@ -86,7 +88,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         // caller would hear the reply stop mid-thought with no error anywhere.
         // One bad fragment should cost that fragment, not the rest of the answer.
         state.ttsQueue = state.ttsQueue
-          .then(() => provider.streamToClient(client, spoken, { emitEnd: false, languageCode }))
+          .then(() => (state.live() ? provider.streamToClient(client, spoken, { emitEnd: false, languageCode }) : undefined))
           .catch((err: any) => {
             this.logger.warn({
               message: err?.message ?? String(err),
@@ -429,11 +431,11 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         }
       },
     };
-    // An interrupted reply is still being written and saved. The next turn
-    // waits for it, so the conversation is stored in the order it happened.
-    // Talked over, the reply is cancelled rather than left to finish unheard.
-    const stop = new AbortController();
-    client.stopReply = () => stop.abort();
+    // Talked over, a reply stops being spoken but is still thought through and
+    // saved: a correction the caller made just before cutting in ("three of us,
+    // not two") is noted rather than lost. Only the speech is skipped, so the
+    // next turn, which waits for this one to keep the conversation in order,
+    // waits about a second rather than for audio no one will hear.
     const previous: Promise<void> | undefined = client.replyInFlight;
     let done: () => void = () => {};
     client.replyInFlight = new Promise<void>((resolve) => { done = resolve; });
@@ -447,11 +449,14 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       // queues audio in order, so this plays first and the answer follows on.
       // It goes out on every turn: these say only "I heard you", which is always
       // true, so there is no judgement call about whether one is warranted.
-      const state: TurnState = { sentenceBuffer: '', ttsQueue: this.playThinkingFiller(client, out, provider, languageCode) };
+      const state: TurnState = {
+        sentenceBuffer: '',
+        ttsQueue: this.playThinkingFiller(client, out, provider, languageCode),
+        live: () => client.turnId === turnId,
+      };
 
       await this.chatLlmService.streamUserMessage(session, text, {
         mode: 'voice',
-        signal: stop.signal,
         onChunk: (chunk: string) => {
           if (!chunk) return;
           state.sentenceBuffer += chunk;
@@ -459,7 +464,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         },
         onEnd: async (result) => {
           const spokenTail = this.spoken(state.sentenceBuffer.trim());
-          if (spokenTail.length > 0) {
+          if (spokenTail.length > 0 && state.live()) {
             await state.ttsQueue;
             await provider.streamToClient(out, spokenTail, { emitEnd: true, languageCode });
           } else {
@@ -631,7 +636,6 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       return;
     }
     client.turnId = (client.turnId ?? 0) + 1;
-    client.stopReply?.();
     this.clearPlaybackWait(client);
     client.voiceBusy = false;
     // Always acknowledged, even if the reply had just finished: the browser is

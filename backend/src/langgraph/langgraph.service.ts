@@ -263,10 +263,6 @@ export class LangGraphService {
     // still knows what it did.
     const ender = new AbortController();
     ctx.endTurn = () => ender.abort();
-    ctx.signal?.addEventListener('abort', () => ender.abort(), { once: true });
-    if (ctx.signal?.aborted) {
-      ender.abort();
-    }
     const finished: ToolCallRecord[] = [];
     let endedEarly = false;
     let repliedWithTools = false;
