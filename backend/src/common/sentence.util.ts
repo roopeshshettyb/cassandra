@@ -66,6 +66,8 @@ export function stripAudioTags(text: string): string {
 export function stripToolEcho(text: string): string {
   return text
     .replace(/\s*\[[a-z]+(?:_[a-z]+)+\]\s*\{[\s\S]*$/, '')
+    // "[calls record_reservation_enquiry]" — a tool named in brackets, never meant to be heard.
+    .replace(/\s*\[[^\]]*\b[a-z]+(?:_[a-z]+)+\b[^\]]*\]/g, '')
     // "(2026-11-05 to 2026-11-07)" — the tool's form of a date the reply has
     // already said in words. Read aloud it is a string of digits.
     .replace(/\s*\([^()]*\d{4}-\d{2}-\d{2}[^()]*\)/g, '');

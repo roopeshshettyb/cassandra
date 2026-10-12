@@ -14,6 +14,4 @@ export interface AgentToolContext {
   sourceMessageId?: number | null;
   /** Ends the turn where it stands. Set by the agent runner; a tool calls it when the model will not stop on its own. */
   endTurn?: () => void;
-  /** Aborted by the caller of the turn to end it from outside — a voice caller talking over the reply. */
-  signal?: AbortSignal;
 }

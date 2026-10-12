@@ -298,13 +298,23 @@ export class ReservationService {
             asides.push(call.input.content);
           }
           if (call.toolName === 'note_reservation_dates' && call.input) {
-            for (const [field, value] of Object.entries(call.input)) {
+            // What was actually written, which can differ from what was asked: a
+            // slipped date is refused by the tool.
+            let written: Record<string, unknown> = call.input;
+            try {
+              written = JSON.parse(String(call.output)).data ?? call.input;
+            } catch {
+              // older calls returned no data; what was asked is what was written
+            }
+            for (const [field, value] of Object.entries(written)) {
               if (value !== undefined && value !== null && value !== '') {
                 noted[field] = value;
               }
             }
           }
-          if (call.toolName === 'record_reservation_enquiry' && call.input) {
+          // A refused record — a detail the caller never gave — is not an enquiry.
+          const refused = typeof call.output === 'string' && call.output.includes('"success":false');
+          if (call.toolName === 'record_reservation_enquiry' && call.input && !refused) {
             const enquiry: Record<string, unknown> = { ...call.input, ...noted };
             enquiry.guestName = unspell(enquiry.guestName, false);
             enquiry.guestEmail = unspell(enquiry.guestEmail, true);

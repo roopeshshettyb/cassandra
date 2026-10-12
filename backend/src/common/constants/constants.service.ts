@@ -458,6 +458,7 @@ export class ConstantsService {
       // a refresh resumes the same conversation.
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
       RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
+      RESERVATION_ENQUIRY_INCOMPLETE: 'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
       AI_BOOKINGS_TITLE: 'AI Bookings',
@@ -889,6 +890,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         STAFF_CHAT_LIST_LIMIT: 50,
         /** Notes handed back to the agent when it reads its scratchpad. */
         SCRATCHPAD_NOTE_LIMIT: 50,
+        /** Details that must have been noted during the call before an enquiry can be recorded. */
+        ENQUIRY_REQUIRED_NOTES: ['checkInDate', 'checkOutDate', 'partySize', 'guestName', 'guestEmail', 'guestPhone'],
         /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */
         MAX_TOOL_CALLS_PER_TURN: 6,
         /**

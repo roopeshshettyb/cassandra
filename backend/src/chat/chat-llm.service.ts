@@ -15,8 +15,6 @@ export interface StreamUserMessageOptions {
   onChunk: (chunk: string) => Promise<void> | void;
   onEnd?: (result: { fullContent: string; toolCalls: LangGraphToolCallRecord[] }) => Promise<void> | void;
   mode?: 'text' | 'voice';
-  /** Abort to end the reply where it stands — a voice caller talking over it. */
-  signal?: AbortSignal;
 }
 
 @Injectable()
@@ -102,7 +100,6 @@ export class ChatLlmService {
       booking: session.booking,
       languageCode: session.languageCode ?? null,
       sourceMessageId: userMsg.id,
-      signal: options.signal,
     };
 
     let fullContent = '';
