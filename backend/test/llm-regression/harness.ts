@@ -18,6 +18,7 @@ import { RequestsService } from '../../src/requests/requests.service';
 import { RestaurantService } from '../../src/restaurant/restaurant.service';
 import { ChatService } from '../../src/chat/chat.service';
 import { HotelsService } from '../../src/hotels/hotels.service';
+import { MessagesService } from '../../src/messages/messages.service';
 import { AgentToolContext } from '../../src/langgraph/langgraph-tools.context';
 import { judgeTurn } from '../../src/llm-eval/llm-eval.judge';
 
@@ -76,7 +77,9 @@ function buildMocks() {
     setBookingForChat: jest.fn(async () => undefined),
     updateLanguageCode: jest.fn(async () => undefined),
   };
-  return { requestsService, bookingsService, restaurantService, hotelsService, chatService };
+  // Only the public reservation agent's notebook uses it; the concierge never does.
+  const messagesService: any = {};
+  return { requestsService, bookingsService, restaurantService, hotelsService, chatService, messagesService };
 }
 
 export interface Harness {
@@ -96,6 +99,7 @@ export async function buildHarness(): Promise<Harness> {
       { provide: RestaurantService, useValue: mocks.restaurantService },
       { provide: ChatService, useValue: mocks.chatService },
       { provide: HotelsService, useValue: mocks.hotelsService },
+      { provide: MessagesService, useValue: mocks.messagesService },
     ],
   }).compile();
 
