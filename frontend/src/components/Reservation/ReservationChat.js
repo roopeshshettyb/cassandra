@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
+import { Box, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { io } from 'socket.io-client';
 import { NAVY, MUTED, BORDER } from '../../theme';
 import constants from '../../constants.json';
 import { sessionStorageKey, sessionAuth } from './reservationSession';
-import { getBackendUrl, ChatBubble, SuggestionStrip } from '../GuestPortal/GuestConcierge';
+import { getBackendUrl, ChatBubble, SuggestionStrip, ThinkingBubble } from '../GuestPortal/GuestConcierge';
 import MapComponent from '../MapComponent';
 
 const MessageBubble = ({ data }) => <ChatBubble message={data} />;
@@ -152,12 +152,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
 
         <MapComponent Component={MessageBubble} data={messages} showNoDataAvailable={false} />
         {sending && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
-        {sending && !streamingContent && (
-          <Box sx={{ alignSelf: 'flex-start', px: 2, py: 1.25, borderRadius: '18px 18px 18px 4px', bgcolor: 'background.paper', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CircularProgress size={14} sx={{ color: 'primary.main' }} />
-            <Typography sx={{ fontSize: 13, color: MUTED }}>Thinking…</Typography>
-          </Box>
-        )}
+        {sending && !streamingContent && <ThinkingBubble />}
       </Box>
 
       {ready && !sending && (

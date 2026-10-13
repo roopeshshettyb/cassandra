@@ -389,21 +389,6 @@ export class ConstantsService {
        */
       VOICE_PLAYBACK_WATCH_GRACE_MS: 2000,
       RESERVATION_VOICE_AMBIENCE_DBFS: -45,
-      /**
-       * A real hotel-lobby recording, served from the frontend's public folder.
-       * Synthesised noise is steady by definition, and a bed that never varies
-       * is its own tell — the ear stops hearing a room and starts hearing a
-       * hiss. A recording breathes: far-off voices, a door, cutlery.
-       *
-       * Trimmed and looped in the browser, so any length works.
-       *
-       * Empty means the recording bundled with the app, which is the normal
-       * case: served from the same place as the code that plays it, so the two
-       * can never be deployed apart. Set it to an absolute URL for a property
-       * that wants its own room — that host needs CORS, since the audio is
-       * fetched and decoded rather than handed to an <audio> tag.
-       */
-      RESERVATION_VOICE_AMBIENCE_URL: this.configService.get<string>('RESERVATION_VOICE_AMBIENCE_URL', ''),
       ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',

@@ -29,8 +29,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { JwtMiddleware } from './auth/jwt.middleware';
 
-
-
 @Module({
   imports: [
     ConfigModule.forRoot({

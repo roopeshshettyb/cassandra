@@ -183,6 +183,27 @@ export function SuggestionStrip({ items, onSelect, disabled }) {
 }
 
 // ── Chat bubble renderer ───────────────────────────────────────────────────
+/** The "she is working on it" bubble, before the first word of a reply arrives. */
+export function ThinkingBubble() {
+  return (
+    <Box
+      sx={{
+        alignSelf: 'flex-start',
+        px: 2,
+        py: 1.25,
+        borderRadius: '18px 18px 18px 4px',
+        bgcolor: 'background.paper',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+      }}
+    >
+      <CircularProgress size={14} sx={{ color: 'primary.main' }} />
+      <Typography sx={{ fontSize: 13, color: MUTED }}>Thinking…</Typography>
+    </Box>
+  );
+}
+
 export function ChatBubble({ message }) {
   const isUser = message.role === 'user';
   return (
@@ -585,23 +606,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
           <ChatBubble key={m.id} message={m} />
         ))}
         {sending && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
-        {!streamingContent && sending && (
-          <Box
-            sx={{
-              alignSelf: 'flex-start',
-              px: 2,
-              py: 1.25,
-              borderRadius: '18px 18px 18px 4px',
-              bgcolor: 'background.paper',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-            }}
-          >
-            <CircularProgress size={14} sx={{ color: 'primary.main' }} />
-            <Typography sx={{ fontSize: 13, color: MUTED }}>Thinking…</Typography>
-          </Box>
-        )}
+        {!streamingContent && sending && <ThinkingBubble />}
       </Box>
 
       {/* Suggestion chips */}
@@ -702,7 +707,6 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     </Box>
   );
 }
-
 
 // ── Main GuestConcierge ────────────────────────────────────────────────────
 export default function GuestConcierge({

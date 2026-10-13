@@ -42,8 +42,6 @@ export class DeepgramSttService implements SttSessionFactory {
 
     live.setupConnection();
 
-
-
     live.on(LiveTranscriptionEvents.Transcript, (data: any) => {
       if (destroyed || !transcriptCb) return;
       const alt = data?.channel?.alternatives?.[0];
@@ -75,8 +73,6 @@ export class DeepgramSttService implements SttSessionFactory {
         });
       }
     });
-
-
 
     return {
       writeAudio(buffer: Buffer) {
