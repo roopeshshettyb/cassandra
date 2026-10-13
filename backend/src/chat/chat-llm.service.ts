@@ -79,7 +79,10 @@ export class ChatLlmService {
     const isReservation = !session.account;
 
     const { messages } = isReservation
-      ? await buildReservationPrompt(this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice, session.languageCode ?? null)
+      ? await buildReservationPrompt(
+          this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice, session.languageCode ?? null,
+          await this.messagesService.currentNotesByChatId(chatId, this.constantsService.private.RESERVATION.SCRATCHPAD_NOTE_LIMIT),
+        )
       : await buildChatPrompt(
           this.chatContextService,
           chatId,
@@ -100,6 +103,7 @@ export class ChatLlmService {
       booking: session.booking,
       languageCode: session.languageCode ?? null,
       sourceMessageId: userMsg.id,
+      sourceText: userMessage,
     };
 
     let fullContent = '';
