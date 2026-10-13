@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, TextField, IconButton, InputAdornment, CircularProgress, Avatar } from '@mui/material';
-import { motion } from 'framer-motion';
+import { Box, Typography, TextField, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { io } from 'socket.io-client';
-import { NAVY, MUTED, BRAND_GRADIENT, PRIMARY_CONTRAST, BORDER } from '../../theme';
+import { NAVY, MUTED, BORDER } from '../../theme';
 import constants from '../../constants.json';
 import { sessionStorageKey, sessionAuth } from './reservationSession';
 import ChatBubble from '../AvatarChatbot/ui/ChatBubble';
@@ -72,7 +70,14 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
         localStorage.setItem(storageKeyRef.current, payload.sessionToken);
       }
       const history = Array.isArray(payload?.messages) ? payload.messages : [];
-      setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })));
+      // The conversation opens with her greeting, as the voice line does. It is
+      // shown, not generated or stored, so a visitor who never types costs nothing.
+      const greeting = {
+        id: 'greeting',
+        role: 'assistant',
+        content: constants.RESERVATION_CHAT_GREETING.split(constants.RESERVATION_GREETING_HOTEL_TOKEN).join(payload?.hotel?.name || ''),
+      };
+      setMessages([greeting, ...history.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt }))]);
       requestAnimationFrame(scrollToBottom);
       setTimeout(() => inputRef.current?.focus?.(), 100);
     });
@@ -144,25 +149,6 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
           <Box sx={{ display: 'flex', justifyContent: 'center', pt: 6 }}>
             <CircularProgress size={24} sx={{ color: 'primary.main' }} />
           </Box>
-        )}
-
-        {ready && messages.length === 0 && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', py: { xs: 3, md: '4vh' }, px: 2 }}>
-              <Box sx={{ position: 'relative', display: 'inline-block', mb: 4 }}>
-                <Box sx={{ position: 'absolute', top: -30, left: -30, right: -30, bottom: -30, background: BRAND_GRADIENT, filter: 'blur(40px)', opacity: 0.15, borderRadius: '50%' }} />
-                <Avatar sx={{ width: 80, height: 80, background: BRAND_GRADIENT, color: PRIMARY_CONTRAST, boxShadow: '0 12px 32px rgba(0,0,0,0.1)', position: 'relative', zIndex: 1, border: '2px solid rgba(255,255,255,0.8)' }}>
-                  <SupportAgentIcon sx={{ fontSize: 40 }} />
-                </Avatar>
-              </Box>
-              <Typography sx={{ fontWeight: 800, fontSize: { xs: 26, md: 32 }, mb: 1.5, color: NAVY }}>
-                {constants.RESERVATION_TITLE}
-              </Typography>
-              <Typography sx={{ fontSize: { xs: 14, md: 16 }, color: MUTED, maxWidth: 500, mx: 'auto', mb: 2, lineHeight: 1.6 }}>
-                {constants.RESERVATION_SUBTITLE}
-              </Typography>
-            </Box>
-          </motion.div>
         )}
 
         <MapComponent Component={MessageBubble} data={messages} showNoDataAvailable={false} />
