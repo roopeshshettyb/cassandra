@@ -367,12 +367,14 @@ async function seed() {
   ];
   const bookings: Booking[] = [];
   for (const row of bookingData) {
+    // Found by guest, hotel and room, not date: the dates move with each day's seed.
     const [b] = await Booking.findOrCreate({
-      where: { guestId: row.guestId, hotelId: row.hotelId, startTime: row.startTime } as any,
+      where: { guestId: row.guestId, hotelId: row.hotelId, roomNumber: row.roomNumber },
       defaults: row as any,
       paranoid: false,
     });
     await restoreIfSoftDeleted(b);
+    await b.update({ startTime: row.startTime, endTime: row.endTime });
     bookings.push(b);
   }
 

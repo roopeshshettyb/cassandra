@@ -30,3 +30,8 @@ build
 package-lock.json
 
 .DS_Store
+
+# UI tests: saved sessions and run output
+/e2e/.auth
+/e2e/test-results
+/e2e/playwright-report

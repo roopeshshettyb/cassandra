@@ -1,0 +1,50 @@
+name: Backend Tests
+
+# PR check: the type check, the unit tests (with their coverage floor) and the API tests run on
+# every PR into main or stage, and the PR shows whether they passed. GitHub Free cannot block the
+# merge on a private repo; main-guard.yml keeps main to its owner.
+on:
+  pull_request:
+    branches: [main, stage]
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cassandra_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+
+    # What the API tests need in place of dev.env.
+    env:
+      PORT: 7677
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: cassandra_test
+      DB_SSL: 'false'
+      JWT_SECRET: ci-only-secret
+      # A placeholder: the tests set placeholder AWS keys themselves, so nothing reaches a bucket.
+      AWS_S3_BUCKET_NAME: ci-bucket
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # backend/package-lock.json is git-ignored, so install rather than ci (as llm-regression.yml does).
+      - run: npm install
+      - run: npx tsc -p tsconfig.test.json --noEmit
+      - run: npm run test:unit:cov
+      - run: npm run test:api

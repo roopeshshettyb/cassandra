@@ -8,7 +8,8 @@
     "start": "nodemon",
     "build": "npm run fetch-constants && react-scripts build && npm run inject-constants -- build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:e2e": "playwright test -c e2e"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
@@ -48,9 +49,11 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/babel__core": "^7.20.5",
     "@types/node": "^25.5.0",
     "nodemon": "^3.1.9",
+    "pg": "^8.16.3",
     "typescript": "^4.9.5"
   }
 }

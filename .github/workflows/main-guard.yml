@@ -1,0 +1,88 @@
+name: Main Guard
+
+# Free stand-in for branch protection: only the owner changes main. A push to main by anyone else is
+# taken back with a new commit, and an issue tells the owner. stage is not watched. It catches
+# mistakes; it is not a lock.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  MAIN_OWNER: roopeshshettyb
+
+jobs:
+  guard:
+    name: Main guard
+    runs-on: ubuntu-latest
+    # A job's `if` cannot read env. The guard's own undo pushes start no workflow, so need no check.
+    if: github.actor != 'roopeshshettyb'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Each outcome sets a result, so the owner always hears what happened.
+      - name: Undo the change
+        id: undo
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          result() { echo "result=$1" >> "$GITHUB_OUTPUT"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # After a force push, either version may be on no branch: fetch it by its id.
+          git cat-file -e "$BEFORE^{commit}" 2>/dev/null || git fetch -q origin "$BEFORE" || result "not undone, main as it was before this push could not be found (force push?), undo it by hand"
+          git cat-file -e "$AFTER^{commit}" 2>/dev/null || git fetch -q origin "$AFTER" || result "not undone, this push could not be found (main force-pushed over it?), undo it by hand"
+          git diff --quiet "$AFTER" "$BEFORE" && result "no file changed, nothing to undo"
+          # GitHub never lets this workflow's token change workflow files, so those are left to the owner.
+          if ! git diff --quiet "$AFTER" "$BEFORE" -- .github/workflows; then
+            SKIP=':!.github/workflows'
+            NOTE=", except its workflow file changes, which GitHub does not let this guard change: undo those by hand"
+            git diff --quiet "$AFTER" "$BEFORE" -- . "$SKIP" && result "not undone, it only changes workflow files, which GitHub does not let this guard change, undo it by hand"
+          fi
+          # Takes back only this push's changes on top of the latest main, so later pushes stay.
+          # No concurrency group (it would cancel waiting runs), so runs may race: retry when main moves on.
+          for attempt in 1 2 3; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            if ! git diff --binary "$AFTER" "$BEFORE" -- . $SKIP | git apply --3way >/dev/null 2>&1; then
+              git reset -q --hard
+              # The push itself would apply again: main already has it taken back.
+              git diff --binary "$BEFORE" "$AFTER" -- . $SKIP | git apply --check >/dev/null 2>&1 && result "nothing left to undo, main already has this push taken back"
+              result "not undone, later changes on main touch the same lines, undo it by hand"
+            fi
+            git diff --cached --quiet && result "nothing left to undo, main already has this push taken back"
+            git commit -q -m "Undo ${AFTER:0:7} on main: only $MAIN_OWNER merges to main (pushed by $ACTOR)"
+            if git push -q origin HEAD:main; then
+              echo "undo=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+              result "undone$NOTE"
+            fi
+          done
+          result "not undone, the undo could not be pushed (main kept changing, or GitHub refused the push), undo it by hand"
+
+      - name: Tell the owner
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          RESULT: "${{ steps.undo.outputs.result || 'undo failed, undo it by hand' }}"
+          COMPARE: ${{ github.event.compare }}
+          UNDO: ${{ steps.undo.outputs.undo }}
+        run: |
+          BODY="Only $MAIN_OWNER merges to main. The change: $COMPARE
+          Result: $RESULT."
+          # git still counts the undone commits as part of main: a new PR from the same branch brings
+          # nothing back, and merging main into that branch deletes the work there too.
+          if [ -n "$UNDO" ]; then
+            BODY="$BODY
+
+          To bring the change back, $MAIN_OWNER reverts the undo commit: git revert $UNDO, then push to main. A new PR from the same branch will not bring it back.
+          Until then, do not merge main into the branch the change came from: the undo would delete the work there too."
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --assignee "$MAIN_OWNER" --title "$ACTOR changed main ($RESULT)" --body "$BODY"

@@ -1,0 +1,55 @@
+name: Frontend Tests
+
+# PR check: every Playwright UI test (frontend/e2e) runs on every PR into main or stage, and the PR
+# shows whether they passed. GitHub Free cannot block the merge on a private repo; main-guard.yml
+# keeps main to its owner.
+on:
+  pull_request:
+    branches: [main, stage]
+
+jobs:
+  test:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cassandra_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+
+    # What the UI tests' backend needs in place of backend/test.env and dev.env.
+    env:
+      PORT: 7677
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: cassandra_test
+      DB_SSL: 'false'
+      JWT_SECRET: ci-only-secret
+      # A placeholder: the tests set placeholder AWS keys themselves, so nothing reaches a bucket.
+      AWS_S3_BUCKET_NAME: ci-bucket
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Both package-lock.json files are git-ignored, so install rather than ci (as llm-regression.yml does).
+      - run: npm install
+        working-directory: backend
+      - run: npm install
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/e2e/playwright-report
