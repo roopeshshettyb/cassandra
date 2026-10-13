@@ -190,7 +190,6 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     this.destroySttSession(client);
     try {
       const cfg = this.constantsService.private.RESERVATION_VOICE;
-      const hotel: any = client.reservationContext?.publicHotel ?? {};
       // Own provider and own turn-taking: tuning the public call must never
       // move the signed-in concierge.
       const sttSession = this.sttFactory
@@ -198,9 +197,11 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         .createSession({
           utteranceEndMs: cfg.UTTERANCE_END_MS,
           language: cfg.STT_LANGUAGE,
-          // The property's own name is the one word a speech model has certainly
-          // never seen, and it tends to arrive in the first sentence.
-          keyterms: [...new Set([hotel.name, hotel.brandName, ...cfg.STT_KEYTERMS].filter((term) => typeof term === 'string' && term.trim()))],
+          // Not the property's own name. Given it, Sarvam heard it in background
+          // noise — "Bad Hotel." arrived as the caller's words, call after call
+          // at that property — and a caller on the hotel's own line rarely says
+          // its name anyway.
+          keyterms: cfg.STT_KEYTERMS,
         });
       client.sttSession = sttSession;
       // Deepgram finalises in several pieces within one utterance — "hello" can
@@ -402,7 +403,12 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     const cfg = this.constantsService.private.RESERVATION_VOICE;
 
     const text = typeof transcript === 'string' ? transcript.trim() : '';
-    if (!client.reservationContext || !text) {
+    // Noise transcribes as "A", "I", "um", "so": not something said to her, so
+    // it gets no reply and costs nothing. Real one-word answers — "yes", "no",
+    // "two" — are not on the list and go through.
+    const words = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+    const noise = words.every((word) => cfg.NOISE_WORDS.includes(word));
+    if (!client.reservationContext || !text || noise) {
       client.emit('voice_ready');
       return;
     }
