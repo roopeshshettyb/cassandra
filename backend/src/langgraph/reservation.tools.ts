@@ -145,6 +145,16 @@ export function createReservationTools(
           .describe('The ISO-639-1 language code for this call (en, hi, kn, ta, or te).'),
       }),
       func: async (args) => {
+        // Only to a language the caller is using or has asked for. Measured: an
+        // English caller named Kabir was switched to Hindi on the strength of the
+        // name, and answered in Hindi from then on.
+        const cfg = constantsService.private.RESERVATION;
+        const said = ctx.sourceText ?? '';
+        const script = cfg.REPLY_SCRIPT_LANGUAGES.find((entry) => entry.languageCode === args.languageCode);
+        const named = (cfg.LANGUAGE_NAMES[args.languageCode] ?? []).some((name: string) => said.toLowerCase().includes(name));
+        if (script && !new RegExp(script.pattern).test(said) && !named) {
+          return JSON.stringify({ success: false, message: constantsService.public.RESERVATION_LANGUAGE_KEPT });
+        }
         await chatService.updateLanguageCode(ctx.chatId, args.languageCode);
         // Also on the live session, so the voice that speaks the rest of this
         // call follows it without waiting for a reconnect to re-read the row.
@@ -155,12 +165,12 @@ export function createReservationTools(
     new DynamicStructuredTool({
       name: 'note_reservation_dates',
       description:
-        'Write down what the enquirer has just told you, the moment they tell you. Call it first with their dates, and again after every further detail — the party size, the name, the phone number, the email — carrying whatever you now know. Call it again whenever they correct something. Everything recorded at the end of the call is taken from these notes, not from memory.',
+        'Write down what the enquirer has just told you, the moment they tell you: their dates first, then each further detail — the party size, the name, the phone number, the email — as you get it. Pass only what is new or what they have just corrected; everything noted before is kept for you. Everything recorded at the end of the call is taken from these notes, not from memory.',
       schema: z.object({
         checkInDate: z.string().optional().describe('Resolved check-in date as YYYY-MM-DD'),
         checkOutDate: z.string().optional().describe('Resolved check-out date as YYYY-MM-DD. Leave it out until they have actually given you one — do not pick a checkout for them'),
         partySize: z.number().optional().describe('Number of guests, as soon as they have said'),
-        guestName: z.string().optional().describe('The name itself, assembled from the letters they spelled: "Ram", never "R A M" and never "Ram, R A M"'),
+        guestName: z.string().optional().describe('The name itself, in English letters, assembled from the letters they spelled: "Ram", never "R A M", never "Ram, R A M", and never "राम" even when the call is in Hindi'),
         guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
         guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
         occasion: z.string().optional().describe('Anything they are celebrating or want the hotel team to know — an anniversary, a birthday, a honeymoon, a first visit, a request. Fill it the moment they mention it, even if it is the only thing you know so far'),
@@ -184,6 +194,26 @@ export function createReservationTools(
         // dates comes with both; one date that contradicts what is already noted
         // is a slip, and is not written.
         const accepted: Record<string, unknown> = { ...args };
+        // A detail already noted changes only when the caller has just said the new
+        // one. Measured: with every detail noted correctly, a later note re-typed the
+        // whole booking with a phone number and dates nobody had said — the email
+        // was what the caller was giving at the time — and they were recorded.
+        const said = ctx.sourceText ?? '';
+        const letters = (text: string) => text.toLowerCase().replace(/[^\p{L}]/gu, '');
+        const spokenDigits = said.toLowerCase().replace(/\b[a-z]+\b/g, (word) => cfg.SPOKEN_DIGITS[word] ?? word).replace(/\D/g, '');
+        const mentionsADate = /(^|\D)([1-9]|[12]\d|3[01])(\D|$)/.test(said) || new RegExp(cfg.DATE_PATTERN, 'iu').test(said);
+        const evidence: Record<string, (value: string) => boolean> = {
+          guestPhone: (value) => spokenDigits.includes(value.replace(/\D/g, '').slice(-6)),
+          guestEmail: (value) => letters(said).includes(letters(value.split('@')[0])),
+          guestName: (value) => letters(said).includes(letters(value)),
+          checkInDate: () => mentionsADate,
+          checkOutDate: () => mentionsADate,
+        };
+        const kept = Object.keys(evidence).filter((field) => {
+          const value = args[field];
+          return typeof value === 'string' && current[field] && value !== current[field] && !evidence[field](value);
+        });
+        kept.forEach((field) => delete accepted[field]);
         const changesADate = (['checkInDate', 'checkOutDate'] as const).some((field) => args[field] && current[field] && args[field] !== current[field]);
         if (current.checkInDate && current.checkOutDate && changesADate && !(args.checkInDate && args.checkOutDate)) {
           delete accepted.checkInDate;
@@ -207,7 +237,9 @@ export function createReservationTools(
         );
         return JSON.stringify({
           success: true,
-          message: constantsService.public.RESERVATION_DATES_NOTED,
+          message: kept.length
+            ? `${constantsService.public.RESERVATION_NOTE_KEPT} ${kept.map((field) => `${field} stays ${current[field]}`).join(', ')}`
+            : constantsService.public.RESERVATION_DATES_NOTED,
           // The whole booking as it now stands, so the right dates are in front
           // of the agent every time it notes anything.
           data: { ...current, ...accepted },
@@ -234,13 +266,27 @@ export function createReservationTools(
         // with an address it made up from the name — the schema requires one. Every
         // required detail must have been noted during the call, or nothing is recorded.
         const cfg = constantsService.private.RESERVATION;
-        const notes = await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT);
-        const noted = new Set(notes.map((note) => note.subject));
-        const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !noted.has(field));
+        const notes: Record<string, string> = {};
+        (await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)).forEach((note) => {
+          if (note.subject) notes[note.subject] = note.content;
+        });
+        const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !notes[field]);
         if (missing.length > 0) {
           return JSON.stringify({
             success: false,
             message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}`,
+          });
+        }
+        // The record must be what was noted — what the caller confirmed — not what
+        // the model remembers. A read-back from memory can drift; the notes cannot.
+        const same = (field: string, a: unknown, b: string) =>
+          field === 'guestPhone' ? String(a).replace(/\D/g, '').endsWith(b.replace(/\D/g, '').slice(-10))
+            : String(a).trim().toLowerCase() === b.trim().toLowerCase();
+        const differs = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !same(field, args[field], notes[field]));
+        if (differs.length > 0) {
+          return JSON.stringify({
+            success: false,
+            message: `${constantsService.public.RESERVATION_ENQUIRY_MISMATCH} ${differs.map((field) => `${field} (notes: ${notes[field]})`).join(', ')}`,
           });
         }
         // No table by design: the enquiry is the tool call, persisted on the

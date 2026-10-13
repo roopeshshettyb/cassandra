@@ -434,7 +434,9 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
-      RESERVATION_DATES_NOTED: 'Noted. Nothing more to write down — if you have already answered the caller, end your turn now.',
+      RESERVATION_LANGUAGE_KEPT: 'Not switched: the caller is not writing in that language and has not asked for it. A name or a place is not a language — keep answering in the language they are using.',
+      RESERVATION_DATES_NOTED: 'Noted. Nothing more to write down this turn — now reply to the caller.',
+      RESERVATION_REPLY_NUDGE: 'You have not said anything to the caller this turn. Reply to them now, in their language, in one or two short sentences: check what they just told you, or ask for the next detail you still need.',
       RESERVATION_TOOL_BUDGET_SPENT: 'You have used your tools enough for this turn. Do not call any more — reply to the caller now.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
       // A deploy reloads the API and drops every open socket, so a live call can
@@ -447,6 +449,8 @@ export class ConstantsService {
       // a refresh resumes the same conversation.
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
       RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
+      RESERVATION_NOTE_KEPT: 'Not changed, because the caller has not just said a new value — keep what is noted unless they correct it:',
+      RESERVATION_ENQUIRY_MISMATCH: 'Not recorded: this does not match your notes, which hold what the caller confirmed. Read back what is in your notes, then record exactly that. Differs:',
       RESERVATION_ENQUIRY_INCOMPLETE: 'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
@@ -874,6 +878,22 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         STAFF_CHAT_LIST_LIMIT: 50,
         /** Notes handed back to the agent when it reads its scratchpad. */
         SCRATCHPAD_NOTE_LIMIT: 50,
+        /** Spoken digits, so "eight nine zero…" can be checked against a noted phone number. */
+        SPOKEN_DIGITS: { zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9' },
+        /**
+         * The caller is talking about dates, in the five languages: a month, an
+         * ordinal, a relative day. A noted date only changes when their message
+         * matches this or has a day number — not when they are giving their email.
+         */
+        DATE_PATTERN: [
+          '\\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\\b',
+          '\\b[a-z]*(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|teenth|tieth)\\b',
+          '\\b(today|tonight|tomorrow|weekend|next week|dates?)\\b',
+          'जनवरी|फ़रवरी|फरवरी|मार्च|अप्रैल|मई|जून|जुलाई|अगस्त|सितंबर|अक्टूबर|नवंबर|दिसंबर|तारीख|परसों|हफ्ते',
+          'ಜನವರಿ|ಫೆಬ್ರವರಿ|ಮಾರ್ಚ್|ಏಪ್ರಿಲ್|ಜೂನ್|ಜುಲೈ|ಆಗಸ್ಟ್|ಸೆಪ್ಟೆಂಬರ್|ಅಕ್ಟೋಬರ್|ನವೆಂಬರ್|ಡಿಸೆಂಬರ್|ದಿನಾಂಕ|ನಾಳೆ',
+          'ஜனவரி|பிப்ரவரி|மார்ச்|ஏப்ரல்|ஜூன்|ஜூலை|ஆகஸ்ட்|செப்டம்பர்|அக்டோபர்|நவம்பர்|டிசம்பர்|தேதி|நாளை',
+          'జనవరి|ఫిబ్రవరి|మార్చి|ఏప్రిల్|జూన్|జూలై|ఆగస్టు|సెప్టెంబర్|అక్టోబర్|నవంబర్|డిసెంబర్|తేదీ|రేపు',
+        ].join('|'),
         /** Details that must have been noted during the call before an enquiry can be recorded. */
         ENQUIRY_REQUIRED_NOTES: ['checkInDate', 'checkOutDate', 'partySize', 'guestName', 'guestEmail', 'guestPhone'],
         /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */
@@ -890,6 +910,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           { languageCode: 'te', pattern: '[\u0C00-\u0C7F]' },
         ],
         REPLY_LATIN_LANGUAGE: 'en',
+        /** Names a caller uses to ask for a language, so "can we speak Hindi?" written in English still switches. */
+        LANGUAGE_NAMES: { hi: ['hindi', 'हिंदी', 'हिन्दी'], kn: ['kannada', 'ಕನ್ನಡ'], ta: ['tamil', 'தமிழ்'], te: ['telugu', 'తెలుగు'] },
         /** Messages returned when a staff member opens one conversation to read it. */
         STAFF_CONVERSATION_MESSAGE_LIMIT: 200,
         SESSION_TOKEN_SEPARATOR: '.',

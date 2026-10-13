@@ -266,6 +266,7 @@ export class LangGraphService {
     const finished: ToolCallRecord[] = [];
     let endedEarly = false;
     let repliedWithTools = false;
+    let spoke = false;
     // The reservation agent is capped: a tool the model keeps re-reading because
     // the answer did not change otherwise loops until the turn dies. Measured,
     // get_notes was called ten times in a row on one turn. The concierge keeps
@@ -281,7 +282,10 @@ export class LangGraphService {
       for await (const event of eventStream) {
         if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
           const parsed = await this.outputParser.invoke(event.data.chunk);
-          if (parsed) yield parsed;
+          if (parsed) {
+            spoke = true;
+            yield parsed;
+          }
         }
         if (event.event === 'on_chat_model_start' && repliedWithTools) {
           ender.abort();
@@ -319,6 +323,17 @@ export class LangGraphService {
         throw err;
       }
       endedEarly = true;
+    }
+
+    // Never silent. Measured: after its tools ran, the model sometimes returned no
+    // words at all, and the caller heard nothing. A reservation turn that ends
+    // without a reply asks once more, without tools, for just the reply.
+    if (!ctx.account && !spoke && lastResult?.messages?.length) {
+      const nudge = new SystemMessage(this.constantsService.public.RESERVATION_REPLY_NUDGE);
+      for await (const chunk of await this.createModel(0.7).stream([...lastResult.messages, nudge])) {
+        const parsed = await this.outputParser.invoke(chunk);
+        if (parsed) yield parsed;
+      }
     }
 
     if (endedEarly || lastResult?.messages?.length) {
