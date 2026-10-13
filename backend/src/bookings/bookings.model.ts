@@ -2,6 +2,8 @@ import { Table, Model, Column, DataType, ForeignKey, BelongsTo, HasMany } from '
 import { Hotel } from '../hotels/hotels.model';
 import { Account } from '../accounts/accounts.model';
 import { Request } from '../requests/requests.model';
+import { BookingStatus, DEFAULT_BOOKING_STATUS } from '../common/constants/constants.service';
+import { Op } from 'sequelize';
 
 @Table({ tableName: 'bookings' })
 export class Booking extends Model<Booking> {
@@ -26,6 +28,26 @@ export class Booking extends Model<Booking> {
   })
   endTime: Date;
 
+  /**
+   * Whether a stay is running now or still to come. Nothing stores it — it is the two times above
+   * compared against now — so the column is VIRTUAL and declares the filter itself. 'active' takes a
+   * stay starting exactly now, so 'upcoming' uses a strict `>` or one booking would answer to both.
+   */
+  @Column({
+    type: DataType.VIRTUAL,
+    filterable: true,
+    filterOptions: [
+      { value: 'active', label: 'Currently staying' },
+      { value: 'upcoming', label: 'Upcoming stays' },
+    ],
+    filterWhere: (value: string) => {
+      const now = new Date();
+      if (value === 'active') return { startTime: { [Op.lte]: now }, endTime: { [Op.gte]: now } };
+      return { startTime: { [Op.gt]: now } };
+    },
+  })
+  stay: string;
+
   @ForeignKey(() => Account)
   @Column({
     type: DataType.INTEGER,
@@ -46,8 +68,16 @@ export class Booking extends Model<Booking> {
     type: DataType.STRING,
     allowNull: true,
     field: 'room_number',
+    searchable: true,
   })
   roomNumber: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    defaultValue: DEFAULT_BOOKING_STATUS,
+  })
+  status: BookingStatus;
 
   @Column({
     type: DataType.DATE,

@@ -1,0 +1,573 @@
+import { useEffect, useState } from 'react';
+import { Autocomplete, Box, Chip, Typography, TextField, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, MenuItem as MuiMenuItem } from '@mui/material';
+import { motion } from 'framer-motion';
+import request from '../helper/api';
+import MapComponent from './MapComponent';
+import { CARD_SX, ROW_SX, ColumnLabel, FormFieldRow, PrimaryButton, inputSx } from './cards/AppCards';
+import { NAVY, MUTED, BORDER, BG, HOVER_BG, STATUS_ERROR, STATUS_ERROR_BG, STATUS_CONTRAST, STATUS_SUCCESS, STATUS_SUCCESS_BG, STATUS_WARNING, STATUS_WARNING_BG } from '../theme';
+import constants from '../constants.json';
+
+const TYPE_FIELDS = [
+  { field: 'name', label: 'Name', type: 'text', required: true },
+  { field: 'maxOccupancy', label: 'Max occupancy', type: 'number', required: true, getInputProps: () => ({ min: 1 }) },
+  { field: 'totalRooms', label: 'Total rooms', type: 'number', required: true, getInputProps: () => ({ min: 0 }) },
+];
+const ROOM_NUMBER_FIELD = { field: 'roomNumber', label: 'Room number', type: 'text', required: true };
+
+// Above the fixed mobile header (z-index 1400).
+const SELECT_PROPS = { MenuProps: { sx: { zIndex: 1400 } } };
+
+const PERK_CHIP_SX = { fontSize: 11, fontWeight: 700, bgcolor: HOVER_BG, color: NAVY, border: `1px solid ${BORDER}` };
+
+
+const STATUS_COLOURS = {
+  active: { fg: STATUS_SUCCESS, bg: STATUS_SUCCESS_BG },
+  maintenance: { fg: STATUS_WARNING, bg: STATUS_WARNING_BG },
+  out_of_service: { fg: STATUS_ERROR, bg: STATUS_ERROR_BG },
+};
+
+const TYPE_COLS = ['Room type', 'Max occupancy', 'Total rooms', ''];
+const TYPE_GRID = '2fr 1fr 1fr 130px';
+const ROOM_COLS = ['Room number', 'Room type', 'Status', ''];
+const ROOM_GRID = '1.5fr 1.5fr 1fr 130px';
+const INVENTORY_COLS = ['Date', 'Total', 'Reserved', 'Blocked', 'Available'];
+const INVENTORY_GRID = '1.6fr 1fr 1fr 1fr 1fr';
+const AVAILABILITY_COLS = ['Room type', 'Max occupancy', 'Available'];
+const AVAILABILITY_GRID = '2fr 1fr 1fr';
+
+
+const RoomTypeImage = ({ data: url, onRemove }) => (
+  <Box sx={{ position: 'relative', width: 96, height: 72, borderRadius: 1.5, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+    <Box component="img" src={url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    <Box
+      component="button"
+      type="button"
+      onClick={() => onRemove(url)}
+      sx={{
+        position: 'absolute', top: 2, right: 2, width: 20, height: 20, lineHeight: 1,
+        border: 'none', borderRadius: '50%', cursor: 'pointer',
+        bgcolor: STATUS_ERROR, color: STATUS_CONTRAST, fontSize: 12, fontWeight: 700,
+      }}
+    >
+      ×
+    </Box>
+  </Box>
+);
+
+const defaultTypeForm = { name: '', maxOccupancy: '', totalRooms: '', perks: [] };
+const defaultRoomForm = { roomNumber: '', roomTypeId: '', status: constants.ROOM_STATUS_DEFAULT };
+
+const toDateInput = date => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (date, days) => {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+// Same placement as the New Booking dialog: below the header and clear of the 20vw sidebar.
+const dialogSx = isMobile => ({ '& .MuiDialog-container': { alignItems: 'flex-start', pt: 'calc(var(--app-header-height) + 1svh)', pl: isMobile ? 0 : '20vw' } });
+const DIALOG_PAPER_PROPS = { sx: { borderRadius: 3, maxHeight: 'calc(100svh - var(--app-header-height) - 1svh - 64px - 2svh)' } };
+const DIALOG_TITLE_SX = { fontWeight: 700, color: NAVY };
+const FORM_SX = { display: 'flex', flexDirection: 'column', minHeight: 0 };
+const ACTIONS_SX = { px: 3, pb: 3, pt: 2, borderTop: `1px solid ${BORDER}`, flexShrink: 0 };
+
+const TODAY = toDateInput(new Date());
+const IN_A_WEEK = toDateInput(addDays(new Date(), 7));
+
+const ActionButtons = ({ onEdit, onDelete }) => (
+  <Box sx={{ display: 'flex', gap: 1, mt: { xs: 1, md: 0 } }}>
+    <Box component="button" onClick={onEdit}
+      sx={{ border: `1px solid ${BORDER}`, bgcolor: 'transparent', color: NAVY, px: 1.5, py: 0.5, borderRadius: 1, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+      Edit
+    </Box>
+    <Box component="button" onClick={onDelete}
+      sx={{ border: `1px solid ${STATUS_ERROR_BG}`, bgcolor: 'transparent', color: STATUS_ERROR, px: 1.5, py: 0.5, borderRadius: 1, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+      Delete
+    </Box>
+  </Box>
+);
+
+const RoomTypeRow = ({ data: roomType, onEdit, onDelete, canManage }) => {
+  const actions = canManage && <ActionButtons onEdit={() => onEdit(roomType)} onDelete={() => onDelete(roomType)} />;
+  return (
+    <>
+      <Box sx={{ ...ROW_SX, display: { xs: 'none', md: 'grid' }, gridTemplateColumns: TYPE_GRID, px: 2.5, py: 1.5, alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{roomType.name}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED }}>{roomType.maxOccupancy} guests</Typography>
+        <Typography sx={{ fontSize: 12, color: NAVY, fontWeight: 600 }}>{roomType.totalRooms}</Typography>
+        {actions}
+      </Box>
+      <Box sx={{ display: { xs: 'block', md: 'none' }, px: 2, py: 1.5, borderBottom: `1px solid ${BORDER}` }}>
+        <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{roomType.name}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>
+          Sleeps {roomType.maxOccupancy} · {roomType.totalRooms} rooms
+        </Typography>
+        {actions}
+      </Box>
+    </>
+  );
+};
+
+const RoomRow = ({ data: room, onEdit, onDelete, canManage }) => {
+  const colours = STATUS_COLOURS[room.status];
+  const label = constants.ROOM_STATUSES.find(s => s.value === room.status).label;
+  const actions = canManage && <ActionButtons onEdit={() => onEdit(room)} onDelete={() => onDelete(room)} />;
+  const chip = (
+    <Typography sx={{ fontSize: 11, fontWeight: 700, color: colours.fg, bgcolor: colours.bg, px: 1, py: 0.25, borderRadius: 1, display: 'inline-block' }}>
+      {label}
+    </Typography>
+  );
+  return (
+    <>
+      <Box sx={{ ...ROW_SX, display: { xs: 'none', md: 'grid' }, gridTemplateColumns: ROOM_GRID, px: 2.5, py: 1.5, alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{room.roomNumber}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED }}>{room.roomType.name}</Typography>
+        <Box>{chip}</Box>
+        {actions}
+      </Box>
+      <Box sx={{ display: { xs: 'block', md: 'none' }, px: 2, py: 1.5, borderBottom: `1px solid ${BORDER}` }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{room.roomNumber}</Typography>
+          {chip}
+        </Box>
+        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>{room.roomType.name}</Typography>
+        {actions}
+      </Box>
+    </>
+  );
+};
+
+const InventoryRow = ({ data: night }) => {
+  const soldOut = night.available <= 0;
+  return (
+    <>
+      <Box sx={{ ...ROW_SX, display: { xs: 'none', md: 'grid' }, gridTemplateColumns: INVENTORY_GRID, px: 2.5, py: 1.25, alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{night.date}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED }}>{night.total}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED }}>{night.reserved}</Typography>
+        <Typography sx={{ fontSize: 12, color: MUTED }}>{night.blocked}</Typography>
+        <Typography sx={{ fontSize: 13, fontWeight: 800, color: soldOut ? STATUS_ERROR : STATUS_SUCCESS }}>{night.available}</Typography>
+      </Box>
+      <Box sx={{ display: { xs: 'block', md: 'none' }, px: 2, py: 1.5, borderBottom: `1px solid ${BORDER}` }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{night.date}</Typography>
+          <Typography sx={{ fontSize: 13, fontWeight: 800, color: soldOut ? STATUS_ERROR : STATUS_SUCCESS }}>
+            {night.available} available
+          </Typography>
+        </Box>
+        <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>
+          {night.total} total · {night.reserved} reserved · {night.blocked} blocked
+        </Typography>
+      </Box>
+    </>
+  );
+};
+
+const AvailabilityRow = ({ data: roomType }) => (
+  <>
+    <Box sx={{ ...ROW_SX, display: { xs: 'none', md: 'grid' }, gridTemplateColumns: AVAILABILITY_GRID, px: 2.5, py: 1.25, alignItems: 'center', gap: 1 }}>
+      <Typography sx={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{roomType.name}</Typography>
+      <Typography sx={{ fontSize: 12, color: MUTED }}>{roomType.maxOccupancy} guests</Typography>
+      <Typography sx={{ fontSize: 13, fontWeight: 800, color: STATUS_SUCCESS }}>{roomType.available}</Typography>
+    </Box>
+    <Box sx={{ display: { xs: 'block', md: 'none' }, px: 2, py: 1.5, borderBottom: `1px solid ${BORDER}` }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography sx={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{roomType.name}</Typography>
+        <Typography sx={{ fontSize: 13, fontWeight: 800, color: STATUS_SUCCESS }}>{roomType.available} free</Typography>
+      </Box>
+      <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>Sleeps {roomType.maxOccupancy}</Typography>
+    </Box>
+  </>
+);
+
+const SectionHeader = ({ title, subtitle, action }) => (
+  <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+    <Box>
+      <Typography sx={{ fontSize: 14, fontWeight: 800, color: NAVY }}>{title}</Typography>
+      <Typography sx={{ fontSize: 12, color: MUTED, mt: 0.25 }}>{subtitle}</Typography>
+    </Box>
+    {action}
+  </Box>
+);
+
+function ManageRooms({ hotelId, tab, isMobile, account, loading, setLoading, alertSuccess, alertError }) {
+  const canManage = !!constants.PERMISSIONS.CAN_MANAGE_ROOMS[account.role];
+
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [availability, setAvailability] = useState([]);
+
+  const [showTypeForm, setShowTypeForm] = useState(false);
+  const [showRoomForm, setShowRoomForm] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [editingType, setEditingType] = useState(null);
+  const [editingRoom, setEditingRoom] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [typeForm, setTypeForm] = useState(defaultTypeForm);
+  const [editingTypeImages, setEditingTypeImages] = useState([]);
+  const [pendingImages, setPendingImages] = useState([]);
+  const [roomForm, setRoomForm] = useState(defaultRoomForm);
+
+  const [inventoryFilter, setInventoryFilter] = useState({ roomTypeId: '', startDate: TODAY, endDate: IN_A_WEEK });
+  const [inventoryForm, setInventoryForm] = useState({ total: '', blocked: '' });
+  const [availabilityForm, setAvailabilityForm] = useState({ startDate: TODAY, endDate: IN_A_WEEK, guests: 2, rooms: 1 });
+
+  const fetchRoomTypes = () => request({
+    endpoint: `/rooms/types?hotelId=${hotelId}`,
+    method: 'GET', setLoading, setData: setRoomTypes, defaultData: [], alertError,
+  });
+
+  const fetchRooms = () => request({
+    endpoint: `/rooms?hotelId=${hotelId}`,
+    method: 'GET', setLoading, setData: setRooms, defaultData: [], alertError,
+  });
+
+  useEffect(() => { fetchRoomTypes(); fetchRooms(); }, []);
+
+  const handleTypeChange = field => e => setTypeForm(prev => ({ ...prev, [field]: e.target.value }));
+  const handleRoomChange = field => e => setRoomForm(prev => ({ ...prev, [field]: e.target.value }));
+  const handleFilterChange = field => e => setInventoryFilter(prev => ({ ...prev, [field]: e.target.value }));
+  const handleInventoryFormChange = field => e => setInventoryForm(prev => ({ ...prev, [field]: e.target.value }));
+  const handleAvailabilityFormChange = field => e => setAvailabilityForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handlePerksChange = (_, perks) => setTypeForm(prev => ({ ...prev, perks }));
+
+  const openAddType = () => { setEditingType(null); setTypeForm(defaultTypeForm); setPendingImages([]); setShowTypeForm(true); };
+  const openEditType = roomType => {
+    setEditingType(roomType);
+    setTypeForm({ name: roomType.name, maxOccupancy: roomType.maxOccupancy, totalRooms: roomType.totalRooms, perks: roomType.perks });
+    setEditingTypeImages(roomType.images);
+    setShowTypeForm(true);
+  };
+
+  const openAddRoom = () => { setEditingRoom(null); setRoomForm(defaultRoomForm); setShowRoomForm(true); };
+  const openEditRoom = room => {
+    setEditingRoom(room);
+    setRoomForm({ roomNumber: room.roomNumber, roomTypeId: room.roomTypeId, status: room.status });
+    setShowRoomForm(true);
+  };
+
+  const uploadImage = async (roomTypeId, file, onSuccessAlert) => {
+    const presigned = await request({
+      endpoint: `/rooms/types/${roomTypeId}/images/presigned-url`,
+      method: 'POST',
+      data: { fileName: file.name, fileSize: file.size, contentType: file.type },
+      alertError,
+    });
+    const { presignedUrl, s3Url } = presigned?.data || {};
+    if (!presignedUrl) return null;
+
+    // A network error rejects instead of returning !ok; caught so a new room type's dialog still closes.
+    const put = await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file }).catch(() => null);
+    if (!put?.ok) { alertError?.('Image upload failed'); return null; }
+
+    return request({
+      endpoint: `/rooms/types/${roomTypeId}/images`,
+      method: 'POST',
+      data: { s3Url },
+      alertSuccess: onSuccessAlert, alertError,
+    });
+  };
+
+  const pickTypeImage = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    // A new room type has no id yet, so its images are uploaded once it is created.
+    if (!editingType) { setPendingImages(prev => [...prev, { url: URL.createObjectURL(file), file }]); return; }
+
+    setLoading(true);
+    try {
+      const res = await uploadImage(editingType.id, file, alertSuccess);
+      if (res?.success) { setEditingTypeImages(res.data.images); fetchRoomTypes(); }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteSavedImage = async url => {
+    const res = await request({
+      endpoint: `/rooms/types/${editingType.id}/images`,
+      method: 'DELETE',
+      data: { s3Url: url },
+      setLoading, alertSuccess, alertError,
+    });
+    if (res?.success) { setEditingTypeImages(res.data.images); fetchRoomTypes(); }
+  };
+
+  const submitType = async e => {
+    e.preventDefault();
+    const payload = {
+      name: typeForm.name,
+      maxOccupancy: Number(typeForm.maxOccupancy),
+      totalRooms: Number(typeForm.totalRooms),
+      perks: typeForm.perks,
+    };
+    const res = await request({
+      endpoint: editingType ? `/rooms/types/${editingType.id}` : '/rooms/types',
+      method: editingType ? 'PATCH' : 'POST',
+      data: editingType ? payload : { hotelId: Number(hotelId), ...payload },
+      setLoading, alertSuccess, alertError,
+    });
+    if (!res?.success) return;
+    if (!editingType && pendingImages.length > 0) {
+      setLoading(true);
+      try {
+        for (const { file } of pendingImages) await uploadImage(res.data.id, file);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setShowTypeForm(false);
+    fetchRoomTypes();
+  };
+
+  const typeImages = editingType ? editingTypeImages : pendingImages.map(image => image.url);
+  const removeImage = editingType ? deleteSavedImage : url => setPendingImages(prev => prev.filter(image => image.url !== url));
+
+  const submitRoom = async e => {
+    e.preventDefault();
+    const payload = { roomNumber: roomForm.roomNumber, status: roomForm.status };
+    const res = await request({
+      endpoint: editingRoom ? `/rooms/${editingRoom.id}` : '/rooms',
+      method: editingRoom ? 'PATCH' : 'POST',
+      data: editingRoom ? payload : { roomTypeId: Number(roomForm.roomTypeId), ...payload },
+      setLoading, alertSuccess, alertError,
+    });
+    if (res?.success) { setShowRoomForm(false); fetchRooms(); }
+  };
+
+  const handleDelete = async () => {
+    const isType = deleteTarget.kind === 'type';
+    const res = await request({
+      endpoint: isType ? `/rooms/types/${deleteTarget.item.id}` : `/rooms/${deleteTarget.item.id}`,
+      method: 'DELETE', setLoading, alertSuccess, alertError,
+    });
+    if (res?.success) {
+      setShowDelete(false);
+      if (isType) fetchRoomTypes(); else fetchRooms();
+    }
+  };
+
+  const loadInventory = async () => {
+    if (!inventoryFilter.roomTypeId) { alertError?.('Pick a room type first'); return; }
+    await request({
+      endpoint: `/rooms/inventory?roomTypeId=${inventoryFilter.roomTypeId}&startDate=${inventoryFilter.startDate}&endDate=${inventoryFilter.endDate}`,
+      method: 'GET', setLoading, setData: setInventory, defaultData: [], alertError,
+    });
+  };
+
+  const updateInventory = async () => {
+    if (!inventoryFilter.roomTypeId) { alertError?.('Pick a room type first'); return; }
+    const total = inventoryForm.total === '' ? undefined : parseInt(inventoryForm.total, 10);
+    const blocked = inventoryForm.blocked === '' ? undefined : parseInt(inventoryForm.blocked, 10);
+
+    const res = await request({
+      endpoint: '/rooms/inventory', method: 'PATCH',
+      data: {
+        roomTypeId: Number(inventoryFilter.roomTypeId),
+        startDate: inventoryFilter.startDate,
+        endDate: inventoryFilter.endDate,
+        total, blocked,
+      },
+      // Not setData: on failure it would clear the nights, which are unchanged.
+      setLoading, alertSuccess, alertError,
+    });
+    if (res?.success) { setInventory(res.data); setInventoryForm({ total: '', blocked: '' }); }
+  };
+
+  const checkAvailability = async () => {
+    await request({
+      endpoint: `/rooms/availability?hotelId=${hotelId}&startDate=${availabilityForm.startDate}&endDate=${availabilityForm.endDate}&guests=${availabilityForm.guests}&rooms=${availabilityForm.rooms}`,
+      method: 'GET', setLoading, setData: setAvailability, defaultData: [], alertError,
+    });
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+      {/* Room types */}
+      {tab === 'types' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Room types"
+            subtitle="Deluxe King, Twin, and so on. Total rooms is what each night is stocked with."
+            action={canManage && <PrimaryButton onClick={openAddType}>+ Add room type</PrimaryButton>}
+          />
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: TYPE_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={TYPE_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={RoomTypeRow} data={roomTypes} isLoading={loading} canManage={canManage}
+            onEdit={openEditType} onDelete={item => { setDeleteTarget({ kind: 'type', item }); setShowDelete(true); }} />
+        </Box>
+      )}
+
+      {/* Physical rooms */}
+      {tab === 'rooms' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Rooms"
+            subtitle="The physical rooms guests are assigned to when a booking is made."
+            action={canManage && <PrimaryButton onClick={openAddRoom}>+ Add room</PrimaryButton>}
+          />
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: ROOM_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={ROOM_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={RoomRow} data={rooms} isLoading={loading} canManage={canManage}
+            onEdit={openEditRoom} onDelete={item => { setDeleteTarget({ kind: 'room', item }); setShowDelete(true); }} />
+        </Box>
+      )}
+
+      {/* Dated inventory */}
+      {tab === 'inventory' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Inventory calendar"
+            subtitle="Rooms sellable per night. Available is total minus reserved minus blocked."
+          />
+          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
+            <TextField select label="Room type" value={inventoryFilter.roomTypeId} onChange={handleFilterChange('roomTypeId')} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
+              {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
+            </TextField>
+            <TextField type="date" label="From" value={inventoryFilter.startDate} onChange={handleFilterChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="date" label="To" value={inventoryFilter.endDate} onChange={handleFilterChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <PrimaryButton onClick={loadInventory}>Show nights</PrimaryButton>
+          </Box>
+
+          {canManage && (
+            <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
+              <TextField type="number" label="Set total" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={inventoryForm.total} onChange={handleInventoryFormChange('total')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+              <TextField type="number" label="Set blocked" placeholder="Leave blank to keep" inputProps={{ min: 0 }} value={inventoryForm.blocked} onChange={handleInventoryFormChange('blocked')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+              <PrimaryButton onClick={updateInventory}>Apply to range</PrimaryButton>
+            </Box>
+          )}
+
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: INVENTORY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={INVENTORY_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={InventoryRow} data={inventory} isLoading={loading} />
+        </Box>
+      )}
+
+      {/* Availability search */}
+      {tab === 'availability' && (
+        <Box sx={{ ...CARD_SX, mb: 2 }}>
+          <SectionHeader
+            title="Check availability"
+            subtitle="A room type only shows here if every night of the stay has enough rooms free."
+          />
+          <Box sx={{ px: 2.5, py: 2, borderBottom: `1px solid ${BORDER}`, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'stretch' }}>
+            <TextField type="date" label="Check-in" value={availabilityForm.startDate} onChange={handleAvailabilityFormChange('startDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="date" label="Check-out" value={availabilityForm.endDate} onChange={handleAvailabilityFormChange('endDate')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="number" label="Guests" inputProps={{ min: 1 }} value={availabilityForm.guests} onChange={handleAvailabilityFormChange('guests')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <TextField type="number" label="Rooms" inputProps={{ min: 1 }} value={availabilityForm.rooms} onChange={handleAvailabilityFormChange('rooms')} InputLabelProps={{ shrink: true }} sx={inputSx} />
+            <PrimaryButton onClick={checkAvailability}>Search</PrimaryButton>
+          </Box>
+          <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: AVAILABILITY_GRID, px: 2.5, py: 1.25, bgcolor: BG, borderBottom: `1px solid ${BORDER}` }}>
+            <MapComponent Component={ColumnLabel} data={AVAILABILITY_COLS} showNoDataAvailable={false} />
+          </Box>
+          <MapComponent Component={AvailabilityRow} data={availability} isLoading={loading} />
+        </Box>
+      )}
+
+      {/* Room type add / edit */}
+      <Dialog open={showTypeForm} onClose={() => setShowTypeForm(false)} fullWidth maxWidth="sm" PaperProps={DIALOG_PAPER_PROPS} sx={dialogSx(isMobile)}>
+        <DialogTitle sx={DIALOG_TITLE_SX}>{editingType ? 'Edit room type' : 'Add room type'}</DialogTitle>
+        <Box component="form" onSubmit={submitType} sx={FORM_SX}>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <MapComponent Component={FormFieldRow} data={TYPE_FIELDS} values={typeForm} onChange={handleTypeChange} showNoDataAvailable={false} isLoading={false} />
+              <Autocomplete
+                multiple
+                freeSolo
+                options={[]}
+                value={typeForm.perks}
+                onChange={handlePerksChange}
+                renderTags={(perks, getTagProps) => perks.map((perk, index) => {
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return <Chip key={key} label={perk} size="small" {...tagProps} sx={PERK_CHIP_SX} />;
+                })}
+                renderInput={params => (
+                  <TextField
+                    {...params}
+                    label="Perks"
+                    placeholder={typeForm.perks.length ? 'Add another' : 'Breakfast included'}
+                    helperText="Press Enter after each perk"
+                    InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+                    sx={inputSx}
+                  />
+                )}
+              />
+              {editingType && (
+                <Typography sx={{ fontSize: 12, color: MUTED }}>
+                  Changing total rooms stocks nights that have not opened yet. Use the inventory calendar to restock nights already in use.
+                </Typography>
+              )}
+              <Box>
+                <Typography sx={{ fontSize: 12, color: MUTED, mb: 0.75 }}>
+                  Images ({typeImages.length}/{constants.ROOM_TYPE_IMAGES_MAX_COUNT})
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                  <MapComponent Component={RoomTypeImage} data={typeImages} showNoDataAvailable={false} onRemove={removeImage} />
+                </Box>
+                <Button variant="outlined" component="label" disabled={loading || typeImages.length >= constants.ROOM_TYPE_IMAGES_MAX_COUNT} fullWidth sx={{ py: 1 }}>
+                  {loading ? 'Uploading…' : 'Add image'}
+                  <input type="file" hidden accept="image/*" onChange={pickTypeImage} />
+                </Button>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={ACTIONS_SX}>
+            <Button onClick={() => setShowTypeForm(false)} sx={{ color: MUTED }}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary">{editingType ? 'Save changes' : 'Add room type'}</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+
+      {/* Room add / edit */}
+      <Dialog open={showRoomForm} onClose={() => setShowRoomForm(false)} fullWidth maxWidth="sm" PaperProps={DIALOG_PAPER_PROPS} sx={dialogSx(isMobile)}>
+        <DialogTitle sx={DIALOG_TITLE_SX}>{editingRoom ? 'Edit room' : 'Add room'}</DialogTitle>
+        <Box component="form" onSubmit={submitRoom} sx={FORM_SX}>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <FormFieldRow data={ROOM_NUMBER_FIELD} values={roomForm} onChange={handleRoomChange} />
+              <TextField fullWidth select label="Room type" value={roomForm.roomTypeId} onChange={handleRoomChange('roomTypeId')} required disabled={!!editingRoom} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
+                {roomTypes.map(rt => <MuiMenuItem key={rt.id} value={rt.id}>{rt.name}</MuiMenuItem>)}
+              </TextField>
+              <TextField fullWidth select label="Status" value={roomForm.status} onChange={handleRoomChange('status')} SelectProps={SELECT_PROPS} InputLabelProps={{ shrink: true }} sx={inputSx}>
+                {constants.ROOM_STATUSES.map(s => <MuiMenuItem key={s.value} value={s.value}>{s.label}</MuiMenuItem>)}
+              </TextField>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={ACTIONS_SX}>
+            <Button onClick={() => setShowRoomForm(false)} sx={{ color: MUTED }}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary">{editingRoom ? 'Save changes' : 'Add room'}</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <Dialog open={showDelete} onClose={() => setShowDelete(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }} sx={dialogSx(isMobile)}>
+        <DialogTitle sx={DIALOG_TITLE_SX}>{deleteTarget?.kind === 'type' ? 'Delete room type' : 'Delete room'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Delete &quot;{deleteTarget?.kind === 'type' ? deleteTarget.item.name : deleteTarget?.item.roomNumber}&quot;? Cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setShowDelete(false)} sx={{ color: MUTED }}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">Delete</Button>
+        </DialogActions>
+      </Dialog>
+    </motion.div>
+  );
+}
+
+export default ManageRooms;

@@ -10,6 +10,7 @@ import { AwsService } from '../common/aws/aws.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { HotelsService } from './hotels.service';
 import { HotelBrand } from './brands.model';
+import { buildListWhere, getListFilters, validateListQuery, ListQuery } from '../common/filters/list-filters';
 import { Hotel } from './hotels.model';
 import { HotelAccount } from './hotel-accounts.model';
 import { HOTELS_REPOSITORY, HOTEL_BRANDS_REPOSITORY, HOTEL_ACCOUNTS_REPOSITORY } from './hotels.repository';
@@ -495,8 +496,15 @@ ${crawlData}`;
     };
   }
 
-  async listAllBrands() {
+  /** The filters this list offers, derived from the HotelBrand model's flagged columns. */
+  getBrandListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(HotelBrand) };
+  }
+
+  async listAllBrands(query?: ListQuery) {
+    validateListQuery(HotelBrand, query);
     return this.brandsRepository.findAll({
+      where: buildListWhere(HotelBrand, query),
       order: [['name', 'ASC']],
       include: [{ model: Hotel, as: 'hotels', attributes: ['id'] }],
     });

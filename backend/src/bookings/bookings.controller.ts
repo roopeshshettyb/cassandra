@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   ValidationPipe,
   ParseIntPipe,
@@ -16,15 +17,23 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentAccount } from '../auth/decorators/account.decorator';
 import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { Account } from '../accounts/accounts.model';
+import { ListQuery } from '../common/filters/list-filters';
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
+  // The query is validated against the model's flagged columns, not a DTO — see list-filters.
   @Get()
-  async findAll(@CurrentAccount() account: Account) {
-    return this.bookingsService.findAllForAccount(account);
+  async findAll(@CurrentAccount() account: Account, @Query() query: ListQuery) {
+    return this.bookingsService.findAllForAccount(account, query);
+  }
+
+  /** The filters this list offers, so the UI does not hardcode them. Declared before :id to match first. */
+  @Get('filters')
+  getFilters() {
+    return this.bookingsService.getListFilterMeta();
   }
 
   @Get('active')

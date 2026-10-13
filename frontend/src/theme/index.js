@@ -55,6 +55,8 @@ export const STATUS_WARNING = '#C5A022';
 export const STATUS_WARNING_BG = 'rgba(197,160,34,0.1)';
 export const STATUS_ERROR = '#DC2626';
 export const STATUS_ERROR_BG = 'rgba(220,38,38,0.1)';
+// Text and icons on a solid status colour.
+export const STATUS_CONTRAST = '#ffffff';
 export const BACKDROP_BG = 'rgba(0,0,0,0.5)';
 export const HOVER_BG = 'rgba(0,0,0,0.04)';
 export const TEXT_MUTED_LIGHT = 'rgba(255,255,255,0.7)';

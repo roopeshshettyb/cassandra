@@ -18,7 +18,11 @@ import { MenuItem } from '../restaurant/restaurant.model';
 import { Cost } from '../costs/costs.model';
 import { Notification } from '../notifications/notifications.model';
 import { HotelIntegration } from '../integrations/hotel-integrations.model';
+import { RoomType } from '../rooms/room-types.model';
+import { Room } from '../rooms/rooms.model';
+import { RoomInventory } from '../rooms/room-inventory.model';
 import { Op, literal } from 'sequelize';
+import { buildListWhere, getListFilters, validateListQuery } from '../common/filters/list-filters';
 
 export interface HotelMemberRow {
   id: number;
@@ -73,6 +77,11 @@ export class HotelsService {
     return hotel;
   }
 
+  /** The filters this list offers, derived from the Hotel model's flagged columns. */
+  getListFilterMeta() {
+    return { success: true, message: null, data: getListFilters(Hotel) };
+  }
+
   async findAllForAccount(currentAccount: Account, options?: HotelQueryOptions): Promise<any> {
     const hotelsWhere: any = {};
 
@@ -103,13 +112,10 @@ export class HotelsService {
       hotelsWhere.id = hotelIds.length > 0 ? hotelIds : -1;
     }
 
-    if (options?.keywords) {
-      const pattern = `%${options.keywords}%`;
-      hotelsWhere[Op.or] = [
-        { name: { [Op.iLike]: pattern } },
-        { address: { [Op.iLike]: pattern } },
-      ];
-    }
+    // `keywords` is what the agent tools have always called it; the UI sends the generic `search`.
+    const query = options?.keywords ? { ...options, search: options.keywords } : options;
+    validateListQuery(Hotel, query, ['keywords', 'sortBy', 'sortOrder', 'limit']);
+    buildListWhere(Hotel, query, hotelsWhere);
 
     const sortBy = options?.sortBy ?? 'name';
     const sortOrder = options?.sortOrder === 'desc' ? 'DESC' : 'ASC';
@@ -242,6 +248,18 @@ export class HotelsService {
       await Notification.destroy({ where: { hotelId: id }, force, transaction });
       await Cost.destroy({ where: { hotelId: id }, force, transaction });
       await HotelIntegration.destroy({ where: { hotelId: id }, force, transaction });
+
+      // room_inventory is keyed by room type, not hotel.
+      const roomTypes = await RoomType.findAll({
+        where: { hotelId: id },
+        attributes: ['id'],
+        paranoid: !force,
+        transaction,
+      });
+      const roomTypeIds = roomTypes.map((roomType) => roomType.id);
+      await RoomInventory.destroy({ where: { roomTypeId: { [Op.in]: roomTypeIds } }, force, transaction });
+      await Room.destroy({ where: { hotelId: id }, force, transaction });
+      await RoomType.destroy({ where: { hotelId: id }, force, transaction });
       await this.hotelAccountsRepository.destroy({ where: { hotelId: id }, force, transaction });
       await MenuItem.destroy({ where: { hotelId: id }, force, transaction });
       await this.hotelsRepository.destroy({ where: { id }, force, transaction });

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Box, IconButton, Button, Badge, Typography } from '@mui/material';
-import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent, CorporateFare, AutoAwesome } from '@mui/icons-material';
+import { Home, Menu, Login as LoginIcon, Logout, Dashboard, People, ShoppingCart, Notifications as NotificationsIcon, ArrowBack, Business, AttachMoney, Layers, SupportAgent, CorporateFare, KingBed, AutoAwesome } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import MapComponent from './MapComponent';
@@ -61,6 +61,7 @@ const ROLE_SPECIFIC_ITEMS = {
   admin: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
+    { key: 'Manage Rooms', icon: KingBed, text: 'Manage Rooms', link: '/rooms', protectedNavItem: true },
     { key: 'Manage Brands', icon: Layers, text: 'Manage Brands', link: '/brands', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
@@ -71,6 +72,7 @@ const ROLE_SPECIFIC_ITEMS = {
   hotel_owner: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
+    { key: 'Manage Rooms', icon: KingBed, text: 'Manage Rooms', link: '/rooms', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
     { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
@@ -80,6 +82,7 @@ const ROLE_SPECIFIC_ITEMS = {
   hotel_staff: [
     { key: 'Dashboard', icon: Dashboard, text: 'Dashboard', link: '/dashboard', protectedNavItem: true },
     { key: 'Manage Hotels', icon: Business, text: 'Manage Hotels', link: '/hotels', protectedNavItem: true },
+    { key: 'Manage Rooms', icon: KingBed, text: 'Manage Rooms', link: '/rooms', protectedNavItem: true },
     { key: 'Manage Bookings', icon: People, text: 'Manage Bookings', link: '/bookings', protectedNavItem: true },
     { key: 'Manage Requests', icon: ShoppingCart, text: 'Manage Requests', link: '/requests', protectedNavItem: true },
     { key: 'AI Bookings', icon: AutoAwesome, text: 'AI Bookings', link: '/ai-bookings', protectedNavItem: true },
