@@ -95,12 +95,6 @@ function Enquiry({ data: enquiry, index, total }) {
   );
 }
 
-/**
- * One reservation conversation. A conversation only becomes a booking enquiry
- * once the agent has captured the details, so the two states look different:
- * captured details get the guest's name and dates, the rest show what the
- * visitor was last told.
- */
 /** One message of the conversation, as staff read it. */
 function ConversationLine({ data: message }) {
   return (
@@ -115,6 +109,12 @@ function ConversationLine({ data: message }) {
   );
 }
 
+/**
+ * One reservation conversation. A conversation only becomes a booking enquiry
+ * once the agent has captured the details, so the two states look different:
+ * captured details get the guest's name and dates, the rest show what the
+ * visitor was last told.
+ */
 const AiBookingCard = ({ data }) => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(null);
