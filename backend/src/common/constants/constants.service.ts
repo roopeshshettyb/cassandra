@@ -730,11 +730,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          */
         STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'en'),
         /**
-         * Extra proper nouns to bias the transcript towards, comma separated.
-         * The property's own name and brand are added automatically; this is
-         * for anything else a given deployment keeps hearing wrong — a suburb,
-         * a room type, a festival package.
+         * Proper nouns to bias the transcript towards, comma separated — a suburb,
+         * a room type, a festival package a deployment keeps hearing wrong. Use
+         * sparingly: a biased term is heard in background noise too.
          */
+        /** A transcript made only of these is noise, not the caller: no turn is taken. */
+        NOISE_WORDS: ['a', 'i', 'uh', 'um', 'umm', 'hmm', 'mm', 'ah', 'eh', 'so', 'the', 'and', 'oh'],
         STT_KEYTERMS: (this.configService.get<string>('RESERVATION_VOICE_STT_KEYTERMS', ''))
           .split(',')
           .map((term) => term.trim())
