@@ -395,6 +395,10 @@ export class ConstantsService {
       ERROR_RESERVATION_SETUP_FAILED: 'We could not start the reservation chat. Please try again.',
       ERROR_RESERVATION_MESSAGE_FAILED: 'We could not send that message. Please try again.',
       RESERVATION_TITLE: 'Reserve your stay',
+      /** The chat's opening message, like the voice line's greeting. Shown on screen, never generated. */
+      RESERVATION_CHAT_GREETING: 'Hello, welcome to {HOTEL}! When were you thinking of staying with us?',
+      /** Replaced with the property's name in both greetings. */
+      RESERVATION_GREETING_HOTEL_TOKEN: '{HOTEL}',
       RESERVATION_SUBTITLE: 'Tell us your dates and we will take it from there',
       RESERVATION_INPUT_PLACEHOLDER: 'Ask about rooms, rates or availability…',
       RESERVATION_FATAL_HELP: 'This reservation link may be out of date. Please check the link, or contact the property directly to book.',
@@ -827,7 +831,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           'RESERVATION_VOICE_GREETING',
           '[warm] Hello, thanks for calling {HOTEL}. When were you thinking of staying with us?',
         ),
-        GREETING_HOTEL_TOKEN: '{HOTEL}',
         THINKING_FILLERS: [
           '[thoughtful] Mmm…',
           '[thoughtful] Mm-hmm…',
