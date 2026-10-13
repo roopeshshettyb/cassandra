@@ -168,7 +168,6 @@
   "RESERVATION_VOICE_MIC_DENIED": "We could not access your microphone. Check your browser permissions and try again.",
   "VOICE_PLAYBACK_WATCH_GRACE_MS": 2000,
   "RESERVATION_VOICE_AMBIENCE_DBFS": -35,
-  "RESERVATION_VOICE_AMBIENCE_URL": "",
   "ERROR_RESERVATION_VOICE_TURN_LIMIT": "This voice call has reached its limit. Please refresh to start again, or call the property directly.",
   "ERROR_RESERVATION_VOICE_RATE_LIMITED": "Too many voice requests from your connection. Please wait a little and try again.",
   "ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS": "You already have a voice call open. Please close it before starting another.",

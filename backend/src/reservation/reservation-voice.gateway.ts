@@ -112,8 +112,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
   }
 
   /**
-   * Deepgram occasionally does not emit UtteranceEnd — a dropped frame, a noisy
-   * line — and the caller is then left speaking to a microphone that never
+   * Speech-to-text occasionally never says the caller stopped — a dropped frame,
+   * a noisy line — and the caller is then left speaking to a microphone that never
    * answers. Every chunk pushes this timer out; if audio simply stops and
    * nothing ended the turn, we end it ourselves with whatever was heard.
    */
@@ -204,7 +204,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           keyterms: cfg.STT_KEYTERMS,
         });
       client.sttSession = sttSession;
-      // Deepgram finalises in several pieces within one utterance — "hello" can
+      // Speech-to-text finalises in several pieces within one utterance — "hello" can
       // land as final before the rest of the sentence does. Keeping only the
       // most recent final would throw away everything the caller said before
       // the last pause, so the pieces are collected and joined.

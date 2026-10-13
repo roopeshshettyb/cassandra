@@ -13,7 +13,6 @@ import { getBackendUrl } from '../GuestPortal/GuestConcierge';
 import constants from '../../constants.json';
 import { sessionStorageKey, sessionAuth } from './reservationSession';
 
-
 /** Browser mic and the server both work in 24kHz mono 16-bit PCM. */
 const SAMPLE_RATE = 24000;
 
@@ -233,18 +232,11 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     const url = getBackendUrl();
     if (!url) return undefined;
 
-    // Plain fetch, not api.js: a static file from our own public folder, with
-    // nothing to authenticate, no loader to drive and no message to surface.
-    // Fetched here so the network round trip is over before the mic is tapped.
     // The room tone, loaded while the page settles so the network is not in the
-    // way when the caller taps the mic. The constant overrides it for a property
-    // that hosts its own recording; empty means the one shipped with the app,
-    // which travels inside a JS chunk because the deploy drops audio files.
-    const ambienceUrl = constants.RESERVATION_VOICE_AMBIENCE_URL;
-    const loadAmbience = ambienceUrl
-      ? fetch(ambienceUrl).then((res) => (res.ok ? res.arrayBuffer() : null))
-      : import('../../assets/hotel-ambience').then((mod) => base64ToUint8Array(mod.default).buffer);
-    loadAmbience
+    // way when the caller taps the mic. It travels inside a JS chunk because the
+    // deploy drops audio files.
+    import('../../assets/hotel-ambience')
+      .then((mod) => base64ToUint8Array(mod.default).buffer)
       .then((data) => {
         ambienceDataRef.current = data;
         // If the caller tapped while this was still in flight, their tap found
@@ -293,9 +285,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       }
       startListeningRef.current?.(true);
     });
-    // Partial transcripts are no longer shown — a half-heard sentence
-    // rewriting itself on screen is unsettling, not reassuring — but the event
-    // still tells us the caller is being heard.
     // End of speech: the server has closed its STT session, so anything more
     // from the mic is wasted, and an open mic during the reply feeds the agent
     // its own voice. Closing the gate stops the sending; the hardware stays
@@ -330,12 +319,8 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
     });
     // Only the browser knows when sound stopped coming out of the speaker:
     // chunks are scheduled ahead, so the socket going quiet says nothing about
-    // playback. Poll the audio clock and report, the way the concierge does —
-    // the server holds the turn until then, so the mic never opens under the
-    // agent's own voice.
-    // Only the browser knows when sound stopped coming out of the speaker, so
-    // it measures and reports; the server holds the turn until then. Same
-    // watcher the concierge uses.
+    // playback. It measures and reports, with the watcher the concierge uses;
+    // the server holds the turn until then.
     socket.on('voice_audio_end', () => {
       // Deliberately not 'idle': the server has sent the last chunk but seconds
       // of it may still be scheduled. voice_ready is the one thing that clears

@@ -4,19 +4,6 @@ import type { ISttSession, SttSessionFactory, SttSessionOptions } from './stt-se
 import { ConstantsService } from '../common/constants/constants.service';
 import { LoggerService } from '../common/logger.service';
 
-/**
- * Sarvam realtime STT for the public booking line.
- *
- * Chosen over nova-3 on measured behaviour, not preference. Asked for an email
- * the way people give one here, Deepgram returns the words and Sarvam returns
- * the address: "shrijit at the rate gmail dot com" comes back as
- * "srijit@gmail.com". Same for dates, and it reads Hindi and English without
- * being told which is coming — which removes the choice between the two that
- * the language flag otherwise forces.
- *
- * It does its own endpointing, so utteranceEndMs has nothing to set here; the
- * turn ends when Sarvam says speech ended.
- */
 /** Sarvam speaks 'auto' or a region-qualified code; everything else is another provider's dialect. */
 function isSarvamLanguage(value?: string | null): boolean {
   return typeof value === 'string' && (value === 'auto' || /^[a-z]{2}-[A-Z]{2}$/.test(value));
@@ -81,6 +68,19 @@ function createPcmResampler(fromRate: number, toRate: number, cutoffHz: number) 
   };
 }
 
+/**
+ * Sarvam realtime STT for the public booking line.
+ *
+ * Chosen over nova-3 on measured behaviour, not preference. Asked for an email
+ * the way people give one here, Deepgram's nova-3 returns the words and Sarvam returns
+ * the address: "shrijit at the rate gmail dot com" comes back as
+ * "srijit@gmail.com". Same for dates, and it reads Hindi and English without
+ * being told which is coming — which removes the choice between the two that
+ * the language flag otherwise forces.
+ *
+ * It does its own endpointing, so utteranceEndMs has nothing to set here; the
+ * turn ends when Sarvam says speech ended.
+ */
 @Injectable()
 export class SarvamSttService implements SttSessionFactory {
   constructor(
