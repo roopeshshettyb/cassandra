@@ -105,6 +105,8 @@
   "ERROR_RESERVATION_SETUP_FAILED": "We could not start the reservation chat. Please try again.",
   "ERROR_RESERVATION_MESSAGE_FAILED": "We could not send that message. Please try again.",
   "RESERVATION_TITLE": "Reserve your stay",
+  "RESERVATION_CHAT_GREETING": "Hello, welcome to {HOTEL}! When were you thinking of staying with us?",
+  "RESERVATION_GREETING_HOTEL_TOKEN": "{HOTEL}",
   "RESERVATION_SUBTITLE": "Tell us your dates and we will take it from there",
   "RESERVATION_INPUT_PLACEHOLDER": "Ask about rooms, rates or availability…",
   "RESERVATION_FATAL_HELP": "This reservation link may be out of date. Please check the link, or contact the property directly to book.",
