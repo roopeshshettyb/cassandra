@@ -1,33 +1,25 @@
 /**
  * Rooms & Inventory API tests (Trello #77).
  *
- * Same setup as api.test.ts: needs the backend already listening on BACKEND_PORT,
- * logs in through the real OTP flow, and runs against the database in dev.env.
- * Everything it creates is tagged, and hard-deleted in afterAll.
+ * Same setup as api.test.ts: needs the backend already listening on BACKEND_PORT and
+ * logs in through the real OTP flow. Everything it creates is tagged, and hard-deleted in afterAll.
  *
- * Run: npx cross-env NODE_ENV=automation_test jest --config jest.api.config.js --runInBand --verbose --testRegex "test/rooms\.api\.test\.ts$"
+ * Run: npm run test:api -- rooms
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import axios, { AxiosResponse } from 'axios';
-import * as path from 'path';
-import * as dotenv from 'dotenv';
+// First: it loads the Nest modules in the order their circular references need.
+import { bootstrap, httpClient, call, expectStatus, login } from './helpers';
+import { TestingModule } from '@nestjs/testing';
+import { AxiosResponse } from 'axios';
 import * as nodeHttp from 'http';
 import * as nodeHttps from 'https';
 
-import { OAuthModule } from '../src/oauth/oauth.module';
-import { BookingsModule } from '../src/bookings/bookings.module';
-import { HotelsModule } from '../src/hotels/hotels.module';
-import { AccountsService } from '../src/accounts/accounts.service';
-import { BookingsService } from '../src/bookings/bookings.service';
-import { HotelsService } from '../src/hotels/hotels.service';
-import { EmailService } from '../src/oauth/email/email.service';
-import { ConstantsService, ROOM_TYPE_IMAGES_MAX_COUNT } from '../src/common/constants/constants.service';
-import { AccountRole, Account } from '../src/accounts/accounts.model';
-import { BookingRoom } from '../src/bookings/booking-rooms.model';
-
-dotenv.config({ path: path.join(__dirname, '../dev.env') });
+import { AccountsService } from '../../src/accounts/accounts.service';
+import { BookingsService } from '../../src/bookings/bookings.service';
+import { HotelsService } from '../../src/hotels/hotels.service';
+import { ROOM_TYPE_IMAGES_MAX_COUNT } from '../../src/common/constants/constants.service';
+import { AccountRole, Account } from '../../src/accounts/accounts.model';
+import { BookingRoom } from '../../src/bookings/booking-rooms.model';
 
 const TAG = `rtest_${Date.now()}`;
 
@@ -42,7 +34,6 @@ const EMAILS = {
 };
 
 const state = {
-  BASE_URL: '',
   adminToken: '',
   ownerToken: '',
   staffToken: '',
@@ -57,42 +48,11 @@ let moduleRef: TestingModule;
 let accountsService: AccountsService;
 let bookingsService: BookingsService;
 let hotelsService: HotelsService;
-let emailService: EmailService;
 
-const auth = (token?: string) => (token ? { Authorization: `Bearer ${token}` } : {});
-const http = {
-  get: (url: string, token?: string) => axios.get(`${state.BASE_URL}${url}`, { headers: auth(token) }),
-  post: (url: string, data: any, token?: string) => axios.post(`${state.BASE_URL}${url}`, data, { headers: auth(token) }),
-  patch: (url: string, data: any, token?: string) => axios.patch(`${state.BASE_URL}${url}`, data, { headers: auth(token) }),
-  delete: (url: string, token?: string, data?: any) => axios.delete(`${state.BASE_URL}${url}`, { headers: auth(token), data }),
-};
-
-/** Status of a request without throwing on 4xx/5xx. */
-async function call(fn: () => Promise<AxiosResponse>): Promise<AxiosResponse> {
-  try {
-    return await fn();
-  } catch (e: any) {
-    if (!e.response) throw e;
-    return e.response;
-  }
-}
-
-async function expectStatus(expected: number, fn: () => Promise<AxiosResponse>): Promise<AxiosResponse> {
-  const res = await call(fn);
-  if (res.status !== expected) {
-    throw new Error(`Expected ${expected}, got ${res.status}: ${JSON.stringify(res.data)}`);
-  }
-  return res;
-}
+let http: ReturnType<typeof httpClient>;
+let loginViaOtp: (email: string) => Promise<string>;
 
 const body = (res: AxiosResponse) => res.data?.data ?? res.data;
-
-async function loginViaOtp(email: string): Promise<string> {
-  await emailService.sendOtp(email);
-  const account = await accountsService.findByUuid(`email:${email}`);
-  const res = await http.post('/oauth/callback', { authType: 'email', email, otp: account!.otp });
-  return res.data.token;
-}
 
 // ── Domain helpers ────────────────────────────────────────────────────────────
 
@@ -122,15 +82,14 @@ const holdsOf = (bookingId: number) => BookingRoom.findAll({ where: { bookingId 
 // ── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeAll(async () => {
-  moduleRef = await Test.createTestingModule({
-    imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: path.join(__dirname, '../dev.env') }), OAuthModule, BookingsModule, HotelsModule],
-  }).compile();
+  const boot = await bootstrap();
+  moduleRef = boot.moduleRef;
+  http = httpClient(boot.baseUrl);
+  loginViaOtp = (email) => login(moduleRef, boot.baseUrl, email);
 
   accountsService = moduleRef.get(AccountsService);
   bookingsService = moduleRef.get(BookingsService);
   hotelsService = moduleRef.get(HotelsService);
-  emailService = moduleRef.get(EmailService);
-  state.BASE_URL = `http://localhost:${moduleRef.get(ConstantsService).private.BACKEND_PORT}`;
 
   const [admin, owner, staff, outsider] = await Promise.all([
     accountsService.create({ uuid: `email:${EMAILS.admin}`, email: EMAILS.admin, role: AccountRole.ADMIN, oauthMeta: {} }),
@@ -230,9 +189,7 @@ describe('Room types', () => {
   });
 
   it('POST /rooms/types/:id/images/presigned-url → returns an upload URL', async () => {
-    const res = await expectStatus(201, () =>
-      http.post(`/rooms/types/${typeId}/images/presigned-url`, { fileName: 'room.jpg', fileSize: 1000, contentType: 'image/jpeg' }, state.staffToken),
-    );
+    const res = await expectStatus(201, () => http.post(`/rooms/types/${typeId}/images/presigned-url`, { fileName: 'room.jpg', fileSize: 1000, contentType: 'image/jpeg' }, state.staffToken));
     expect(body(res).presignedUrl).toBeTruthy();
   });
 
@@ -282,7 +239,7 @@ describe('Rooms', () => {
     expect(body(res).hotelId).toBe(state.otherHotelId);
   });
 
-  it('GET /rooms → lists the hotel\'s rooms with their room type', async () => {
+  it("GET /rooms → lists the hotel's rooms with their room type", async () => {
     const rooms = body(await expectStatus(200, () => http.get(`/rooms?hotelId=${state.hotelId}`, state.staffToken)));
     expect(rooms.find((r: any) => r.id === roomId)?.roomType?.name).toBe('Twin');
   });
@@ -372,9 +329,7 @@ describe('Availability', () => {
   });
 
   it('GET /rooms/next-room → previews the rooms a booking would get', async () => {
-    const res = await expectStatus(200, () =>
-      http.get(`/rooms/next-room?roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=2`, state.staffToken),
-    );
+    const res = await expectStatus(200, () => http.get(`/rooms/next-room?roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=2`, state.staffToken));
     expect(body(res)).toEqual({ roomNumbers: [`${TAG}-Q1`, `${TAG}-Q2`], enough: true, available: 2 });
     const tooMany = body(await expectStatus(200, () => http.get(`/rooms/next-room?roomTypeId=${suiteId}&startDate=2031-04-01&endDate=2031-04-03&rooms=3`, state.staffToken)));
     expect(tooMany.enough).toBe(false);
@@ -414,7 +369,7 @@ describe('Bookings with a room type', () => {
     expect(await reservedOn(typeId, '2031-05-10', '2031-05-12')).toEqual([0, 0]);
   });
 
-  it('refuses a same-day stay and another hotel\'s room type', async () => {
+  it("refuses a same-day stay and another hotel's room type", async () => {
     expect((await book({ startDate: '2031-05-20', endDate: '2031-05-20', roomTypeId: typeId })).status).toBe(400);
     const foreignType = (await createRoomType({ name: 'Foreign' }, state.otherHotelId, state.adminToken)).id;
     expect((await book({ startDate: '2031-05-20', endDate: '2031-05-21', roomTypeId: foreignType })).status).toBe(404);
@@ -517,7 +472,7 @@ describe('Bookings with a room type', () => {
 describe('PMS bookings', () => {
   let typeId = 0;
   let integrationToken = '';
-  const webhook = (data: any) => call(() => axios.post(`${state.BASE_URL}/integrations/v1/bookings`, data, { headers: { Authorization: `Bearer ${integrationToken}` } }));
+  const webhook = (data: any) => call(() => http.post('/integrations/v1/bookings', data, integrationToken));
 
   beforeAll(async () => {
     typeId = (await createRoomType({ name: `PMS type ${TAG}`, totalRooms: 1 })).id;
@@ -562,9 +517,7 @@ describe('PMS bookings', () => {
     // now reads low while pms-1 still holds the room...
     expect(await reservedOn(typeId, '2032-02-01', '2032-02-02')).toEqual([0]);
     // ...but the room itself is still held, so it cannot be sold to anyone else.
-    const preview = body(
-      await expectStatus(200, () => http.get(`/rooms/next-room?roomTypeId=${typeId}&startDate=2032-02-01&endDate=2032-02-02`, state.staffToken)),
-    );
+    const preview = body(await expectStatus(200, () => http.get(`/rooms/next-room?roomTypeId=${typeId}&startDate=2032-02-01&endDate=2032-02-02`, state.staffToken)));
     expect(preview).toMatchObject({ roomNumbers: [], enough: false, available: 0 });
     expect((await book({ startDate: '2032-02-01', endDate: '2032-02-02', roomTypeId: typeId })).status).toBe(409);
     expect(await reservedOn(typeId, '2032-02-01', '2032-02-02')).toEqual([0]);
@@ -580,12 +533,14 @@ describe('PMS bookings', () => {
 // ── Hotel deletion ───────────────────────────────────────────────────────────
 
 describe('Hotel deletion', () => {
-  it('removes the hotel\'s room types, rooms, inventory and holds', async () => {
+  it("removes the hotel's room types, rooms, inventory and holds", async () => {
     const hotel = await http.post('/hotels', { name: `Rooms Hotel C ${TAG}`, address: '3 Test St' }, state.adminToken);
     const hotelId = hotel.data.id;
     const type = await createRoomType({ name: 'C type' }, hotelId, state.adminToken);
     await expectStatus(201, () => http.post('/rooms', { roomTypeId: type.id, roomNumber: 'C1' }, state.adminToken));
-    const booking = body(await expectStatus(201, () => http.post('/bookings', { hotelId, guestEmail: EMAILS.bookingGuest, startDate: '2032-05-01', endDate: '2032-05-02', roomTypeId: type.id }, state.adminToken)));
+    const booking = body(
+      await expectStatus(201, () => http.post('/bookings', { hotelId, guestEmail: EMAILS.bookingGuest, startDate: '2032-05-01', endDate: '2032-05-02', roomTypeId: type.id }, state.adminToken)),
+    );
 
     await hotelsService.deleteHotel(hotelId, state.adminAccount!, true);
 
