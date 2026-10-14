@@ -2,7 +2,7 @@
 
 | Where | What | Run |
 |---|---|---|
-| `api/` | HTTP and Socket.IO against the running backend and a database. Start the backend first. Settings come from `test.env` (git-ignored, local Postgres), then `dev.env` (`api/env.ts`), with placeholder AWS keys so no call reaches the real bucket; a database that is not on localhost is refused. Each suite tags what it creates and deletes it afterwards. | `npm run test:api` |
+| `api/` | HTTP and Socket.IO against a database. Starts the backend itself unless one is already running. Settings come from `test.env` (git-ignored, local Postgres), then `dev.env` (`api/env.ts`), with placeholder AWS keys so no call reaches the real bucket; a database that is not on localhost is refused. Each suite tags what it creates and deletes it afterwards. | `npm run test:api` |
 | `unit/` | One folder per area, as in `src/`. No server or database: dependencies are mocked. | `npm run test:unit` |
 | `llm-regression/` | The concierge's answers, with real model calls. | `npm run test:llm` |
 
