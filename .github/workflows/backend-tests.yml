@@ -1,10 +1,11 @@
 name: Backend Tests
 
-# PR check: unit and API tests run on every PR into stage that changes the backend, and the PR
-# shows whether they passed. GitHub Free cannot block the merge on a private repo.
+# PR check: unit and API tests run on every PR into main or stage that changes the backend, and
+# the PR shows whether they passed. GitHub Free cannot block the merge on a private repo.
 on:
   pull_request:
     branches:
+      - main
       - stage
     paths:
       - 'backend/**'
