@@ -27,7 +27,8 @@ module.exports = defineConfig({
   // Every desktop spec runs in each engine: Chrome's, Firefox's, Safari's (WebKit) and Edge.
   // Edge is the installed browser (`npx playwright install msedge`); the rest ship with Playwright.
   projects: [
-    { name: 'setup', testMatch: /auth\.setup\.js/ },
+    // Signs in once in Chromium; the saved sessions are browser-agnostic, so every project uses them.
+    { name: 'setup', testMatch: /auth\.setup\.js/, use: devices['Desktop Chrome'] },
     ...[
       ['chromium', devices['Desktop Chrome']],
       ['firefox', devices['Desktop Firefox']],

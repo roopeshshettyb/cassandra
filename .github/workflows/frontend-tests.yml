@@ -52,7 +52,8 @@ jobs:
         working-directory: backend
       - run: npm install
         working-directory: frontend
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      # Chromium as well: the sign-in setup every project depends on runs in it.
+      - run: npx playwright install --with-deps chromium ${{ matrix.browser }}
         working-directory: frontend
       - run: npm run test:e2e -- --project=${{ matrix.browser }} ${{ matrix.browser == 'chromium' && '--project=mobile' || '' }}
         working-directory: frontend
