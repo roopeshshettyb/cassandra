@@ -42,9 +42,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      # 24, for its npm 11: npm 10 (Node 20 and 22) crashes resolving the frontend's dependencies
+      # ("Cannot read properties of null (reading 'edgesOut')").
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       # install, not ci: this repo deliberately does not commit a lockfile.
       - run: npm install
         working-directory: backend
