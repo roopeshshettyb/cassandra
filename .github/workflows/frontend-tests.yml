@@ -1,0 +1,64 @@
+name: Frontend Tests
+
+# PR check: Playwright drives the built frontend against a seeded backend on every PR into main
+# or stage. No path filter: a backend change can break the UI just as a frontend one can.
+on:
+  pull_request:
+    branches:
+      - main
+      - stage
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    name: Frontend UI tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One job per browser engine, each with its own database, so they run side by side.
+    # The phone-sized specs run with Chromium.
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit, msedge]
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+
+    # What frontend/e2e/settings.js reads in place of backend/test.env, plus what the backend
+    # needs in place of dev.env. The tests create and drop their own database on this server.
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      AWS_S3_BUCKET_NAME: ci-bucket
+      AWS_DEFAULT_REGION: ap-south-1
+      REACT_APP_GOOGLE_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # install, not ci: this repo deliberately does not commit a lockfile.
+      - run: npm install
+        working-directory: backend
+      - run: npm install
+        working-directory: frontend
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+        working-directory: frontend
+      - run: npm run test:e2e -- --project=${{ matrix.browser }} ${{ matrix.browser == 'chromium' && '--project=mobile' || '' }}
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            frontend/e2e/.report
+            frontend/e2e/.results
+          retention-days: 14
