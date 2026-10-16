@@ -30,3 +30,9 @@ build
 package-lock.json
 
 .DS_Store
+# Playwright UI tests
+/e2e/.auth
+/e2e/.build
+/e2e/.report
+/e2e/.results
+/e2e/.constants.json
