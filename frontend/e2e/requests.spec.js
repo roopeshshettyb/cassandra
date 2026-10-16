@@ -75,7 +75,7 @@ test.describe('staff', () => {
 
   test('reports a status change the backend refuses', async ({ page }) => {
     await openNewRequest(page);
-    await failApi(page, '/requests/\\d+$', 'Request is locked');
+    await failApi(page, '/requests/\\d+$', 'Request is locked', { method: 'PATCH' });
     await page.getByRole('button', { name: 'Cancelled' }).click();
     await expect(toast(page, 'Request is locked')).toBeVisible();
   });
