@@ -367,8 +367,9 @@ export class ReservationService {
    * Keep the stored language on the one the agent actually answered in.
    *
    * Measured: a caller went from Hindi back to English, was answered in
-   * English, and the agent never called set_chat_language — so the chat stayed
-   * Hindi and a reconnect came back in it. Read off the reply, it cannot drift.
+   * English, and the agent never stored the switch — so the chat stayed Hindi
+   * and a reconnect came back in it. Read off the reply, it cannot drift, so
+   * this is the only place the language is stored.
    */
   async followReplyLanguage(session: { chatId: number; languageCode?: string | null }, reply: string): Promise<void> {
     const cfg = this.constantsService.private.RESERVATION;

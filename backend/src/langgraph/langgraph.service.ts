@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, Logger, forwardRef } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent } from 'langchain';
 import { BaseMessage, HumanMessage, SystemMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
@@ -66,6 +66,7 @@ export interface StreamInput {
 
 @Injectable()
 export class LangGraphService {
+  private readonly logger = new Logger(LangGraphService.name);
   private readonly outputParser = new StringOutputParser();
 
   constructor(
@@ -235,6 +236,31 @@ export class LangGraphService {
     return toolCalls;
   }
 
+  /**
+   * Write down what the caller said on a reservation call, after the reply rather
+   * than inside it. Measured: noting a detail inside the reply cost a whole extra
+   * model round trip on most turns — the model never speaks and calls a tool in
+   * one breath — so the caller waited for the note before hearing a word.
+   */
+  async writeNotes(messages: ChatMessageInput[], ctx: AgentToolContext): Promise<{ calls: ToolCallRecord[]; tokens: number[] }> {
+    const tools = createReservationTools(ctx, this.restaurantService, this.constantsService, this.messagesService).scribe;
+    try {
+      const result = await this.createModel(0, this.constantsService.private.LLM.RESERVATION_NOTES.MODEL).bindTools(tools).invoke(this.parseMessages(messages));
+      const calls: ToolCallRecord[] = [];
+      for (const call of result.tool_calls ?? []) {
+        const tool = tools.find((candidate) => candidate.name === call.name);
+        if (tool) {
+          calls.push({ toolName: call.name, toolCallId: call.id ?? '', input: call.args, output: await tool.invoke(call.args) });
+        }
+      }
+      const usage: any = result.usage_metadata;
+      return { calls, tokens: [usage?.input_tokens ?? 0, usage?.output_tokens ?? 0] };
+    } catch (err: any) {
+      this.logger.warn({ message: err?.message ?? String(err), serviceName: LangGraphService.name, actionName: 'writeNotes' });
+      return { calls: [], tokens: [0, 0] };
+    }
+  }
+
   async *stream(
     input: StreamInput,
     ctx: AgentToolContext,
@@ -244,7 +270,7 @@ export class LangGraphService {
     // read-only tool set rather than a role-filtered slice of the staff one.
     const tools = ctx.account
       ? createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService)
-      : createReservationTools(ctx, this.restaurantService, this.constantsService, this.chatService, this.messagesService);
+      : createReservationTools(ctx, this.restaurantService, this.constantsService, this.messagesService).reply;
     const model = this.createModel(0.7);
     const agent = createAgent({ model, tools });
 

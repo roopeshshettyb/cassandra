@@ -423,6 +423,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     client.turnsUsed = (client.turnsUsed ?? 0) + 1;
 
+    // A safety net left armed by the last turn must not hand the line back in
+    // the middle of this one.
+    this.clearPlaybackWait(client);
     client.voiceBusy = true;
     client.emit('voice_user_message', { text });
 
