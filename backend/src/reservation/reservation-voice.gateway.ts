@@ -227,15 +227,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           state.awaitingFinal = null;
         }
         this.clearTurnFallback(client);
-        try {
-          sttSession.endInput();
-        } catch {
-          // already closed
-        }
-        if (client.sttSession === sttSession) {
-          client.sttSession = null;
-        }
-        sttSession.destroy();
+        // The connection stays open for the caller's next turn. Measured: Sarvam
+        // refuses a connection opened soon after five others, so one per turn
+        // left the sixth turn of a call — and every one after it — unheard.
         client.emit('voice_turn_end');
         // Interim text is the fallback: better to answer what we heard than to
         // leave the caller talking to silence.
@@ -245,6 +239,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       client.runTurn = runTurn;
 
       sttSession.onTranscript((text: string, isFinal?: boolean) => {
+        // Anything after the turn has run belongs to no one: it was answered.
+        if (state.done) {
+          return;
+        }
         const trimmed = text.trim();
         if (isFinal && trimmed.length > 0) {
           state.finalParts.push(trimmed);
@@ -546,6 +544,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     if (!sttSession) {
       sttSession = this.createSttSession(client) ?? undefined;
       if (!sttSession) return;
+    }
+    // The caller speaking again, on the connection kept from the last turn.
+    if (client.sttState.done) {
+      Object.assign(client.sttState, { finalParts: [], interim: '', done: false });
     }
     sttSession.writeAudio(buffer);
     this.armTurnFallback(client);

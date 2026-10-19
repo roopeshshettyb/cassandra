@@ -128,9 +128,6 @@ export class SarvamSttService implements SttSessionFactory {
       // A JSON array, not a comma-joined string — the endpoint is strict.
       query.set('keyterms', JSON.stringify(keyterms));
     }
-    const socket = new WebSocket(`${cfg.WS_URL}?${query.toString()}`, {
-      headers: { 'API-SUBSCRIPTION-KEY': cfg.API_KEY },
-    });
 
     // The pipeline is 24kHz throughout; Sarvam takes 8k or 16k and nothing else.
     const resample = createPcmResampler(common.SAMPLE_RATE, cfg.SAMPLE_RATE, cfg.RESAMPLE_CUTOFF_HZ);
@@ -142,6 +139,8 @@ export class SarvamSttService implements SttSessionFactory {
     // sending immediately. Anything spoken before the socket is up is held
     // rather than dropped — that gap is where opening words go missing.
     let pending: string[] = [];
+    let socket: WebSocket;
+    let retryMs = cfg.RECONNECT_MS;
 
     const send = (payload: string) => {
       if (socket.readyState === WebSocket.OPEN) {
@@ -151,47 +150,65 @@ export class SarvamSttService implements SttSessionFactory {
       }
     };
 
-    socket.on('open', () => {
-      for (const payload of pending) {
-        socket.send(payload);
-      }
-      pending = [];
-    });
+    const connect = () => {
+      socket = new WebSocket(`${cfg.WS_URL}?${query.toString()}`, {
+        headers: { 'API-SUBSCRIPTION-KEY': cfg.API_KEY },
+      });
 
-    socket.on('message', (raw: Buffer) => {
-      if (destroyed) return;
-      let message: any;
-      try {
-        message = JSON.parse(raw.toString());
-      } catch {
-        return;
-      }
-      const text = typeof message?.text === 'string' ? message.text.trim() : '';
-      if (message?.event === cfg.EVENT_TRANSCRIPT_PARTIAL && text && transcriptCb) {
-        transcriptCb(text, false);
-      } else if (message?.event === cfg.EVENT_TRANSCRIPT_FINAL && text && transcriptCb) {
-        transcriptCb(text, true);
-      } else if (message?.event === cfg.EVENT_SPEECH_END && endOfSpeechCb) {
-        endOfSpeechCb();
-      } else if (message?.event === cfg.EVENT_ERROR) {
+      socket.on('open', () => {
+        retryMs = cfg.RECONNECT_MS;
+        for (const payload of pending) {
+          socket.send(payload);
+        }
+        pending = [];
+      });
+
+      // A connection refused or dropped is opened again, holding what is said
+      // meanwhile. Measured: Sarvam refused a connection opened soon after five
+      // others, and a session that kept the refused socket heard nothing more for
+      // the rest of the call.
+      socket.on('close', () => {
+        if (destroyed) return;
+        setTimeout(() => !destroyed && connect(), retryMs);
+        retryMs = Math.min(retryMs * 2, cfg.RECONNECT_MAX_MS);
+      });
+
+      socket.on('message', (raw: Buffer) => {
+        if (destroyed) return;
+        let message: any;
+        try {
+          message = JSON.parse(raw.toString());
+        } catch {
+          return;
+        }
+        const text = typeof message?.text === 'string' ? message.text.trim() : '';
+        if (message?.event === cfg.EVENT_TRANSCRIPT_PARTIAL && text && transcriptCb) {
+          transcriptCb(text, false);
+        } else if (message?.event === cfg.EVENT_TRANSCRIPT_FINAL && text && transcriptCb) {
+          transcriptCb(text, true);
+        } else if (message?.event === cfg.EVENT_SPEECH_END && endOfSpeechCb) {
+          endOfSpeechCb();
+        } else if (message?.event === cfg.EVENT_ERROR) {
+          logger.warn({
+            message: message?.message ?? 'sarvam stt error',
+            serviceName: 'SarvamSttService',
+            actionName: 'createSession',
+            traces: [{ stage: 'ws', code: message?.code }],
+          });
+        }
+      });
+
+      socket.on('error', (err: any) => {
+        if (destroyed) return;
         logger.warn({
-          message: message?.message ?? 'sarvam stt error',
+          message: err?.message ?? String(err),
           serviceName: 'SarvamSttService',
           actionName: 'createSession',
-          traces: [{ stage: 'ws', code: message?.code }],
+          traces: [{ stage: 'socket' }],
         });
-      }
-    });
-
-    socket.on('error', (err: any) => {
-      if (destroyed) return;
-      logger.warn({
-        message: err?.message ?? String(err),
-        serviceName: 'SarvamSttService',
-        actionName: 'createSession',
-        traces: [{ stage: 'socket' }],
       });
-    });
+    };
+    connect();
 
     return {
       writeAudio(buffer: Buffer) {

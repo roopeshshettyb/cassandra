@@ -1085,6 +1085,13 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             EVENT_TRANSCRIPT_FINAL: 'transcript.final',
             EVENT_SPEECH_END: 'vad.speech_end',
             EVENT_ERROR: 'error',
+            /**
+             * First wait before reopening a connection Sarvam refused or dropped, doubled on each failure
+             * up to RECONNECT_MAX_MS. Measured: it refuses a new connection opened soon after five others
+             * and accepts again some 20 seconds later.
+             */
+            RECONNECT_MS: 1000,
+            RECONNECT_MAX_MS: 8000,
           },
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
