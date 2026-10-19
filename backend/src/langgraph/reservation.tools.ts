@@ -165,6 +165,7 @@ export function createReservationTools(
         checkOutDate: z.string().optional().describe('Resolved check-out date as YYYY-MM-DD. Leave it out until they have actually given you one — do not pick a checkout for them'),
         partySize: z.number().optional().describe('How many people are staying, as soon as they have said — people, never rooms: "a room" says nothing about how many are coming'),
         guestName: z.string().optional().describe('The name itself, in English letters, assembled from the letters they spelled: "Ram", never "R A M", never "Ram, R A M", and never "राम" even when the call is in Hindi'),
+        guestNameAsSaid: z.string().optional().describe('With guestName: the name exactly as they said or wrote it, copied from their words in their own script — "राम", "R A M"'),
         guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
         guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
         occasion: z.string().optional().describe('Something they are celebrating, or something they ask the hotel to arrange for their stay — an anniversary, a birthday, a honeymoon, a first visit, an early check-in. Never a question about the hotel: a question is answered, not noted. Fill it the moment they mention it, even if it is the only thing you know so far'),
@@ -181,6 +182,8 @@ export function createReservationTools(
         // dates comes with both; one date that contradicts what is already noted
         // is a slip, and is not written.
         const accepted: Record<string, unknown> = { ...args };
+        // Only the evidence for a name, not a note of its own.
+        delete accepted.guestNameAsSaid;
         // A detail already noted changes only when the caller has just said the new
         // one. Measured: with every detail noted correctly, a later note re-typed the
         // whole booking with a phone number and dates nobody had said — the email
@@ -192,13 +195,20 @@ export function createReservationTools(
         const evidence: Record<string, (value: string) => boolean> = {
           guestPhone: (value) => spokenDigits.includes(value.replace(/\D/g, '').slice(-6)),
           guestEmail: (value) => letters(said).includes(letters(value.split('@')[0])),
-          guestName: (value) => letters(said).includes(letters(value)),
+          // A name given in another script is checked as they wrote it, since "राम" holds no English letters.
+          guestName: (value) => letters(said).includes(letters(value)) || (!!args.guestNameAsSaid && letters(said).includes(letters(args.guestNameAsSaid))),
           checkInDate: () => mentionsADate,
           checkOutDate: () => mentionsADate,
         };
+        // A name, phone or email is the caller's own, so it is written only when
+        // they have just said it, the first time as much as any other. Measured:
+        // asked for an email, a caller said "yeah, that's good" and an address
+        // made from their name was noted. Dates can be agreed to — "the
+        // twentieth, then?" "yes" — so only a change to them needs them said.
         const kept = Object.keys(evidence).filter((field) => {
           const value = args[field];
-          return typeof value === 'string' && current[field] && value !== current[field] && !evidence[field](value);
+          const mustBeSaid = current[field] || cfg.CALLER_SPOKEN_NOTES.includes(field);
+          return typeof value === 'string' && value !== current[field] && mustBeSaid && !evidence[field](value);
         });
         kept.forEach((field) => delete accepted[field]);
         // What is already noted as said is not written again.
@@ -227,7 +237,7 @@ export function createReservationTools(
         return JSON.stringify({
           success: true,
           message: kept.length
-            ? `${constantsService.public.RESERVATION_NOTE_KEPT} ${kept.map((field) => `${field} stays ${current[field]}`).join(', ')}`
+            ? `${constantsService.public.RESERVATION_NOTE_KEPT} ${kept.join(', ')}`
             : constantsService.public.RESERVATION_DATES_NOTED,
           // The whole booking as it now stands, so the right dates are in front
           // of the agent every time it notes anything.

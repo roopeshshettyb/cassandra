@@ -876,6 +876,7 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         IP_WINDOW_MINUTES: 60,
         IP_RATE_LIMIT_CACHE_KEY_PREFIX: 'reservation_ip_messages_',
         MAX_MESSAGE_LENGTH: 1000,
+        /** What a reconnecting caller is shown, and what the agent hears of the call on every turn. */
         HISTORY_MESSAGE_LIMIT: 50,
         STAFF_CHAT_LIST_LIMIT: 50,
         /** Notes handed back to the agent when it reads its scratchpad. */
@@ -898,6 +899,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         ].join('|'),
         /** Details that must have been noted during the call before an enquiry can be recorded. */
         ENQUIRY_REQUIRED_NOTES: ['checkInDate', 'checkOutDate', 'partySize', 'guestName', 'guestEmail', 'guestPhone'],
+        /** Details only the caller can give, so they are noted only when the caller has just said them. */
+        CALLER_SPOKEN_NOTES: ['guestName', 'guestPhone', 'guestEmail'],
         /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */
         MAX_TOOL_CALLS_PER_TURN: 6,
         /**
