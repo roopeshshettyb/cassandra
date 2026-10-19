@@ -20,6 +20,8 @@ export interface StreamUserMessageOptions {
 @Injectable()
 export class ChatLlmService {
   private readonly logger = new Logger(ChatLlmService.name);
+  /** Reservation notes still being written, by chat; the next turn there waits for them. */
+  private readonly notesInFlight = new Map<number, Promise<void>>();
 
   constructor(
     private readonly messagesService: MessagesService,
@@ -65,8 +67,38 @@ export class ChatLlmService {
     }
   }
 
+  /** Record what a turn cost, under the message it produced. */
+  private recordCost(
+    session: ChatSession,
+    isVoice: boolean,
+    messageId: number,
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null,
+    model?: { name: string; inputPricePer1K: number; outputPricePer1K: number },
+  ): void {
+    this.costsService.recordLlmCost({
+      // This same LangGraph call path serves both text chat and the "custom"
+      // STT+LLM+TTS voice pipeline (mode: 'voice') — tag voice turns as LLM_VOICE
+      // so channel-level cost reporting isn't silently folded into chat spend.
+      type: isVoice ? CostType.LLM_VOICE : CostType.LLM_CHAT,
+      usage: {
+        promptTokens: usage && usage.promptTokens ? usage.promptTokens : 0,
+        completionTokens: usage && usage.completionTokens ? usage.completionTokens : 0,
+        totalTokens: usage && usage.totalTokens ? usage.totalTokens : 0,
+      },
+      bookingId: session.bookingId,
+      hotelId: this.resolveHotelId(session),
+      accountId: session.account ? session.account.id : null,
+      role: session.account ? session.account.role : null,
+      chatId: session.chatId,
+      messageId,
+      model,
+    });
+  }
+
   async streamUserMessage(session: ChatSession, userMessage: string, options: StreamUserMessageOptions): Promise<void> {
     const chatId = session.chatId;
+    // A reservation turn is built on the notes, so it waits for the last turn's.
+    await this.notesInFlight.get(chatId);
 
     const userMsg = await this.messagesService.create(chatId, MessageRole.USER, userMessage);
 
@@ -78,7 +110,7 @@ export class ChatLlmService {
     // different tool set, and a hotel it may never step outside of.
     const isReservation = !session.account;
 
-    const { messages } = isReservation
+    const { messages, scribePrompt } = isReservation
       ? await buildReservationPrompt(
           this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice, session.languageCode ?? null,
           await this.messagesService.currentNotesByChatId(chatId, this.constantsService.private.RESERVATION.SCRATCHPAD_NOTE_LIMIT),
@@ -140,23 +172,7 @@ export class ChatLlmService {
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
 
-    this.costsService.recordLlmCost({
-      // This same LangGraph call path serves both text chat and the "custom"
-      // STT+LLM+TTS voice pipeline (mode: 'voice') — tag voice turns as LLM_VOICE
-      // so channel-level cost reporting isn't silently folded into chat spend.
-      type: isVoice ? CostType.LLM_VOICE : CostType.LLM_CHAT,
-      usage: {
-        promptTokens: usage && usage.promptTokens ? usage.promptTokens : 0,
-        completionTokens: usage && usage.completionTokens ? usage.completionTokens : 0,
-        totalTokens: usage && usage.totalTokens ? usage.totalTokens : 0,
-      },
-      bookingId: session.bookingId,
-      hotelId: this.resolveHotelId(session),
-      accountId: session.account ? session.account.id : null,
-      role: session.account ? session.account.role : null,
-      chatId: session.chatId,
-      messageId: assistantMessage.id,
-    });
+    this.recordCost(session, isVoice, assistantMessage.id, usage);
 
     this.llmEvalService.maybeEvaluate({
       chatId: session.chatId,
@@ -172,6 +188,24 @@ export class ChatLlmService {
 
     if (options.onEnd) {
       await options.onEnd({ fullContent, toolCalls });
+    }
+
+    // Written down once the caller has their answer, and kept with the turn so
+    // the hotel's view of the call shows what was noted when.
+    if (scribePrompt) {
+      const writing = this.langGraphService.writeNotes(scribePrompt(stripAudioTags(fullContent)), toolContext).then(async ({ calls, tokens }) => {
+        if (calls.length) {
+          await assistantMessage.update({ toolCalls: [...toolCalls, ...calls] });
+        }
+        const notes = this.constantsService.private.LLM.RESERVATION_NOTES;
+        this.recordCost(session, isVoice, assistantMessage.id, { promptTokens: tokens[0], completionTokens: tokens[1], totalTokens: tokens[0] + tokens[1] }, {
+          name: notes.MODEL,
+          inputPricePer1K: notes.INPUT_PRICE_PER_1K,
+          outputPricePer1K: notes.OUTPUT_PRICE_PER_1K,
+        });
+      }).catch((err: any) => this.logger.warn({ message: err?.message ?? String(err), serviceName: ChatLlmService.name, actionName: 'writeNotes' }));
+      this.notesInFlight.set(chatId, writing);
+      void writing.finally(() => this.notesInFlight.get(chatId) === writing && this.notesInFlight.delete(chatId));
     }
   }
 }

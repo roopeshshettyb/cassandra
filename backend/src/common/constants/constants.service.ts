@@ -434,8 +434,7 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
-      RESERVATION_LANGUAGE_KEPT: 'Not switched: the caller is not writing in that language and has not asked for it. A name or a place is not a language — keep answering in the language they are using.',
-      RESERVATION_DATES_NOTED: 'Noted. Nothing more to write down this turn — now reply to the caller.',
+      RESERVATION_DATES_NOTED: 'Noted.',
       RESERVATION_REPLY_NUDGE: 'You have not said anything to the caller this turn. Reply to them now, in their language, in one or two short sentences: check what they just told you, or ask for the next detail you still need.',
       RESERVATION_TOOL_BUDGET_SPENT: 'You have used your tools enough for this turn. Do not call any more — reply to the caller now.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
@@ -736,8 +735,11 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          */
         STT_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_STT_PROVIDER', ''),
         TTS_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_TTS_PROVIDER', ''),
-        /** Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken". */
-        UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1200', 10),
+        /**
+         * Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken".
+         * Measured with mid-sentence pauses of 0.6s and 0.9s: 1000ms split none of them, 800ms cut a phone number in half.
+         */
+        UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1000', 10),
         /**
          * English by default, despite 'multi' being the setting that lets one
          * nova-3 session follow a caller switching into Hindi mid sentence.
@@ -910,8 +912,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           { languageCode: 'te', pattern: '[\u0C00-\u0C7F]' },
         ],
         REPLY_LATIN_LANGUAGE: 'en',
-        /** Names a caller uses to ask for a language, so "can we speak Hindi?" written in English still switches. */
-        LANGUAGE_NAMES: { hi: ['hindi', 'हिंदी', 'हिन्दी'], kn: ['kannada', 'ಕನ್ನಡ'], ta: ['tamil', 'தமிழ்'], te: ['telugu', 'తెలుగు'] },
         /** Messages returned when a staff member opens one conversation to read it. */
         STAFF_CONVERSATION_MESSAGE_LIMIT: 200,
         SESSION_TOKEN_SEPARATOR: '.',
@@ -941,6 +941,17 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
         TEXT_MODEL: 'google/gemini-3.1-flash-lite',
+        /**
+         * Writes down the details on a reservation call once the reply has gone out. Replayed over 127
+         * real turns, TEXT_MODEL wrote down details nobody gave on 20 of them (a stock phone number, a
+         * made-up name, "10 guests" as a phone number); this one on none to one, in about a second. A
+         * slower, stronger model got every turn right but kept the next turn waiting for its notes.
+         */
+        RESERVATION_NOTES: {
+          MODEL: 'google/gemini-3.5-flash-lite',
+          INPUT_PRICE_PER_1K: 0.0003,
+          OUTPUT_PRICE_PER_1K: 0.0025,
+        },
         MENU_OCR_MODEL: this.configService.get<string>('MENU_OCR_MODEL', 'google/gemini-2.5-flash-lite'),
         SUMMARY_MODEL: this.configService.get<string>('SUMMARY_MODEL', 'openai/gpt-4o-mini'),
         // Chat/summary/eval all run through OpenRouter (see OPENROUTER below), never OpenAI directly.
