@@ -110,10 +110,19 @@ export class ChatLlmService {
     // different tool set, and a hotel it may never step outside of.
     const isReservation = !session.account;
 
+    // A reservation turn is built on the whole call so far — less the message
+    // just saved, which is the turn itself — and on what has been noted.
+    const reservation = this.constantsService.private.RESERVATION;
+    const [history, notes] = isReservation
+      ? await Promise.all([
+          this.messagesService.findRecentByChatId(chatId, reservation.HISTORY_MESSAGE_LIMIT + 1),
+          this.messagesService.currentNotesByChatId(chatId, reservation.SCRATCHPAD_NOTE_LIMIT),
+        ])
+      : [[], []];
     const { messages, scribePrompt } = isReservation
-      ? await buildReservationPrompt(
-          this.chatContextService, chatId, userMessage, appName, session.hotel, isVoice, session.languageCode ?? null,
-          await this.messagesService.currentNotesByChatId(chatId, this.constantsService.private.RESERVATION.SCRATCHPAD_NOTE_LIMIT),
+      ? buildReservationPrompt(
+          history.filter((message) => message.id !== userMsg.id),
+          userMessage, appName, session.hotel, isVoice, session.languageCode ?? null, notes,
         )
       : await buildChatPrompt(
           this.chatContextService,
@@ -168,7 +177,10 @@ export class ChatLlmService {
       toolCalls.length ? toolCalls : undefined,
     );
 
-    this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
+    // The reservation agent reads the call itself, not this cache.
+    if (!isReservation) {
+      this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
+    }
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
 
