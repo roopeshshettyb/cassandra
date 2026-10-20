@@ -184,6 +184,13 @@ export function createReservationTools(
         const accepted: Record<string, unknown> = { ...args };
         // Only the evidence for a name, not a note of its own.
         delete accepted.guestNameAsSaid;
+        // Spelled, the letters are the name. Measured: "my name is Srijit,
+        // spelling is S H R I J I T" was noted as Srijit — the word the speech
+        // recogniser heard, not the name the caller spelled.
+        const spelled = (ctx.sourceText ?? '').match(/(?<![\p{L}\p{M}])[A-Za-z](?:[\s,.-]+[A-Za-z](?![\p{L}\p{M}])){2,}/gu)?.pop()?.replace(/[^A-Za-z]/g, '');
+        if (typeof accepted.guestName === 'string' && spelled && spelled.toLowerCase() !== accepted.guestName.toLowerCase().replace(/[^\p{L}]/gu, '')) {
+          accepted.guestName = spelled.charAt(0).toUpperCase() + spelled.slice(1).toLowerCase();
+        }
         // A detail already noted changes only when the caller has just said the new
         // one. Measured: with every detail noted correctly, a later note re-typed the
         // whole booking with a phone number and dates nobody had said — the email
@@ -192,11 +199,14 @@ export function createReservationTools(
         const letters = (text: string) => text.toLowerCase().replace(/[^\p{L}]/gu, '');
         const spokenDigits = said.toLowerCase().replace(/\b[a-z]+\b/g, (word) => cfg.SPOKEN_DIGITS[word] ?? word).replace(/\D/g, '');
         const mentionsADate = /(^|\D)([1-9]|[12]\d|3[01])(\D|$)/.test(said) || new RegExp(cfg.DATE_PATTERN, 'iu').test(said);
+        // Each needs something to match: an empty string is in everything, and
+        // measured, a phone number noted as the email passed for that reason.
+        const heardIn = (text: string, part: string) => part.length > 0 && text.includes(part);
         const evidence: Record<string, (value: string) => boolean> = {
-          guestPhone: (value) => spokenDigits.includes(value.replace(/\D/g, '').slice(-6)),
-          guestEmail: (value) => letters(said).includes(letters(value.split('@')[0])),
+          guestPhone: (value) => value.replace(/\D/g, '').length >= 6 && heardIn(spokenDigits, value.replace(/\D/g, '').slice(-6)),
+          guestEmail: (value) => value.includes('@') && heardIn(letters(said), letters(value.split('@')[0])),
           // A name given in another script is checked as they wrote it, since "राम" holds no English letters.
-          guestName: (value) => letters(said).includes(letters(value)) || (!!args.guestNameAsSaid && letters(said).includes(letters(args.guestNameAsSaid))),
+          guestName: (value) => heardIn(letters(said), letters(value)) || heardIn(letters(said), letters(args.guestNameAsSaid ?? '')),
           checkInDate: () => mentionsADate,
           checkOutDate: () => mentionsADate,
         };

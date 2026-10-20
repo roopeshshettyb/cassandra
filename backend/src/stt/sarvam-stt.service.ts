@@ -134,6 +134,7 @@ export class SarvamSttService implements SttSessionFactory {
 
     let transcriptCb: ((text: string, isFinal?: boolean) => void) | null = null;
     let endOfSpeechCb: (() => void) | null = null;
+    let speechStartCb: (() => void) | null = null;
     let destroyed = false;
     // The gateway opens a session when the caller taps the mic and starts
     // sending immediately. Anything spoken before the socket is up is held
@@ -186,6 +187,8 @@ export class SarvamSttService implements SttSessionFactory {
           transcriptCb(text, false);
         } else if (message?.event === cfg.EVENT_TRANSCRIPT_FINAL && text && transcriptCb) {
           transcriptCb(text, true);
+        } else if (message?.event === cfg.EVENT_SPEECH_START && speechStartCb) {
+          speechStartCb();
         } else if (message?.event === cfg.EVENT_SPEECH_END && endOfSpeechCb) {
           endOfSpeechCb();
         } else if (message?.event === cfg.EVENT_ERROR) {
@@ -227,10 +230,14 @@ export class SarvamSttService implements SttSessionFactory {
       onEndOfSpeech(callback: () => void) {
         endOfSpeechCb = callback;
       },
+      onSpeechStart(callback: () => void) {
+        speechStartCb = callback;
+      },
       destroy() {
         destroyed = true;
         transcriptCb = null;
         endOfSpeechCb = null;
+        speechStartCb = null;
         pending = [];
         try {
           socket.close();

@@ -69,7 +69,17 @@ export class ElevenlabsTtsService {
     const settings = elevenlabs.VOICE_SETTINGS;
 
     try {
-      const res = await fetch(url, {
+      // Only the wait for an answer is timed, not the audio that follows it.
+      const request = async (init: RequestInit) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), elevenlabs.RESPONSE_TIMEOUT_MS);
+        try {
+          return await fetch(url, { ...init, signal: controller.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+      const init: RequestInit = {
         method: 'POST',
         headers: {
           'xi-api-key': apiKey,
@@ -87,7 +97,10 @@ export class ElevenlabsTtsService {
           },
           ...(languageCode && enforcesLanguage && { language_code: languageCode }),
         }),
-      });
+      };
+      // Nothing has been sent to the caller when a request fails to answer, so it
+      // is safe to ask once more.
+      const res = await request(init).catch(() => request(init));
 
       if (!res.ok) {
         throw new Error(await this.readError(res));

@@ -7,6 +7,8 @@ export interface ISttSession {
   endInput(): void;
   onTranscript(callback: (text: string, isFinal?: boolean) => void): void;
   onEndOfSpeech(callback: () => void): void;
+  /** The caller has started talking again, if the provider can tell. */
+  onSpeechStart?(callback: () => void): void;
   destroy(): void;
 }
 
