@@ -746,6 +746,36 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          */
         UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1000', 10),
         /**
+         * Silence that ends a turn when what was said is plainly finished — a yes, a short answer that
+         * does not trail off. Anything that might go on still gets UTTERANCE_END_MS. About half of a
+         * booking's turns are short confirmations, and a person answers those without waiting a second.
+         */
+        QUICK_END_MS: 500,
+        /**
+         * How long a turn that may go on — "my phone number is nine eight two one…" — is held open after
+         * that pause, for the caller to carry on. Measured: Sarvam reports speech resuming about 0.4s
+         * after it does, so a 0.5s hold cut a phone number read with a 0.9s pause in half; 0.7s does not.
+         */
+        UNFINISHED_HOLD_MS: 700,
+        /** An answer of at most this many words, ending cleanly, counts as finished. */
+        SHORT_ANSWER_WORDS: 4,
+        /** Words an answer may consist of entirely and still be finished, however long: "yes, that is all correct". */
+        AFFIRMATION_WORDS: [
+          'yes', 'yeah', 'yep', 'yup', 'ya', 'no', 'nope', 'ok', 'okay', 'sure', 'correct', 'right', 'exactly', 'perfect',
+          'fine', 'good', 'great', 'alright', 'that', "that's", 'thats', 'is', 'it', "it's", 'all', 'absolutely', 'please',
+          'thanks', 'thank', 'you', 'हाँ', 'हां', 'जी', 'नहीं', 'सही', 'है', 'ठीक', 'बिल्कुल', 'ಹೌದು', 'ಸರಿ', 'ಇಲ್ಲ',
+          'ஆமாம்', 'சரி', 'இல்லை', 'అవును', 'సరే', 'సరి', 'లేదు',
+        ],
+        /** Words a finished answer does not end on: "my name is", "the fifth and", "S H R I J I T at". */
+        DANGLING_WORDS: [
+          'and', 'or', 'but', 'so', 'the', 'a', 'an', 'my', 'our', 'is', 'are', 'to', 'at', 'for', 'from', 'of', 'with',
+          'in', 'on', 'um', 'uh', 'er', 'hmm', 'like', 'dot', 'number', 'phone', 'email', 'name', 'then', 'till', 'until',
+          'और', 'या', 'लेकिन', 'तो', 'मेरा', 'मेरी', 'मेरे', 'का', 'की', 'के', 'से', 'नाम', 'नंबर', 'ईमेल',
+          'ನನ್ನ', 'ಹೆಸರು', 'ನಂಬರ್', 'என்', 'பெயர்', 'நம்பர்', 'నా', 'పేరు', 'నంబర్',
+        ],
+        /** Digits that read as a phone number still being given: more than a count, fewer than a number. */
+        PARTIAL_NUMBER_DIGITS: { MIN: 3, FULL: 10 },
+        /**
          * English by default, despite 'multi' being the setting that lets one
          * nova-3 session follow a caller switching into Hindi mid sentence.
          *
@@ -1086,6 +1116,7 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             EVENT_AUDIO_END: 'audio_end',
             EVENT_TRANSCRIPT_PARTIAL: 'transcript.partial',
             EVENT_TRANSCRIPT_FINAL: 'transcript.final',
+            EVENT_SPEECH_START: 'vad.speech_start',
             EVENT_SPEECH_END: 'vad.speech_end',
             EVENT_ERROR: 'error',
             /**
@@ -1158,6 +1189,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           ELEVENLABS: {
             API_KEY: this.configService.get<string>('ELEVENLABS_API_KEY'),
             BASE_URL: this.configService.get<string>('ELEVENLABS_BASE_URL', 'https://api.elevenlabs.io'),
+            /**
+             * How long a request may take to start answering before it is tried once more. Audio normally
+             * starts in 0.2–0.4s; a connection that failed was measured taking ten seconds to say so, with
+             * the caller in silence throughout.
+             */
+            RESPONSE_TIMEOUT_MS: 3000,
             /** eleven_v3_conversational is the expressive realtime model (~280ms); eleven_flash_v2_5 is faster (~75ms) but flatter. */
             MODEL: this.configService.get<string>('ELEVENLABS_MODEL', 'eleven_v3_conversational'),
             /** Rachel, ElevenLabs' stock voice — set ELEVENLABS_VOICE_ID to the property's own. */

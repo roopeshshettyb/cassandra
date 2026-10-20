@@ -195,7 +195,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       const sttSession = this.sttFactory
         .getFactory(cfg.STT_PROVIDER)
         .createSession({
-          utteranceEndMs: cfg.UTTERANCE_END_MS,
+          // The shortest pause that may end a turn; settle() decides whether it does.
+          utteranceEndMs: cfg.QUICK_END_MS,
           language: cfg.STT_LANGUAGE,
           // Not the property's own name. Given it, Sarvam heard it in background
           // noise — "Bad Hotel." arrived as the caller's words, call after call
@@ -214,6 +215,15 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         done: false,
         /** Set once speech has ended and the corrected transcript is still owed. */
         awaitingFinal: null as ReturnType<typeof setTimeout> | null,
+        /** Set while a pause after what may be half a sentence is given time to end. */
+        holding: null as ReturnType<typeof setTimeout> | null,
+      };
+      const heardSoFar = () => (state.finalParts.length > 0 ? state.finalParts.join(' ') : state.interim);
+      const keepListening = () => {
+        if (state.holding) {
+          clearTimeout(state.holding);
+          state.holding = null;
+        }
       };
       client.sttState = state;
 
@@ -226,6 +236,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           clearTimeout(state.awaitingFinal);
           state.awaitingFinal = null;
         }
+        keepListening();
         this.clearTurnFallback(client);
         // The connection stays open for the caller's next turn. Measured: Sarvam
         // refuses a connection opened soon after five others, so one per turn
@@ -233,10 +244,26 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         client.emit('voice_turn_end');
         // Interim text is the fallback: better to answer what we heard than to
         // leave the caller talking to silence.
-        const heard = state.finalParts.length > 0 ? state.finalParts.join(' ') : state.interim;
-        void this.handleTurn(client, heard);
+        void this.handleTurn(client, heardSoFar());
       };
       client.runTurn = runTurn;
+
+      // A pause has ended an utterance. A plainly finished one ends the turn now;
+      // one that may go on — "my number is nine eight two one…" — gets the rest
+      // of the full silence, and the caller talking again keeps the turn open.
+      const settle = () => {
+        if (state.awaitingFinal) {
+          clearTimeout(state.awaitingFinal);
+          state.awaitingFinal = null;
+        }
+        keepListening();
+        if (this.looksFinished(heardSoFar())) {
+          runTurn();
+          return;
+        }
+        state.holding = setTimeout(runTurn, cfg.UNFINISHED_HOLD_MS);
+      };
+      sttSession.onSpeechStart?.(keepListening);
 
       sttSession.onTranscript((text: string, isFinal?: boolean) => {
         // Anything after the turn has run belongs to no one: it was answered.
@@ -248,12 +275,13 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           state.finalParts.push(trimmed);
         } else if (trimmed.length > 0) {
           state.interim = trimmed;
+          keepListening();
         }
         client.emit('voice_user_chunk', { delta: text, isFinal: !!isFinal });
         // The corrected transcript we were waiting for. Answer it, not the
         // half-sentence that preceded it.
         if (isFinal && state.awaitingFinal) {
-          runTurn();
+          settle();
         }
       });
 
@@ -273,7 +301,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         if (state.done || state.awaitingFinal) {
           return;
         }
-        state.awaitingFinal = setTimeout(runTurn, cfg.FINAL_TRANSCRIPT_GRACE_MS);
+        state.awaitingFinal = setTimeout(settle, cfg.FINAL_TRANSCRIPT_GRACE_MS);
       });
 
       return sttSession;
@@ -374,14 +402,20 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       return;
     }
     // Only play one already in memory: the answer queues behind whatever this
-    // returns, so synthesising here would add the delay it exists to hide. A cold
-    // phrase is warmed in the background and this turn goes without.
-    if (!this.cacheService.get<string[]>(this.fillerKey(spoken, languageCode))) {
+    // returns, so synthesising here would add the delay it exists to hide. The
+    // one warmed at boot, for no language, stands in until this call's own is
+    // ready. Measured: once a call's language was stored, every lookup missed and
+    // the filler played on one turn in eleven.
+    const cached = (code: string | null) => !!this.cacheService.get<string[]>(this.fillerKey(spoken, code));
+    if (!cached(languageCode)) {
       void this.getFillerChunks(spoken, languageCode, provider).catch(() => {});
+    }
+    const playing = cached(languageCode) ? languageCode : cached(null) ? null : undefined;
+    if (playing === undefined) {
       return;
     }
     try {
-      const chunks = await this.getFillerChunks(spoken, languageCode, provider);
+      const chunks = await this.getFillerChunks(spoken, playing, provider);
       for (const delta of chunks) {
         out.emit('voice_audio_chunk', { delta });
       }
@@ -393,6 +427,32 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         actionName: 'playThinkingFiller',
       });
     }
+  }
+
+  /**
+   * Whether what the caller has said is plainly a finished turn, so a short pause
+   * can end it: a yes or no, or a short answer that does not trail off into "and",
+   * a half-read number or a name still being spelled. Judged unfinished wrongly,
+   * a turn waits half a second longer; judged finished wrongly, the caller is cut
+   * off — so only the plain cases qualify.
+   */
+  private looksFinished(heard: string): boolean {
+    const cfg = this.constantsService.private.RESERVATION_VOICE;
+    const spokenDigits: Record<string, string> = this.constantsService.private.RESERVATION.SPOKEN_DIGITS;
+    const words = heard.toLowerCase().replace(/’/g, "'").replace(/[^\p{L}\p{M}\p{N}'\s]/gu, ' ').split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      return false;
+    }
+    if (words.every((word) => cfg.AFFIRMATION_WORDS.includes(word))) {
+      return true;
+    }
+    let trailingDigits = '';
+    for (let i = words.length - 1; i >= 0 && /^\d+$/.test(spokenDigits[words[i]] ?? words[i]); i -= 1) {
+      trailingDigits = (spokenDigits[words[i]] ?? words[i]) + trailingDigits;
+    }
+    const halfANumber = trailingDigits.length >= cfg.PARTIAL_NUMBER_DIGITS.MIN && trailingDigits.length < cfg.PARTIAL_NUMBER_DIGITS.FULL;
+    const spelling = words.length > 1 && words.slice(-2).every((word) => word.length === 1);
+    return words.length <= cfg.SHORT_ANSWER_WORDS && !cfg.DANGLING_WORDS.includes(words[words.length - 1]) && !halfANumber && !spelling;
   }
 
   /** One spoken turn: transcript in, budgets checked, spoken answer out. */
