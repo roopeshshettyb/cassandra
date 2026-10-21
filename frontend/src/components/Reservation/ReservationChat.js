@@ -19,8 +19,8 @@ const MessageBubble = ({ data }) => <ChatBubble message={data} />;
 export default function ReservationChat({ hotelId, onHotelResolved, onFatalError, alertError }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [ready, setReady] = useState(false);
-  const [sending, setSending] = useState(false);
+  // Connecting, then waiting on each reply. Local, not the app's: that one covers the page.
+  const [loading, setLoading] = useState(true);
   const [streamingContent, setStreamingContent] = useState('');
 
   const socketRef = useRef(null);
@@ -64,7 +64,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
     socketRef.current = socket;
 
     socket.on('ready', (payload) => {
-      setReady(true);
+      setLoading(false);
       onHotelResolvedRef.current?.(payload?.hotel || null);
       if (payload?.sessionToken) {
         localStorage.setItem(storageKeyRef.current, payload.sessionToken);
@@ -100,13 +100,13 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
         requestAnimationFrame(scrollToBottom);
       }
       setStreamingContent('');
-      setSending(false);
+      setLoading(false);
       setTimeout(() => inputRef.current?.focus?.(), 0);
     });
 
     socket.on('error', (p) => {
       setStreamingContent('');
-      setSending(false);
+      setLoading(false);
       onFatalErrorRef.current?.(p?.message);
       alertErrorRef.current?.(p?.message);
     });
@@ -119,14 +119,14 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
 
   const submit = useCallback((text) => {
     const content = text.trim();
-    if (!content || sending || !socketRef.current?.connected) return;
+    if (!content || loading || !socketRef.current?.connected) return;
     setInput('');
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content, createdAt: new Date().toISOString() }]);
     requestAnimationFrame(scrollToBottom);
-    setSending(true);
+    setLoading(true);
     setStreamingContent('');
     socketRef.current.emit('message', { content });
-  }, [sending]);
+  }, [loading]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -145,20 +145,20 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
           scrollbarWidth: 'none',
         }}
       >
-        {!ready && (
+        {loading && messages.length === 0 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', pt: 6 }}>
             <CircularProgress size={24} sx={{ color: 'primary.main' }} />
           </Box>
         )}
 
         <MapComponent Component={MessageBubble} data={messages} showNoDataAvailable={false} />
-        {sending && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
-        {sending && !streamingContent && <ThinkingBubble />}
+        {loading && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
+        {loading && messages.length > 0 && !streamingContent && <ThinkingBubble />}
       </Box>
 
-      {ready && !sending && (
+      {!loading && (
         <Box sx={{ px: { xs: 2, md: 3 }, pt: 1.5, pb: 0.5, flexShrink: 0 }}>
-          <SuggestionStrip items={constants.RESERVATION_SUGGESTIONS || []} onSelect={submit} disabled={sending} />
+          <SuggestionStrip items={constants.RESERVATION_SUGGESTIONS} onSelect={submit} disabled={loading} />
         </Box>
       )}
 
@@ -169,9 +169,9 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
           size="small"
           multiline
           maxRows={4}
-          placeholder={ready ? constants.RESERVATION_INPUT_PLACEHOLDER : 'Connecting…'}
+          placeholder={messages.length > 0 ? constants.RESERVATION_INPUT_PLACEHOLDER : constants.RESERVATION_CONNECTING}
           value={input}
-          disabled={!ready || sending}
+          disabled={loading}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -182,8 +182,8 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={() => submit(input)} disabled={!ready || sending || !input.trim()} size="small">
-                  <SendIcon sx={{ fontSize: 18, color: input.trim() && ready && !sending ? NAVY : MUTED }} />
+                <IconButton onClick={() => submit(input)} disabled={loading || !input.trim()} size="small">
+                  <SendIcon sx={{ fontSize: 18, color: input.trim() && !loading ? NAVY : MUTED }} />
                 </IconButton>
               </InputAdornment>
             ),

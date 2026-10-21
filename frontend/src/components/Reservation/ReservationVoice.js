@@ -536,7 +536,7 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   // only need to say whether tapping starts or ends the call.
   const live = status === 'listening' || status === 'thinking' || status === 'speaking';
   const label = status === 'connecting'
-    ? constants.RESERVATION_VOICE_CONNECTING
+    ? constants.RESERVATION_CONNECTING
     : live
       ? constants.RESERVATION_VOICE_TAP_TO_STOP
       : constants.RESERVATION_VOICE_TAP_TO_SPEAK;

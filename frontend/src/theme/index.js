@@ -41,6 +41,7 @@ export const MUTED = '#888888';
 export const BG = 'var(--app-bg)';
 export const SHADOW = '0 2px 8px rgba(0,0,0,0.06)';
 export const SHADOW_HOVER = '0 6px 20px rgba(0,0,0,0.1)';
+export const SHADOW_PANEL = '0 24px 48px rgba(0,0,0,0.06)';
 export const SHADOW_BRAND = '0 2px 8px color-mix(in srgb, var(--app-secondary) 30%, transparent)';
 
 export const STATUS_SUCCESS = '#059669';

@@ -7,7 +7,7 @@ import MicIcon from '@mui/icons-material/Mic';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ReservationChat from './ReservationChat';
 import ReservationVoice from './ReservationVoice';
-import { NAVY, MUTED, BORDER, BRAND_GRADIENT, PRIMARY_CONTRAST, SHADOW } from '../../theme';
+import { NAVY, MUTED, BORDER, BRAND_GRADIENT, PRIMARY_CONTRAST, SHADOW, SHADOW_PANEL } from '../../theme';
 import constants from '../../constants.json';
 
 // Errors that mean the conversation can never start — a mistyped link, a stale
@@ -100,7 +100,7 @@ export default function ReservationPage({ alertError }) {
               borderRadius: { md: 4 },
               overflow: 'hidden',
               border: { md: `1px solid ${BORDER}` },
-              boxShadow: { md: '0 24px 48px rgba(0,0,0,0.06)' },
+              boxShadow: { md: SHADOW_PANEL },
             }}
           >
             {isVoice ? (
