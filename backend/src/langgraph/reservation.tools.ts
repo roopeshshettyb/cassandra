@@ -120,6 +120,17 @@ export function createReservationTools(
             message: `${constantsService.public.RESERVATION_ENQUIRY_MISMATCH} ${differs.map((field) => `${field} (notes: ${notes[field]})`).join(', ')}`,
           });
         }
+        // Recorded once is enough. Measured: each "yes" after "Done — the team will
+        // call you" recorded the same booking again, and staff saw it three times.
+        // A change since, such as new dates, is a new booking and goes through.
+        const recorded = (await messagesService.findRecentByChatId(ctx.chatId, cfg.HISTORY_MESSAGE_LIMIT))
+          .flatMap((message) => message.toolCalls ?? [])
+          .filter((call) => call.toolName === 'record_reservation_enquiry' && String(call.output).includes('"success":true'));
+        const last = recorded[recorded.length - 1]?.input;
+        const fields = new Set([...Object.keys(last ?? {}), ...Object.keys(args)]);
+        if (last && [...fields].every((field) => String(last[field] ?? '') === String(args[field] ?? ''))) {
+          return JSON.stringify({ success: false, message: constantsService.public.RESERVATION_ENQUIRY_ALREADY_RECORDED });
+        }
         // No table by design: the enquiry is the tool call, persisted on the
         // assistant message and read back from the chat by hotel staff.
         return JSON.stringify({

@@ -450,7 +450,8 @@ export class ConstantsService {
       RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
       RESERVATION_NOTE_KEPT: 'Not changed, because the caller has not just said a new value — keep what is noted unless they correct it:',
       RESERVATION_ENQUIRY_MISMATCH: 'Not recorded: this does not match your notes, which hold what the caller confirmed. Read back what is in your notes, then record exactly that. Differs:',
-      RESERVATION_ENQUIRY_INCOMPLETE: 'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
+      RESERVATION_ENQUIRY_ALREADY_RECORDED: 'Not recorded again: this booking is already with the team and nothing has changed since. If they are saying yes or thanks, just close the call warmly.',
+      RESERVATION_ENQUIRY_INCOMPLETE:'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
       AI_BOOKINGS_TITLE: 'AI Bookings',
@@ -1197,6 +1198,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             DEFAULT_LANGUAGE: 'en-IN',
             /** How long to wait for the first audio before asking once more. Measured: ~0.3s. */
             RESPONSE_TIMEOUT_MS: 3000,
+            /** Pause before that second ask: Sarvam refuses connections opened in quick succession. */
+            RETRY_DELAY_MS: 500,
             NO_AUDIO_ERROR: 'Sarvam TTS sent no audio in time',
           },
           ELEVENLABS: {
