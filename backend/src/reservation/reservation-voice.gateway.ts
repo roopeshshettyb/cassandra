@@ -12,7 +12,7 @@ import { TtsFactoryService } from '../tts/tts-factory.service';
 import type { ISttSession } from '../stt/stt-session.interface';
 
 interface TtsProvider {
-  streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null }) => Promise<void>;
+  streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null; line?: object }) => Promise<void>;
 }
 
 interface TurnState {
@@ -20,6 +20,8 @@ interface TurnState {
   ttsQueue: Promise<void>;
   /** False once the caller has talked over this reply: nothing more of it is synthesised. */
   live: () => boolean;
+  /** The call's socket: every sentence goes out on the call's one open speech connection. */
+  line: object;
 }
 
 /**
@@ -35,6 +37,9 @@ interface TurnState {
 export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
+
+  /** The fillers' own speech line, one connection shared by every call, off any reply's path. */
+  private readonly fillerLine = {};
 
   constructor(
     private readonly reservationService: ReservationService,
@@ -88,7 +93,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         // caller would hear the reply stop mid-thought with no error anywhere.
         // One bad fragment should cost that fragment, not the rest of the answer.
         state.ttsQueue = state.ttsQueue
-          .then(() => (state.live() ? provider.streamToClient(client, spoken, { emitEnd: false, languageCode }) : undefined))
+          .then(() => (state.live() ? provider.streamToClient(client, spoken, { emitEnd: false, languageCode, line: state.line }) : undefined))
           .catch((err: any) => {
             this.logger.warn({
               message: err?.message ?? String(err),
@@ -336,7 +341,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           const spoken = this.spoken(phrase);
           if (spoken) {
             // One at a time: this is warming a cache, not racing anybody.
-            await this.getFillerChunks(spoken, null, provider);
+            await this.getFillerChunks(spoken, null, provider, this.fillerLine);
           }
         }
       } catch (err: any) {
@@ -356,7 +361,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
    * The provider writes to a collector rather than the socket, which captures the
    * audio without changing the TTS interface.
    */
-  private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider): Promise<string[]> {
+  private async getFillerChunks(phrase: string, languageCode: string | null, provider: TtsProvider, line: object): Promise<string[]> {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
     const key = this.fillerKey(phrase, languageCode);
     const cached = this.cacheService.get<string[]>(key);
@@ -372,7 +377,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         }
       },
     };
-    await provider.streamToClient(collector, phrase, { emitEnd: false, languageCode });
+    await provider.streamToClient(collector, phrase, { emitEnd: false, languageCode, line });
     if (chunks.length > 0) {
       this.cacheService.set(key, chunks, cfg.FILLER_CACHE_MINUTES);
     }
@@ -408,14 +413,14 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     // the filler played on one turn in eleven.
     const cached = (code: string | null) => !!this.cacheService.get<string[]>(this.fillerKey(spoken, code));
     if (!cached(languageCode)) {
-      void this.getFillerChunks(spoken, languageCode, provider).catch(() => {});
+      void this.getFillerChunks(spoken, languageCode, provider, this.fillerLine).catch(() => {});
     }
     const playing = cached(languageCode) ? languageCode : cached(null) ? null : undefined;
     if (playing === undefined) {
       return;
     }
     try {
-      const chunks = await this.getFillerChunks(spoken, playing, provider);
+      const chunks = await this.getFillerChunks(spoken, playing, provider, this.fillerLine);
       for (const delta of chunks) {
         out.emit('voice_audio_chunk', { delta });
       }
@@ -520,6 +525,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         sentenceBuffer: '',
         ttsQueue: this.playThinkingFiller(client, out, provider, languageCode),
         live: () => client.turnId === turnId,
+        line: client,
       };
 
       await this.chatLlmService.streamUserMessage(session, text, {
@@ -533,7 +539,17 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           const spokenTail = this.spoken(state.sentenceBuffer.trim());
           if (spokenTail.length > 0 && state.live()) {
             await state.ttsQueue;
-            await provider.streamToClient(out, spokenTail, { emitEnd: true, languageCode });
+            // Caught like every other sentence. Measured: Sarvam refused one, and the
+            // caller was told "we could not process that" over a reply already saved.
+            await provider.streamToClient(out, spokenTail, { emitEnd: true, languageCode, line: client }).catch((err: any) => {
+              this.logger.warn({
+                message: err?.message ?? String(err),
+                serviceName: 'ReservationVoiceGateway',
+                actionName: 'handleTurn',
+                traces: [{ stage: 'tts' }],
+              });
+              out.emit('voice_audio_end');
+            });
           } else {
             await state.ttsQueue;
             out.emit('voice_audio_end');
@@ -650,7 +666,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     client.voiceBusy = true;
     try {
       // Cached per property, so only the first caller at a property waits for it.
-      const chunks = await this.getFillerChunks(this.spoken(phrase), null, this.ttsProvider());
+      // On the call's own line: it opens the connection every reply will use.
+      const chunks = await this.getFillerChunks(this.spoken(phrase), null, this.ttsProvider(), client);
       for (const delta of chunks) {
         client.emit('voice_audio_chunk', { delta });
       }
