@@ -325,7 +325,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
    */
   onModuleInit(): void {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const phrases = cfg.THINKING_FILLERS ?? [];
+    const phrases = cfg.THINKING_FILLERS;
     if (phrases.length === 0) {
       return;
     }
@@ -641,7 +641,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     const cfg = this.constantsService.private.RESERVATION_VOICE;
     const hotel = client.reservationContext?.publicHotel;
     const name = hotel && typeof hotel.name === 'string' ? hotel.name : '';
-    const phrase = (cfg.GREETING ?? '').split(this.constantsService.public.RESERVATION_GREETING_HOTEL_TOKEN).join(name).replace(/\s+/g, ' ').trim();
+    const phrase = cfg.GREETING.split(this.constantsService.public.RESERVATION_GREETING_HOTEL_TOKEN).join(name).replace(/\s+/g, ' ').trim();
     if (!phrase) {
       this.createSttSession(client);
       return;

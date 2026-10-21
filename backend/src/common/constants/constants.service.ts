@@ -418,7 +418,7 @@ export class ConstantsService {
       RESERVATION_VOICE_BARGE_IN_RMS: 0.03,
       RESERVATION_VOICE_BARGE_IN_FRAMES: 3,
       RESERVATION_VOICE_BARGE_IN_PREROLL_FRAMES: 6,
-      RESERVATION_VOICE_CONNECTING: 'Connecting…',
+      RESERVATION_CONNECTING: 'Connecting…',
       RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
       RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
       RESERVATION_VOICE_MIC_DENIED: 'We could not access your microphone. Check your browser permissions and try again.',
@@ -454,7 +454,6 @@ export class ConstantsService {
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
       AI_BOOKINGS_TITLE: 'AI Bookings',
-      AI_BOOKINGS_PROPERTY_LABEL: 'Property',
       AI_BOOKINGS_SHARE_TITLE: 'Share this link to take reservations',
       AI_BOOKINGS_COPY_LINK: 'Copy link',
       AI_BOOKINGS_LINK_COPIED: 'Reservation link copied',

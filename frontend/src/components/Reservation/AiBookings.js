@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, MenuItem, TextField, Button, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Typography, Button, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { motion } from 'framer-motion';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import request from '../../helper/api';
 import DataGrid from '../DataGrid';
+import HotelPicker from '../HotelPicker';
 import AiBookingCard from './AiBookingCard';
 import { PageHeader } from '../cards/AppCards';
 import { NAVY, MUTED, BORDER } from '../../theme';
@@ -39,21 +40,20 @@ function AiBookings({ loading, setLoading, alertError, alertSuccess }) {
       endpoint: '/hotels',
       method: 'GET',
       setLoading,
+      setData: setHotels,
       defaultData: [],
       alertError,
       delay: false,
     }).then((result) => {
-      const rows = result?.data || [];
-      setHotels(rows);
-      if (rows.length > 0) {
-        setHotelId(rows[0].id);
-        fetchEnquiries(rows[0].id);
+      const first = result?.data?.[0];
+      if (first) {
+        setHotelId(String(first.id));
+        fetchEnquiries(first.id);
       }
     });
   }, []);
 
-  const onHotelChange = (event) => {
-    const id = event.target.value;
+  const onHotelChange = (id) => {
     setHotelId(id);
     setConversations([]);
     fetchEnquiries(id);
@@ -68,22 +68,7 @@ function AiBookings({ loading, setLoading, alertError, alertSuccess }) {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <PageHeader
           title={constants.AI_BOOKINGS_TITLE}
-          right={
-            <TextField
-              select
-              size="small"
-              value={hotelId}
-              onChange={onHotelChange}
-              sx={{ minWidth: 220 }}
-              label={constants.AI_BOOKINGS_PROPERTY_LABEL}
-            >
-              {hotels.map((hotel) => (
-                <MenuItem key={hotel.id} value={hotel.id}>
-                  {hotel.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          }
+          right={<HotelPicker hotels={hotels} value={hotelId} onChange={onHotelChange} sx={{ minWidth: 220 }} />}
         />
       </motion.div>
 
