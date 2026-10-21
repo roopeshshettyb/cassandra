@@ -733,7 +733,13 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * moved by tuning this page.
          */
         STT_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_STT_PROVIDER', ''),
-        TTS_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_TTS_PROVIDER', ''),
+        /**
+         * Sarvam's Bulbul, streamed: it sounds native in all five languages and starts
+         * speaking in ~0.3s. Measured: ElevenLabs v3 cut Tamil off after two words in
+         * 2 of 9 tries. Fixed here rather than read from the environment, so an env
+         * file still naming ElevenLabs cannot leave the call on another voice.
+         */
+        TTS_PROVIDER: 'sarvam',
         /**
          * Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken".
          * Measured with mid-sentence pauses of 0.6s and 0.9s: 1000ms split none of them, 800ms cut a phone number in half.
@@ -1149,11 +1155,19 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           },
           SARVAM: {
             API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
-            BASE_URL: this.configService.get<string>('SARVAM_TTS_BASE_URL', 'https://api.sarvam.ai'),
+            /** The streaming socket: audio arrives as it is made, not once the whole clip is done. */
+            WS_URL: this.configService.get<string>('SARVAM_TTS_WS_URL', 'wss://api.sarvam.ai/text-to-speech/ws'),
             MODEL: this.configService.get<string>('SARVAM_TTS_MODEL', 'bulbul:v3'),
             SPEAKER: this.configService.get<string>('SARVAM_TTS_SPEAKER', 'shruti'),
             PACE: parseFloat(this.configService.get('SARVAM_TTS_PACE') || '1'),
             SPEECH_SAMPLE_RATE: parseInt(this.configService.get('SARVAM_TTS_SPEECH_SAMPLE_RATE') || '24000', 10),
+            /** Raw 16-bit PCM, what the browser player takes from every provider. */
+            OUTPUT_CODEC: 'linear16',
+            /** Used when the chat has no language yet, as on the greeting. */
+            DEFAULT_LANGUAGE: 'en-IN',
+            /** How long to wait for the first audio before asking once more. Measured: ~0.3s. */
+            RESPONSE_TIMEOUT_MS: 3000,
+            NO_AUDIO_ERROR: 'Sarvam TTS sent no audio in time',
           },
           ELEVENLABS: {
             API_KEY: this.configService.get<string>('ELEVENLABS_API_KEY'),
