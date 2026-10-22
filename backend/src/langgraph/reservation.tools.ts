@@ -48,6 +48,11 @@ export function toPublicHotel(hotel: Hotel | null): Record<string, unknown> | nu
  * neither read another guest's data nor create a booking. The enquiry it
  * gathers lives in this chat's messages for staff to pick up.
  */
+/** The digits in what the caller said, number words included. */
+export function spokenDigits(text: string, words: Record<string, string>): string {
+  return text.toLowerCase().replace(/\b[a-z]+\b/g, (word) => words[word] ?? word).replace(/\D/g, '');
+}
+
 export function createReservationTools(
   ctx: AgentToolContext,
   restaurantService: RestaurantService,
@@ -208,13 +213,13 @@ export function createReservationTools(
         // was what the caller was giving at the time — and they were recorded.
         const said = ctx.sourceText ?? '';
         const letters = (text: string) => text.toLowerCase().replace(/[^\p{L}]/gu, '');
-        const spokenDigits = said.toLowerCase().replace(/\b[a-z]+\b/g, (word) => cfg.SPOKEN_DIGITS[word] ?? word).replace(/\D/g, '');
+        const heardDigits = spokenDigits(said, cfg.SPOKEN_DIGITS);
         const mentionsADate = /(^|\D)([1-9]|[12]\d|3[01])(\D|$)/.test(said) || new RegExp(cfg.DATE_PATTERN, 'iu').test(said);
         // Each needs something to match: an empty string is in everything, and
         // measured, a phone number noted as the email passed for that reason.
         const heardIn = (text: string, part: string) => part.length > 0 && text.includes(part);
         const evidence: Record<string, (value: string) => boolean> = {
-          guestPhone: (value) => value.replace(/\D/g, '').length >= 6 && heardIn(spokenDigits, value.replace(/\D/g, '').slice(-6)),
+          guestPhone: (value) => value.replace(/\D/g, '').length >= 6 && heardIn(heardDigits, value.replace(/\D/g, '').slice(-6)),
           guestEmail: (value) => value.includes('@') && heardIn(letters(said), letters(value.split('@')[0])),
           // A name given in another script is checked as they wrote it, since "राम" holds no English letters.
           guestName: (value) => heardIn(letters(said), letters(value)) || heardIn(letters(said), letters(args.guestNameAsSaid ?? '')),
