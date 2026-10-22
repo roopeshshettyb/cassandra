@@ -322,26 +322,21 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
   }
 
   /**
-   * Synthesise every filler once at boot, so no caller is the one who warms it.
-   * Warming on demand leaves most calls without one, since a phrase picked from
-   * two dozen is rarely reused before the next deploy empties the cache.
+   * Synthesise every filler in every language once at boot, so no caller is the
+   * one who warms it. Warming on demand leaves most calls without one, since a
+   * phrase picked at random is rarely reused before the next deploy empties the cache.
    *
    * Never awaited: a TTS outage must not stop the gateway coming up.
    */
   onModuleInit(): void {
-    const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const phrases = cfg.THINKING_FILLERS;
-    if (phrases.length === 0) {
-      return;
-    }
+    const fillers = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
     void (async () => {
       try {
         const provider = this.ttsProvider();
-        for (const phrase of phrases) {
-          const spoken = this.spoken(phrase);
-          if (spoken) {
+        for (const [languageCode, phrases] of Object.entries(fillers)) {
+          for (const phrase of phrases) {
             // One at a time: this is warming a cache, not racing anybody.
-            await this.getFillerChunks(spoken, null, provider, this.fillerLine);
+            await this.getFillerChunks(this.spoken(phrase), languageCode, provider, this.fillerLine);
           }
         }
       } catch (err: any) {
@@ -392,8 +387,8 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
    * phrase, because it is the one thing a person would never do.
    */
   private async playThinkingFiller(client: any, out: { emit: (event: string, payload?: any) => void }, provider: TtsProvider, languageCode: string | null): Promise<void> {
-    const phrases = this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS;
-    if (!phrases || phrases.length === 0) {
+    const phrases = languageCode ? this.constantsService.private.RESERVATION_VOICE.THINKING_FILLERS[languageCode] : undefined;
+    if (!phrases?.length) {
       return;
     }
     let index = Math.floor(Math.random() * phrases.length);
@@ -407,20 +402,14 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       return;
     }
     // Only play one already in memory: the answer queues behind whatever this
-    // returns, so synthesising here would add the delay it exists to hide. The
-    // one warmed at boot, for no language, stands in until this call's own is
-    // ready. Measured: once a call's language was stored, every lookup missed and
-    // the filler played on one turn in eleven.
-    const cached = (code: string | null) => !!this.cacheService.get<string[]>(this.fillerKey(spoken, code));
-    if (!cached(languageCode)) {
+    // returns, so synthesising here would add the delay it exists to hide. Boot
+    // warms every language's; a miss is warmed for next time and skipped now.
+    if (!this.cacheService.get<string[]>(this.fillerKey(spoken, languageCode))) {
       void this.getFillerChunks(spoken, languageCode, provider, this.fillerLine).catch(() => {});
-    }
-    const playing = cached(languageCode) ? languageCode : cached(null) ? null : undefined;
-    if (playing === undefined) {
       return;
     }
     try {
-      const chunks = await this.getFillerChunks(spoken, playing, provider, this.fillerLine);
+      const chunks = await this.getFillerChunks(spoken, languageCode, provider, this.fillerLine);
       for (const delta of chunks) {
         out.emit('voice_audio_chunk', { delta });
       }
@@ -523,7 +512,9 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
       // true, so there is no judgement call about whether one is warranted.
       const state: TurnState = {
         sentenceBuffer: '',
-        ttsQueue: this.playThinkingFiller(client, out, provider, languageCode),
+        // In the language just spoken: the stored one follows her last reply, so it
+        // is still English on the turn a caller switches to Kannada.
+        ttsQueue: this.playThinkingFiller(client, out, provider, this.reservationService.languageOf(text) ?? languageCode),
         live: () => client.turnId === turnId,
         line: client,
       };
