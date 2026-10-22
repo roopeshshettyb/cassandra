@@ -48,9 +48,20 @@ export function toPublicHotel(hotel: Hotel | null): Record<string, unknown> | nu
  * neither read another guest's data nor create a booking. The enquiry it
  * gathers lives in this chat's messages for staff to pick up.
  */
-/** The digits in what the caller said, number words included. */
+// Where 0 sits in ASCII, Devanagari, Tamil, Telugu and Kannada.
+const NUMERAL_ZEROS = [0x30, 0x966, 0xbe6, 0xc66, 0xce6];
+
+/** Numerals in any of the five scripts as ASCII digits: "೯೦" is "90". */
+export function asciiNumerals(text: string): string {
+  return text.replace(/\p{Nd}/gu, (numeral) => String(NUMERAL_ZEROS.map((zero) => numeral.codePointAt(0) - zero).find((value) => value >= 0 && value <= 9) ?? ''));
+}
+
+/** The digits in what the caller said: numerals in any script, number words in any of the five languages. */
 export function spokenDigits(text: string, words: Record<string, string>): string {
-  return text.toLowerCase().replace(/\b[a-z]+\b/g, (word) => words[word] ?? word).replace(/\D/g, '');
+  return asciiNumerals(text.normalize('NFC').toLowerCase())
+    .replace(/[\p{L}\p{M}]+/gu, (word) => words[word] ?? word)
+    .replace(/x([23])\D*(\d)/g, (_, times: string, digit: string) => digit.repeat(Number(times)))
+    .replace(/\D/g, '');
 }
 
 export function createReservationTools(
@@ -211,7 +222,8 @@ export function createReservationTools(
         // one. Measured: with every detail noted correctly, a later note re-typed the
         // whole booking with a phone number and dates nobody had said — the email
         // was what the caller was giving at the time — and they were recorded.
-        const said = ctx.sourceText ?? '';
+        // Numerals as ASCII, so "೧೦ ಡಿಸೆಂಬರ್" counts as a date as much as "10 December" does.
+        const said = asciiNumerals(ctx.sourceText ?? '');
         const letters = (text: string) => text.toLowerCase().replace(/[^\p{L}]/gu, '');
         const heardDigits = spokenDigits(said, cfg.SPOKEN_DIGITS);
         const mentionsADate = /(^|\D)([1-9]|[12]\d|3[01])(\D|$)/.test(said) || new RegExp(cfg.DATE_PATTERN, 'iu').test(said);

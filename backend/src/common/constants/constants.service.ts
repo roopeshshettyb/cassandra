@@ -918,7 +918,17 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         /** Notes handed back to the agent when it reads its scratchpad. */
         SCRATCHPAD_NOTE_LIMIT: 50,
         /** Spoken digits, so "eight nine zero…" can be checked against a noted phone number. */
-        SPOKEN_DIGITS: { zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9' },
+        /**
+         * Number words in the five languages, for checking a phone number was said.
+         * "x2" and "x3" repeat the next digit: "double nine" is 99.
+         */
+        SPOKEN_DIGITS: {
+          zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', double: 'x2', triple: 'x3',
+          शून्य: '0', जीरो: '0', एक: '1', दो: '2', तीन: '3', चार: '4', पाँच: '5', पांच: '5', छह: '6', छः: '6', छे: '6', सात: '7', आठ: '8', नौ: '9', डबल: 'x2', ट्रिपल: 'x3',
+          ಸೊನ್ನೆ: '0', ಶೂನ್ಯ: '0', ಜೀರೋ: '0', ಒಂದು: '1', ಎರಡು: '2', ಮೂರು: '3', ನಾಲ್ಕು: '4', ಐದು: '5', ಆರು: '6', ಏಳು: '7', ಎಂಟು: '8', ಒಂಬತ್ತು: '9', ಒಂಭತ್ತು: '9', ಡಬಲ್: 'x2', ಟ್ರಿಪಲ್: 'x3',
+          பூஜ்ஜியம்: '0', பூஜ்யம்: '0', ஜீரோ: '0', சைபர்: '0', ஒன்று: '1', ஒண்ணு: '1', இரண்டு: '2', ரெண்டு: '2', மூன்று: '3', மூணு: '3', நான்கு: '4', நாலு: '4', ஐந்து: '5', அஞ்சு: '5', ஆறு: '6', ஏழு: '7', எட்டு: '8', ஒன்பது: '9', டபுள்: 'x2', ட்ரிபிள்: 'x3',
+          సున్నా: '0', జీరో: '0', ఒకటి: '1', రెండు: '2', మూడు: '3', నాలుగు: '4', ఐదు: '5', ఆరు: '6', ఏడు: '7', ఎనిమిది: '8', తొమ్మిది: '9', డబుల్: 'x2', ట్రిపుల్: 'x3',
+        } as Record<string, string>,
         /**
          * The caller is talking about dates, in the five languages: a month, an
          * ordinal, a relative day. A noted date only changes when their message
