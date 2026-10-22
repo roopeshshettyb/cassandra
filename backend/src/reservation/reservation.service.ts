@@ -190,6 +190,7 @@ export class ReservationService {
         sessionToken: result.sessionToken,
         hotel: result.publicHotel,
         messages: result.messages,
+        languageCode: result.chat ? result.chat.languageCode : null,
       });
       return result;
     } catch (err: any) {

@@ -21,6 +21,8 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
   // Connecting, then waiting on each reply. Local, not the app's: that one covers the page.
   const [loading, setLoading] = useState(true);
   const [streamingContent, setStreamingContent] = useState('');
+  // The language she last replied in, so the buttons and the input speak it too.
+  const [language, setLanguage] = useState(constants.RESERVATION_DEFAULT_LANGUAGE);
 
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
@@ -64,6 +66,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
 
     socket.on('ready', (payload) => {
       setLoading(false);
+      setLanguage(payload?.languageCode || constants.RESERVATION_DEFAULT_LANGUAGE);
       onHotelResolvedRef.current?.(payload?.hotel || null);
       if (payload?.sessionToken) {
         localStorage.setItem(storageKeyRef.current, payload.sessionToken);
@@ -94,6 +97,9 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
     });
 
     socket.on('stream_end', (p) => {
+      if (p.languageCode) {
+        setLanguage(p.languageCode);
+      }
       if (p.content) {
         setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: p.content, createdAt: new Date().toISOString() }]);
         requestAnimationFrame(scrollToBottom);
@@ -157,7 +163,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
 
       {!loading && (
         <Box sx={{ px: { xs: 2, md: 3 }, pt: 1.5, pb: 0.5, flexShrink: 0 }}>
-          <SuggestionStrip items={constants.RESERVATION_SUGGESTIONS} onSelect={submit} disabled={loading} />
+          <SuggestionStrip items={constants.RESERVATION_SUGGESTIONS[language]} onSelect={submit} disabled={loading} />
         </Box>
       )}
 
@@ -168,7 +174,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
           size="small"
           multiline
           maxRows={4}
-          placeholder={messages.length > 0 ? constants.RESERVATION_INPUT_PLACEHOLDER : constants.RESERVATION_CONNECTING}
+          placeholder={messages.length > 0 ? constants.RESERVATION_INPUT_PLACEHOLDER[language] : constants.RESERVATION_CONNECTING}
           value={input}
           disabled={loading}
           onChange={(e) => setInput(e.target.value)}

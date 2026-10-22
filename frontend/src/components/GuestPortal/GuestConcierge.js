@@ -236,7 +236,8 @@ export function ChatBubble({ message }) {
           '& code': { fontFamily: 'monospace', fontSize: 12 },
         }}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
+        {/* Hard breaks: Markdown joins single lines, and a read-back summary ran into one line. */}
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{(message.content || '').replace(/\n/g, '  \n')}</ReactMarkdown>
       </Box>
       {message.createdAt && (
         <Typography sx={{ fontSize: 10, color: MUTED, alignSelf: isUser ? 'flex-end' : 'flex-start', px: 0.5 }}>

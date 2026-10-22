@@ -77,8 +77,9 @@ export class ReservationGateway implements OnGatewayConnection, OnGatewayDisconn
           client.emit('stream_chunk', { content: chunk });
         },
         onEnd: async (result: { fullContent: string; toolCalls: ToolCallRecord[] }) => {
-          client.emit('stream_end', { content: result.fullContent, toolCalls: result.toolCalls });
+          // Language first, so the page's buttons switch with the reply that switched it.
           await this.reservationService.followReplyLanguage(session, result.fullContent);
+          client.emit('stream_end', { content: result.fullContent, toolCalls: result.toolCalls, languageCode: session.languageCode });
         },
       });
     } catch (err: any) {

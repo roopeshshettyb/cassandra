@@ -400,7 +400,15 @@ export class ConstantsService {
       /** Replaced with the property's name in both greetings. */
       RESERVATION_GREETING_HOTEL_TOKEN: '{HOTEL}',
       RESERVATION_SUBTITLE: 'Tell us your dates and we will take it from there',
-      RESERVATION_INPUT_PLACEHOLDER: 'Ask about rooms, rates or availability…',
+      /** The chat's language until she has replied in one. */
+      RESERVATION_DEFAULT_LANGUAGE: 'en',
+      RESERVATION_INPUT_PLACEHOLDER: {
+        en: 'Ask about rooms, rates or availability…',
+        hi: 'रूम, रेट या उपलब्धता के बारे में पूछें…',
+        kn: 'ರೂಮ್, ರೇಟ್ ಅಥವಾ ಲಭ್ಯತೆ ಬಗ್ಗೆ ಕೇಳಿ…',
+        ta: 'ரூம், ரேட் அல்லது கிடைப்பது பற்றி கேளுங்கள்…',
+        te: 'రూమ్, రేట్ లేదా అందుబాటు గురించి అడగండి…',
+      },
       RESERVATION_FATAL_HELP: 'This reservation link may be out of date. Please check the link, or contact the property directly to book.',
       // Public voice reservation
       RESERVATION_VOICE_TITLE: 'Book by voice',
@@ -473,14 +481,13 @@ export class ConstantsService {
       AI_BOOKINGS_ENQUIRY_LATEST: 'Latest enquiry',
       RESERVATION_CONVERSATION_FETCHED: 'Conversation loaded',
       ERROR_RESERVATION_CONVERSATION_NOT_FOUND: 'That conversation does not belong to this property.',
-      RESERVATION_SUGGESTIONS: [
-        'I want to book a room',
-        'What are your rates?',
-        'Do you have availability this weekend?',
-        'What time is check-in?',
-        'Is breakfast included?',
-        'Do you have family rooms?',
-      ],
+      RESERVATION_SUGGESTIONS: {
+        en: ['I want to book a room', 'What are your rates?', 'Do you have availability this weekend?', 'What time is check-in?', 'Is breakfast included?', 'Do you have family rooms?'],
+        hi: ['मुझे रूम बुक करना है', 'आपके रेट्स क्या हैं?', 'इस वीकेंड रूम मिलेगा?', 'चेक-इन कितने बजे है?', 'क्या ब्रेकफ़ास्ट शामिल है?', 'फ़ैमिली रूम है?'],
+        kn: ['ನನಗೆ ರೂಮ್ ಬುಕ್ ಮಾಡಬೇಕು', 'ನಿಮ್ಮ ರೇಟ್ಸ್ ಎಷ್ಟು?', 'ಈ ವೀಕೆಂಡ್ ರೂಮ್ ಸಿಗುತ್ತಾ?', 'ಚೆಕ್-ಇನ್ ಎಷ್ಟು ಗಂಟೆಗೆ?', 'ಬ್ರೇಕ್‌ಫಾಸ್ಟ್ ಸೇರಿದೆಯಾ?', 'ಫ್ಯಾಮಿಲಿ ರೂಮ್ ಇದೆಯಾ?'],
+        ta: ['எனக்கு ரூம் புக் பண்ணணும்', 'உங்க ரேட்ஸ் என்ன?', 'இந்த வீக்கெண்ட் ரூம் கிடைக்குமா?', 'செக்-இன் எத்தனை மணிக்கு?', 'பிரேக்ஃபாஸ்ட் சேர்ந்ததா?', 'ஃபேமிலி ரூம் இருக்கா?'],
+        te: ['నాకు రూమ్ బుక్ చేయాలి', 'మీ రేట్స్ ఎంత?', 'ఈ వీకెండ్ రూమ్ దొరుకుతుందా?', 'చెక్-ఇన్ ఎన్ని గంటలకు?', 'బ్రేక్‌ఫాస్ట్ కలిపి ఉందా?', 'ఫ్యామిలీ రూమ్ ఉందా?'],
+      },
       TTS_PLAYBACK_RATE: 1.0,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
