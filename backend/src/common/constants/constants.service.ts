@@ -859,32 +859,18 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           'RESERVATION_VOICE_GREETING',
           '[warm] Hello, thanks for calling {HOTEL}. When were you thinking of staying with us?',
         ),
-        THINKING_FILLERS: [
-          '[thoughtful] Mmm…',
-          '[thoughtful] Mm-hmm…',
-          '[inhales] Okay…',
-          '[thoughtful] Right…',
-          '[thoughtful] Sure…',
-          '[thoughtful] Got it…',
-          '[inhales] Right, okay…',
-          '[thoughtful] Ah, okay…',
-          '[thoughtful] Mm, right…',
-          '[exhales] Okay then…',
-          '[thoughtful] Of course…',
-          '[thoughtful] Lovely…',
-          '[inhales] Mm…',
-          '[thoughtful] Yep…',
-          '[thoughtful] Okay, sure…',
-          '[thoughtful] Right you are…',
-          '[inhales] Ah…',
-          '[thoughtful] Perfect…',
-          '[thoughtful] Understood…',
-          '[exhales] Mm-hmm, okay…',
-          '[thoughtful] Great…',
-          '[thoughtful] Noted…',
-          '[inhales] Okay, right…',
-          '[thoughtful] Yeah, okay…',
-        ],
+        /**
+         * Said while she thinks, in the language the caller is speaking. Measured:
+         * one English list played "Okay…" before every Kannada answer, so a caller
+         * heard her switch language mid-sentence.
+         */
+        THINKING_FILLERS: {
+          en: ['Okay…', 'Sure…', 'Got it…', 'Mm-hmm…', 'One second…', 'Alright…', 'Okay, sure…', 'Right, okay…'],
+          hi: ['अच्छा…', 'जी…', 'हाँ जी…', 'ठीक है…', 'एक सेकंड…', 'जी, ठीक है…'],
+          kn: ['ಸರಿ…', 'ಆಯ್ತು…', 'ಒಂದು ನಿಮಿಷ…', 'ಸರಿ ಸರಿ…', 'ಆಯ್ತು, ಸರಿ…'],
+          ta: ['சரி…', 'சரிங்க…', 'ஒரு நிமிஷம்…', 'சரி சரி…', 'ஆமாங்க…'],
+          te: ['సరే…', 'సరేనండి…', 'అలాగే…', 'ఒక్క నిమిషం…', 'సరే సరే…'],
+        } as Record<string, string[]>,
         /** Synthesised once per phrase per language, then replayed from memory. */
         FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
         FILLER_CACHE_MINUTES: 720,

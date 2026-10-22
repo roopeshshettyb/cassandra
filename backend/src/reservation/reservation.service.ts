@@ -372,14 +372,19 @@ export class ReservationService {
    * this is the only place the language is stored.
    */
   async followReplyLanguage(session: { chatId: number; languageCode?: string | null }, reply: string): Promise<void> {
-    const cfg = this.constantsService.private.RESERVATION;
-    const script = cfg.REPLY_SCRIPT_LANGUAGES.find((entry) => new RegExp(entry.pattern).test(reply));
-    const languageCode = script ? script.languageCode : /[A-Za-z]/.test(reply) ? cfg.REPLY_LATIN_LANGUAGE : null;
+    const languageCode = this.languageOf(reply);
     if (!languageCode || languageCode === session.languageCode) {
       return;
     }
     session.languageCode = languageCode;
     await this.chatService.updateLanguageCode(session.chatId, languageCode);
+  }
+
+  /** The language text is written in, by its script; Latin is English. Null when it has no letters. */
+  languageOf(text: string): string | null {
+    const cfg = this.constantsService.private.RESERVATION;
+    const script = cfg.REPLY_SCRIPT_LANGUAGES.find((entry) => new RegExp(entry.pattern).test(text));
+    return script ? script.languageCode : /[A-Za-z]/.test(text) ? cfg.REPLY_LATIN_LANGUAGE : null;
   }
 
   /**
