@@ -457,7 +457,8 @@ export class ConstantsService {
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
       RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
       RESERVATION_NOTE_KEPT: 'Not changed, because the caller has not just said a new value — keep what is noted unless they correct it:',
-      RESERVATION_ENQUIRY_ALREADY_RECORDED: 'Not recorded again: this booking is already with the team and nothing has changed since. If they are saying yes or thanks, just close the call warmly.',
+      RESERVATION_ENQUIRY_INVALID: 'Not recorded: tell the caller what is wrong and ask again, then read the details back:',
+      RESERVATION_ENQUIRY_ALREADY_RECORDED:'Not recorded again: this booking is already with the team and nothing has changed since. If they are saying yes or thanks, just close the call warmly.',
       RESERVATION_ENQUIRY_INCOMPLETE:'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
@@ -941,6 +942,20 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         ].join('|'),
         /** Details that must have been noted during the call before an enquiry can be recorded. */
         ENQUIRY_REQUIRED_NOTES: ['checkInDate', 'checkOutDate', 'partySize', 'guestName', 'guestEmail', 'guestPhone'],
+        /**
+         * What a booking detail must be before it is noted or recorded. Measured (QA,
+         * chat 1442): a stay from the tenth to the twelfth of October was recorded on
+         * the twenty-third, and a five-digit phone number was read back and accepted.
+         */
+        MAX_PARTY_SIZE: 20,
+        PHONE_DIGITS: { MIN: 10, MAX: 13 },
+        BOOKING_PROBLEMS: {
+          checkInDate: 'the check-in date is before today',
+          checkOutDate: 'the check-out date is not after the check-in date',
+          partySize: 'the number of guests must be from 1 to 20',
+          guestPhone: 'a phone number has 10 digits, or more with a country code',
+          guestEmail: 'that is not a working email address',
+        } as Record<string, string>,
         /** Details only the caller can give, so they are noted only when the caller has just said them. */
         CALLER_SPOKEN_NOTES: ['guestName', 'guestPhone', 'guestEmail'],
         /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */
