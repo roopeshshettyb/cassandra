@@ -171,6 +171,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
 
     const result = await this.reservationService.connect(client);
     if (!result) {
+      // Closed, not left half open. Measured: with the database unreachable at
+      // connect, a client that kept sending audio got every turn crashing on
+      // the missing call context and heard nothing at all.
+      client.disconnect(true);
       return;
     }
     client.turnsUsed = 0;
@@ -425,7 +429,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
 
   /**
    * Whether what the caller has said is plainly a finished turn, so a short pause
-   * can end it: a yes or no, or a short answer that does not trail off into "and",
+   * can end it: a yes or no, or an answer that does not trail off into "and",
    * a half-read number or a name still being spelled. Judged unfinished wrongly,
    * a turn waits half a second longer; judged finished wrongly, the caller is cut
    * off — so only the plain cases qualify.
@@ -446,7 +450,10 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     const halfANumber = trailingDigits.length >= cfg.PARTIAL_NUMBER_DIGITS.MIN && trailingDigits.length < cfg.PARTIAL_NUMBER_DIGITS.FULL;
     const spelling = words.length > 1 && words.slice(-2).every((word) => word.length === 1);
-    return words.length <= cfg.SHORT_ANSWER_WORDS && !cfg.DANGLING_WORDS.includes(words[words.length - 1]) && !halfANumber && !spelling;
+    // Length is no sign of an unfinished turn. Measured: every sentence over four
+    // words waited the full hold, ~0.7s, though complete ("…to the 7th of
+    // November."); a paused one ends on "for" or half a number, caught here.
+    return !cfg.DANGLING_WORDS.includes(words[words.length - 1]) && !halfANumber && !spelling;
   }
 
   /** One spoken turn: transcript in, budgets checked, spoken answer out. */

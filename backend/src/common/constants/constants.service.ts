@@ -457,7 +457,6 @@ export class ConstantsService {
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
       RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
       RESERVATION_NOTE_KEPT: 'Not changed, because the caller has not just said a new value — keep what is noted unless they correct it:',
-      RESERVATION_ENQUIRY_MISMATCH: 'Not recorded: this does not match your notes, which hold what the caller confirmed. Read back what is in your notes, then record exactly that. Differs:',
       RESERVATION_ENQUIRY_ALREADY_RECORDED: 'Not recorded again: this booking is already with the team and nothing has changed since. If they are saying yes or thanks, just close the call warmly.',
       RESERVATION_ENQUIRY_INCOMPLETE:'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
@@ -765,8 +764,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * after it does, so a 0.5s hold cut a phone number read with a 0.9s pause in half; 0.7s does not.
          */
         UNFINISHED_HOLD_MS: 700,
-        /** An answer of at most this many words, ending cleanly, counts as finished. */
-        SHORT_ANSWER_WORDS: 4,
         /** Words an answer may consist of entirely and still be finished, however long: "yes, that is all correct". */
         AFFIRMATION_WORDS: [
           'yes', 'yeah', 'yep', 'yup', 'ya', 'no', 'nope', 'ok', 'okay', 'sure', 'correct', 'right', 'exactly', 'perfect',
@@ -859,23 +856,29 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          */
         GREETING: this.configService.get<string>(
           'RESERVATION_VOICE_GREETING',
-          '[warm] Hello, thanks for calling {HOTEL}. When were you thinking of staying with us?',
+          '[warm] Hello, thanks for calling {HOTEL}.',
         ),
         /**
          * Said while she thinks, in the language the caller is speaking. Measured:
          * one English list played "Okay…" before every Kannada answer, so a caller
-         * heard her switch language mid-sentence.
+         * heard her switch language mid-sentence. Only phrases under ~0.9s: the
+         * answer plays after the filler, and "சரி சரி…" (2.1s) held it back.
          */
         THINKING_FILLERS: {
-          en: ['Okay…', 'Sure…', 'Got it…', 'Mm-hmm…', 'One second…', 'Alright…', 'Okay, sure…', 'Right, okay…'],
-          hi: ['अच्छा…', 'जी…', 'हाँ जी…', 'ठीक है…', 'एक सेकंड…', 'जी, ठीक है…'],
-          kn: ['ಸರಿ…', 'ಆಯ್ತು…', 'ಒಂದು ನಿಮಿಷ…', 'ಸರಿ ಸರಿ…', 'ಆಯ್ತು, ಸರಿ…'],
-          ta: ['சரி…', 'சரிங்க…', 'ஒரு நிமிஷம்…', 'சரி சரி…', 'ஆமாங்க…'],
-          te: ['సరే…', 'సరేనండి…', 'అలాగే…', 'ఒక్క నిమిషం…', 'సరే సరే…'],
+          en: ['Okay…', 'Sure…', 'Got it…', 'Mm-hmm…', 'Alright…'],
+          hi: ['अच्छा…', 'जी…', 'हाँ जी…', 'ठीक है…', 'एक सेकंड…'],
+          kn: ['ಸರಿ…', 'ಆಯ್ತು…'],
+          ta: ['சரி…', 'ஆமாங்க…'],
+          te: ['సరే…', 'అలాగే…'],
         } as Record<string, string[]>,
         /** Synthesised once per phrase per language, then replayed from memory. */
         FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
-        FILLER_CACHE_MINUTES: 720,
+        /**
+         * Kept for the life of the process: a fixed, small set. Measured: at 720
+         * minutes, stage played no filler on most turns half a day after a deploy,
+         * and the caller sat in 1.5–3s of silence; a miss is warmed, not played.
+         */
+        FILLER_CACHE_MINUTES: Infinity,
         MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
         MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
         IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
