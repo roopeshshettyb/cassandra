@@ -64,6 +64,39 @@ export function spokenDigits(text: string, words: Record<string, string>): strin
     .replace(/\D/g, '');
 }
 
+/**
+ * The booking details that cannot be right, by field. Dates are YYYY-MM-DD, so
+ * they compare as strings. Only fields present are judged.
+ */
+export function bookingProblems(fields: Record<string, unknown>, today: string, limits: { MAX_PARTY_SIZE: number; PHONE_DIGITS: { MIN: number; MAX: number } }): string[] {
+  const { checkInDate, checkOutDate, partySize, guestPhone, guestEmail } = fields;
+  const phoneDigits = String(guestPhone ?? '').replace(/\D/g, '').length;
+  const wrong: Record<string, boolean> = {
+    checkInDate: typeof checkInDate === 'string' && checkInDate < today,
+    checkOutDate: typeof checkOutDate === 'string' && typeof checkInDate === 'string' && checkOutDate <= checkInDate,
+    partySize: partySize !== undefined && !(Number(partySize) >= 1 && Number(partySize) <= limits.MAX_PARTY_SIZE),
+    guestPhone: guestPhone !== undefined && (phoneDigits < limits.PHONE_DIGITS.MIN || phoneDigits > limits.PHONE_DIGITS.MAX),
+    guestEmail: guestEmail !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(guestEmail)),
+  };
+  return Object.keys(wrong).filter((field) => wrong[field]);
+}
+
+// The Indian scripts sit in 128-code-point blocks laid out alike, Devanagari (0x900) to Malayalam (0xd7f).
+const INDIC_FIRST = 0x900;
+const INDIC_LAST = 0xd7f;
+
+/**
+ * Letters from another Indian script moved into the one the caller wrote in, by
+ * their shared layout. Measured: copying "ಕಿರಣ್ ಟೆಸ್ಟ್", the model wrote "ಕಿರಣ್ ಟెస్ట్",
+ * Kannada with Telugu letters in it, and that was saved as the guest's name.
+ */
+export function inScriptOf(text: string, sample: string): string {
+  const own = [...sample].map((c) => c.codePointAt(0)).find((cp) => cp >= INDIC_FIRST && cp <= INDIC_LAST);
+  if (own === undefined) return text;
+  const block = own & ~0x7f;
+  return text.replace(/[\u0900-\u0d7f]/g, (c) => String.fromCodePoint(block + (c.codePointAt(0) & 0x7f)));
+}
+
 export function createReservationTools(
   ctx: AgentToolContext,
   restaurantService: RestaurantService,
@@ -93,6 +126,11 @@ export function createReservationTools(
       return JSON.stringify({ success: false, message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}` });
     }
     const booking: Record<string, unknown> = { ...Object.fromEntries(cfg.ENQUIRY_REQUIRED_NOTES.map((field) => [field, notes[field]])), partySize: Number(notes.partySize), ...extras };
+    // Notes taken yesterday can be past today; anything wrong goes back to the caller.
+    const invalid = bookingProblems(booking, new Date().toISOString().slice(0, 10), cfg);
+    if (invalid.length > 0) {
+      return JSON.stringify({ success: false, message: `${constantsService.public.RESERVATION_ENQUIRY_INVALID} ${invalid.map((field) => cfg.BOOKING_PROBLEMS[field]).join('; ')}` });
+    }
     // Recorded once is enough. Measured: each "yes" after "Done" recorded the same
     // booking again, and staff saw it three times. A changed booking goes through.
     const recorded = (await messagesService.findRecentByChatId(ctx.chatId, cfg.HISTORY_MESSAGE_LIMIT))
@@ -183,7 +221,7 @@ export function createReservationTools(
         checkInDate: z.string().optional().describe('Resolved check-in date as YYYY-MM-DD'),
         checkOutDate: z.string().optional().describe('Resolved check-out date as YYYY-MM-DD. Leave it out until they have actually given you one — do not pick a checkout for them'),
         partySize: z.number().optional().describe('How many people are staying, as soon as they have said — people, never rooms: "a room" says nothing about how many are coming'),
-        guestName: z.string().optional().describe('The name itself, in English letters, assembled from the letters they spelled: "Ram", never "R A M", never "Ram, R A M", and never "राम" even when the call is in Hindi'),
+        guestName: z.string().optional().describe('The name exactly as they gave it, in the script they used: "ಕಿರಣ್ ಟೆಸ್ಟ್" stays "ಕಿರಣ್ ಟೆಸ್ಟ್", never "Kiran Test"; never translated or put into English letters. Spelled letter by letter, the letters assembled: "Ram", never "R A M" or "Ram, R A M"'),
         guestNameAsSaid: z.string().optional().describe('With guestName: the name exactly as they said or wrote it, copied from their words in their own script — "राम", "R A M"'),
         guestPhone: z.string().optional().describe('Phone number, digits only, as soon as they have given it'),
         guestEmail: z.string().optional().describe('The address itself, assembled from the letters they spelled: "ram@gmail.com", never "r a m at gmail dot com"'),
@@ -200,6 +238,9 @@ export function createReservationTools(
         // and the enquiry went to the hotel for the wrong week. A real change of
         // dates comes with both; one date that contradicts what is already noted
         // is a slip, and is not written.
+        for (const key of ['guestName', 'guestNameAsSaid'] as const) {
+          if (typeof args[key] === 'string') args[key] = inScriptOf(args[key], ctx.sourceText ?? '');
+        }
         const accepted: Record<string, unknown> = { ...args };
         // Only the evidence for a name, not a note of its own.
         delete accepted.guestNameAsSaid;
@@ -216,7 +257,8 @@ export function createReservationTools(
         // was what the caller was giving at the time — and they were recorded.
         // Numerals as ASCII, so "೧೦ ಡಿಸೆಂಬರ್" counts as a date as much as "10 December" does.
         const said = asciiNumerals(ctx.sourceText ?? '');
-        const letters = (text: string) => text.toLowerCase().replace(/[^\p{L}]/gu, '');
+        // Vowel signs count: without them "ಟెಸ್ಟ್", with a Telugu one, passed for "ಟೆಸ್ಟ್".
+        const letters = (text: string) => text.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}]/gu, '');
         const heardDigits = spokenDigits(said, cfg.SPOKEN_DIGITS);
         const mentionsADate = /(^|\D)([1-9]|[12]\d|3[01])(\D|$)/.test(said) || new RegExp(cfg.DATE_PATTERN, 'iu').test(said);
         // Each needs something to match: an empty string is in everything, and
@@ -248,11 +290,19 @@ export function createReservationTools(
           delete accepted.checkInDate;
           delete accepted.checkOutDate;
         }
+        // A detail that cannot be right is not written down, so it can never be recorded.
+        const invalid = bookingProblems({ ...current, ...accepted }, new Date().toISOString().slice(0, 10), cfg).filter((field) => field in accepted);
+        // The dates go together: a check-out kept after its check-in was refused left the notes contradicting each other.
+        if (invalid.some((field) => field.endsWith('Date'))) invalid.push(...['checkInDate', 'checkOutDate'].filter((field) => field in accepted && !invalid.includes(field)));
+        invalid.forEach((field) => delete accepted[field]);
+        // New dates that cannot be booked still mean the old ones are no longer wanted.
+        // Measured: past dates were refused, the earlier ones stood, and the caller's
+        // yes saved a stay they had moved away from. Cleared, she has to ask again.
+        const cleared = invalid.some((field) => field.endsWith('Date')) ? ['checkInDate', 'checkOutDate'].filter((field) => current[field]) : [];
         // One note per field, so the notes read back the booking as it stands —
         // a call carrying only the newest detail leaves the earlier ones in place.
         await Promise.all(
-          Object.entries(accepted)
-            .filter(([, value]) => value !== undefined && value !== '')
+          [...Object.entries(accepted).filter(([, value]) => value !== undefined && value !== ''), ...cleared.map((field) => [field, ''])]
             .map(([subject, value]) =>
               messagesService.createNote({
                 chatId: ctx.chatId,
@@ -266,9 +316,10 @@ export function createReservationTools(
         );
         return JSON.stringify({
           success: true,
-          message: kept.length
-            ? `${constantsService.public.RESERVATION_NOTE_KEPT} ${kept.join(', ')}`
-            : constantsService.public.RESERVATION_DATES_NOTED,
+          message: [
+            kept.length ? `${constantsService.public.RESERVATION_NOTE_KEPT} ${kept.join(', ')}` : '',
+            invalid.map((field) => cfg.BOOKING_PROBLEMS[field]).join('; '),
+          ].filter(Boolean).join(' ') || constantsService.public.RESERVATION_DATES_NOTED,
           // The whole booking as it now stands, so the right dates are in front
           // of the agent every time it notes anything.
           data: { ...current, ...accepted },

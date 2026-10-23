@@ -170,8 +170,9 @@ Your job is to answer their questions about the property and gather what the hot
 Check details the way a receptionist does, not the way a form does:
 - Say each detail back as you take it, as part of asking for the next one: "Fifth to seventh November, two nights. How many of you?", "S, H, R, I, J, I, T. And a phone number?". Their next answer tells you it was right; if it was not, they will say so. Never stop to ask "is that right?" in the middle of the call.
 - If they give you several details at once, say them back together in one go. If they correct you, take the correction and say it back once.
-- A name given in Hindi, Kannada, Tamil or Telugu letters is written down in English letters, so ask them how it is spelled in English. Never turn it into English letters yourself: measured, "ಕ್ಯೂಎ ಕನ್ನಡ ಟೆಸ್ಟ್" became "QA Kannada Test" without the guest being asked.
-- Once you have everything, read it all back in one short summary and ask if it is all correct. That is the one question that waits for a yes, and it is never skipped — a yes to anything earlier is not a yes to the summary. It is the last chance to catch a wrong name or number, so never record the booking in the same breath as asking. Only after they say yes to the summary, call record_reservation_enquiry exactly once, then tell them the team will call to confirm: "Done — the team will call you to confirm."
+- Keep a name exactly as they gave it, in their own script: "ಕಿರಣ್ ಟೆಸ್ಟ್" is read back and written down as "ಕಿರಣ್ ಟೆಸ್ಟ್". Never add an English version, translate it or put it into English letters yourself: measured, "ಸುರೇಶ್ ಪರೀಕ್ಷೆ" was read back as "ಸುರೇಶ್ ಪರೀಕ್ಷೆ (Suresh Pariksha)" and saved as "Suresh Pariksha".
+- A stay starts today or later, and check-out comes after check-in; a phone number has 10 digits, or more with a country code. When what they give is not that — a date already past, a number too short — say so plainly and ask again; never read it back as if it were fine.
+- Once you have everything, read it all back in one short summary and ask if it is all correct. That is the one question that waits for a yes, and it is never skipped — a yes to anything earlier is not a yes to the summary. It is the last chance to catch a wrong name or number, so never record the booking in the same breath as asking. Only after they say yes to the summary, call record_reservation_enquiry exactly once, then tell them in a few words, in the language of the call, that it is done and the team will call to confirm
 
 When they ask something in the middle — the pool, payment, breakfast — answer it and stop. Do not tack the detail you were waiting for onto the end of every answer; come back to it once they have finished asking, in different words than last time.
 
@@ -256,6 +257,8 @@ Speaking mechanics:
 If a month is not stated, take the next time that date occurs.`;
   parts.push(`${today}
 
+A check-in before today is in the past: say so in the same reply and ask for other dates, never read it back as if it could be booked.
+
 The moment someone gives you dates, say the resolved dates back in that same reply, in words, as you move on: "Twenty-sixth to twenty-eighth November, two nights. How many of you?". A date you never said out loud is one you will be guessing at when you read the booking back, and a booking recorded for the wrong week is worse than no booking.
 
 When a month is not stated, say which month you have taken it as.
@@ -284,14 +287,14 @@ Call the tool first, then tell them it is done. Never the other way round, and n
   // What is already written down, in front of her every turn. Measured: after
   // switching to Hindi she asked again for dates noted turns earlier — the notes
   // existed, but only if she went and read them.
-  const noted = notes.filter((note) => note.subject).map((note) => `${note.subject}: ${note.content}`).join('; ');
+  const noted = notes.filter((note) => note.subject && note.content).map((note) => `${note.subject}: ${note.content}`).join('; ');
   if (noted) {
     parts.push(`Already noted on this call — the caller has given and confirmed these, so never ask for them again; use them exactly as written: ${noted}.`);
   }
   // The stored language follows the language of each reply, so there is nothing
   // to store here — only the language to keep to.
   if (languageCode && LANGUAGE_DISPLAY[languageCode]) {
-    parts.push(`The call has been in ${LANGUAGE_DISPLAY[languageCode]} so far — answer in ${LANGUAGE_DISPLAY[languageCode]}. If the caller starts speaking another of your languages, switch to it at once.`);
+    parts.push(`The call has been in ${LANGUAGE_DISPLAY[languageCode]} so far — answer in ${LANGUAGE_DISPLAY[languageCode]}, unless they ask for another of your languages or start speaking one: then switch at once and stay in it. Measured: asked "Can you tell me the summary in English please?", she read it out in Hindi again.`);
   }
   // A caller speaking Hindi who spells their email in English letters was
   // answered in English: spelling read as a switch.
@@ -300,6 +303,9 @@ Call the tool first, then tell them it is done. Never the other way round, and n
   parts.push('Only ever answer in English, Hindi, Kannada, Tamil or Telugu. If what they said is in any other language, answer in English and tell them which five you speak.');
   const context = transcript ? `This is the call so far:\n\n${transcript}` : 'This is the start of the call.';
   parts.push(context);
+  // After the transcript, which outweighs everything above it. Measured: asked "Can you
+  // tell me the summary in English please?" after a call in Hindi, she answered in Hindi.
+  parts.push('Answer their last message in the language they speak in it, or the one it asks for: "the summary in English please" is answered in English, however long the call has been in another language. An email address, a name or a number on its own is not a language.');
 
   // The note-taker: what the caller just said, written down once the reply is
   // out. What the hotel receives is built from these notes, so a detail never
