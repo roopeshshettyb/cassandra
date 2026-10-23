@@ -72,6 +72,45 @@ export function createReservationTools(
 ): { reply: StructuredToolInterface[]; scribe: StructuredToolInterface[] } {
   const hotelId = ctx.hotelId;
 
+  const extrasSchema = z.object({
+    roomPreference: z.string().optional().describe('Room type or preference mentioned, if any'),
+    specialRequests: z.string().optional().describe('Anything the hotel team should know beyond the booking itself: an occasion such as an anniversary or birthday, a first visit, a preference, a request'),
+  });
+  /**
+   * The booking exactly as noted — what the caller gave and heard read back.
+   * Measured: passed in by the agent, a name misheard as "Dave" was recorded
+   * against notes that said "Dev", so the record was refused and the caller was
+   * told it was done. Every required detail must be noted, or nothing is recorded.
+   */
+  const recordFromNotes = async (extras: z.infer<typeof extrasSchema>) => {
+    const cfg = constantsService.private.RESERVATION;
+    const notes: Record<string, string> = {};
+    (await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)).forEach((note) => {
+      if (note.subject) notes[note.subject] = note.content;
+    });
+    const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !notes[field]);
+    if (missing.length > 0) {
+      return JSON.stringify({ success: false, message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}` });
+    }
+    const booking: Record<string, unknown> = { ...Object.fromEntries(cfg.ENQUIRY_REQUIRED_NOTES.map((field) => [field, notes[field]])), partySize: Number(notes.partySize), ...extras };
+    // Recorded once is enough. Measured: each "yes" after "Done" recorded the same
+    // booking again, and staff saw it three times. A changed booking goes through.
+    const recorded = (await messagesService.findRecentByChatId(ctx.chatId, cfg.HISTORY_MESSAGE_LIMIT))
+      .flatMap((message) => message.toolCalls ?? [])
+      .filter((call) => call.toolName === 'record_reservation_enquiry' && String(call.output).includes('"success":true'));
+    const last = recorded.length ? JSON.parse(String(recorded[recorded.length - 1].output)).data : null;
+    if (last && cfg.ENQUIRY_REQUIRED_NOTES.every((field) => String(last[field]) === String(booking[field]))) {
+      return JSON.stringify({ success: false, message: constantsService.public.RESERVATION_ENQUIRY_ALREADY_RECORDED });
+    }
+    // No table by design: the enquiry is the tool call, persisted on the
+    // assistant message and read back from the chat by hotel staff.
+    return JSON.stringify({
+      success: true,
+      message: constantsService.public.RESERVATION_ENQUIRY_RECORDED,
+      data: { hotelId: hotelId ?? null, chatId: ctx.chatId, ...booking, recordedAt: new Date().toISOString() },
+    });
+  };
+
   const reply = [
     new DynamicStructuredTool({
       name: 'search_menu',
@@ -96,70 +135,23 @@ export function createReservationTools(
     new DynamicStructuredTool({
       name: 'record_reservation_enquiry',
       description:
-        'Record the reservation enquiry once you have the dates, the number of guests and a name with either an email or a phone number. Call this exactly once, after confirming the details back to the enquirer. Recording it hands the enquiry to the hotel team, who will confirm the booking; you cannot confirm a booking yourself.',
-      schema: z.object({
-        guestName: z.string().describe('Full name of the person making the reservation, as a name — never with its spelling appended'),
-        guestEmail: z.string().describe('Email address as a working address, required — spell it back to them, but record it assembled, never letter by letter'),
-        guestPhone: z.string().optional().describe('Phone number, if given'),
-        checkInDate: z.string().describe('Requested check-in date as YYYY-MM-DD'),
-        checkOutDate: z.string().describe('Requested check-out date as YYYY-MM-DD'),
-        partySize: z.number().describe('Number of guests staying'),
-        roomPreference: z.string().optional().describe('Room type or preference mentioned, if any'),
-        specialRequests: z.string().optional().describe('Anything the hotel team should know beyond the booking itself: an occasion such as an anniversary or birthday, a first visit, a preference, a request. Include every occasion, preference and request in the notes'),
-      }),
-      func: async (args) => {
-        // Only what the caller actually gave. Measured: asked for an email, a caller
-        // went off on a question about breakfast, and the agent recorded the enquiry
-        // with an address it made up from the name — the schema requires one. Every
-        // required detail must have been noted during the call, or nothing is recorded.
-        const cfg = constantsService.private.RESERVATION;
-        const notes: Record<string, string> = {};
-        (await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)).forEach((note) => {
-          if (note.subject) notes[note.subject] = note.content;
-        });
-        const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !notes[field]);
-        if (missing.length > 0) {
-          return JSON.stringify({
-            success: false,
-            message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}`,
-          });
-        }
-        // The record must be what was noted — what the caller confirmed — not what
-        // the model remembers. A read-back from memory can drift; the notes cannot.
-        const same = (field: string, a: unknown, b: string) =>
-          field === 'guestPhone' ? String(a).replace(/\D/g, '').endsWith(b.replace(/\D/g, '').slice(-10))
-            : String(a).trim().toLowerCase() === b.trim().toLowerCase();
-        const differs = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !same(field, args[field], notes[field]));
-        if (differs.length > 0) {
-          return JSON.stringify({
-            success: false,
-            message: `${constantsService.public.RESERVATION_ENQUIRY_MISMATCH} ${differs.map((field) => `${field} (notes: ${notes[field]})`).join(', ')}`,
-          });
-        }
-        // Recorded once is enough. Measured: each "yes" after "Done — the team will
-        // call you" recorded the same booking again, and staff saw it three times.
-        // A change since, such as new dates, is a new booking and goes through.
-        const recorded = (await messagesService.findRecentByChatId(ctx.chatId, cfg.HISTORY_MESSAGE_LIMIT))
-          .flatMap((message) => message.toolCalls ?? [])
-          .filter((call) => call.toolName === 'record_reservation_enquiry' && String(call.output).includes('"success":true'));
-        const last = recorded[recorded.length - 1]?.input;
-        const fields = new Set([...Object.keys(last ?? {}), ...Object.keys(args)]);
-        if (last && [...fields].every((field) => String(last[field] ?? '') === String(args[field] ?? ''))) {
-          return JSON.stringify({ success: false, message: constantsService.public.RESERVATION_ENQUIRY_ALREADY_RECORDED });
-        }
-        // No table by design: the enquiry is the tool call, persisted on the
-        // assistant message and read back from the chat by hotel staff.
-        return JSON.stringify({
-          success: true,
-          message: constantsService.public.RESERVATION_ENQUIRY_RECORDED,
-          data: { hotelId: hotelId ?? null, chatId: ctx.chatId, ...args, recordedAt: new Date().toISOString() },
-        });
-      },
+        'Hand the booking to the hotel team, who will confirm it; you cannot confirm a booking yourself. Call it once, right after they say yes to your read-back of every detail. You pass nothing about the booking itself: what is noted is what is recorded.',
+      schema: extrasSchema,
+      func: recordFromNotes,
     }),
   ];
   // Written down by a note-taker once the reply is out, so the caller is not kept
   // waiting for a second round trip while a detail is written down.
   const scribe = [
+    // A second chance to hand the booking over. Measured: a Tamil caller said yes to
+    // the read-back, was told the team would call, and nothing was recorded.
+    new DynamicStructuredTool({
+      name: 'record_reservation_enquiry',
+      description:
+        'Hand the booking to the hotel team. Call it only when the caller has just said yes to the agent reading back the whole booking — dates, guests, name, phone and email together — not to a single detail. If it is already handed over, this does nothing.',
+      schema: extrasSchema,
+      func: recordFromNotes,
+    }),
     new DynamicStructuredTool({
       name: 'add_note',
       description:
