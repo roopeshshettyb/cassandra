@@ -153,6 +153,7 @@ export function buildReservationPrompt(
   isVoice?: boolean,
   languageCode?: string | null,
   notes: { subject: string | null; content: string }[] = [],
+  required: string[] = [],
 ): ChatPromptResult {
   // The whole call, in words. The concierge's context keeps only the last few
   // messages, and a booking is built across all of them: measured, a caller
@@ -172,7 +173,7 @@ Check details the way a receptionist does, not the way a form does:
 - If they give you several details at once, say them back together in one go. If they correct you, take the correction and say it back once.
 - Keep a name exactly as they gave it, in their own script: "ಕಿರಣ್ ಟೆಸ್ಟ್" is read back and written down as "ಕಿರಣ್ ಟೆಸ್ಟ್". Never add an English version, translate it or put it into English letters yourself: measured, "ಸುರೇಶ್ ಪರೀಕ್ಷೆ" was read back as "ಸುರೇಶ್ ಪರೀಕ್ಷೆ (Suresh Pariksha)" and saved as "Suresh Pariksha".
 - A stay starts today or later, and check-out comes after check-in; a phone number has 10 digits, or more with a country code. When what they give is not that — a date already past, a number too short — say so plainly and ask again; never read it back as if it were fine.
-- Once you have everything, read it all back in one short summary and ask if it is all correct. That is the one question that waits for a yes, and it is never skipped — a yes to anything earlier is not a yes to the summary. It is the last chance to catch a wrong name or number, so never record the booking in the same breath as asking. Only after they say yes to the summary, call record_reservation_enquiry exactly once, then tell them in a few words, in the language of the call, that it is done and the team will call to confirm
+- Once you have everything, read it all back in one short summary and ask if it is all correct. That is the one question that waits for a yes, and it is never skipped — a yes to anything earlier is not a yes to the summary. It is the last chance to catch a wrong name or number, so never say it is done in the same breath as asking. Their yes to the summary hands the booking to the hotel team on its own; only then tell them in a few words, in the language of the call, that it is done and the team will call to confirm
 
 When they ask something in the middle — the pool, payment, breakfast — answer it and stop. Do not tack the detail you were waiting for onto the end of every answer; come back to it once they have finished asking, in different words than last time.
 
@@ -269,28 +270,28 @@ One date is not two. If they give you an arrival and no departure, ask how many 
 
 Everything they tell you is written down for you as they say it, and shows up under "Already noted". You never write anything down yourself, and never say you are noting something. Never fill a gap with a value nobody gave you — if a detail is not noted yet, ask for it.
 
-When you read the details back, and again when you record the enquiry, copy them from what is noted. Do not work the dates out a second time from the enquirer's original words — copy them. Re-deriving is how "the twenty-sixth to the twenty-eighth of November" becomes the tenth to the twelfth of October four turns later, and the guest confirms it without noticing because they are listening for their own name, not re-checking your arithmetic.
+When you read the details back, copy them from what is noted. Do not work the dates out a second time from the enquirer's original words — copy them. Re-deriving is how "the twenty-sixth to the twenty-eighth of November" becomes the tenth to the twelfth of October four turns later, and the guest confirms it without noticing because they are listening for their own name, not re-checking your arithmetic.
 
 If you cannot find the dates you confirmed earlier, ask for them again rather than guessing. An extra question is cheap; a room held for the wrong week is not.`);
 
-  // Last, because last is what gets followed.
-  //
-  // Everything above this is about how to sound, and on a voice call that is
-  // most of the prompt. A caller confirmed every detail, the agent said "I'll
-  // get this over to the team right away" — and called nothing. The words are
-  // not the deliverable; the tool call is, and it needs saying where it will
-  // still be read.
-  parts.push(`Before anything else about how you sound: when the enquirer confirms the details, actually call record_reservation_enquiry. Saying you have passed it on, or that the team will be in touch, does nothing on its own — the words go to the caller and the enquiry goes nowhere. They hang up believing a room is being held and the hotel never hears about it.
-
-Call the tool first, then tell them it is done. Never the other way round, and never the telling without the calling.`);
   parts.push(`Never announce what you are about to do — do it. Not "let me read that back", "let me check": each of those ends your turn with nothing done. If you are reading the details back, read them now, in this reply.`);
   // What is already written down, in front of her every turn. Measured: after
   // switching to Hindi she asked again for dates noted turns earlier — the notes
   // existed, but only if she went and read them.
-  const noted = notes.filter((note) => note.subject && note.content).map((note) => `${note.subject}: ${note.content}`).join('; ');
+  const noted = notes.filter((note) => note.subject && note.content && note.subject !== 'refused').map((note) => `${note.subject}: ${note.content}`).join('; ');
   if (noted) {
     parts.push(`Already noted on this call — the caller has given and confirmed these, so never ask for them again; use them exactly as written: ${noted}.`);
   }
+  const refused = notes.find((note) => note.subject === 'refused' && note.content);
+  if (refused) {
+    parts.push(`They last gave details that cannot be booked, so these are not noted: ${refused.content}. Tell them so plainly, in their language, and ask again.`);
+  }
+  // Where the booking stands, from the notes. Measured: after past dates were
+  // refused, she read them back, heard yes, and said it was sent — nothing was.
+  const missing = required.filter((field) => !notes.some((note) => note.subject === field && note.content));
+  parts.push(missing.length
+    ? `Not yet noted, so nothing can reach the hotel until they give it: ${missing.join(', ')}. Ask for it. What they have just said in this message counts as given, but until everything is noted there is no final read-back, and never say the booking is done or sent.`
+    : 'Every detail is noted: read them back as noted, and once they say yes to that, tell them it is done.');
   // The stored language follows the language of each reply, so there is nothing
   // to store here — only the language to keep to.
   if (languageCode && LANGUAGE_DISPLAY[languageCode]) {
@@ -305,7 +306,7 @@ Call the tool first, then tell them it is done. Never the other way round, and n
   parts.push(context);
   // After the transcript, which outweighs everything above it. Measured: asked "Can you
   // tell me the summary in English please?" after a call in Hindi, she answered in Hindi.
-  parts.push('Answer their last message in the language they speak in it, or the one it asks for: "the summary in English please" is answered in English, however long the call has been in another language. An email address, a name or a number on its own is not a language.');
+  parts.push('Answer their last message in the language they speak in it, or the one it asks for, as long as it is English, Hindi, Kannada, Tamil or Telugu — never any other: "the summary in English please" is answered in English, however long the call has been in another language. An email address, a name or a number on its own is not a language.');
 
   // The note-taker: what the caller just said, written down once the reply is
   // out. What the hotel receives is built from these notes, so a detail never

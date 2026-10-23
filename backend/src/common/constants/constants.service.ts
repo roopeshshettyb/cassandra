@@ -457,9 +457,9 @@ export class ConstantsService {
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
       RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
       RESERVATION_NOTE_KEPT: 'Not changed, because the caller has not just said a new value — keep what is noted unless they correct it:',
-      RESERVATION_ENQUIRY_INVALID: 'Not recorded: tell the caller what is wrong and ask again, then read the details back:',
+      RESERVATION_ENQUIRY_INVALID: 'Not recorded, so nothing has reached the hotel: never say it is done. Tell the caller what is wrong and ask again, then read the details back:',
       RESERVATION_ENQUIRY_ALREADY_RECORDED:'Not recorded again: this booking is already with the team and nothing has changed since. If they are saying yes or thanks, just close the call warmly.',
-      RESERVATION_ENQUIRY_INCOMPLETE:'Not recorded: the caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
+      RESERVATION_ENQUIRY_INCOMPLETE: 'Not recorded, so nothing has reached the hotel: never say it is done. The caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
       AI_BOOKINGS_TITLE: 'AI Bookings',

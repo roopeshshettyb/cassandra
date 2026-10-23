@@ -354,9 +354,11 @@ export class LangGraphService {
     // Never silent. Measured: after its tools ran, the model sometimes returned no
     // words at all, and the caller heard nothing. A reservation turn that ends
     // without a reply asks once more, without tools, for just the reply.
-    if (!ctx.account && !spoke && lastResult?.messages?.length) {
+    // Asked from the turn's own prompt when it was ended early: measured, after four
+    // refused saves the tool cap ended the turn with no result, and the guest got nothing.
+    if (!ctx.account && !spoke) {
       const nudge = new SystemMessage(this.constantsService.public.RESERVATION_REPLY_NUDGE);
-      for await (const chunk of await this.createModel(0.7).stream([...lastResult.messages, nudge])) {
+      for await (const chunk of await this.createModel(0.7).stream([...(lastResult?.messages?.length ? lastResult.messages : messages), nudge])) {
         const parsed = await this.outputParser.invoke(chunk);
         if (parsed) yield parsed;
       }

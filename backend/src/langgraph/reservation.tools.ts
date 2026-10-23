@@ -170,19 +170,13 @@ export function createReservationTools(
         return JSON.stringify(result.data);
       },
     }),
-    new DynamicStructuredTool({
-      name: 'record_reservation_enquiry',
-      description:
-        'Hand the booking to the hotel team, who will confirm it; you cannot confirm a booking yourself. Call it once, right after they say yes to your read-back of every detail. You pass nothing about the booking itself: what is noted is what is recorded.',
-      schema: extrasSchema,
-      func: recordFromNotes,
-    }),
   ];
   // Written down by a note-taker once the reply is out, so the caller is not kept
   // waiting for a second round trip while a detail is written down.
   const scribe = [
-    // A second chance to hand the booking over. Measured: a Tamil caller said yes to
-    // the read-back, was told the team would call, and nothing was recorded.
+    // The only way a booking is handed over: the agent only talks. Measured: given the
+    // tool, she forgot it (a Tamil yes, nothing recorded), and once a save was refused
+    // she looped on it, fell silent, or said "done" with nothing sent.
     new DynamicStructuredTool({
       name: 'record_reservation_enquiry',
       description:
@@ -248,7 +242,8 @@ export function createReservationTools(
         // spelling is S H R I J I T" was noted as Srijit — the word the speech
         // recogniser heard, not the name the caller spelled.
         const spelled = (ctx.sourceText ?? '').match(/(?<![\p{L}\p{M}])[A-Za-z](?:[\s,.-]+[A-Za-z](?![\p{L}\p{M}])){2,}/gu)?.pop()?.replace(/[^A-Za-z]/g, '');
-        if (typeof accepted.guestName === 'string' && spelled && spelled.toLowerCase() !== accepted.guestName.toLowerCase().replace(/[^\p{L}]/gu, '')) {
+        // Also when the letters match: "D E V" and "DEV" were saved as given, not as "Dev".
+        if (typeof accepted.guestName === 'string' && spelled) {
           accepted.guestName = spelled.charAt(0).toUpperCase() + spelled.slice(1).toLowerCase();
         }
         // A detail already noted changes only when the caller has just said the new
@@ -302,7 +297,13 @@ export function createReservationTools(
         // One note per field, so the notes read back the booking as it stands —
         // a call carrying only the newest detail leaves the earlier ones in place.
         await Promise.all(
-          [...Object.entries(accepted).filter(([, value]) => value !== undefined && value !== ''), ...cleared.map((field) => [field, ''])]
+          [
+            ...Object.entries(accepted).filter(([, value]) => value !== undefined && value !== ''),
+            ...cleared.map((field) => [field, '']),
+            // What was refused and why, for the agent's next turn: a list of missing
+            // fields was not enough to stop her reading refused dates back as booked.
+            ...(invalid.length || current.refused ? [['refused', invalid.map((field) => `${cfg.BOOKING_PROBLEMS[field]} (they gave ${args[field]})`).join('; ')]] : []),
+          ]
             .map(([subject, value]) =>
               messagesService.createNote({
                 chatId: ctx.chatId,

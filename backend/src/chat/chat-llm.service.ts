@@ -122,7 +122,7 @@ export class ChatLlmService {
     const { messages, scribePrompt } = isReservation
       ? buildReservationPrompt(
           history.filter((message) => message.id !== userMsg.id),
-          userMessage, appName, session.hotel, isVoice, session.languageCode ?? null, notes,
+          userMessage, appName, session.hotel, isVoice, session.languageCode ?? null, notes, reservation.ENQUIRY_REQUIRED_NOTES,
         )
       : await buildChatPrompt(
           this.chatContextService,
