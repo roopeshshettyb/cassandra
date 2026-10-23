@@ -953,6 +953,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * the twenty-third, and a five-digit phone number was read back and accepted.
          */
         MAX_PARTY_SIZE: 20,
+        /**
+         * Output cap for her replies and the note-taker; the longest read-back is ~150
+         * tokens. Measured: uncapped, each request asked OpenRouter for 65,536, and
+         * with the balance low every request was refused though each needed a few hundred.
+         */
+        MAX_OUTPUT_TOKENS: 1000,
         PHONE_DIGITS: { MIN: 10, MAX: 13 },
         BOOKING_PROBLEMS: {
           checkInDate: 'the check-in date is before today',

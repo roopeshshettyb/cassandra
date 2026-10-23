@@ -81,12 +81,13 @@ export class LangGraphService {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  createModel(temperature = 0, modelName?: string): ChatOpenAI {
+  createModel(temperature = 0, modelName?: string, maxTokens?: number): ChatOpenAI {
     const llmConfig = this.constantsService.private.LLM;
     return new ChatOpenAI({
       modelName: modelName ?? llmConfig.TEXT_MODEL,
       apiKey: llmConfig.OPENROUTER.API_KEY,
       temperature,
+      maxTokens,
       modelKwargs: { provider: llmConfig.OPENROUTER.PROVIDER },
       configuration: { baseURL: llmConfig.OPENROUTER.BASE_URL },
     });
@@ -245,7 +246,7 @@ export class LangGraphService {
   async writeNotes(messages: ChatMessageInput[], ctx: AgentToolContext): Promise<{ calls: ToolCallRecord[]; tokens: number[] }> {
     const tools = createReservationTools(ctx, this.restaurantService, this.constantsService, this.messagesService).scribe;
     try {
-      const result = await this.createModel(0, this.constantsService.private.LLM.RESERVATION_NOTES.MODEL).bindTools(tools).invoke(this.parseMessages(messages));
+      const result = await this.createModel(0, this.constantsService.private.LLM.RESERVATION_NOTES.MODEL, this.constantsService.private.RESERVATION.MAX_OUTPUT_TOKENS).bindTools(tools).invoke(this.parseMessages(messages));
       const calls: ToolCallRecord[] = [];
       for (const call of result.tool_calls ?? []) {
         const tool = tools.find((candidate) => candidate.name === call.name);
@@ -271,7 +272,7 @@ export class LangGraphService {
     const tools = ctx.account
       ? createAgentTools(ctx, this.bookingsService, this.requestsService, this.restaurantService, this.chatService, this.hotelsService, this.constantsService)
       : createReservationTools(ctx, this.restaurantService, this.constantsService, this.messagesService).reply;
-    const model = this.createModel(0.7);
+    const model = this.createModel(0.7, undefined, ctx.account ? undefined : this.constantsService.private.RESERVATION.MAX_OUTPUT_TOKENS);
     const agent = createAgent({ model, tools });
 
     const threadId = `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -358,7 +359,7 @@ export class LangGraphService {
     // refused saves the tool cap ended the turn with no result, and the guest got nothing.
     if (!ctx.account && !spoke) {
       const nudge = new SystemMessage(this.constantsService.public.RESERVATION_REPLY_NUDGE);
-      for await (const chunk of await this.createModel(0.7).stream([...(lastResult?.messages?.length ? lastResult.messages : messages), nudge])) {
+      for await (const chunk of await this.createModel(0.7, undefined, this.constantsService.private.RESERVATION.MAX_OUTPUT_TOKENS).stream([...(lastResult?.messages?.length ? lastResult.messages : messages), nudge])) {
         const parsed = await this.outputParser.invoke(chunk);
         if (parsed) yield parsed;
       }
