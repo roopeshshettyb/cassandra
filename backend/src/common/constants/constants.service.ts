@@ -445,7 +445,6 @@ export class ConstantsService {
       ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
       ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
       ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
-      RESERVATION_DATES_NOTED: 'Noted.',
       RESERVATION_REPLY_NUDGE: 'You have not said anything to the caller this turn. Reply to them now, in their language, in one or two short sentences: check what they just told you, or ask for the next detail you still need.',
       RESERVATION_TOOL_BUDGET_SPENT: 'You have used your tools enough for this turn. Do not call any more — reply to the caller now.',
       ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
@@ -458,11 +457,6 @@ export class ConstantsService {
       // Per-hotel key the browser keeps its signed reservation session under, so
       // a refresh resumes the same conversation.
       RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
-      RESERVATION_ENQUIRY_RECORDED: 'Reservation enquiry recorded',
-      RESERVATION_NOTE_KEPT: 'Not changed, because the caller has not just said a new value — keep what is noted unless they correct it:',
-      RESERVATION_ENQUIRY_INVALID: 'Not recorded, so nothing has reached the hotel: never say it is done. Tell the caller what is wrong and ask again, then read the details back:',
-      RESERVATION_ENQUIRY_ALREADY_RECORDED:'Not recorded again: this booking is already with the team and nothing has changed since. If they are saying yes or thanks, just close the call warmly.',
-      RESERVATION_ENQUIRY_INCOMPLETE: 'Not recorded, so nothing has reached the hotel: never say it is done. The caller has not given you these yet, so ask for them — never fill them in yourself — then read the details back and record again:',
       RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
       // Staff-facing view of what the public reservation agent gathered.
       AI_BOOKINGS_TITLE: 'AI Bookings',
@@ -959,6 +953,15 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * with the balance low every request was refused though each needed a few hundred.
          */
         MAX_OUTPUT_TOKENS: 1000,
+        /** What the note-taker's tools report. Stored with the call for staff and debugging; no model reads them. */
+        NOTE_RESULTS: {
+          NOTED: 'Noted.',
+          KEPT: 'Not changed, the caller did not just say it:',
+          RECORDED: 'Reservation enquiry recorded',
+          INCOMPLETE: 'Not recorded, missing:',
+          INVALID: 'Not recorded, invalid:',
+          ALREADY_RECORDED: 'Not recorded again, unchanged since the last record.',
+        },
         /** Details only the caller can give, so they are noted only when the caller has just said them. */
         CALLER_SPOKEN_NOTES: ['guestName', 'guestPhone', 'guestEmail'],
         /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */

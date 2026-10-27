@@ -128,13 +128,13 @@ export function createReservationTools(
     const notes = await currentNotes();
     const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !notes[field]);
     if (missing.length > 0) {
-      return JSON.stringify({ success: false, message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}` });
+      return JSON.stringify({ success: false, message: `${cfg.NOTE_RESULTS.INCOMPLETE} ${missing.join(', ')}` });
     }
     const booking: Record<string, unknown> = { ...Object.fromEntries(cfg.ENQUIRY_REQUIRED_NOTES.map((field) => [field, notes[field]])), partySize: Number(notes.partySize), ...extras };
     // Notes taken yesterday can be past today; anything wrong goes back to the caller.
     const invalid = bookingProblems(booking, new Date().toISOString().slice(0, 10), cfg);
     if (invalid.length > 0) {
-      return JSON.stringify({ success: false, message: `${constantsService.public.RESERVATION_ENQUIRY_INVALID} ${invalid.map((field) => cfg.BOOKING_PROBLEMS[field]).join('; ')}` });
+      return JSON.stringify({ success: false, message: `${cfg.NOTE_RESULTS.INVALID} ${invalid.map((field) => cfg.BOOKING_PROBLEMS[field]).join('; ')}` });
     }
     // Recorded once is enough. Measured: each "yes" after "Done" recorded the same
     // booking again, and staff saw it three times. A changed booking goes through.
@@ -143,13 +143,13 @@ export function createReservationTools(
       .filter((call) => call.toolName === 'record_reservation_enquiry' && String(call.output).includes('"success":true'));
     const last = recorded.length ? JSON.parse(String(recorded[recorded.length - 1].output)).data : null;
     if (last && cfg.ENQUIRY_REQUIRED_NOTES.every((field) => String(last[field]) === String(booking[field]))) {
-      return JSON.stringify({ success: false, message: constantsService.public.RESERVATION_ENQUIRY_ALREADY_RECORDED });
+      return JSON.stringify({ success: false, message: cfg.NOTE_RESULTS.ALREADY_RECORDED });
     }
     // No table by design: the enquiry is the tool call, persisted on the
     // assistant message and read back from the chat by hotel staff.
     return JSON.stringify({
       success: true,
-      message: constantsService.public.RESERVATION_ENQUIRY_RECORDED,
+      message: cfg.NOTE_RESULTS.RECORDED,
       data: { hotelId: hotelId ?? null, chatId: ctx.chatId, ...booking, recordedAt: new Date().toISOString() },
     });
   };
@@ -320,9 +320,9 @@ export function createReservationTools(
         return JSON.stringify({
           success: true,
           message: [
-            kept.length ? `${constantsService.public.RESERVATION_NOTE_KEPT} ${kept.join(', ')}` : '',
+            kept.length ? `${cfg.NOTE_RESULTS.KEPT} ${kept.join(', ')}` : '',
             invalid.map((field) => cfg.BOOKING_PROBLEMS[field]).join('; '),
-          ].filter(Boolean).join(' ') || constantsService.public.RESERVATION_DATES_NOTED,
+          ].filter(Boolean).join(' ') || cfg.NOTE_RESULTS.NOTED,
           // The whole booking as it now stands, so the right dates are in front
           // of the agent every time it notes anything.
           data: { ...current, ...accepted },
