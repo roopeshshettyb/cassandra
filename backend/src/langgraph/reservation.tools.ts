@@ -42,12 +42,6 @@ export function toPublicHotel(hotel: Hotel | null): Record<string, unknown> | nu
   };
 }
 
-/**
- * Tools for the public reservation agent. Every one is read-only or writes only
- * into the conversation itself — the agent has no account behind it, so it can
- * neither read another guest's data nor create a booking. The enquiry it
- * gathers lives in this chat's messages for staff to pick up.
- */
 // Where 0 sits in ASCII, Devanagari, Tamil, Telugu and Kannada.
 const NUMERAL_ZEROS = [0x30, 0x966, 0xbe6, 0xc66, 0xce6];
 
@@ -97,6 +91,12 @@ export function inScriptOf(text: string, sample: string): string {
   return text.replace(/[\u0900-\u0d7f]/g, (c) => String.fromCodePoint(block + (c.codePointAt(0) & 0x7f)));
 }
 
+/**
+ * Tools for the public reservation agent. Every one is read-only or writes only
+ * into the conversation itself — the agent has no account behind it, so it can
+ * neither read another guest's data nor create a booking. The enquiry it
+ * gathers lives in this chat's messages for staff to pick up.
+ */
 export function createReservationTools(
   ctx: AgentToolContext,
   restaurantService: RestaurantService,
@@ -104,6 +104,14 @@ export function createReservationTools(
   messagesService: MessagesService,
 ): { reply: StructuredToolInterface[]; scribe: StructuredToolInterface[] } {
   const hotelId = ctx.hotelId;
+
+  // The latest note on each subject, so the booking as it now stands.
+  const currentNotes = async (): Promise<Record<string, string>> =>
+    Object.fromEntries(
+      (await messagesService.currentNotesByChatId(ctx.chatId, constantsService.private.RESERVATION.SCRATCHPAD_NOTE_LIMIT))
+        .filter((note) => note.subject)
+        .map((note) => [note.subject, note.content]),
+    );
 
   const extrasSchema = z.object({
     roomPreference: z.string().optional().describe('Room type or preference mentioned, if any'),
@@ -117,10 +125,7 @@ export function createReservationTools(
    */
   const recordFromNotes = async (extras: z.infer<typeof extrasSchema>) => {
     const cfg = constantsService.private.RESERVATION;
-    const notes: Record<string, string> = {};
-    (await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)).forEach((note) => {
-      if (note.subject) notes[note.subject] = note.content;
-    });
+    const notes = await currentNotes();
     const missing = cfg.ENQUIRY_REQUIRED_NOTES.filter((field) => !notes[field]);
     if (missing.length > 0) {
       return JSON.stringify({ success: false, message: `${constantsService.public.RESERVATION_ENQUIRY_INCOMPLETE} ${missing.join(', ')}` });
@@ -223,10 +228,7 @@ export function createReservationTools(
       }),
       func: async (args) => {
         const cfg = constantsService.private.RESERVATION;
-        const current: Record<string, string> = {};
-        (await messagesService.currentNotesByChatId(ctx.chatId, cfg.SCRATCHPAD_NOTE_LIMIT)).forEach((note) => {
-          if (note.subject) current[note.subject] = note.content;
-        });
+        const current = await currentNotes();
         // Measured: dates noted as 5–7 November were overwritten turns later by a
         // note carrying only a check-in date — today's, re-derived from nothing —
         // and the enquiry went to the hotel for the wrong week. A real change of

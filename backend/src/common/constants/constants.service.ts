@@ -802,13 +802,13 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * and English is the one that keeps a spelled-out name as letters.
          */
         STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'en'),
+        /** A transcript made only of these is noise, not the caller: no turn is taken. */
+        NOISE_WORDS: ['a', 'i', 'uh', 'um', 'umm', 'hmm', 'mm', 'ah', 'eh', 'so', 'the', 'and', 'oh'],
         /**
          * Proper nouns to bias the transcript towards, comma separated — a suburb,
          * a room type, a festival package a deployment keeps hearing wrong. Use
          * sparingly: a biased term is heard in background noise too.
          */
-        /** A transcript made only of these is noise, not the caller: no turn is taken. */
-        NOISE_WORDS: ['a', 'i', 'uh', 'um', 'umm', 'hmm', 'mm', 'ah', 'eh', 'so', 'the', 'and', 'oh'],
         STT_KEYTERMS: (this.configService.get<string>('RESERVATION_VOICE_STT_KEYTERMS', ''))
           .split(',')
           .map((term) => term.trim())
@@ -833,21 +833,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         FINAL_TRANSCRIPT_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_FINAL_TRANSCRIPT_GRACE_MS') || '1500', 10),
         TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
         /**
-         * Every budget below is env-driven and 0 means unlimited. They are off
-         * by default: the agent is being demoed and shared, and a limit that
-         * interrupts a real conversation costs more than the spend it saves.
-         * Set them above zero to cap an unauthenticated, per-turn-billed surface.
-         */
-        /**
-         * Noises that fill the gap between the caller finishing and the answer
-         * starting. All plain acknowledgements, never "let me check" — claiming
-         * to look something up when nothing is being looked up is what gives it
-         * away, and an acknowledgement is true on every turn.
-         *
-         * Long list because repetition is the tell: a short one repeats within a
-         * single call, and the ear catches that sooner than the silence.
-         */
-        /**
          * Spoken the moment the caller opens the line, so it does not answer with
          * the silence they have to say "hello?" into.
          *
@@ -860,7 +845,9 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           'Hello, thanks for calling {HOTEL}.',
         ),
         /**
-         * Said while she thinks, in the language the caller is speaking. Measured:
+         * Said while she thinks, in the language the caller is speaking. Plain
+         * acknowledgements, never "let me check": claiming to look something up
+         * when nothing is being looked up gives it away. Measured:
          * one English list played "Okay…" before every Kannada answer, so a caller
          * heard her switch language mid-sentence. Only phrases under ~0.9s: the
          * answer plays after the filler, and "சரி சரி…" (2.1s) held it back.
@@ -880,6 +867,12 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * and the caller sat in 1.5–3s of silence; a miss is warmed, not played.
          */
         FILLER_CACHE_MINUTES: Infinity,
+        /**
+         * Every budget below is env-driven and 0 means unlimited. They are off
+         * by default: the agent is being demoed and shared, and a limit that
+         * interrupts a real conversation costs more than the spend it saves.
+         * Set them above zero to cap an unauthenticated, per-turn-billed surface.
+         */
         MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
         MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
         IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
@@ -914,7 +907,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         STAFF_CHAT_LIST_LIMIT: 50,
         /** Notes handed back to the agent when it reads its scratchpad. */
         SCRATCHPAD_NOTE_LIMIT: 50,
-        /** Spoken digits, so "eight nine zero…" can be checked against a noted phone number. */
         /**
          * Number words in the five languages, for checking a phone number was said.
          * "x2" and "x3" repeat the next digit: "double nine" is 99.
@@ -1052,6 +1044,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           INSTRUCTIONS: `You are maintaining the long-term memory of a hotel concierge AI chat. Produce one consolidated summary in approximately {TARGET_WORDS} words that captures every important fact the assistant should remember going forward.\n\nIf an existing summary is provided, merge it with the new messages — keep all standing information from the existing summary, then layer the new messages on top. Resolve contradictions in favour of the more recent information.\n\nPreserve:\n- Guest preferences (room, food, language, accessibility)\n- Outstanding and completed requests with their status\n- Confirmed bookings, reservations, special arrangements\n- Key facts (names, dates, room numbers, hotel info, costs)\n- Tool calls that produced lasting outcomes\n\nSkip pleasantries and small talk. Output plain prose only — no markdown, no headers, no bullet points. Refer to the guest as "the guest" and the AI as "the assistant".`,
         },
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
+        /** How many tool round trips one reservation-agent turn may take before it is cut off. */
+        AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '16', 10),
         /**
          * What ends a sentence while a reply is streaming, so the agent can
          * start speaking before it has finished writing.
@@ -1062,8 +1056,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * nothing reached TTS until the whole answer was written and the line
          * sat silent the entire time.
          */
-        /** How many tool round trips one reservation-agent turn may take before it is cut off. */
-        AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '16', 10),
         SENTENCE_TERMINATORS_LATIN: '.!?',
         SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
         STT_CONFIG: {
