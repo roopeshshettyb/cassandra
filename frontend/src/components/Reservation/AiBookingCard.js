@@ -138,6 +138,7 @@ const AiBookingCard = ({ data }) => {
         setLoading,
         setData: setMessages,
         defaultData: [],
+        alertError: data.alertError,
       });
     }
   };
