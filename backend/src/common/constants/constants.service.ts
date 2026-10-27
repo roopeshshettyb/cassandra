@@ -940,6 +940,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           'ஜனவரி|பிப்ரவரி|மார்ச்|ஏப்ரல்|ஜூன்|ஜூலை|ஆகஸ்ட்|செப்டம்பர்|அக்டோபர்|நவம்பர்|டிசம்பர்|தேதி|நாளை',
           'జనవరి|ఫిబ్రవరి|మార్చి|ఏప్రిల్|జూన్|జూలై|ఆగస్టు|సెప్టెంబర్|అక్టోబర్|నవంబర్|డిసెంబర్|తేదీ|రేపు',
         ].join('|'),
+        /** What the agent calls a property whose name is missing. */
+        UNNAMED_HOTEL: 'this property',
         /** Details that must have been noted during the call before an enquiry can be recorded. */
         ENQUIRY_REQUIRED_NOTES: ['checkInDate', 'checkOutDate', 'partySize', 'guestName', 'guestEmail', 'guestPhone'],
         /**
