@@ -6,6 +6,9 @@ export const OTP_LENGTH = 6;
 export const DEFAULT_CHECK_IN_TIME = '15:00';
 export const DEFAULT_CHECK_OUT_TIME = '11:00';
 export const DEFAULT_AVAILABILITY_ROOMS = 1;
+// Named once, so the reservation limits and what a caller is told about them cannot drift apart.
+const RESERVATION_MAX_PARTY_SIZE = 20;
+const RESERVATION_PHONE_DIGITS = { MIN: 10, MAX: 13 };
 
 export enum NotificationTone {
   NONE = 'none',
@@ -941,21 +944,21 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          * chat 1442): a stay from the tenth to the twelfth of October was recorded on
          * the twenty-third, and a five-digit phone number was read back and accepted.
          */
-        MAX_PARTY_SIZE: 20,
+        MAX_PARTY_SIZE: RESERVATION_MAX_PARTY_SIZE,
+        PHONE_DIGITS: RESERVATION_PHONE_DIGITS,
+        BOOKING_PROBLEMS: {
+          checkInDate: 'the check-in date is before today',
+          checkOutDate: 'the check-out date is not after the check-in date',
+          partySize: `the number of guests must be from 1 to ${RESERVATION_MAX_PARTY_SIZE}`,
+          guestPhone: `a phone number has ${RESERVATION_PHONE_DIGITS.MIN} digits, or more with a country code`,
+          guestEmail: 'that is not a working email address',
+        } as Record<string, string>,
         /**
          * Output cap for her replies and the note-taker; the longest read-back is ~150
          * tokens. Measured: uncapped, each request asked OpenRouter for 65,536, and
          * with the balance low every request was refused though each needed a few hundred.
          */
         MAX_OUTPUT_TOKENS: 1000,
-        PHONE_DIGITS: { MIN: 10, MAX: 13 },
-        BOOKING_PROBLEMS: {
-          checkInDate: 'the check-in date is before today',
-          checkOutDate: 'the check-out date is not after the check-in date',
-          partySize: 'the number of guests must be from 1 to 20',
-          guestPhone: 'a phone number has 10 digits, or more with a country code',
-          guestEmail: 'that is not a working email address',
-        } as Record<string, string>,
         /** Details only the caller can give, so they are noted only when the caller has just said them. */
         CALLER_SPOKEN_NOTES: ['guestName', 'guestPhone', 'guestEmail'],
         /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */

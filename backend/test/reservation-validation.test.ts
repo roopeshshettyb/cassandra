@@ -38,6 +38,11 @@ describe('bookingProblems', () => {
   it('judges only the fields present', () => {
     expect(bookingProblems({ guestName: 'ಕಿರಣ್ ಟೆಸ್ಟ್' }, today, limits)).toEqual([]);
   });
+
+  it('tells the caller the limits it applies', () => {
+    expect(limits.BOOKING_PROBLEMS.partySize).toBe('the number of guests must be from 1 to 20');
+    expect(limits.BOOKING_PROBLEMS.guestPhone).toBe('a phone number has 10 digits, or more with a country code');
+  });
 });
 
 describe('inScriptOf', () => {
