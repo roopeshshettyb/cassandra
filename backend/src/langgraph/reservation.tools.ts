@@ -130,7 +130,15 @@ export function createReservationTools(
     if (missing.length > 0) {
       return JSON.stringify({ success: false, message: `${cfg.NOTE_RESULTS.INCOMPLETE} ${missing.join(', ')}` });
     }
-    const booking: Record<string, unknown> = { ...Object.fromEntries(cfg.ENQUIRY_REQUIRED_NOTES.map((field) => [field, notes[field]])), partySize: Number(notes.partySize), ...extras };
+    // Staff read the booking from this record alone, so an occasion or an add_note
+    // aside stands in when the note-taker gave no special requests.
+    const asides = Object.keys(notes).filter((subject) => notes[subject] && ![...cfg.ENQUIRY_REQUIRED_NOTES, 'occasion', 'refused'].includes(subject)).map((subject) => notes[subject]);
+    const booking: Record<string, unknown> = {
+      ...Object.fromEntries(cfg.ENQUIRY_REQUIRED_NOTES.map((field) => [field, notes[field]])),
+      partySize: Number(notes.partySize),
+      ...extras,
+      specialRequests: extras.specialRequests || notes.occasion || asides.join(' ') || undefined,
+    };
     // Notes taken yesterday can be past today; anything wrong goes back to the caller.
     const invalid = bookingProblems(booking, new Date().toISOString().slice(0, 10), cfg);
     if (invalid.length > 0) {

@@ -23,28 +23,24 @@ export interface ReservationSessionResult {
 }
 
 /**
- * Undo a spelling that was recorded instead of the value it spells.
+ * Undo a name spelling that was recorded instead of the name it spells.
  *
- * The agent is told to have names and addresses spelled out, and it sometimes
- * writes down the letters rather than what they assemble to — "Ram, R A N",
- * "S H R I J I T M O R E 5 5 6 @ gmail.com". The prompt and the tool now ask for
- * the assembled value, but a staff member should not be shown letters because a
- * model drifted, so the obvious cases are undone here as well.
+ * Names are spelled out on a call, and the letters sometimes get written down
+ * rather than what they assemble to, as in "Ram, R A N". The tool asks for the
+ * assembled name, but a staff member should not be shown letters because a
+ * model drifted, so the obvious cases are undone here as well. An email with a
+ * space in it is refused before it is recorded, so it needs no undoing.
  *
  * Conservative on purpose: a run of single characters is only ever a spelling,
  * but "Mary Jane" and "J K Rowling" must survive untouched.
  */
-function unspell(value: unknown, stripSpaces: boolean): unknown {
+function unspell(value: unknown): unknown {
   if (typeof value !== 'string') {
     return value;
   }
   const text = value.trim();
   if (!text) {
     return value;
-  }
-  // An address can never contain a space, so any spacing in one is a spelling.
-  if (stripSpaces && /\s/.test(text)) {
-    return text.replace(/\s+/g, '');
   }
   // "Ram, R A N" — a tail of single characters spells the head.
   const tail = /^(.*?),\s*((?:[A-Za-z0-9]\s+){2,}[A-Za-z0-9])\s*$/.exec(text);
@@ -284,45 +280,20 @@ export class ReservationService {
     const data = chats.map((chat) => {
       const chatMessages = byChat.get(chat.id) ?? [];
       const enquiries: Record<string, unknown>[] = [];
-      // What the agent wrote down as it heard it beats what it recalls at the end,
-      // which is reconstructed and often wrong. Accumulated field by field: notes
-      // arrive through the call carrying whatever was just learned, so a name
-      // noted early must survive a later note about the phone number.
-      const noted: Record<string, unknown> = {};
-      // What it wrote in its notebook beyond the booking — an occasion, a request.
-      const asides: string[] = [];
       for (const message of chatMessages) {
         // createdAt comes from Sequelize timestamps, which the model does not declare.
         const messageRow: any = message;
         for (const call of message.toolCalls ?? []) {
-          if (call.toolName === 'add_note' && typeof call.input?.content === 'string') {
-            asides.push(call.input.content);
+          if (call.toolName !== 'record_reservation_enquiry') continue;
+          // The booking as it was handed over. A refused record is not an enquiry.
+          let result: any = null;
+          try {
+            result = JSON.parse(String(call.output));
+          } catch {
+            continue;
           }
-          if (call.toolName === 'note_reservation_dates' && call.input) {
-            // What was actually written, which can differ from what was asked: a
-            // slipped date is refused by the tool.
-            let written: Record<string, unknown> = call.input;
-            try {
-              written = JSON.parse(String(call.output)).data ?? call.input;
-            } catch {
-              // older calls returned no data; what was asked is what was written
-            }
-            for (const [field, value] of Object.entries(written)) {
-              if (value !== undefined && value !== null && value !== '') {
-                noted[field] = value;
-              }
-            }
-          }
-          // A refused record — a detail the caller never gave — is not an enquiry.
-          const refused = typeof call.output === 'string' && call.output.includes('"success":false');
-          if (call.toolName === 'record_reservation_enquiry' && call.input && !refused) {
-            const enquiry: Record<string, unknown> = { ...call.input, ...noted };
-            enquiry.guestName = unspell(enquiry.guestName, false);
-            enquiry.guestEmail = unspell(enquiry.guestEmail, true);
-            // An occasion is noted when it is mentioned, and often left out of the
-            // final record; the staff card shows specialRequests, so it falls back.
-            enquiry.specialRequests = enquiry.specialRequests || enquiry.occasion || asides.join(' ') || undefined;
-            enquiries.push({ ...enquiry, recordedAt: messageRow.createdAt });
+          if (result?.success === true && result.data) {
+            enquiries.push({ ...result.data, guestName: unspell(result.data.guestName), recordedAt: messageRow.createdAt });
           }
         }
       }
