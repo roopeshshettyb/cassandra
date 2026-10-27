@@ -857,7 +857,7 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
          */
         GREETING: this.configService.get<string>(
           'RESERVATION_VOICE_GREETING',
-          '[warm] Hello, thanks for calling {HOTEL}.',
+          'Hello, thanks for calling {HOTEL}.',
         ),
         /**
          * Said while she thinks, in the language the caller is speaking. Measured:

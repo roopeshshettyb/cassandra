@@ -4,7 +4,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
 import { ChatLlmService } from '../chat/chat-llm.service';
 import { ConstantsService } from '../common/constants/constants.service';
-import { splitSentences, stripAudioTags, stripToolEcho } from '../common/sentence.util';
+import { splitSentences, stripAudioTags } from '../common/sentence.util';
 import { LoggerService } from '../common/logger.service';
 import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
@@ -55,19 +55,6 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     return this.ttsFactory.getProvider(this.constantsService.private.RESERVATION_VOICE.TTS_PROVIDER) as TtsProvider;
   }
 
-  /**
-   * What the voice is given to say. Delivery cues like "[warm]" are tone
-   * direction only ElevenLabs v3 understands; every other provider would read
-   * them out, so they are removed for it.
-   */
-  private spoken(text: string): string {
-    const rv = this.constantsService.private.RESERVATION_VOICE;
-    const resolved = rv.TTS_PROVIDER && rv.TTS_PROVIDER.length > 0
-      ? rv.TTS_PROVIDER
-      : this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
-    return resolved.toLowerCase() === 'elevenlabs' ? stripToolEcho(text).trim() : stripAudioTags(text);
-  }
-
   private fillerKey(phrase: string, languageCode: string | null): string {
     return `${this.constantsService.private.RESERVATION_VOICE.FILLER_CACHE_KEY_PREFIX}${languageCode ?? 'auto'}:${phrase}`;
   }
@@ -85,8 +72,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     state.sentenceBuffer = rest;
     for (const sentence of parts) {
-      const spoken = this.spoken(sentence);
-      const shown = stripAudioTags(sentence);
+      const spoken = stripAudioTags(sentence);
       if (spoken.length > 0) {
         // Caught per sentence on purpose. The queue is one promise chain, so a
         // single rejected request would poison every .then() after it and the
@@ -102,9 +88,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
               traces: [{ stage: 'tts' }],
             });
           });
-      }
-      if (shown.length > 0) {
-        client.emit('voice_text_chunk', { delta: shown });
+        client.emit('voice_text_chunk', { delta: spoken });
       }
     }
   }
@@ -340,7 +324,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
         for (const [languageCode, phrases] of Object.entries(fillers)) {
           for (const phrase of phrases) {
             // One at a time: this is warming a cache, not racing anybody.
-            await this.getFillerChunks(this.spoken(phrase), languageCode, provider, this.fillerLine);
+            await this.getFillerChunks(stripAudioTags(phrase), languageCode, provider, this.fillerLine);
           }
         }
       } catch (err: any) {
@@ -401,7 +385,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     }
     client.lastFiller = index;
 
-    const spoken = this.spoken(phrases[index]);
+    const spoken = stripAudioTags(phrases[index]);
     if (!spoken) {
       return;
     }
@@ -534,7 +518,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
           this.flushSentences(state, out, provider, languageCode);
         },
         onEnd: async (result) => {
-          const spokenTail = this.spoken(state.sentenceBuffer.trim());
+          const spokenTail = stripAudioTags(state.sentenceBuffer.trim());
           if (spokenTail.length > 0 && state.live()) {
             await state.ttsQueue;
             // Caught like every other sentence. Measured: Sarvam refused one, and the
@@ -665,7 +649,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     try {
       // Cached per property, so only the first caller at a property waits for it.
       // On the call's own line: it opens the connection every reply will use.
-      const chunks = await this.getFillerChunks(this.spoken(phrase), null, this.ttsProvider(), client);
+      const chunks = await this.getFillerChunks(stripAudioTags(phrase), null, this.ttsProvider(), client);
       for (const delta of chunks) {
         client.emit('voice_audio_chunk', { delta });
       }

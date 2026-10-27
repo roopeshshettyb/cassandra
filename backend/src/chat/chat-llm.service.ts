@@ -166,9 +166,8 @@ export class ChatLlmService {
       }
     }
 
-    // Delivery cues are instructions to a voice, not words: a guest should hear
-    // the warmth and never see "[warm]" in their transcript. Only the reservation
-    // voice prompt asks for them, and stripping anywhere else would eat Markdown
+    // A bracketed cue like "[warm]" is never meant to be read, so a stray one is
+    // kept out of a voice transcript. Stripping anywhere else would eat Markdown
     // link text.
     const assistantMessage: Message = await this.messagesService.create(
       chatId,
