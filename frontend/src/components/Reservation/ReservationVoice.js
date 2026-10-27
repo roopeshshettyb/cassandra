@@ -15,15 +15,6 @@ import { sessionStorageKey, sessionAuth, saveSessionToken } from './reservationS
 /** Browser mic and the server both work in 24kHz mono 16-bit PCM. */
 const SAMPLE_RATE = 24000;
 
-/**
- * Comfort noise — the faint life a real call carries. Dead silence between
- * sentences is the clearest tell that a voice is synthetic.
- *
- * A recording of a real room, with no synthesised stand-in: generated noise is
- * steady by definition and reads as a hiss, which is the thing it should hide.
- * If the recording cannot be fetched the call runs dry.
- */
-
 /** Scale samples in place so their RMS sits at the configured level. */
 function normaliseToDbfs(data, dbfs) {
   let sum = 0;
@@ -69,7 +60,14 @@ function toLoopBuffer(ctx, decoded) {
 }
 
 /**
- * Open the line with a freshly built buffer, levelled to the configured dBFS.
+ * Comfort noise, the faint life a real call carries. Dead silence between
+ * sentences is the clearest tell that a voice is synthetic.
+ *
+ * A recording of a real room, with no synthesised stand-in: generated noise is
+ * steady by definition and reads as a hiss, which is the thing it should hide.
+ * If the recording cannot be fetched the call runs dry.
+ *
+ * Opens the line with a freshly built buffer, levelled to the configured dBFS.
  *
  * Runs for the whole call, under the caller as much as the agent: gating it to
  * the agent's voice puts real silence in every gap, and a line with nothing on
@@ -110,8 +108,9 @@ function stopAmbience(ambience, ctx) {
  * Public voice reservation. Streams mic audio to the unauthenticated
  * /reservation-voice gateway and plays the spoken reply back.
  *
- * Self-contained: shares no code with the signed-in concierge's voice hook, so
- * nothing here can affect a guest's call.
+ * Its own socket and state, apart from the signed-in concierge's voice hook, so
+ * nothing here can affect a guest's call. Only the audio helpers and the mic
+ * control are shared.
  */
 export default function ReservationVoice({ hotelId, onHotelResolved, onFatalError, alertError }) {
   const [status, setStatus] = useState('connecting'); // connecting | idle | listening | thinking | speaking
@@ -125,7 +124,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const processorRef = useRef(null);
   const playbackContextRef = useRef(null);
   const playbackTimeRef = useRef(0);
-  const silenceTimerRef = useRef(null);
   const ambienceRef = useRef(null);
   const ambienceDataRef = useRef(null);
   const stopMicRef = useRef(null);
@@ -208,10 +206,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
   const stopMic = useCallback(() => {
     startGenRef.current += 1;
     micGateRef.current = false;
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current.onaudioprocess = null;
@@ -439,7 +433,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       }
       const source = ctx.createMediaStreamSource(stream);
       const processor = ctx.createScriptProcessor(2048, 1, 1);
-      let heardSound = false;
       processor.onaudioprocess = (e) => {
         if (!socketRef.current?.connected) return;
         const input = e.inputBuffer.getChannelData(0);
@@ -473,11 +466,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
           setStatus('listening');
           return;
         }
-        if (!heardSound) {
-          for (let i = 0; i < input.length; i += 1) {
-            if (Math.abs(input[i]) > 0.01) { heardSound = true; break; }
-          }
-        }
         socketRef.current.emit('voice_client_chunk', { audio: arrayBufferToBase64(floatTo16BitPCM(input).buffer) });
       };
       // Deliberately no silence stopwatch. The microphone is held open for the
@@ -485,7 +473,6 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
       // their diary, or thinking. A timer cannot tell that from a dead mic, and
       // guessing wrong interrupts the call to complain about equipment that is
       // working. A refused microphone still reports itself, below.
-      void heardSound;
       // A newer start (or a stop) happened while the browser was prompting —
       // drop this one rather than attaching a second capture chain.
       if (generation !== startGenRef.current) {
