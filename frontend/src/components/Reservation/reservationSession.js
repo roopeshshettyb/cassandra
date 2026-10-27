@@ -23,3 +23,13 @@ export const sessionAuth = (storageKey) => (cb) => {
   }
   cb({ sessionToken: token });
 };
+
+/** Keep the token for the next visit, when there is one and storage allows it. */
+export const saveSessionToken = (storageKey, token) => {
+  if (!token) return;
+  try {
+    localStorage.setItem(storageKey, token);
+  } catch {
+    // Storage blocked: this visit still works, the next one starts fresh.
+  }
+};

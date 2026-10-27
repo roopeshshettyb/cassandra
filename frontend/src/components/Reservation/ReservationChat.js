@@ -4,7 +4,7 @@ import SendIcon from '@mui/icons-material/Send';
 import { io } from 'socket.io-client';
 import { NAVY, MUTED, BORDER } from '../../theme';
 import constants from '../../constants.json';
-import { sessionStorageKey, sessionAuth } from './reservationSession';
+import { sessionStorageKey, sessionAuth, saveSessionToken } from './reservationSession';
 import { getBackendUrl, ChatBubble, SuggestionStrip, ThinkingBubble } from '../GuestPortal/GuestConcierge';
 import MapComponent from '../MapComponent';
 
@@ -68,9 +68,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
       setLoading(false);
       setLanguage(payload?.languageCode || constants.RESERVATION_DEFAULT_LANGUAGE);
       onHotelResolvedRef.current?.(payload?.hotel || null);
-      if (payload?.sessionToken) {
-        localStorage.setItem(storageKeyRef.current, payload.sessionToken);
-      }
+      saveSessionToken(storageKeyRef.current, payload?.sessionToken);
       const history = Array.isArray(payload?.messages) ? payload.messages : [];
       // The conversation opens with her greeting, as the voice line does. It is
       // shown, not generated or stored, so a visitor who never types costs nothing.
@@ -86,9 +84,7 @@ export default function ReservationChat({ hotelId, onHotelResolved, onFatalError
 
     // The chat row is created on the first message, so its handle arrives here.
     socket.on('session', (payload) => {
-      if (payload?.sessionToken) {
-        localStorage.setItem(storageKeyRef.current, payload.sessionToken);
-      }
+      saveSessionToken(storageKeyRef.current, payload?.sessionToken);
     });
 
     socket.on('stream_chunk', (p) => {

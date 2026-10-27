@@ -10,7 +10,7 @@ import { NAVY, MUTED } from '../../theme';
 // rules, but to whoever is talking it is the same assistant.
 import { getBackendUrl, VoiceMicButton } from '../GuestPortal/GuestConcierge';
 import constants from '../../constants.json';
-import { sessionStorageKey, sessionAuth } from './reservationSession';
+import { sessionStorageKey, sessionAuth, saveSessionToken } from './reservationSession';
 
 /** Browser mic and the server both work in 24kHz mono 16-bit PCM. */
 const SAMPLE_RATE = 24000;
@@ -262,14 +262,10 @@ export default function ReservationVoice({ hotelId, onHotelResolved, onFatalErro
 
     socket.on('ready', (payload) => {
       onHotelResolvedRef.current?.(payload?.hotel || null);
-      if (payload?.sessionToken) {
-        localStorage.setItem(storageKeyRef.current, payload.sessionToken);
-      }
+      saveSessionToken(storageKeyRef.current, payload?.sessionToken);
     });
     socket.on('session', (payload) => {
-      if (payload?.sessionToken) {
-        localStorage.setItem(storageKeyRef.current, payload.sessionToken);
-      }
+      saveSessionToken(storageKeyRef.current, payload?.sessionToken);
     });
     socket.on('voice_ready', () => {
       agentTurnRef.current = false;
