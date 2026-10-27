@@ -148,7 +148,12 @@ export class SarvamTtsService {
       };
       const timer = setTimeout(() => fail(new Error(sarvam.NO_AUDIO_ERROR)), sarvam.RESPONSE_TIMEOUT_MS);
       const onMessage = (raw: WebSocket.RawData) => {
-        const msg = JSON.parse(raw.toString());
+        let msg: any;
+        try {
+          msg = JSON.parse(raw.toString());
+        } catch {
+          return;
+        }
         if (msg.type === 'audio') {
           clearTimeout(timer);
           sentAudio = true;
