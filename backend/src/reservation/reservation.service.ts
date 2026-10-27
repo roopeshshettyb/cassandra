@@ -7,7 +7,6 @@ import { CacheService } from '../common/cache/cache.service';
 import { ConstantsService } from '../common/constants/constants.service';
 import { toPublicHotel } from '../langgraph/reservation.tools';
 import { Chat } from '../chat/chat.model';
-import { Hotel } from '../hotels/hotels.model';
 import { Message } from '../messages/message.model';
 import { Account } from '../accounts/accounts.model';
 import { ChatSession } from '../chat/gateway/chat-session.interface';
@@ -16,7 +15,6 @@ import { LoggerService } from '../common/logger.service';
 export interface ReservationSessionResult {
   /** Null until the visitor actually says something — see startSession. */
   chat: Chat | null;
-  hotel: Hotel;
   publicHotel: Record<string, unknown> | null;
   sessionToken: string | null;
   messages: Message[];
@@ -228,10 +226,8 @@ export class ReservationService {
    * as absent rather than an error; the visitor has done nothing wrong.
    */
   async startSession(hotelId: number, sessionToken?: string | null): Promise<ReservationSessionResult> {
+    // Throws a 404 for an unknown hotel, which connect tells the visitor about.
     const hotel = await this.hotelsService.findById(hotelId);
-    if (!hotel) {
-      throw new NotFoundException(this.constantsService.public.ERROR_RESERVATION_HOTEL_NOT_FOUND);
-    }
 
     const existingChatId = this.verifySessionToken(sessionToken);
     const chat = existingChatId ? await this.chatService.findReservationChat(existingChatId, hotelId) : null;
@@ -240,7 +236,6 @@ export class ReservationService {
 
     return {
       chat,
-      hotel,
       publicHotel: toPublicHotel(hotel),
       sessionToken: chat ? this.issueSessionToken(chat.id) : null,
       messages,

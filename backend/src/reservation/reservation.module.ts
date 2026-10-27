@@ -15,6 +15,5 @@ import { ReservationController } from './reservation.controller';
   imports: [forwardRef(() => ChatModule), forwardRef(() => HotelsModule), MessagesModule, CommonModule, AuthModule, SttModule, TtsModule],
   controllers: [ReservationController],
   providers: [ReservationService, ReservationGateway, ReservationVoiceGateway],
-  exports: [ReservationService],
 })
 export class ReservationModule {}

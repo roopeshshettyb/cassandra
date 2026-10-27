@@ -339,7 +339,7 @@ const AppContent = () => {
   const isBookingDetailRoute = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isChatRoute = pathname === '/chat';
   // Public reservation page: no login, so none of the app chrome applies.
-  const isReservationRoute = pathname.startsWith('/reservation');
+  const isReservationRoute = pathname.startsWith(RESERVATION_PATH_PREFIX);
   const isGuestPortal = pathname.startsWith('/bookings/') && pathname !== '/bookings';
   const isFullScreenMobile = isMobile && (
     pathname.startsWith('/requests/') ||
