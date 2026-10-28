@@ -741,8 +741,8 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         /**
          * Sarvam's Bulbul, streamed: it sounds native in all five languages and starts
          * speaking in ~0.3s. Measured: ElevenLabs v3 cut Tamil off after two words in
-         * 2 of 9 tries. Fixed here rather than read from the environment, so an env
-         * file still naming ElevenLabs cannot leave the call on another voice.
+         * 2 of 9 tries. Fixed here rather than read from the environment, so the
+         * app-wide TTS provider cannot move the call onto another voice.
          */
         TTS_PROVIDER: 'sarvam',
         /**
@@ -1198,51 +1198,6 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             /** Pause before that second ask: Sarvam refuses connections opened in quick succession. */
             RETRY_DELAY_MS: 500,
             NO_AUDIO_ERROR: 'Sarvam TTS sent no audio in time',
-          },
-          ELEVENLABS: {
-            API_KEY: this.configService.get<string>('ELEVENLABS_API_KEY'),
-            BASE_URL: this.configService.get<string>('ELEVENLABS_BASE_URL', 'https://api.elevenlabs.io'),
-            /**
-             * How long a request may take to start answering before it is tried once more. Audio normally
-             * starts in 0.2–0.4s; a connection that failed was measured taking ten seconds to say so, with
-             * the caller in silence throughout.
-             */
-            RESPONSE_TIMEOUT_MS: 3000,
-            /** eleven_v3_conversational is the expressive realtime model (~280ms); eleven_flash_v2_5 is faster (~75ms) but flatter. */
-            MODEL: this.configService.get<string>('ELEVENLABS_MODEL', 'eleven_v3_conversational'),
-            /** Rachel, ElevenLabs' stock voice — set ELEVENLABS_VOICE_ID to the property's own. */
-            VOICE_ID: this.configService.get<string>('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM'),
-            /** 24kHz mono 16-bit LE — what the browser player expects (see frontend utils/audio.ts). */
-            OUTPUT_FORMAT: this.configService.get<string>('ELEVENLABS_OUTPUT_FORMAT', 'pcm_24000'),
-            /**
-             * Only Flash/Turbo v2.5 accept `language_code`; eleven_v3 errors when
-             * it is sent, so the parameter is gated on the model in use.
-             */
-            LANGUAGE_ENFORCING_MODELS: ['eleven_flash_v2_5', 'eleven_turbo_v2_5'],
-            /**
-             * v3 audio tag prepended to every utterance to set Samantha's register,
-             * e.g. '[warm]' or '[calm and reassuring]'. Empty leaves delivery to the
-             * model. Ignored by non-v3 models, which read tags aloud — keep it empty
-             * unless MODEL is a v3 one.
-             */
-            AUDIO_TAG: this.configService.get<string>('ELEVENLABS_AUDIO_TAG', ''),
-            VOICE_SETTINGS: {
-              /** Lower is more emotionally variable; higher is steadier and flatter. */
-              /**
-               * v3's "Natural" setting. Lower is more expressive and also less
-               * stable — the same sentence can come back mispronounced or with
-               * an odd cadence, and a reply is synthesised a sentence at a time,
-               * so every fragment rolls that dice again. Expressiveness is not
-               * worth a name read out wrong.
-               */
-              STABILITY: parseFloat(this.configService.get('ELEVENLABS_STABILITY') || '0.5'),
-              SIMILARITY_BOOST: parseFloat(this.configService.get('ELEVENLABS_SIMILARITY_BOOST') || '0.75'),
-              /** Style exaggeration. Costs latency above 0, so it stays modest. */
-              /** Style exaggeration costs stability and latency both; the delivery cues in the prompt do this job better. */
-              STYLE: parseFloat(this.configService.get('ELEVENLABS_STYLE') || '0'),
-              USE_SPEAKER_BOOST: this.configService.get<string>('ELEVENLABS_USE_SPEAKER_BOOST', 'true') === 'true',
-              SPEED: parseFloat(this.configService.get('ELEVENLABS_SPEED') || '1'),
-            },
           },
           LIGHTNING: {
             API_KEY: this.configService.get<string>('LIGHTNING_TTS_API_KEY'),
