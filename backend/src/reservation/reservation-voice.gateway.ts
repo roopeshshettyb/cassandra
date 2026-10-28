@@ -10,6 +10,11 @@ import { CacheService } from '../common/cache/cache.service';
 import { SttFactoryService } from '../stt/stt-factory.service';
 import { TtsFactoryService } from '../tts/tts-factory.service';
 import type { ISttSession } from '../stt/stt-session.interface';
+import { asciiNumerals, spokenDigits } from '../langgraph/reservation.tools';
+
+/** Lowercase words, keeping the vowel signs Indian scripts need and the apostrophe in "that's". */
+const wordsOf = (text: string): string[] =>
+  text.toLowerCase().replace(/’/g, "'").replace(/[^\p{L}\p{M}\p{N}'\s]/gu, ' ').split(/\s+/).filter(Boolean);
 
 interface TtsProvider {
   streamToClient: (client: any, text: string, options?: { emitEnd?: boolean; languageCode?: string | null; line?: object }) => Promise<void>;
@@ -420,18 +425,19 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
    */
   private looksFinished(heard: string): boolean {
     const cfg = this.constantsService.private.RESERVATION_VOICE;
-    const spokenDigits: Record<string, string> = this.constantsService.private.RESERVATION.SPOKEN_DIGITS;
-    const words = heard.toLowerCase().replace(/’/g, "'").replace(/[^\p{L}\p{M}\p{N}'\s]/gu, ' ').split(/\s+/).filter(Boolean);
+    const digitWords: Record<string, string> = this.constantsService.private.RESERVATION.SPOKEN_DIGITS;
+    const words = wordsOf(heard);
     if (words.length === 0) {
       return false;
     }
     if (words.every((word) => cfg.AFFIRMATION_WORDS.includes(word))) {
       return true;
     }
-    let trailingDigits = '';
-    for (let i = words.length - 1; i >= 0 && /^\d+$/.test(spokenDigits[words[i]] ?? words[i]); i -= 1) {
-      trailingDigits = (spokenDigits[words[i]] ?? words[i]) + trailingDigits;
+    let start = words.length;
+    while (start > 0 && /^(\d+|x[23])$/.test(digitWords[words[start - 1]] ?? asciiNumerals(words[start - 1]))) {
+      start -= 1;
     }
+    const trailingDigits = spokenDigits(words.slice(start).join(' '), digitWords);
     const halfANumber = trailingDigits.length >= cfg.PARTIAL_NUMBER_DIGITS.MIN && trailingDigits.length < cfg.PARTIAL_NUMBER_DIGITS.FULL;
     const spelling = words.length > 1 && words.slice(-2).every((word) => word.length === 1);
     // Length is no sign of an unfinished turn. Measured: every sentence over four
@@ -449,8 +455,7 @@ export class ReservationVoiceGateway implements OnModuleInit, OnGatewayConnectio
     // Noise transcribes as "A", "I", "um", "so": not something said to her, so
     // it gets no reply and costs nothing. Real one-word answers — "yes", "no",
     // "two" — are not on the list and go through.
-    const words = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
-    const noise = words.every((word) => cfg.NOISE_WORDS.includes(word));
+    const noise = wordsOf(text).every((word) => cfg.NOISE_WORDS.includes(word));
     if (!client.reservationContext || !text || noise) {
       client.emit('voice_ready');
       return;
