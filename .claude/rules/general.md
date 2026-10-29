@@ -1,5 +1,3 @@
-<!-- Mirrors .cursor/rules/general.mdc. Scoped rules live in .claude/rules/. Keep both in sync. -->
-
 # Cassandra: general rules
 
 ## Repo layout

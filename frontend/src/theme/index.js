@@ -1,6 +1,6 @@
 import constants from '../constants.json';
 
-// The palette lives in the backend's constants.service.ts (CLAUDE.md General #3), so this file
+// The palette lives in the backend's constants.service.ts (general rules, "Constants and defaults"), so this file
 // must not carry fallback colours: a fallback would quietly paint a white-labeled tenant in the
 // previous brand instead of surfacing a stale constants.json. Assert instead. constants.json is
 // generated — `npm start` and `npm run build` both run fetch-constants first, and
