@@ -7,8 +7,9 @@ import { ConstantsService } from '../common/constants/constants.service';
 import { CostsService } from '../costs/costs.service';
 import { CostType } from '../costs/costs.model';
 import { ChatSession } from './gateway/chat-session.interface';
-import { buildChatPrompt } from './chat-prompt.builder';
+import { buildChatPrompt, buildReservationPrompt } from './chat-prompt.builder';
 import { LlmEvalService } from '../llm-eval/llm-eval.service';
+import { stripAudioTags } from '../common/sentence.util';
 
 export interface StreamUserMessageOptions {
   onChunk: (chunk: string) => Promise<void> | void;
@@ -19,6 +20,8 @@ export interface StreamUserMessageOptions {
 @Injectable()
 export class ChatLlmService {
   private readonly logger = new Logger(ChatLlmService.name);
+  /** Reservation notes still being written, by chat; the next turn there waits for them. */
+  private readonly notesInFlight = new Map<number, Promise<void>>();
 
   constructor(
     private readonly messagesService: MessagesService,
@@ -28,6 +31,14 @@ export class ChatLlmService {
     private readonly costsService: CostsService,
     private readonly llmEvalService: LlmEvalService,
   ) {}
+
+  /** Booking chats carry the hotel on the booking; reservation chats carry it directly. */
+  private resolveHotelId(session: ChatSession): number | null {
+    if (session.booking && session.booking.hotelId) {
+      return session.booking.hotelId;
+    }
+    return session.hotelId ?? null;
+  }
 
   private syncSessionBookingFromToolCalls(session: ChatSession, toolCalls: LangGraphToolCallRecord[]): void {
     for (let i = 0; i < toolCalls.length; i += 1) {
@@ -56,8 +67,38 @@ export class ChatLlmService {
     }
   }
 
+  /** Record what a turn cost, under the message it produced. */
+  private recordCost(
+    session: ChatSession,
+    isVoice: boolean,
+    messageId: number,
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null,
+    model?: { name: string; inputPricePer1K: number; outputPricePer1K: number },
+  ): void {
+    this.costsService.recordLlmCost({
+      // This same LangGraph call path serves both text chat and the "custom"
+      // STT+LLM+TTS voice pipeline (mode: 'voice') — tag voice turns as LLM_VOICE
+      // so channel-level cost reporting isn't silently folded into chat spend.
+      type: isVoice ? CostType.LLM_VOICE : CostType.LLM_CHAT,
+      usage: {
+        promptTokens: usage && usage.promptTokens ? usage.promptTokens : 0,
+        completionTokens: usage && usage.completionTokens ? usage.completionTokens : 0,
+        totalTokens: usage && usage.totalTokens ? usage.totalTokens : 0,
+      },
+      bookingId: session.bookingId,
+      hotelId: this.resolveHotelId(session),
+      accountId: session.account ? session.account.id : null,
+      role: session.account ? session.account.role : null,
+      chatId: session.chatId,
+      messageId,
+      model,
+    });
+  }
+
   async streamUserMessage(session: ChatSession, userMessage: string, options: StreamUserMessageOptions): Promise<void> {
     const chatId = session.chatId;
+    // A reservation turn is built on the notes, so it waits for the last turn's.
+    await this.notesInFlight.get(chatId);
 
     const userMsg = await this.messagesService.create(chatId, MessageRole.USER, userMessage);
 
@@ -65,25 +106,45 @@ export class ChatLlmService {
     const hotel: any = session.hotel;
     const llmInstructions = hotel && hotel.llmInstructions ? hotel.llmInstructions : null;
     const isVoice = options.mode === 'voice';
+    // No account means the public reservation agent: a different prompt, a
+    // different tool set, and a hotel it may never step outside of.
+    const isReservation = !session.account;
 
-    const { messages } = await buildChatPrompt(
-      this.chatContextService,
-      chatId,
-      userMessage,
-      appName,
-      session.account?.role,
-      llmInstructions,
-      session.languageCode ?? null,
-      isVoice,
-    );
+    // A reservation turn is built on the whole call so far — less the message
+    // just saved, which is the turn itself — and on what has been noted.
+    const reservation = this.constantsService.private.RESERVATION;
+    const [history, notes] = isReservation
+      ? await Promise.all([
+          this.messagesService.findRecentByChatId(chatId, reservation.HISTORY_MESSAGE_LIMIT + 1),
+          this.messagesService.currentNotesByChatId(chatId, reservation.SCRATCHPAD_NOTE_LIMIT),
+        ])
+      : [[], []];
+    const { messages, scribePrompt } = isReservation
+      ? buildReservationPrompt(
+          history.filter((message) => message.id !== userMsg.id),
+          userMessage, appName, session.hotel, isVoice, session.languageCode ?? null, notes, reservation.ENQUIRY_REQUIRED_NOTES, reservation.UNNAMED_HOTEL,
+        )
+      : await buildChatPrompt(
+          this.chatContextService,
+          chatId,
+          userMessage,
+          appName,
+          session.account?.role,
+          llmInstructions,
+          session.languageCode ?? null,
+          isVoice,
+        );
 
     const toolContext = {
       account: session.account,
+      hotelId: session.hotelId ?? null,
       bookingId: session.bookingId,
       chatId: session.chatId,
       hotel: session.hotel,
       booking: session.booking,
       languageCode: session.languageCode ?? null,
+      sourceMessageId: userMsg.id,
+      sourceText: userMessage,
     };
 
     let fullContent = '';
@@ -105,34 +166,24 @@ export class ChatLlmService {
       }
     }
 
+    // A bracketed cue like "[warm]" is never meant to be read, so a stray one is
+    // kept out of a voice transcript. Stripping anywhere else would eat Markdown
+    // link text.
     const assistantMessage: Message = await this.messagesService.create(
       chatId,
       MessageRole.ASSISTANT,
-      fullContent,
+      isReservation && isVoice ? stripAudioTags(fullContent) : fullContent,
       toolCalls.length ? toolCalls : undefined,
     );
 
-    this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
+    // The reservation agent reads the call itself, not this cache.
+    if (!isReservation) {
+      this.chatContextService.rebuildCache(chatId, [userMsg, assistantMessage]);
+    }
 
     this.syncSessionBookingFromToolCalls(session, toolCalls);
 
-    this.costsService.recordLlmCost({
-      // This same LangGraph call path serves both text chat and the "custom"
-      // STT+LLM+TTS voice pipeline (mode: 'voice') — tag voice turns as LLM_VOICE
-      // so channel-level cost reporting isn't silently folded into chat spend.
-      type: isVoice ? CostType.LLM_VOICE : CostType.LLM_CHAT,
-      usage: {
-        promptTokens: usage && usage.promptTokens ? usage.promptTokens : 0,
-        completionTokens: usage && usage.completionTokens ? usage.completionTokens : 0,
-        totalTokens: usage && usage.totalTokens ? usage.totalTokens : 0,
-      },
-      bookingId: session.bookingId,
-      hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
-      accountId: session.account.id,
-      role: session.account.role,
-      chatId: session.chatId,
-      messageId: assistantMessage.id,
-    });
+    this.recordCost(session, isVoice, assistantMessage.id, usage);
 
     this.llmEvalService.maybeEvaluate({
       chatId: session.chatId,
@@ -140,14 +191,32 @@ export class ChatLlmService {
       userMessage,
       assistantMessage: fullContent,
       toolCalls,
-      accountId: session.account.id,
-      role: session.account.role,
-      hotelId: session.booking && session.booking.hotelId ? session.booking.hotelId : null,
+      accountId: session.account ? session.account.id : null,
+      role: session.account ? session.account.role : null,
+      hotelId: this.resolveHotelId(session),
       bookingId: session.bookingId,
     });
 
     if (options.onEnd) {
       await options.onEnd({ fullContent, toolCalls });
+    }
+
+    // Written down once the caller has their answer, and kept with the turn so
+    // the hotel's view of the call shows what was noted when.
+    if (scribePrompt) {
+      const writing = this.langGraphService.writeNotes(scribePrompt(stripAudioTags(fullContent)), toolContext).then(async ({ calls, tokens }) => {
+        if (calls.length) {
+          await assistantMessage.update({ toolCalls: [...toolCalls, ...calls] });
+        }
+        const notes = this.constantsService.private.LLM.RESERVATION_NOTES;
+        this.recordCost(session, isVoice, assistantMessage.id, { promptTokens: tokens[0], completionTokens: tokens[1], totalTokens: tokens[0] + tokens[1] }, {
+          name: notes.MODEL,
+          inputPricePer1K: notes.INPUT_PRICE_PER_1K,
+          outputPricePer1K: notes.OUTPUT_PRICE_PER_1K,
+        });
+      }).catch((err: any) => this.logger.warn({ message: err?.message ?? String(err), serviceName: ChatLlmService.name, actionName: 'writeNotes' }));
+      this.notesInFlight.set(chatId, writing);
+      void writing.finally(() => this.notesInFlight.get(chatId) === writing && this.notesInFlight.delete(chatId));
     }
   }
 }

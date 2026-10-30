@@ -33,6 +33,6 @@ import { LlmEvalModule } from '../llm-eval/llm-eval.module';
     LlmEvalModule,
   ],
   providers: [ChatRepository, ChatService, ChatLlmService, ChatGateway, VoiceGateway, VoiceRealtimeService, DeepgramVoiceAgentService],
-  exports: [ChatRepository, ChatService],
+  exports: [ChatRepository, ChatService, ChatLlmService],
 })
 export class ChatModule {}

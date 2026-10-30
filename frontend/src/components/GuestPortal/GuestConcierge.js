@@ -30,7 +30,7 @@ const randomPick = (arr, count) => {
 
 dayjs.extend(relativeTime);
 
-const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+export const getBackendUrl = () => (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 
 const formatHistoryTimestamp = (value) => {
   try {
@@ -45,7 +45,7 @@ const formatHistoryTimestamp = (value) => {
 };
 
 // ── Waveform bars for listening state ──────────────────────────────────────
-function WaveformBars() {
+export function WaveformBars() {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: 28 }}>
       {[0, 1, 2, 3, 4].map((i) => (
@@ -71,7 +71,55 @@ function WaveformBars() {
   );
 }
 
-function SuggestionStrip({ items, onSelect }) {
+/**
+ * `active` covers listening, thinking and speaking alike: from the caller's
+ * side those are one state — the line is busy — and splitting them into
+ * different shapes made the button twitch through a conversation.
+ *
+ * `disabled` makes the button inert. `unavailable` only looks that way and
+ * still reports the tap, which is what you want when there is a reason worth
+ * telling the guest: a dead button that explains nothing is worse than one
+ * that says "only during your stay".
+ */
+export function VoiceMicButton({ active, disabled, unavailable, onTap, label }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onTap}
+      disabled={disabled}
+      aria-label={label}
+      style={{
+        width: 140,
+        height: 140,
+        borderRadius: '50%',
+        border: 'none',
+        cursor: unavailable ? 'not-allowed' : disabled ? 'default' : 'pointer',
+        background: active ? BRAND_GRADIENT : NAVY,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: active ? SHADOW_BRAND : SHADOW,
+        outline: 'none',
+        opacity: disabled ? 0.4 : 1,
+      }}
+      whileTap={disabled ? undefined : { scale: 0.94 }}
+    >
+      <AnimatePresence mode="wait">
+        {active ? (
+          <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
+            <WaveformBars />
+          </motion.div>
+        ) : (
+          <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
+            <MicIcon sx={{ fontSize: 44, color: NAVY_CONTRAST }} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  );
+}
+
+export function SuggestionStrip({ items, onSelect, disabled }) {
   const chipsScrollRef = useRef(null);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -82,7 +130,6 @@ function SuggestionStrip({ items, onSelect }) {
       >
         <ChevronLeftIcon fontSize="small" />
       </IconButton>
-
       <Box
         ref={chipsScrollRef}
         sx={{
@@ -102,6 +149,7 @@ function SuggestionStrip({ items, onSelect }) {
             key={item}
             component={motion.button}
             whileTap={{ scale: 0.95 }}
+            disabled={disabled}
             onClick={() => onSelect(item)}
             sx={{
               flexShrink: 0,
@@ -109,7 +157,8 @@ function SuggestionStrip({ items, onSelect }) {
               borderRadius: 5,
               px: 1.5,
               py: 0.75,
-              cursor: 'pointer',
+              cursor: disabled ? 'default' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
               fontSize: 12,
               fontWeight: 500,
               color: NAVY,
@@ -122,7 +171,6 @@ function SuggestionStrip({ items, onSelect }) {
           </Box>
         ))}
       </Box>
-
       <IconButton
         size="small"
         onClick={() => chipsScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
@@ -135,7 +183,28 @@ function SuggestionStrip({ items, onSelect }) {
 }
 
 // ── Chat bubble renderer ───────────────────────────────────────────────────
-function ChatBubble({ message }) {
+/** The "she is working on it" bubble, before the first word of a reply arrives. */
+export function ThinkingBubble() {
+  return (
+    <Box
+      sx={{
+        alignSelf: 'flex-start',
+        px: 2,
+        py: 1.25,
+        borderRadius: '18px 18px 18px 4px',
+        bgcolor: 'background.paper',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+      }}
+    >
+      <CircularProgress size={14} sx={{ color: 'primary.main' }} />
+      <Typography sx={{ fontSize: 13, color: MUTED }}>Thinking…</Typography>
+    </Box>
+  );
+}
+
+export function ChatBubble({ message }) {
   const isUser = message.role === 'user';
   return (
     <motion.div
@@ -167,7 +236,8 @@ function ChatBubble({ message }) {
           '& code': { fontFamily: 'monospace', fontSize: 12 },
         }}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || ''}</ReactMarkdown>
+        {/* Hard breaks: Markdown joins single lines, and a read-back summary ran into one line. */}
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{(message.content || '').replace(/\n/g, '  \n')}</ReactMarkdown>
       </Box>
       {message.createdAt && (
         <Typography sx={{ fontSize: 10, color: MUTED, alignSelf: isUser ? 'flex-end' : 'flex-start', px: 0.5 }}>
@@ -537,23 +607,7 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
           <ChatBubble key={m.id} message={m} />
         ))}
         {sending && streamingContent && <ChatBubble message={{ role: 'assistant', content: streamingContent }} />}
-        {!streamingContent && sending && (
-          <Box
-            sx={{
-              alignSelf: 'flex-start',
-              px: 2,
-              py: 1.25,
-              borderRadius: '18px 18px 18px 4px',
-              bgcolor: 'background.paper',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-            }}
-          >
-            <CircularProgress size={14} sx={{ color: 'primary.main' }} />
-            <Typography sx={{ fontSize: 13, color: MUTED }}>Thinking…</Typography>
-          </Box>
-        )}
+        {!streamingContent && sending && <ThinkingBubble />}
       </Box>
 
       {/* Suggestion chips */}
@@ -654,7 +708,6 @@ export function TextChatPanel({ bookingId, isWithinStay, alertError, onSwitchToV
     </Box>
   );
 }
-
 
 // ── Main GuestConcierge ────────────────────────────────────────────────────
 export default function GuestConcierge({
@@ -795,35 +848,7 @@ export default function GuestConcierge({
               : 'Tap to speak';
             return (
               <>
-                <motion.button
-                  onClick={handleMicTap}
-                  style={{
-                    width: 140,
-                    height: 140,
-                    borderRadius: '50%',
-                    border: 'none',
-                    cursor: isWithinStay ? 'pointer' : 'not-allowed',
-                    background: isActive ? BRAND_GRADIENT : NAVY,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: isActive ? SHADOW_BRAND : SHADOW,
-                    outline: 'none',
-                  }}
-                  whileTap={{ scale: 0.94 }}
-                >
-                  <AnimatePresence mode="wait">
-                    {isActive ? (
-                      <motion.div key="waveform" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                        <WaveformBars />
-                      </motion.div>
-                    ) : (
-                      <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.2 }}>
-                        <MicIcon sx={{ fontSize: 44, color: NAVY_CONTRAST }} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.button>
+                <VoiceMicButton active={isActive} unavailable={!isWithinStay} onTap={handleMicTap} />
 
                 <Typography sx={{ fontSize: 14, color: MUTED, letterSpacing: '0.04em', textAlign: 'center', fontWeight: 500 }}>
                   {statusText}

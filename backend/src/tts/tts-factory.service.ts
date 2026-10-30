@@ -17,8 +17,13 @@ export class TtsFactoryService {
     private readonly constantsService: ConstantsService,
   ) {}
 
-  getProvider(): OpenaiTtsService | HuggingfaceTtsService | SarvamTtsService | LightningTtsService {
-    const provider = this.constantsService.private.LLM.TTS_CONFIG.PROVIDER.toLowerCase() as TtsProviderId;
+  /**
+   * `override` lets one surface pick a voice provider without moving everyone.
+   * Omitted, it resolves the global TTS_PROVIDER exactly as before.
+   */
+  getProvider(override?: string | null): OpenaiTtsService | HuggingfaceTtsService | SarvamTtsService | LightningTtsService {
+    const configured = override && override.length > 0 ? override : this.constantsService.private.LLM.TTS_CONFIG.PROVIDER;
+    const provider = configured.toLowerCase() as TtsProviderId;
     if (provider === 'huggingface') return this.huggingface;
     if (provider === 'sarvam') return this.sarvam;
     if (provider === 'lightning') return this.lightning;

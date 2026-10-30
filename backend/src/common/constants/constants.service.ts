@@ -6,6 +6,9 @@ export const OTP_LENGTH = 6;
 export const DEFAULT_CHECK_IN_TIME = '15:00';
 export const DEFAULT_CHECK_OUT_TIME = '11:00';
 export const DEFAULT_AVAILABILITY_ROOMS = 1;
+// Named once, so the reservation limits and what a caller is told about them cannot drift apart.
+const RESERVATION_MAX_PARTY_SIZE = 20;
+const RESERVATION_PHONE_DIGITS = { MIN: 10, MAX: 13 };
 
 export enum NotificationTone {
   NONE = 'none',
@@ -384,6 +387,104 @@ export class ConstantsService {
       ROOM_TYPE_IMAGES_MAX_COUNT,
       PERMISSIONS,
       ERROR_CHAT_ONLY_DURING_STAY: 'Chat is only available during your stay (check-in to check-out)',
+      ERROR_NO_ACCESS_TO_HOTEL_MENU: 'No access to this hotel menu',
+      // Reservation agent — public, unauthenticated
+      ERROR_RESERVATION_HOTEL_REQUIRED: 'A hotel is required to start a reservation',
+      ERROR_RESERVATION_HOTEL_NOT_FOUND: 'We could not find that property',
+      ERROR_RESERVATION_MESSAGE_REQUIRED: 'Type a message to continue',
+      ERROR_RESERVATION_RATE_LIMITED: 'You are sending messages too quickly. Please wait a moment and try again.',
+      ERROR_RESERVATION_MESSAGE_TOO_LONG: 'That message is too long. Please shorten it and try again.',
+      ERROR_RESERVATION_SESSION_ENDED: 'This reservation chat has reached its limit. Please refresh to start a new one, or call the property directly.',
+      ERROR_RESERVATION_SETUP_FAILED: 'We could not start the reservation chat. Please try again.',
+      ERROR_RESERVATION_MESSAGE_FAILED: 'We could not send that message. Please try again.',
+      RESERVATION_TITLE: 'Reserve your stay',
+      /** The chat's opening message, like the voice line's greeting. Shown on screen, never generated. */
+      RESERVATION_CHAT_GREETING: 'Hello, welcome to {HOTEL}! When were you thinking of staying with us?',
+      /** Replaced with the property's name in both greetings. */
+      RESERVATION_GREETING_HOTEL_TOKEN: '{HOTEL}',
+      RESERVATION_SUBTITLE: 'Tell us your dates and we will take it from there',
+      /** The chat's language until she has replied in one. */
+      RESERVATION_DEFAULT_LANGUAGE: 'en',
+      RESERVATION_INPUT_PLACEHOLDER: {
+        en: 'Ask about rooms, rates or availability…',
+        hi: 'रूम, रेट या उपलब्धता के बारे में पूछें…',
+        kn: 'ರೂಮ್, ರೇಟ್ ಅಥವಾ ಲಭ್ಯತೆ ಬಗ್ಗೆ ಕೇಳಿ…',
+        ta: 'ரூம், ரேட் அல்லது கிடைப்பது பற்றி கேளுங்கள்…',
+        te: 'రూమ్, రేట్ లేదా అందుబాటు గురించి అడగండి…',
+      },
+      RESERVATION_FATAL_HELP: 'This reservation link may be out of date. Please check the link, or contact the property directly to book.',
+      // Public voice reservation
+      RESERVATION_VOICE_TITLE: 'Book by voice',
+      RESERVATION_VOICE_SUBTITLE: 'Tap the mic and tell us when you would like to stay',
+      RESERVATION_VOICE_TAP_TO_SPEAK: 'Tap to speak',
+      /** The only other thing a caller needs to know mid-call: tapping ends it. */
+      RESERVATION_VOICE_TAP_TO_STOP: 'Tap to stop',
+      /**
+       * Talking over the agent. The microphone stays open while it speaks, and a
+       * caller counts as interrupting once their level has stayed above BARGE_IN_RMS
+       * for BARGE_IN_FRAMES frames in a row (about 85ms each) — long enough that a
+       * cough or the agent's own echo does not cut it off. The frames just before
+       * that are kept and sent, so the "no" that interrupted is still heard.
+       */
+      RESERVATION_VOICE_BARGE_IN_RMS: 0.03,
+      RESERVATION_VOICE_BARGE_IN_FRAMES: 3,
+      RESERVATION_VOICE_BARGE_IN_PREROLL_FRAMES: 6,
+      RESERVATION_CONNECTING: 'Connecting…',
+      RESERVATION_VOICE_SWITCH_TO_TEXT: 'Prefer to type?',
+      RESERVATION_VOICE_SWITCH_TO_VOICE: 'Prefer to talk?',
+      RESERVATION_VOICE_MIC_DENIED: 'We could not access your microphone. Check your browser permissions and try again.',
+      /**
+       * Extra time allowed for a reply to finish playing before the browser
+       * reports done anyway. Read by both voice surfaces: a backgrounded tab
+       * stops firing animation frames and a suspended context stops advancing
+       * its clock, and neither should strand a call mid-turn.
+       */
+      VOICE_PLAYBACK_WATCH_GRACE_MS: 2000,
+      RESERVATION_VOICE_AMBIENCE_DBFS: -45,
+      ERROR_RESERVATION_VOICE_TURN_LIMIT: 'This voice call has reached its limit. Please refresh to start again, or call the property directly.',
+      ERROR_RESERVATION_VOICE_RATE_LIMITED: 'Too many voice requests from your connection. Please wait a little and try again.',
+      ERROR_RESERVATION_VOICE_TOO_MANY_SESSIONS: 'You already have a voice call open. Please close it before starting another.',
+      ERROR_RESERVATION_VOICE_SESSION_EXPIRED: 'This voice call timed out. Please refresh to start a new one.',
+      RESERVATION_REPLY_NUDGE: 'You have not said anything to the caller this turn. Reply to them now, in their language, in one or two short sentences: check what they just told you, or ask for the next detail you still need.',
+      RESERVATION_TOOL_BUDGET_SPENT: 'You have used your tools enough for this turn. Do not call any more — reply to the caller now.',
+      ERROR_RESERVATION_VOICE_FAILED: 'We could not process that. Please try speaking again.',
+      // A deploy reloads the API and drops every open socket, so a live call can
+      // lose its line through no fault of the caller's. Said out loud, because a
+      // page that looks ready and answers nothing is worse than a page that
+      // admits it is busy.
+      RESERVATION_VOICE_RECONNECTING: 'Reconnecting…',
+      ERROR_RESERVATION_VOICE_DISCONNECTED: 'The call was disconnected. Please refresh to start a new one.',
+      // Per-hotel key the browser keeps its signed reservation session under, so
+      // a refresh resumes the same conversation.
+      RESERVATION_SESSION_STORAGE_KEY_PREFIX: 'reservation_session_',
+      RESERVATION_ENQUIRIES_FETCHED: 'Reservation enquiries fetched',
+      // Staff-facing view of what the public reservation agent gathered.
+      AI_BOOKINGS_TITLE: 'AI Bookings',
+      AI_BOOKINGS_SHARE_TITLE: 'Share this link to take reservations',
+      AI_BOOKINGS_COPY_LINK: 'Copy link',
+      AI_BOOKINGS_LINK_COPIED: 'Reservation link copied',
+      AI_BOOKINGS_FILTER_BOOKED: 'Booking enquiries',
+      AI_BOOKINGS_FILTER_ALL: 'All conversations',
+      AI_BOOKINGS_NO_DETAILS: 'Details not captured yet',
+      AI_BOOKINGS_NO_MESSAGES: 'No messages in this conversation yet.',
+      AI_BOOKINGS_STATUS_CAPTURED: 'ENQUIRY',
+      AI_BOOKINGS_STATUS_BROWSING: 'BROWSING',
+      AI_BOOKINGS_SHOW_CONVERSATION: 'Read the conversation',
+      AI_BOOKINGS_CONVERSATION_TITLE: 'Conversation',
+      AI_BOOKINGS_CONVERSATION_CLOSE: 'Close',
+      AI_BOOKINGS_ROLE_GUEST: 'Guest',
+      AI_BOOKINGS_ROLE_AGENT: 'Samantha',
+      AI_BOOKINGS_ENQUIRY_NTH: 'Enquiry',
+      AI_BOOKINGS_ENQUIRY_LATEST: 'Latest enquiry',
+      RESERVATION_CONVERSATION_FETCHED: 'Conversation loaded',
+      ERROR_RESERVATION_CONVERSATION_NOT_FOUND: 'That conversation does not belong to this property.',
+      RESERVATION_SUGGESTIONS: {
+        en: ['I want to book a room', 'What are your rates?', 'Do you have availability this weekend?', 'What time is check-in?', 'Is breakfast included?', 'Do you have family rooms?'],
+        hi: ['मुझे रूम बुक करना है', 'आपके रेट्स क्या हैं?', 'इस वीकेंड रूम मिलेगा?', 'चेक-इन कितने बजे है?', 'क्या ब्रेकफ़ास्ट शामिल है?', 'फ़ैमिली रूम है?'],
+        kn: ['ನನಗೆ ರೂಮ್ ಬುಕ್ ಮಾಡಬೇಕು', 'ನಿಮ್ಮ ರೇಟ್ಸ್ ಎಷ್ಟು?', 'ಈ ವೀಕೆಂಡ್ ರೂಮ್ ಸಿಗುತ್ತಾ?', 'ಚೆಕ್-ಇನ್ ಎಷ್ಟು ಗಂಟೆಗೆ?', 'ಬ್ರೇಕ್‌ಫಾಸ್ಟ್ ಸೇರಿದೆಯಾ?', 'ಫ್ಯಾಮಿಲಿ ರೂಮ್ ಇದೆಯಾ?'],
+        ta: ['எனக்கு ரூம் புக் பண்ணணும்', 'உங்க ரேட்ஸ் என்ன?', 'இந்த வீக்கெண்ட் ரூம் கிடைக்குமா?', 'செக்-இன் எத்தனை மணிக்கு?', 'பிரேக்ஃபாஸ்ட் சேர்ந்ததா?', 'ஃபேமிலி ரூம் இருக்கா?'],
+        te: ['నాకు రూమ్ బుక్ చేయాలి', 'మీ రేట్స్ ఎంత?', 'ఈ వీకెండ్ రూమ్ దొరుకుతుందా?', 'చెక్-ఇన్ ఎన్ని గంటలకు?', 'బ్రేక్‌ఫాస్ట్ కలిపి ఉందా?', 'ఫ్యామిలీ రూమ్ ఉందా?'],
+      },
       TTS_PLAYBACK_RATE: 1.0,
       // Platform Configuration
       PLATFORM_DATA_MAPPING: {
@@ -625,6 +726,264 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
       AGENT_HOTELS_DEFAULT_LIMIT: 20,
       AGENT_HOTELS_MAX_LIMIT: 50,
 
+      /**
+       * Public voice reservation. A voice turn costs STT seconds + LLM tokens +
+       * TTS characters, so every budget here is tighter than the text agent's —
+       * an unauthenticated microphone is the most expensive thing we expose.
+       */
+      RESERVATION_VOICE: {
+        /**
+         * Provider and turn-taking for the public call only. Empty means "use
+         * whatever the rest of the app uses", so the in-stay concierge is never
+         * moved by tuning this page.
+         */
+        STT_PROVIDER: this.configService.get<string>('RESERVATION_VOICE_STT_PROVIDER', ''),
+        /**
+         * Sarvam's Bulbul, streamed: it sounds native in all five languages and starts
+         * speaking in ~0.3s. Measured: ElevenLabs v3 cut Tamil off after two words in
+         * 2 of 9 tries. Fixed here rather than read from the environment, so the
+         * app-wide TTS provider cannot move the call onto another voice.
+         */
+        TTS_PROVIDER: 'sarvam',
+        /**
+         * Silence that ends a caller's turn. Shorter than the concierge's, because a stranger booking a room reads a long pause as "broken".
+         * Measured with mid-sentence pauses of 0.6s and 0.9s: 1000ms split none of them, 800ms cut a phone number in half.
+         */
+        UTTERANCE_END_MS: parseInt(this.configService.get('RESERVATION_VOICE_UTTERANCE_END_MS') || '1000', 10),
+        /**
+         * Silence that ends a turn when what was said is plainly finished — a yes, a short answer that
+         * does not trail off. Anything that might go on still gets UTTERANCE_END_MS. About half of a
+         * booking's turns are short confirmations, and a person answers those without waiting a second.
+         */
+        QUICK_END_MS: 500,
+        /**
+         * How long a turn that may go on — "my phone number is nine eight two one…" — is held open after
+         * that pause, for the caller to carry on. Measured: Sarvam reports speech resuming about 0.4s
+         * after it does, so a 0.5s hold cut a phone number read with a 0.9s pause in half; 0.7s does not.
+         */
+        UNFINISHED_HOLD_MS: 700,
+        /** Words an answer may consist of entirely and still be finished, however long: "yes, that is all correct". */
+        AFFIRMATION_WORDS: [
+          'yes', 'yeah', 'yep', 'yup', 'ya', 'no', 'nope', 'ok', 'okay', 'sure', 'correct', 'right', 'exactly', 'perfect',
+          'fine', 'good', 'great', 'alright', 'that', "that's", 'thats', 'is', 'it', "it's", 'all', 'absolutely', 'please',
+          'thanks', 'thank', 'you', 'हाँ', 'हां', 'जी', 'नहीं', 'सही', 'है', 'ठीक', 'बिल्कुल', 'ಹೌದು', 'ಸರಿ', 'ಇಲ್ಲ',
+          'ஆமாம்', 'சரி', 'இல்லை', 'అవును', 'సరే', 'సరి', 'లేదు',
+        ],
+        /** Words a finished answer does not end on: "my name is", "the fifth and", "S H R I J I T at". */
+        DANGLING_WORDS: [
+          'and', 'or', 'but', 'so', 'the', 'a', 'an', 'my', 'our', 'is', 'are', 'to', 'at', 'for', 'from', 'of', 'with',
+          'in', 'on', 'um', 'uh', 'er', 'hmm', 'like', 'dot', 'number', 'phone', 'email', 'name', 'then', 'till', 'until',
+          'और', 'या', 'लेकिन', 'तो', 'मेरा', 'मेरी', 'मेरे', 'का', 'की', 'के', 'से', 'नाम', 'नंबर', 'ईमेल',
+          'ನನ್ನ', 'ಹೆಸರು', 'ನಂಬರ್', 'என்', 'பெயர்', 'நம்பர்', 'నా', 'పేరు', 'నంబర్',
+        ],
+        /** Digits that read as a phone number still being given: more than a count, fewer than a number. */
+        PARTIAL_NUMBER_DIGITS: { MIN: 3, FULL: 10 },
+        /**
+         * English by default, despite 'multi' being the setting that lets one
+         * nova-3 session follow a caller switching into Hindi mid sentence.
+         *
+         * 'multi' was the default until it was measured against the way people
+         * actually give an email address here. Three runs each, same audio:
+         *
+         *   "shrijit at the rate gmail dot com"
+         *     en     -> "shrijit at the rate gmail dot com"   3/3
+         *     multi  -> ""                                    3/3
+         *
+         * Not a flaky transcript — the whole utterance, gone, every time. A
+         * booking line that silently loses the caller's email is worse than one
+         * that cannot follow them into Hindi, so English wins the default and
+         * 'multi' is there for a property whose callers need it. It is not a
+         * free win either way: 'multi' reads spoken dates more faithfully
+         * ("the twenty sixth to the twenty eighth of September" survives intact,
+         * where English collapses it to "twenty six-twenty eight september"),
+         * and English is the one that keeps a spelled-out name as letters.
+         */
+        STT_LANGUAGE: this.configService.get<string>('RESERVATION_VOICE_STT_LANGUAGE', 'en'),
+        /** A transcript made only of these is noise, not the caller: no turn is taken. */
+        NOISE_WORDS: ['a', 'i', 'uh', 'um', 'umm', 'hmm', 'mm', 'ah', 'eh', 'so', 'the', 'and', 'oh'],
+        /**
+         * Proper nouns to bias the transcript towards, comma separated — a suburb,
+         * a room type, a festival package a deployment keeps hearing wrong. Use
+         * sparingly: a biased term is heard in background noise too.
+         */
+        STT_KEYTERMS: (this.configService.get<string>('RESERVATION_VOICE_STT_KEYTERMS', ''))
+          .split(',')
+          .map((term) => term.trim())
+          .filter((term) => term.length > 0),
+        /**
+         * How long to wait for the browser to report that it has finished
+         * playing the reply before releasing the turn anyway. Only the client
+         * knows when sound stopped coming out of the speaker, but a client that
+         * crashes or is backgrounded never says so, and the line must not stay
+         * busy forever because of it.
+         */
+        PLAYBACK_DONE_TIMEOUT_MS: parseInt(this.configService.get('RESERVATION_VOICE_PLAYBACK_DONE_TIMEOUT_MS') || '20000', 10),
+        /**
+         * How long to wait, after the provider signals that speech ended, for
+         * the corrected transcript that follows it. Sarvam sends the silence
+         * signal first and the finished text after, so answering the signal
+         * meant answering a half-finished sentence — a caller reading out a
+         * phone number was heard as "my number is". Only a safety net: the turn
+         * runs the moment the final arrives, and this covers a provider that
+         * never sends one.
+         */
+        FINAL_TRANSCRIPT_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_FINAL_TRANSCRIPT_GRACE_MS') || '1500', 10),
+        TURN_FALLBACK_GRACE_MS: parseInt(this.configService.get('RESERVATION_VOICE_TURN_FALLBACK_GRACE_MS') || '2000', 10),
+        /**
+         * Spoken the moment the caller opens the line, so it does not answer with
+         * the silence they have to say "hello?" into.
+         *
+         * Fixed words rather than a generated opener, because a model round trip
+         * would put that silence straight back. Cached alongside the fillers.
+         * {HOTEL} is replaced with the property's name.
+         */
+        GREETING: this.configService.get<string>(
+          'RESERVATION_VOICE_GREETING',
+          'Hello, thanks for calling {HOTEL}.',
+        ),
+        /**
+         * Said while she thinks, in the language the caller is speaking. Plain
+         * acknowledgements, never "let me check": claiming to look something up
+         * when nothing is being looked up gives it away. Measured:
+         * one English list played "Okay…" before every Kannada answer, so a caller
+         * heard her switch language mid-sentence. Only phrases under ~0.9s: the
+         * answer plays after the filler, and "சரி சரி…" (2.1s) held it back.
+         */
+        THINKING_FILLERS: {
+          en: ['Okay…', 'Sure…', 'Got it…', 'Mm-hmm…', 'Alright…'],
+          hi: ['अच्छा…', 'जी…', 'हाँ जी…', 'ठीक है…', 'एक सेकंड…'],
+          kn: ['ಸರಿ…', 'ಆಯ್ತು…'],
+          ta: ['சரி…', 'ஆமாங்க…'],
+          te: ['సరే…', 'అలాగే…'],
+        } as Record<string, string[]>,
+        /** Synthesised once per phrase per language, then replayed from memory. */
+        FILLER_CACHE_KEY_PREFIX: 'reservation_voice_filler_',
+        /**
+         * Kept for the life of the process: a fixed, small set. Measured: at 720
+         * minutes, stage played no filler on most turns half a day after a deploy,
+         * and the caller sat in 1.5–3s of silence; a miss is warmed, not played.
+         */
+        FILLER_CACHE_MINUTES: Infinity,
+        /**
+         * Every budget below is env-driven and 0 means unlimited. They are off
+         * by default: the agent is being demoed and shared, and a limit that
+         * interrupts a real conversation costs more than the spend it saves.
+         * Set them above zero to cap an unauthenticated, per-turn-billed surface.
+         */
+        MAX_TURNS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_SESSION') || '0', 10),
+        MAX_TURNS_PER_IP_PER_WINDOW: parseInt(this.configService.get('RESERVATION_VOICE_MAX_TURNS_PER_IP') || '0', 10),
+        IP_TURN_CACHE_KEY_PREFIX: 'reservation_voice_ip_turns_',
+        /**
+         * Stops one visitor holding many microphones open, without punishing
+         * shared addresses: hotel wifi and mobile carriers NAT plenty of real
+         * guests behind a single IP, so this cannot be as tight as it looks.
+         */
+        MAX_CONCURRENT_SESSIONS_PER_IP: parseInt(this.configService.get('RESERVATION_VOICE_MAX_CONCURRENT_PER_IP') || '0', 10),
+        IP_SESSION_CACHE_KEY_PREFIX: 'reservation_voice_ip_sessions_',
+        /** Wall-clock cap on a single call, whether or not anyone is speaking. */
+        MAX_SESSION_SECONDS: parseInt(this.configService.get('RESERVATION_VOICE_MAX_SESSION_SECONDS') || '0', 10),
+        /** Caps STT spend: audio actually streamed, not time connected. */
+        MAX_AUDIO_SECONDS_PER_SESSION: parseInt(this.configService.get('RESERVATION_VOICE_MAX_AUDIO_SECONDS') || '0', 10),
+        /** 24kHz mono 16-bit PCM — what the browser sends. */
+        AUDIO_BYTES_PER_SECOND: 48000,
+      },
+
+      // Reservation agent — the one public, unauthenticated LLM surface, so its
+      // limits are the only thing standing between a stranger and our token spend.
+      RESERVATION: {
+        SESSION_TOKEN_TTL_HOURS: 24,
+        // Per-connection message budget, and a per-IP budget across connections
+        // so reconnecting does not reset the allowance.
+        MAX_MESSAGES_PER_SESSION: 40,
+        MAX_MESSAGES_PER_IP_PER_WINDOW: 60,
+        IP_WINDOW_MINUTES: 60,
+        IP_RATE_LIMIT_CACHE_KEY_PREFIX: 'reservation_ip_messages_',
+        MAX_MESSAGE_LENGTH: 1000,
+        /** What a reconnecting caller is shown, and what the agent hears of the call on every turn. */
+        HISTORY_MESSAGE_LIMIT: 50,
+        STAFF_CHAT_LIST_LIMIT: 50,
+        /** Notes handed back to the agent when it reads its scratchpad. */
+        SCRATCHPAD_NOTE_LIMIT: 50,
+        /**
+         * Number words in the five languages, for checking a phone number was said.
+         * "x2" and "x3" repeat the next digit: "double nine" is 99.
+         */
+        SPOKEN_DIGITS: {
+          zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', double: 'x2', triple: 'x3',
+          शून्य: '0', जीरो: '0', एक: '1', दो: '2', तीन: '3', चार: '4', पाँच: '5', पांच: '5', छह: '6', छः: '6', छे: '6', सात: '7', आठ: '8', नौ: '9', डबल: 'x2', ट्रिपल: 'x3',
+          ಸೊನ್ನೆ: '0', ಶೂನ್ಯ: '0', ಜೀರೋ: '0', ಒಂದು: '1', ಎರಡು: '2', ಮೂರು: '3', ನಾಲ್ಕು: '4', ಐದು: '5', ಆರು: '6', ಏಳು: '7', ಎಂಟು: '8', ಒಂಬತ್ತು: '9', ಒಂಭತ್ತು: '9', ಡಬಲ್: 'x2', ಟ್ರಿಪಲ್: 'x3',
+          பூஜ்ஜியம்: '0', பூஜ்யம்: '0', ஜீரோ: '0', சைபர்: '0', ஒன்று: '1', ஒண்ணு: '1', இரண்டு: '2', ரெண்டு: '2', மூன்று: '3', மூணு: '3', நான்கு: '4', நாலு: '4', ஐந்து: '5', அஞ்சு: '5', ஆறு: '6', ஏழு: '7', எட்டு: '8', ஒன்பது: '9', டபுள்: 'x2', ட்ரிபிள்: 'x3',
+          సున్నా: '0', జీరో: '0', ఒకటి: '1', రెండు: '2', మూడు: '3', నాలుగు: '4', ఐదు: '5', ఆరు: '6', ఏడు: '7', ఎనిమిది: '8', తొమ్మిది: '9', డబుల్: 'x2', ట్రిపుల్: 'x3',
+        } as Record<string, string>,
+        /**
+         * The caller is talking about dates, in the five languages: a month, an
+         * ordinal, a relative day. A noted date only changes when their message
+         * matches this or has a day number — not when they are giving their email.
+         */
+        DATE_PATTERN: [
+          '\\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\\b',
+          '\\b[a-z]*(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|teenth|tieth)\\b',
+          '\\b(today|tonight|tomorrow|weekend|next week|dates?)\\b',
+          'जनवरी|फ़रवरी|फरवरी|मार्च|अप्रैल|मई|जून|जुलाई|अगस्त|सितंबर|अक्टूबर|नवंबर|दिसंबर|तारीख|परसों|हफ्ते',
+          'ಜನವರಿ|ಫೆಬ್ರವರಿ|ಮಾರ್ಚ್|ಏಪ್ರಿಲ್|ಜೂನ್|ಜುಲೈ|ಆಗಸ್ಟ್|ಸೆಪ್ಟೆಂಬರ್|ಅಕ್ಟೋಬರ್|ನವೆಂಬರ್|ಡಿಸೆಂಬರ್|ದಿನಾಂಕ|ನಾಳೆ',
+          'ஜனவரி|பிப்ரவரி|மார்ச்|ஏப்ரல்|ஜூன்|ஜூலை|ஆகஸ்ட்|செப்டம்பர்|அக்டோபர்|நவம்பர்|டிசம்பர்|தேதி|நாளை',
+          'జనవరి|ఫిబ్రవరి|మార్చి|ఏప్రిల్|జూన్|జూలై|ఆగస్టు|సెప్టెంబర్|అక్టోబర్|నవంబర్|డిసెంబర్|తేదీ|రేపు',
+        ].join('|'),
+        /** What the agent calls a property whose name is missing. */
+        UNNAMED_HOTEL: 'this property',
+        /** Details that must have been noted during the call before an enquiry can be recorded. */
+        ENQUIRY_REQUIRED_NOTES: ['checkInDate', 'checkOutDate', 'partySize', 'guestName', 'guestEmail', 'guestPhone'],
+        /**
+         * What a booking detail must be before it is noted or recorded. Measured (QA,
+         * chat 1442): a stay from the tenth to the twelfth of October was recorded on
+         * the twenty-third, and a five-digit phone number was read back and accepted.
+         */
+        MAX_PARTY_SIZE: RESERVATION_MAX_PARTY_SIZE,
+        PHONE_DIGITS: RESERVATION_PHONE_DIGITS,
+        BOOKING_PROBLEMS: {
+          checkInDate: 'the check-in date is before today',
+          checkOutDate: 'the check-out date is not after the check-in date',
+          partySize: `the number of guests must be from 1 to ${RESERVATION_MAX_PARTY_SIZE}`,
+          guestPhone: `a phone number has ${RESERVATION_PHONE_DIGITS.MIN} digits, or more with a country code`,
+          guestEmail: 'that is not a working email address',
+        } as Record<string, string>,
+        /**
+         * Output cap for her replies and the note-taker; the longest read-back is ~150
+         * tokens. Measured: uncapped, each request asked OpenRouter for 65,536, and
+         * with the balance low every request was refused though each needed a few hundred.
+         */
+        MAX_OUTPUT_TOKENS: 1000,
+        /** What the note-taker's tools report. Stored with the call for staff and debugging; no model reads them. */
+        NOTE_RESULTS: {
+          NOTED: 'Noted.',
+          KEPT: 'Not changed, the caller did not just say it:',
+          RECORDED: 'Reservation enquiry recorded',
+          INCOMPLETE: 'Not recorded, missing:',
+          INVALID: 'Not recorded, invalid:',
+          ALREADY_RECORDED: 'Not recorded again, unchanged since the last record.',
+        },
+        /** Details only the caller can give, so they are noted only when the caller has just said them. */
+        CALLER_SPOKEN_NOTES: ['guestName', 'guestPhone', 'guestEmail'],
+        /** Tool calls one reservation turn may make before it is ended. A full turn needs four. */
+        MAX_TOOL_CALLS_PER_TURN: 6,
+        /**
+         * The stored language follows the script the agent answered in. A Hindi
+         * caller spelling an email is still answered in Devanagari, so spelling
+         * never moves it; a reply with none of these scripts is English.
+         */
+        REPLY_SCRIPT_LANGUAGES: [
+          { languageCode: 'hi', pattern: '[\u0900-\u097F]' },
+          { languageCode: 'kn', pattern: '[\u0C80-\u0CFF]' },
+          { languageCode: 'ta', pattern: '[\u0B80-\u0BFF]' },
+          { languageCode: 'te', pattern: '[\u0C00-\u0C7F]' },
+        ],
+        REPLY_LATIN_LANGUAGE: 'en',
+        /** Messages returned when a staff member opens one conversation to read it. */
+        STAFF_CONVERSATION_MESSAGE_LIMIT: 200,
+        SESSION_TOKEN_SEPARATOR: '.',
+        SESSION_TOKEN_HASH_ALGORITHM: 'sha256',
+      },
+
       // Google OAuth Configuration
       GOOGLE_CLIENT_SECRET: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
       GOOGLE_CALLBACK_URL: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
@@ -648,6 +1007,17 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
       // LLM Configuration (models, pricing, STT, TTS)
       LLM: {
         TEXT_MODEL: 'google/gemini-3.1-flash-lite',
+        /**
+         * Writes down the details on a reservation call once the reply has gone out. Replayed over 127
+         * real turns, TEXT_MODEL wrote down details nobody gave on 20 of them (a stock phone number, a
+         * made-up name, "10 guests" as a phone number); this one on none to one, in about a second. A
+         * slower, stronger model got every turn right but kept the next turn waiting for its notes.
+         */
+        RESERVATION_NOTES: {
+          MODEL: 'google/gemini-3.5-flash-lite',
+          INPUT_PRICE_PER_1K: 0.0003,
+          OUTPUT_PRICE_PER_1K: 0.0025,
+        },
         MENU_OCR_MODEL: this.configService.get<string>('MENU_OCR_MODEL', 'google/gemini-2.5-flash-lite'),
         SUMMARY_MODEL: this.configService.get<string>('SUMMARY_MODEL', 'openai/gpt-4o-mini'),
         // Chat/summary/eval all run through OpenRouter (see OPENROUTER below), never OpenAI directly.
@@ -680,6 +1050,20 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           INSTRUCTIONS: `You are maintaining the long-term memory of a hotel concierge AI chat. Produce one consolidated summary in approximately {TARGET_WORDS} words that captures every important fact the assistant should remember going forward.\n\nIf an existing summary is provided, merge it with the new messages — keep all standing information from the existing summary, then layer the new messages on top. Resolve contradictions in favour of the more recent information.\n\nPreserve:\n- Guest preferences (room, food, language, accessibility)\n- Outstanding and completed requests with their status\n- Confirmed bookings, reservations, special arrangements\n- Key facts (names, dates, room numbers, hotel info, costs)\n- Tool calls that produced lasting outcomes\n\nSkip pleasantries and small talk. Output plain prose only — no markdown, no headers, no bullet points. Refer to the guest as "the guest" and the AI as "the assistant".`,
         },
         VOICE_PIPELINE: this.configService.get<string>('VOICE_PIPELINE', 'custom'),
+        /** How many tool round trips one reservation-agent turn may take before it is cut off. */
+        AGENT_RECURSION_LIMIT: parseInt(this.configService.get('AGENT_RECURSION_LIMIT') || '16', 10),
+        /**
+         * What ends a sentence while a reply is streaming, so the agent can
+         * start speaking before it has finished writing.
+         *
+         * The agent answers in the caller's language, and a Hindi or Marathi
+         * clause ends with a danda, Urdu with an arabic full stop, CJK with its
+         * own stop marks. With only .!? a reply in any of those never split, so
+         * nothing reached TTS until the whole answer was written and the line
+         * sat silent the entire time.
+         */
+        SENTENCE_TERMINATORS_LATIN: '.!?',
+        SENTENCE_TERMINATORS_OTHER: '\u0964\u0965\u06D4\u3002\uFF01\uFF1F',
         STT_CONFIG: {
           // Common STT settings across providers
           PROVIDER: this.configService.get<string>('STT_PROVIDER', 'openai'),
@@ -691,6 +1075,60 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
             API_KEY: this.configService.get<string>('DEEPGRAM_API_KEY'),
             MODEL: this.configService.get<string>('DEEPGRAM_STT_MODEL', 'nova-3'),
             UTTERANCE_END_MS: parseInt(this.configService.get('DEEPGRAM_UTTERANCE_END_MS') || '3000', 10),
+            /**
+             * Empty means "send no language", which is what Deepgram saw before
+             * this existed. Set it per surface instead: the in-stay concierge
+             * already knows its guest, a public line does not.
+             */
+            LANGUAGE: this.configService.get<string>('DEEPGRAM_STT_LANGUAGE', ''),
+          },
+          SARVAM: {
+            API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
+            WS_URL: this.configService.get<string>('SARVAM_STT_WS_URL', 'wss://api.sarvam.ai/speech-to-text-realtime/ws'),
+            /**
+             * v4 rather than v3-realtime, because only v4 accepts keyterms, and
+             * keyterms are what make a property's own name transcribe correctly.
+             */
+            MODEL: this.configService.get<string>('SARVAM_STT_MODEL', 'saaras:v4'),
+            /**
+             * Silence that ends a caller's turn. Sarvam defaults to 1000ms,
+             * which is shorter than a person pausing to think: measured, a
+             * sentence with an 800ms pause in it arrived as two turns and the
+             * agent replied to the first half. At 2000ms it arrives whole.
+             */
+            SILENCE_DURATION_MS: parseInt(this.configService.get('SARVAM_STT_SILENCE_DURATION_MS') || '2000', 10),
+            /**
+             * 'auto' is why this provider is here: it reads a caller who answers
+             * in Hindi without anyone having configured Hindi, so the surface no
+             * longer has to choose one language and lose the other.
+             */
+            LANGUAGE: this.configService.get<string>('SARVAM_STT_LANGUAGE', 'auto'),
+            /**
+             * Left unset, Sarvam was measured handing back an English translation
+             * of a Hindi caller ("क्या आप मुझसे हिंदी में बात कर सकते हैं?" arrived as
+             * "Can you speak to me in Hindi?"), so the agent never heard Hindi and
+             * never switched. 'codemix' keeps Hindi in Devanagari and English —
+             * a spelled name, an email — in Latin letters, as it was said.
+             */
+            MODE: this.configService.get<string>('SARVAM_STT_MODE', 'codemix'),
+            /** Sarvam takes 8000 or 16000 and rejects anything else, so the 24kHz pipeline is converted on the way in. */
+            SAMPLE_RATE: parseInt(this.configService.get('SARVAM_STT_SAMPLE_RATE') || '16000', 10),
+            /** Just under the 8kHz Nyquist of that rate, so nothing folds back into the speech. */
+            RESAMPLE_CUTOFF_HZ: 7000,
+            EVENT_AUDIO_INPUT: 'audio_input',
+            EVENT_AUDIO_END: 'audio_end',
+            EVENT_TRANSCRIPT_PARTIAL: 'transcript.partial',
+            EVENT_TRANSCRIPT_FINAL: 'transcript.final',
+            EVENT_SPEECH_START: 'vad.speech_start',
+            EVENT_SPEECH_END: 'vad.speech_end',
+            EVENT_ERROR: 'error',
+            /**
+             * First wait before reopening a connection Sarvam refused or dropped, doubled on each failure
+             * up to RECONNECT_MAX_MS. Measured: it refuses a new connection opened soon after five others
+             * and accepts again some 20 seconds later.
+             */
+            RECONNECT_MS: 1000,
+            RECONNECT_MAX_MS: 8000,
           },
           OPENAI: {
             API_KEY: this.configService.get<string>('OPENAI_API_KEY'),
@@ -718,6 +1156,14 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
         OPENROUTER: {
           API_KEY: this.configService.get<string>('OPENROUTER_API_KEY'),
           BASE_URL: this.configService.get<string>('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+          /**
+           * Which upstream serves the model. Left to OpenRouter's default, the same
+           * tool-calling request was measured at 3–15s through one Google endpoint
+           * and about 1s through another — on a voice call, that is the silence
+           * after the caller stops talking. Sorting by latency picks the fast one
+           * and still falls back to the others if it is unavailable.
+           */
+          PROVIDER: { sort: 'latency' },
         },
         TTS_CONFIG: {
           PROVIDER: this.configService.get<string>('TTS_PROVIDER', 'openai'),
@@ -737,11 +1183,21 @@ Answer ONLY with the exact matching name from the list, or "NEW" if none match.`
           },
           SARVAM: {
             API_KEY: this.configService.get<string>('SARVAM_API_KEY'),
-            BASE_URL: this.configService.get<string>('SARVAM_TTS_BASE_URL', 'https://api.sarvam.ai'),
+            /** The streaming socket: audio arrives as it is made, not once the whole clip is done. */
+            WS_URL: this.configService.get<string>('SARVAM_TTS_WS_URL', 'wss://api.sarvam.ai/text-to-speech/ws'),
             MODEL: this.configService.get<string>('SARVAM_TTS_MODEL', 'bulbul:v3'),
             SPEAKER: this.configService.get<string>('SARVAM_TTS_SPEAKER', 'shruti'),
             PACE: parseFloat(this.configService.get('SARVAM_TTS_PACE') || '1'),
             SPEECH_SAMPLE_RATE: parseInt(this.configService.get('SARVAM_TTS_SPEECH_SAMPLE_RATE') || '24000', 10),
+            /** Raw 16-bit PCM, what the browser player takes from every provider. */
+            OUTPUT_CODEC: 'linear16',
+            /** Used when the chat has no language yet, as on the greeting. */
+            DEFAULT_LANGUAGE: 'en-IN',
+            /** How long to wait for the first audio before asking once more. Measured: ~0.3s. */
+            RESPONSE_TIMEOUT_MS: 3000,
+            /** Pause before that second ask: Sarvam refuses connections opened in quick succession. */
+            RETRY_DELAY_MS: 500,
+            NO_AUDIO_ERROR: 'Sarvam TTS sent no audio in time',
           },
           LIGHTNING: {
             API_KEY: this.configService.get<string>('LIGHTNING_TTS_API_KEY'),

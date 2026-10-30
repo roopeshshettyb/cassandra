@@ -77,6 +77,8 @@ export class CostsService {
     role: string | null;
     chatId: number | null;
     messageId: number | null;
+    /** A model other than the text model, with its own prices. */
+    model?: { name: string; inputPricePer1K: number; outputPricePer1K: number };
   }) {
     const llm = this.constantsService.private.LLM;
     const isRealtimeVoice = params.usage.audioPromptTokens !== undefined || params.usage.audioCompletionTokens !== undefined;
@@ -96,13 +98,13 @@ export class CostsService {
           },
         })
       : calculateTextCost({
-          model: params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_MODEL : llm.TEXT_MODEL,
+          model: params.model?.name ?? (params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_MODEL : llm.TEXT_MODEL),
           provider: llm.PROVIDER,
           usage: params.usage,
           config: {
             currency: llm.CURRENCY,
-            textInputPricePer1K: params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_INPUT_PRICE_PER_1K : llm.TEXT_INPUT_PRICE_PER_1K,
-            textOutputPricePer1K: params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_OUTPUT_PRICE_PER_1K : llm.TEXT_OUTPUT_PRICE_PER_1K,
+            textInputPricePer1K: params.model?.inputPricePer1K ?? (params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_INPUT_PRICE_PER_1K : llm.TEXT_INPUT_PRICE_PER_1K),
+            textOutputPricePer1K: params.model?.outputPricePer1K ?? (params.type === CostType.LLM_SUMMARY ? llm.SUMMARY_OUTPUT_PRICE_PER_1K : llm.TEXT_OUTPUT_PRICE_PER_1K),
           } as PricingConfig,
         });
 

@@ -16,6 +16,7 @@ import { Request, RequestType, RequestUrgency, RequestStatus } from './requests/
 import { Chat, ChatType } from './chat/chat.model';
 import { ChatSummary } from './chat-summary/chat-summary.model';
 import { Message, MessageRole } from './messages/message.model';
+import { Note } from './messages/note.model';
 import { LlmEval, EvalDimension } from './llm-eval/llm-eval.model';
 import { HotelIntegration, IntegrationStatus } from './integrations/hotel-integrations.model';
 import { Organisation } from './organisations/organisations.model';
@@ -43,7 +44,7 @@ async function seed() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     logging: false,
-    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, BookingRoom, RoomType, Room, RoomInventory, Request, Chat, ChatSummary, Message, LlmEval, HotelIntegration, Organisation],
+    models: [Account, Hotel, HotelBrand, HotelAccount, Booking, BookingRoom, RoomType, Room, RoomInventory, Request, Chat, ChatSummary, Message, Note, LlmEval, HotelIntegration, Organisation],
     define: { underscored: true, timestamps: true, paranoid: true },
     dialectOptions: (process.env.DB_SSL === 'true' || process.env.DB_SSL === '1')
       ? { ssl: { require: true, rejectUnauthorized: false } }
@@ -537,6 +538,117 @@ async function seed() {
       judgeModel,
     };
     await LlmEval.create(chatTitleEval);
+  }
+
+  // ── Reservation Enquiries ────────────────────────────────────────────────────
+  // Anonymous chats on the public booking line: no account, no booking. Each
+  // note_reservation_dates and add_note call is also written to `notes`, one row
+  // per field as the tools write them, so AI Bookings and the agent's notes agree.
+  // A hotel that already has reservation chats is left alone.
+  const ymd = (offsetDays: number) => d(offsetDays).toISOString().slice(0, 10);
+  const day = (offsetDays: number, locale: string) => d(offsetDays).toLocaleDateString(locale, { day: 'numeric', month: 'long' });
+  let seedCallId = 0;
+  const call = (toolName: string, input: Record<string, unknown>) => ({
+    toolName,
+    toolCallId: `seed-res-${++seedCallId}`,
+    input,
+    output: JSON.stringify({ success: true, data: input }),
+  });
+  const noted = (input: Record<string, unknown>) => call('note_reservation_dates', input);
+
+  const priya = { checkInDate: ymd(30), checkOutDate: ymd(32), partySize: 2, guestName: 'Priya Sharma', guestPhone: '9000012345', guestEmail: 'priya.sharma@example.com' };
+  const rahul = { checkInDate: ymd(46), checkOutDate: ymd(48), partySize: 3, guestName: 'Rahul Verma', guestPhone: '9000067890', guestEmail: 'rahul.verma@example.com' };
+  const arjun = { checkInDate: ymd(10), checkOutDate: ymd(11), partySize: 1, guestName: 'Arjun Rao', guestPhone: '9000054321', guestEmail: 'arjun.rao@example.com' };
+
+  const reservationChatData: any[] = [
+    {
+      // A full booking, detail by detail, with an occasion and a preference.
+      hotelId: hotels[0].id, languageCode: 'en',
+      messages: [
+        { role: MessageRole.USER, content: `I'd like a room from ${day(30, 'en-GB')} to ${day(32, 'en-GB')}.` },
+        { role: MessageRole.ASSISTANT, content: `${day(30, 'en-GB')} to ${day(32, 'en-GB')}, two nights. How many guests will be staying?`, toolCalls: [noted({ checkInDate: priya.checkInDate, checkOutDate: priya.checkOutDate })] },
+        { role: MessageRole.USER, content: 'Two adults.' },
+        { role: MessageRole.ASSISTANT, content: 'Two guests. May I have your name, please?', toolCalls: [noted({ partySize: priya.partySize })] },
+        { role: MessageRole.USER, content: 'Priya Sharma, P R I Y A.' },
+        { role: MessageRole.ASSISTANT, content: 'Thank you, Priya. What number can the team reach you on?', toolCalls: [noted({ guestName: priya.guestName })] },
+        { role: MessageRole.USER, content: '9000012345, and my email is priya.sharma@example.com' },
+        { role: MessageRole.ASSISTANT, content: 'That is 90 00 01 23 45, and priya dot sharma at example dot com. Is that all correct?', toolCalls: [noted({ guestPhone: priya.guestPhone, guestEmail: priya.guestEmail })] },
+        { role: MessageRole.USER, content: "Yes. It's our anniversary, so a quiet room would be lovely." },
+        {
+          role: MessageRole.ASSISTANT,
+          content: "Happy anniversary! I've passed your enquiry to the team, and they'll be in touch to confirm.",
+          toolCalls: [call('record_reservation_enquiry', { ...priya, specialRequests: 'Anniversary; a quiet room' }), noted({ occasion: 'Anniversary' }), call('add_note', { subject: 'preference', content: 'Would like a quiet room' })],
+        },
+      ],
+    },
+    {
+      // A question and nothing more: shows under "All", not "Booked".
+      hotelId: hotels[0].id, languageCode: 'en',
+      messages: [
+        { role: MessageRole.USER, content: 'Do you have an airport pickup?' },
+        { role: MessageRole.ASSISTANT, content: "I don't have that to hand, but the hotel team will confirm it. When were you thinking of staying?" },
+        { role: MessageRole.USER, content: "Not sure yet, I'll come back later." },
+        { role: MessageRole.ASSISTANT, content: "Of course. Whenever you're ready, I'm here." },
+      ],
+    },
+    {
+      // In Hindi, with the check-in corrected partway: the newer note wins.
+      hotelId: hotels[1].id, languageCode: 'hi',
+      messages: [
+        { role: MessageRole.USER, content: `नमस्ते, मुझे ${day(45, 'hi-IN')} से ${day(48, 'hi-IN')} तक कमरा चाहिए।` },
+        { role: MessageRole.ASSISTANT, content: `${day(45, 'hi-IN')} से ${day(48, 'hi-IN')} तक, तीन रातें। कितने लोग रुकेंगे?`, toolCalls: [noted({ checkInDate: ymd(45), checkOutDate: rahul.checkOutDate })] },
+        { role: MessageRole.USER, content: `माफ़ कीजिए, ${day(46, 'hi-IN')} से। हम तीन लोग हैं।` },
+        { role: MessageRole.ASSISTANT, content: `ठीक है, ${day(46, 'hi-IN')} से ${day(48, 'hi-IN')} तक, तीन लोग। आपका नाम क्या है?`, toolCalls: [noted({ checkInDate: rahul.checkInDate, checkOutDate: rahul.checkOutDate, partySize: rahul.partySize })] },
+        { role: MessageRole.USER, content: 'राहुल वर्मा। फ़ोन 9000067890, ईमेल rahul.verma@example.com' },
+        { role: MessageRole.ASSISTANT, content: 'धन्यवाद, राहुल जी। फ़ोन 90 00 06 78 90, ईमेल rahul dot verma at example dot com। क्या सब सही है?', toolCalls: [noted({ guestName: rahul.guestName, guestPhone: rahul.guestPhone, guestEmail: rahul.guestEmail })] },
+        { role: MessageRole.USER, content: 'हाँ, सही है।' },
+        { role: MessageRole.ASSISTANT, content: 'आपकी पूछताछ होटल टीम को भेज दी गई है, वे पुष्टि के लिए संपर्क करेंगे।', toolCalls: [call('record_reservation_enquiry', rahul)] },
+      ],
+    },
+    {
+      // Dates and party noted, then they left before giving a name: no enquiry.
+      hotelId: hotels[1].id, languageCode: 'en',
+      messages: [
+        { role: MessageRole.USER, content: `Anything for four people from ${day(60, 'en-GB')} to ${day(63, 'en-GB')}?` },
+        { role: MessageRole.ASSISTANT, content: "I can't see availability, but the team can confirm it. May I take your name so they can get back to you?", toolCalls: [noted({ checkInDate: ymd(60), checkOutDate: ymd(63), partySize: 4 })] },
+        { role: MessageRole.USER, content: "I'll think about it, thanks." },
+        { role: MessageRole.ASSISTANT, content: "Of course. I've kept your dates, so just come back when you're ready." },
+      ],
+    },
+    {
+      // Everything in one message, with a dietary note.
+      hotelId: hotels[2].id, languageCode: 'en',
+      messages: [
+        { role: MessageRole.USER, content: `A room for one, ${day(10, 'en-GB')} to ${day(11, 'en-GB')}. Arjun Rao, 9000054321, arjun.rao@example.com. I'm vegetarian.` },
+        {
+          role: MessageRole.ASSISTANT,
+          content: `One guest, ${day(10, 'en-GB')} to ${day(11, 'en-GB')}, for Arjun Rao. Phone 90 00 05 43 21, email arjun dot rao at example dot com. Is that all right?`,
+          toolCalls: [noted(arjun), call('add_note', { subject: 'preference', content: 'Vegetarian' })],
+        },
+        { role: MessageRole.USER, content: 'Yes, perfect.' },
+        { role: MessageRole.ASSISTANT, content: "Your enquiry is with the team, and they'll be in touch to confirm.", toolCalls: [call('record_reservation_enquiry', { ...arjun, specialRequests: 'Vegetarian' })] },
+      ],
+    },
+  ];
+
+  const reservationWhere: any = { chatType: ChatType.RESERVATION };
+  const seededHotelIds = new Set((await Chat.findAll({ where: reservationWhere, attributes: ['hotelId'], paranoid: false })).map((chat) => chat.hotelId));
+  for (const row of reservationChatData.filter((chat) => !seededHotelIds.has(chat.hotelId))) {
+    const chatRow: any = { accountId: null, bookingId: null, hotelId: row.hotelId, chatType: ChatType.RESERVATION, languageCode: row.languageCode };
+    const chat = await Chat.create(chatRow);
+    let said: Message | null = null;
+    for (const msg of row.messages) {
+      const messageData: any = { chatId: chat.id, role: msg.role, content: msg.content, toolCalls: msg.toolCalls ?? null };
+      const message = await Message.create(messageData);
+      said = msg.role === MessageRole.USER ? message : said;
+      for (const toolCall of msg.toolCalls ?? []) {
+        const fields = toolCall.toolName === 'add_note' ? { [toolCall.input.subject]: toolCall.input.content } : toolCall.toolName === 'note_reservation_dates' ? toolCall.input : {};
+        for (const [subject, content] of Object.entries(fields)) {
+          const noteData: any = { chatId: chat.id, accountId: null, hotelId: row.hotelId, sourceMessageId: said.id, subject, content: String(content) };
+          await Note.create(noteData);
+        }
+      }
+    }
   }
 
   // Flow-level eval examples (no chat/message context): extraction pipelines.
