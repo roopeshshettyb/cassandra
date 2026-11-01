@@ -25,7 +25,7 @@ for (const required of [indexPath, manifestPath]) {
 const constants = JSON.parse(fs.readFileSync(constantsPath, 'utf8'));
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
-// No fallbacks here: defaults belong in the backend's constants.service.ts (general rules, "Constants and defaults").
+// No fallbacks here: defaults belong in the backend's constants.service.ts (frontend/.cursor/write-good-code.mdc).
 const { APP_NAME, TAGLINE, DESCRIPTION, PROD_FRONTEND_URL, THEME_COLOR, LOGO, HERO } = constants;
 
 // A key the backend has not shipped yet would inject the literal string "undefined" — and the

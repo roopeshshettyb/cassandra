@@ -1,5 +1,5 @@
-.claude/*
-!.claude/rules/
+**/.claude/*
+!**/.claude/rules/
 fp-one
 .gstack/
 
