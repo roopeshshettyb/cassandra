@@ -7,6 +7,8 @@ export interface StreamToClientOptions {
   emitEnd?: boolean;
   /** Chat language code (e.g. en, hi, ta, te, kn); used by Sarvam/Lightning for TTS language. */
   languageCode?: string | null;
+  /** What this speech belongs to, usually the call's socket: Sarvam keeps one connection open per line. */
+  line?: object;
 }
 
 @Injectable()

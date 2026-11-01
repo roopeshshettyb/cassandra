@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk } from '../utils/audio';
+import { floatTo16BitPCM, arrayBufferToBase64, playPcmChunk, watchPlaybackEnd } from '../utils/audio';
+import constants from '../../../constants.json';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -44,20 +45,12 @@ export function useSocketVoice({ bookingId, chatId, setLoading, onReady, onUserM
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const playbackTimeRef = useRef<number>(0);
-  // RAF handle — polls audioCtx.currentTime until past playbackTimeRef.current
-  const playbackRafRef = useRef<number | null>(null);
-  // Fallback timer in case RAF stalls (background tab, suspended context)
-  const playbackFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Cancels the wait for playback to finish; see watchPlaybackEnd.
+  const cancelWatchRef = useRef<(() => void) | null>(null);
 
   const cancelPlaybackTracking = useCallback(() => {
-    if (playbackRafRef.current !== null) {
-      cancelAnimationFrame(playbackRafRef.current);
-      playbackRafRef.current = null;
-    }
-    if (playbackFallbackTimerRef.current !== null) {
-      clearTimeout(playbackFallbackTimerRef.current);
-      playbackFallbackTimerRef.current = null;
-    }
+    cancelWatchRef.current?.();
+    cancelWatchRef.current = null;
   }, []);
 
   const cleanupAudio = useCallback(() => {
@@ -105,7 +98,6 @@ export function useSocketVoice({ bookingId, chatId, setLoading, onReady, onUserM
     socketRef.current = socket;
 
     // Signal server that client finished playing audio.
-    // Called by RAF polling when audioCtx.currentTime passes the scheduled end.
     const signalPlaybackDone = () => {
       cancelPlaybackTracking();
       // Keep isSpeaking=true until voice_ready resets it, so the animation
@@ -113,25 +105,16 @@ export function useSocketVoice({ bookingId, chatId, setLoading, onReady, onUserM
       socket.emit('voice_playback_done');
     };
 
-    // Start RAF polling: fires every ~16ms, checks if audio has finished.
-    // Fallback timer kicks in after (duration + 2s) in case RAF stalls.
+    // Waiting for playback to finish is the same question the public booking
+    // line asks, so it is answered in one place.
     const startPlaybackTracking = (scheduledEndTime: number) => {
       cancelPlaybackTracking();
-
-      const poll = () => {
-        const audioCtx = playbackAudioContextRef.current;
-        if (!audioCtx || audioCtx.currentTime >= scheduledEndTime) {
-          signalPlaybackDone();
-        } else {
-          playbackRafRef.current = requestAnimationFrame(poll);
-        }
-      };
-      playbackRafRef.current = requestAnimationFrame(poll);
-
-      // Fallback: force done if RAF stalls (suspended ctx, background tab)
-      const audioCtx = playbackAudioContextRef.current;
-      const remaining = audioCtx ? Math.max(0, (scheduledEndTime - audioCtx.currentTime) * 1000) : 0;
-      playbackFallbackTimerRef.current = setTimeout(signalPlaybackDone, remaining + 2000);
+      cancelWatchRef.current = watchPlaybackEnd(
+        playbackAudioContextRef,
+        scheduledEndTime,
+        signalPlaybackDone,
+        constants.VOICE_PLAYBACK_WATCH_GRACE_MS,
+      );
     };
 
     socket.on('disconnect', () => {

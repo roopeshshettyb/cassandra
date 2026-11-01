@@ -32,7 +32,7 @@ export const playPcmChunk = (
   base64: string,
   audioContextRef: { current: AudioContext | null },
   playbackTimeRef: { current: number },
-): void => {
+): AudioBufferSourceNode | null => {
   const bytes = base64ToUint8Array(base64);
   const win: any = window;
   const AudioContextImpl = win.AudioContext || win.webkitAudioContext;
@@ -40,9 +40,15 @@ export const playPcmChunk = (
     audioContextRef.current = new AudioContextImpl({ sampleRate: 24000 });
   }
   const audioContext = audioContextRef.current;
-  if (!audioContext) return;
+  if (!audioContext) return null;
+  // Chrome's autoplay policy suspends a context not created during a user
+  // gesture — this one is built inside a socket handler, so without resuming it
+  // the audio is scheduled and never heard.
+  if (audioContext.state === 'suspended') {
+    audioContext.resume().catch(() => {});
+  }
   const bufferLength = Math.floor(bytes.byteLength / 2);
-  if (bufferLength === 0) return;
+  if (bufferLength === 0) return null;
   const audioBuffer = audioContext.createBuffer(1, bufferLength, 24000);
   const channelData = audioBuffer.getChannelData(0);
   const dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -57,4 +63,61 @@ export const playPcmChunk = (
   const startAt = Math.max(playbackTimeRef.current || now, now);
   source.start(startAt);
   playbackTimeRef.current = startAt + audioBuffer.duration;
+  // Returned so a caller that lets people talk over the reply can stop it.
+  return source;
+};
+
+/**
+ * Call `onDone` when the audio scheduled up to `scheduledEndTime` has actually
+ * been heard, and return a function that cancels the wait.
+ *
+ * Chunks are scheduled ahead of the clock, so a socket going quiet says nothing
+ * about whether sound is still coming out of the speaker — only the context's
+ * own clock knows. Both voice surfaces need that answer before reopening a
+ * microphone, or the agent ends up transcribing itself.
+ *
+ * Polled on animation frames, with a timer behind it: a backgrounded tab stops
+ * firing frames and a suspended context stops advancing its clock, and neither
+ * should strand a call mid-turn.
+ */
+export const watchPlaybackEnd = (
+  audioContextRef: { current: AudioContext | null },
+  scheduledEndTime: number,
+  onDone: () => void,
+  graceMs: number,
+): (() => void) => {
+  let raf: number | null = null;
+  let fallback: ReturnType<typeof setTimeout> | null = null;
+
+  const cancel = () => {
+    if (raf !== null) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    }
+    if (fallback !== null) {
+      clearTimeout(fallback);
+      fallback = null;
+    }
+  };
+
+  const finish = () => {
+    cancel();
+    onDone();
+  };
+
+  const poll = () => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext || audioContext.currentTime >= scheduledEndTime) {
+      finish();
+      return;
+    }
+    raf = requestAnimationFrame(poll);
+  };
+  raf = requestAnimationFrame(poll);
+
+  const audioContext = audioContextRef.current;
+  const remainingMs = audioContext ? Math.max(0, (scheduledEndTime - audioContext.currentTime) * 1000) : 0;
+  fallback = setTimeout(finish, remainingMs + graceMs);
+
+  return cancel;
 };
