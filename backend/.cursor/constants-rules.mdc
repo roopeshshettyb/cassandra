@@ -1,9 +1,0 @@
----
-description: Backend strings and env values go in ConstantsService
-globs: **/*.ts
-alwaysApply: false
----
-
-# Constants
-
-- All strings go in `ConstantsService`. Env values go in `private`. Values the frontend needs go in `public`; after changing them, run `npm run fetch-constants` in `frontend/`.
