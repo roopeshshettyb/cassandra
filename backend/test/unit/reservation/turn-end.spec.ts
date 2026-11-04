@@ -1,5 +1,5 @@
-import { ConstantsService } from '../src/common/constants/constants.service';
-import { ReservationVoiceGateway } from '../src/reservation/reservation-voice.gateway';
+import { ConstantsService } from '../../../src/common/constants/constants.service';
+import { ReservationVoiceGateway } from '../../../src/reservation/reservation-voice.gateway';
 
 const config: any = { get: (_key: string, fallback?: unknown) => fallback };
 const unused: any = null;

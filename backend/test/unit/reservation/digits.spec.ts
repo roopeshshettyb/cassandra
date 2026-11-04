@@ -1,5 +1,5 @@
-import { ConstantsService } from '../src/common/constants/constants.service';
-import { spokenDigits } from '../src/langgraph/reservation.tools';
+import { ConstantsService } from '../../../src/common/constants/constants.service';
+import { spokenDigits } from '../../../src/langgraph/reservation.tools';
 
 const config: any = { get: (_key: string, fallback?: unknown) => fallback };
 const words = new ConstantsService(config).private.RESERVATION.SPOKEN_DIGITS;

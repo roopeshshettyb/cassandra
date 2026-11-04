@@ -24,6 +24,7 @@ import { NotificationsController } from '../../src/notifications/notifications.c
 import { OAuthController } from '../../src/oauth/oauth.controller';
 import { OrganisationsController, OrganisationUsersController } from '../../src/organisations/organisations.controller';
 import { RequestsController } from '../../src/requests/requests.controller';
+import { ReservationController } from '../../src/reservation/reservation.controller';
 import { RestaurantController } from '../../src/restaurant/restaurant.controller';
 import { RoomsController } from '../../src/rooms/rooms.controller';
 
@@ -44,6 +45,7 @@ const CONTROLLERS: any[] = [
   OrganisationsController,
   OrganisationUsersController,
   RequestsController,
+  ReservationController,
   RestaurantController,
   RoomsController,
 ];
