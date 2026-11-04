@@ -1,4 +1,7 @@
-.claude/
+# Local Claude settings are private; the committed rules under .claude/rules/ are not.
+**/.claude/*
+!**/.claude/rules/
+
 fp-one
 .gstack/
 

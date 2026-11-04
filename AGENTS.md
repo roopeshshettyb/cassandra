@@ -1,8 +1,18 @@
 # Project rules
 
-1. Do the backend first, then the frontend.
-2. Start the servers and verify your change end to end before calling it done.
-3. Write less code. Reuse existing helpers, components and patterns, and don't add code for cases that can't happen.
+Each rule is one file, so a rule is edited in one place. Read the ones that apply to what you are about to write.
+Cursor attaches them itself from `.cursor/rules/`; the paths below are the Claude copies.
 
-- Defaults live only in the backend's `constants.service.ts`. Never add a fallback to a constants value (no `constants.X || 'foo'`, no `?? 10`).
-- Never use `as any`. If you must, use `: any` (`const values: any = dto;`).
+| Read this | When you are |
+|---|---|
+| `.claude/rules/write-good-code.md` | **always** — order of work, verifying end to end, less code, no constants fallbacks, no `as any` |
+| `.claude/rules/rules-stay-synced.md` | adding or changing a rule |
+
+Then, for the folder you are working in:
+
+| Folder | Its rules |
+|---|---|
+| `backend/` | `backend/AGENTS.md` → `backend/.claude/rules/` (constants, module layout, requests, security, database, tests) |
+| `frontend/` | `frontend/AGENTS.md` → `frontend/.claude/rules/` (constants, API calls, pages, state, lists, navigation, styling, tests) |
+
+Each rule exists twice — `.cursor/rules/*.mdc` for Cursor, `.claude/rules/*.md` for Claude. Change both in the same commit; see `rules-stay-synced`.
