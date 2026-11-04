@@ -1,7 +1,6 @@
 # Frontend rules
 
-Each rule is one file. Read the ones that apply to what you are about to write.
-Cursor attaches them itself from `frontend/.cursor/rules/`; the paths below are the Claude copies.
+Read the rules that apply to what you are about to write.
 
 | Read this | When you are |
 |---|---|
@@ -13,5 +12,3 @@ Cursor attaches them itself from `frontend/.cursor/rules/`; the paths below are 
 | `.claude/rules/navigation-rules.md` | adding a page, detail view, tab, button or action |
 | `.claude/rules/styling-rules.md` | writing any styling or layout |
 | `.claude/rules/test-rules.md` | writing or changing Playwright tests |
-
-Repo-wide rules live in the root `AGENTS.md`. Every rule applies even when you only read its summary here; open the file before you rely on it.
