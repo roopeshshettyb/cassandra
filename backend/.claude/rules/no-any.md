@@ -1,0 +1,3 @@
+# No `as any`
+
+Never use `as any`. If you must, annotate with `: any` instead (`const values: any = dto;`).

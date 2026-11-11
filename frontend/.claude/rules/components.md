@@ -1,0 +1,3 @@
+# Components
+
+Reuse `components/cards/AppCards.js` and `components/DetailShell.js` before building new UI.

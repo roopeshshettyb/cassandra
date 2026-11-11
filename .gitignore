@@ -14,3 +14,6 @@ mobile-recovered/
 
 # Local scratch
 demo-pms-webhook.sh
+
+# macOS
+.DS_Store

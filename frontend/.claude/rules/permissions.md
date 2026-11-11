@@ -1,0 +1,3 @@
+# Permissions
+
+Show buttons and actions only when permitted: `!!constants.PERMISSIONS.CAN_EDIT_HOTEL[account?.role]`. This is cosmetic only — the backend service enforces the real check.
