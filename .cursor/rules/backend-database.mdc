@@ -1,5 +1,7 @@
 ---
+description: "Database. Read before writing or changing backend code."
 globs: backend/**/*.ts
+alwaysApply: false
 ---
 
 # Database

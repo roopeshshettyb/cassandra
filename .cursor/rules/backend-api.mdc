@@ -1,5 +1,7 @@
 ---
+description: "Requests and responses. Read before writing or changing backend code."
 globs: backend/**/*.ts
+alwaysApply: false
 ---
 
 # Requests and responses

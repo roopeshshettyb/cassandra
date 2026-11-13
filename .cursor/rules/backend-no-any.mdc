@@ -1,5 +1,7 @@
 ---
+description: "No as any. Read before writing or changing backend code."
 globs: backend/**/*.ts
+alwaysApply: false
 ---
 
 # No `as any`

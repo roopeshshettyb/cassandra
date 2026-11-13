@@ -1,5 +1,7 @@
 ---
+description: "Tests (Playwright, see e2e/README.md). Read before writing or changing frontend tests."
 globs: frontend/e2e/**, frontend/playwright.config.js
+alwaysApply: false
 ---
 
 # Tests (Playwright, see `e2e/README.md`)

@@ -1,5 +1,7 @@
 ---
+description: "Tests. Read before writing or changing backend tests."
 globs: backend/test/**
+alwaysApply: false
 ---
 
 # Tests (see `test/README.md`)

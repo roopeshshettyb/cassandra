@@ -1,5 +1,7 @@
 ---
+description: "Feature folders. Read before writing or changing backend code."
 globs: backend/**/*.ts
+alwaysApply: false
 ---
 
 # Feature folders
