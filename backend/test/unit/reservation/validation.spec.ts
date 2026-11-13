@@ -1,5 +1,5 @@
-import { ConstantsService } from '../src/common/constants/constants.service';
-import { bookingProblems, inScriptOf } from '../src/langgraph/reservation.tools';
+import { ConstantsService } from '../../../src/common/constants/constants.service';
+import { bookingProblems, inScriptOf } from '../../../src/langgraph/reservation.tools';
 
 const config: any = { get: (_key: string, fallback?: unknown) => fallback };
 const limits = new ConstantsService(config).private.RESERVATION;

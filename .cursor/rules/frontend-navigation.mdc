@@ -1,0 +1,9 @@
+---
+description: "Navigation. Read before writing or changing frontend code."
+globs: frontend/src/**/*.js, frontend/src/**/*.ts
+alwaysApply: false
+---
+
+# Navigation
+
+It is an SPA, and the top back button (`navigate(-1)`) must always work. Every page, detail view or tab the user opens must change the URL.

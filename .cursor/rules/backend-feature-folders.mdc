@@ -1,0 +1,9 @@
+---
+description: "Feature folders. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Feature folders
+
+One folder per feature in `src/<feature>/`: `.module`, `.controller`, `.service`, `.repository`, `.dto` and `.model` files. `src/rooms/` is the reference.

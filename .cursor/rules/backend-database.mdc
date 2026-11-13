@@ -1,0 +1,13 @@
+---
+description: "Database. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Database
+
+- Models: camelCase properties, with `field: 'snake_case'` for multi-word columns. Register each new model in `models` in `src/database/database.providers.ts`.
+- `sync()` does not add columns to existing tables. For each new column on an existing table, add an `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` entry to `migrations` in `database.providers.ts`.
+- For status values, prefer string columns over new Postgres `ENUM`s: the managed DB role cannot `ALTER TYPE` (see the `BookingStatus` comment).
+- Wrap multi-step writes in `this.sequelize.transaction(...)`.
+- Update `src/seed.ts` for every new or changed model, with ample data. Keep it idempotent. The e2e suite relies on it.

@@ -1,0 +1,9 @@
+---
+description: "Logging. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Logging
+
+Log with `LoggerService`, not `console.log`.

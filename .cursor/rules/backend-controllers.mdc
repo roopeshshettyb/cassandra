@@ -1,0 +1,9 @@
+---
+description: "Controllers. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Controllers
+
+Keep them thin: a controller parses the request and calls the service. No logic.

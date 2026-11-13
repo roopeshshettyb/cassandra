@@ -1,0 +1,9 @@
+---
+description: "Repositories. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Repositories
+
+A token plus `{ provide: X_REPOSITORY, useValue: Model }`, injected as `@Inject(X_REPOSITORY) private readonly xRepository: typeof Model`.

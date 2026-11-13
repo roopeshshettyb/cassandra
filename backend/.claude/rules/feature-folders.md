@@ -1,0 +1,3 @@
+# Feature folders
+
+One folder per feature in `src/<feature>/`: `.module`, `.controller`, `.service`, `.repository`, `.dto` and `.model` files. `src/rooms/` is the reference.

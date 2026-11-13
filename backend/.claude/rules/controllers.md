@@ -1,0 +1,3 @@
+# Controllers
+
+Keep them thin: a controller parses the request and calls the service. No logic.

@@ -1,0 +1,9 @@
+---
+description: "Services. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Services
+
+The service holds all logic and returns the response.

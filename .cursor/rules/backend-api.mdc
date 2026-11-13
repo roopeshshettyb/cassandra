@@ -1,0 +1,12 @@
+---
+description: "Requests and responses. Read before writing or changing backend code."
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Requests and responses
+
+- Validate input with DTO classes (`class-validator` plus `@ApiProperty`, `readonly` fields) through `ValidationPipe`. Prefer `{ whitelist: true }` so unknown fields are dropped. Parse ids with `ParseIntPipe`.
+- Throw Nest exceptions (`NotFoundException`, `BadRequestException`, ...). Their message is shown to the user.
+- Every API returns `{ success, message, data }`. `message` is shown to the user; use `null` to show nothing.
+- Lists that search or filter use `src/common/filters/list-filters.ts`: mark columns `filterable` or `searchable` and expose `GET <endpoint>/filters`, as `hotels`, `bookings` and `requests` do.

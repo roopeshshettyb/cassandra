@@ -1,0 +1,11 @@
+---
+description: "State. Read before writing or changing frontend code."
+globs: frontend/src/**/*.js, frontend/src/**/*.ts
+alwaysApply: false
+---
+
+# State
+
+- Only one `useEffect` per page, with `[]` dependencies. Anything else: **ask first**.
+- Use only the shared `loading`/`setLoading`. Don't create new loading states.
+- Alerts go through the common toast (`alertSuccess`/`alertError` props). Don't import `toast` or use `alert()`.

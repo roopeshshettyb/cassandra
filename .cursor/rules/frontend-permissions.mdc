@@ -1,0 +1,9 @@
+---
+description: "Permissions. Read before writing or changing frontend code."
+globs: frontend/src/**/*.js, frontend/src/**/*.ts
+alwaysApply: false
+---
+
+# Permissions
+
+Show buttons and actions only when permitted: `!!constants.PERMISSIONS.CAN_EDIT_HOTEL[account?.role]`. This is cosmetic only — the backend service enforces the real check.

@@ -1,4 +1,7 @@
-.claude/
+# Local Claude settings are private; the committed rules under .claude/rules/ are not.
+**/.claude/*
+!**/.claude/rules/
+
 fp-one
 .gstack/
 
@@ -11,3 +14,6 @@ mobile-recovered/
 
 # Local scratch
 demo-pms-webhook.sh
+
+# macOS
+.DS_Store
